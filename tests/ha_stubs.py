@@ -14,6 +14,49 @@ def install() -> None:
     ):
         return
 
+    # CI unit tests install voluptuous; provide a tiny fallback when absent.
+    if "voluptuous" not in sys.modules:
+        try:
+            import voluptuous  # noqa: F401
+        except ImportError:
+            vol = types.ModuleType("voluptuous")
+
+            class _Schema:
+                def __init__(self, *args: Any, **kwargs: Any) -> None:
+                    pass
+
+                def __call__(self, value: Any) -> Any:
+                    return value
+
+            class _Required:
+                def __init__(self, key: Any, default: Any = None) -> None:
+                    self.key = key
+                    self.default = default
+
+                def __hash__(self) -> int:
+                    return hash(self.key)
+
+                def __eq__(self, other: object) -> bool:
+                    return isinstance(other, _Required) and other.key == self.key
+
+            class _Optional:
+                def __init__(self, key: Any, default: Any = None) -> None:
+                    self.key = key
+                    self.default = default
+
+                def __hash__(self) -> int:
+                    return hash(self.key)
+
+                def __eq__(self, other: object) -> bool:
+                    return isinstance(other, _Optional) and other.key == self.key
+
+            vol.Schema = _Schema  # type: ignore[attr-defined]
+            vol.Required = _Required  # type: ignore[attr-defined]
+            vol.Optional = _Optional  # type: ignore[attr-defined]
+            vol.All = lambda *args: args  # type: ignore[attr-defined]
+            vol.Coerce = lambda typ: typ  # type: ignore[attr-defined]
+            sys.modules["voluptuous"] = vol
+
     def module(name: str) -> types.ModuleType:
         mod = types.ModuleType(name)
         mod._conx_stub = True  # type: ignore[attr-defined]
