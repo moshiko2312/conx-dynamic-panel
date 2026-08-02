@@ -12,6 +12,55 @@
         profile_id: scenes
         sync: true
 
+- id: conx_profile_by_time_of_day
+  # Same example the card offers under the hamburger menu > Automation example.
+  # sync: true pushes the profile to the physical panel; without it only the
+  # stored draft changes.
+  alias: ConX Dynamic Panel - profile by time of day
+  mode: single
+  triggers:
+    # Morning
+    - trigger: time
+      at: "06:30:00"
+      id: morning
+    # Evening
+    - trigger: time
+      at: "18:00:00"
+      id: evening
+    # Night
+    - trigger: time
+      at: "23:00:00"
+      id: night
+  actions:
+    - choose:
+        - conditions:
+            - condition: trigger
+              id: morning
+          sequence:
+            - action: conx_dynamic_panel.activate_profile
+              data:
+                entry_id: YOUR_CONFIG_ENTRY_ID
+                profile_id: morning
+                sync: true
+        - conditions:
+            - condition: trigger
+              id: evening
+          sequence:
+            - action: conx_dynamic_panel.activate_profile
+              data:
+                entry_id: YOUR_CONFIG_ENTRY_ID
+                profile_id: evening
+                sync: true
+        - conditions:
+            - condition: trigger
+              id: night
+          sequence:
+            - action: conx_dynamic_panel.activate_profile
+              data:
+                entry_id: YOUR_CONFIG_ENTRY_ID
+                profile_id: night
+                sync: true
+
 - id: conx_sync_kitchen_panel
   alias: Sync kitchen panel on demand
   trigger:

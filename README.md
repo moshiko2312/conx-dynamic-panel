@@ -212,6 +212,15 @@ data:
   sync: true
 ```
 
+Activating a profile only updates the stored draft. The physical panel changes
+only when the call also syncs, so automations that switch profiles must pass
+`sync: true`.
+
+The card's hamburger menu has an **Automation example** entry that opens a
+copy-ready automation for switching profiles by time of day, pre-filled with the
+panel's own `entry_id` and profile ids. The same example lives in
+`examples/automations.yaml` (`conx_profile_by_time_of_day`).
+
 ## Repository structure
 
 ```text

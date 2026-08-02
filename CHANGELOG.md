@@ -6,7 +6,12 @@ All notable changes to this private project will be documented here.
 
 ### Added
 
-- (none yet)
+- Hamburger menu entry **Automation example** opening a large centered modal with a copy-ready Home Assistant automation that switches profiles by time of day. Every branch calls `conx_dynamic_panel.activate_profile` with `sync: true`, and the card pre-fills the panel's own `entry_id` and profile ids (card + HTML preview, HE/EN/RU).
+- `examples/automations.yaml`: `conx_profile_by_time_of_day` automation matching the in-card example.
+
+### Changed
+
+- Radio groups editor assigns buttons with tappable L1–L4 chips instead of a switch under every button; only the per-category collapse switch remains. Chips in the Independent toggle row detach a button from all groups (card + HTML preview).
 
 ## [0.1.1] - 2026-08-03
 

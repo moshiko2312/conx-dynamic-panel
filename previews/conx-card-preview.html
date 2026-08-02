@@ -241,6 +241,36 @@
     .conx-layer.open .conx-panel { transform: scale(1) translateY(0); }
     .conx-panel.wide { width: min(520px, 100%); }
     .conx-panel.compact { width: min(380px, 100%); }
+    .conx-panel.xwide { width: min(760px, 100%); }
+    .automation-hint {
+      margin: 0 0 12px;
+      color: var(--text-muted);
+      font-size: .9rem;
+      line-height: 1.5;
+      flex-shrink: 0;
+    }
+    .automation-yaml {
+      margin: 0;
+      max-height: 52vh;
+      overflow: auto;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--input-bg);
+      color: var(--input-text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: .78rem;
+      line-height: 1.5;
+      white-space: pre;
+      text-align: left;
+      user-select: text;
+    }
+    .automation-actions {
+      display: flex; flex-wrap: wrap; gap: 8px;
+      justify-content: flex-end; margin-top: 12px; flex-shrink: 0;
+    }
+    html[dir="rtl"] .automation-actions { justify-content: flex-start; }
+    .automation-actions .btn { min-width: 112px; justify-content: center; }
     .menu-head, .conx-modal-head {
       display: flex; align-items: center; justify-content: space-between;
       gap: 10px; margin-bottom: 12px; flex-shrink: 0;
@@ -859,13 +889,13 @@
       gap: 6px;
     }
     .radio-member {
+      appearance: none;
+      -webkit-appearance: none;
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 7px;
-      min-height: 0;
-      padding: 8px 4px 9px;
+      min-height: 38px;
+      padding: 9px 4px;
       border-radius: 10px;
       border: 1px solid var(--btn-border);
       background: var(--btn-bg);
@@ -875,29 +905,25 @@
       user-select: none;
       transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
     }
+    .radio-member:hover:not(:disabled) { border-color: var(--accent); }
+    .radio-member:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
     .radio-member.on {
       border-color: var(--accent);
       background: var(--accent-soft);
       color: var(--text);
+      box-shadow: inset 0 0 0 1px var(--accent);
     }
-    .radio-member.is-readonly {
-      cursor: default;
-      opacity: .92;
-    }
+    .radio-member:disabled { cursor: default; }
+    .radio-member.is-independent.on:disabled { opacity: 1; }
     .radio-member-label {
       font-size: .8rem;
       font-weight: 800;
       letter-spacing: .02em;
       line-height: 1;
     }
-    .radio-member .switch {
-      --switch-w: 40px;
-      --switch-h: 24px;
-      --switch-thumb: 20px;
-      --switch-pad: 2px;
-    }
-    .radio-member .switch input:disabled { cursor: default; }
-    .radio-member .switch:has(input:disabled) { opacity: .88; }
     .radio-groups-error {
       margin-top: 10px;
       padding: 8px 10px;
@@ -960,11 +986,27 @@
       <div class="menu-section">
         <span class="menu-label" data-i18n="card.more">עוד</span>
         <div class="menu-actions">
+          <button type="button" class="btn" id="btn-automation-example" data-i18n="card.automation_example">דוגמה לאוטומציה</button>
           <a class="btn" href="conx-panel-wizard.html" id="link-standalone-wizard" data-i18n="card.open_standalone_wizard">אשף נפרד (HTML)</a>
           <button type="button" class="btn danger" id="btn-reset" data-i18n="card.reset">איפוס נתונים</button>
         </div>
       </div>
       </aside>
+    </div>
+
+    <div class="conx-layer" id="automation-layer" hidden>
+      <div class="conx-panel xwide automation-panel" id="automation-modal" role="dialog" aria-modal="true" aria-labelledby="automation-title" aria-hidden="true">
+        <div class="menu-head">
+          <div class="menu-title" id="automation-title" data-i18n="card.automation_example">דוגמה לאוטומציה</div>
+          <button type="button" class="menu-close" id="automation-close" aria-label="Close">×</button>
+        </div>
+        <p class="automation-hint" id="automation-hint" data-i18n="card.automation_example_hint"></p>
+        <pre class="automation-yaml" id="automation-yaml" dir="ltr" lang="en"></pre>
+        <div class="automation-actions">
+          <button type="button" class="btn primary" id="automation-copy" data-i18n="card.copy_yaml">העתק YAML</button>
+          <button type="button" class="btn" id="automation-close-2" data-i18n="card.close">סגירה</button>
+        </div>
+      </div>
     </div>
 
     <div class="conx-layer" id="export-layer" hidden>
@@ -1117,7 +1159,7 @@
             <div class="section-body-inner">
               <div class="radio-groups-section" id="radio-groups-section-buttons" hidden>
                 <span class="menu-label" data-i18n="card.radio_groups">Radio groups</span>
-                <p class="radio-groups-hint" data-i18n="card.radio_groups_hint">Check which buttons work together in each group.</p>
+                <p class="radio-groups-hint" data-i18n="card.radio_groups_hint">Tap L1–L4 to add or remove a button.</p>
                 <div id="radio-groups-editor-buttons"></div>
                 <div class="radio-groups-error" id="radio-groups-error-buttons" hidden></div>
               </div>
@@ -1182,7 +1224,7 @@
         "card.more": "More",
         "card.radio_member": "Radio group", "card.radio_toggle": "Independent toggle",
         "card.radio_groups": "Radio groups",
-        "card.radio_groups_hint": "Buttons in a group act as classic radio: exactly one stays on. Ungrouped buttons stay independent toggles.",
+        "card.radio_groups_hint": "Tap L1–L4 to add or remove a button. Buttons in a group act as classic radio: exactly one stays on. Ungrouped buttons stay independent toggles.",
         "card.radio_group": "Group",
         "card.radio_groups_overlap": "Each button can belong to only one radio group.",
         "card.dialog_ok": "OK", "card.dialog_cancel": "Cancel", "card.dialog_confirm": "Confirm",
@@ -1211,6 +1253,19 @@
         "card.step_1": "Step 1",
         "card.step_2": "Step 2",
         "card.step_3": "Step 3",
+        "card.close": "Close",
+        "card.copy_yaml": "Copy YAML",
+        "card.copied": "Copied",
+        "card.copy_failed": "Copy failed — select the text manually.",
+        "card.automation_example": "Automation example",
+        "card.automation_example_hint": "Switch profiles by time of day. Activating a profile only updates the stored draft — the physical panel changes only when the call also syncs, so every action below uses sync: true.",
+        "card.automation_yaml_alias": "ConX Dynamic Panel - profile by time of day",
+        "card.automation_yaml_header": "ConX Dynamic Panel: switch the active profile by time of day.",
+        "card.automation_yaml_sync": "sync: true pushes the profile to the physical panel. Without it only the draft changes.",
+        "card.automation_yaml_ids": "Replace entry_id and profile_id with the values of your panel.",
+        "card.automation_yaml_morning": "Morning",
+        "card.automation_yaml_evening": "Evening",
+        "card.automation_yaml_night": "Night",
         "mode.toggle": "Toggle", "mode.radio_mandatory": "Radio mandatory", "mode.radio_optional": "Radio optional",
         "mode.radio_split": "Radio split",
       },
@@ -1235,7 +1290,7 @@
         "card.more": "עוד",
         "card.radio_member": "משתתף ברדיו", "card.radio_toggle": "טוגל עצמאי",
         "card.radio_groups": "קבוצות רדיו",
-        "card.radio_groups_hint": "כפתורים בקבוצה מתנהגים כרדיו קלאסי: תמיד אחד דלוק. כפתורים מחוץ לקבוצה נשארים טוגלים עצמאיים.",
+        "card.radio_groups_hint": "הקישו על L1–L4 כדי לצרף או להסיר כפתור. כפתורים בקבוצה מתנהגים כרדיו קלאסי: תמיד אחד דלוק. כפתורים מחוץ לקבוצה נשארים טוגלים עצמאיים.",
         "card.radio_group": "קבוצה",
         "card.radio_groups_overlap": "כל כפתור יכול להשתייך לקבוצת רדיו אחת בלבד.",
         "card.dialog_ok": "אישור", "card.dialog_cancel": "ביטול", "card.dialog_confirm": "אישור",
@@ -1264,6 +1319,19 @@
         "card.step_1": "שלב 1",
         "card.step_2": "שלב 2",
         "card.step_3": "שלב 3",
+        "card.close": "סגירה",
+        "card.copy_yaml": "העתק YAML",
+        "card.copied": "הועתק",
+        "card.copy_failed": "ההעתקה נכשלה — סמנו את הטקסט ידנית.",
+        "card.automation_example": "דוגמה לאוטומציה",
+        "card.automation_example_hint": "החלפת פרופילים לפי שעות היום. הפעלת פרופיל מעדכנת רק את הטיוטה השמורה — הפאנל הפיזי משתנה רק כשהקריאה גם מסנכרנת, ולכן בכל פעולה כאן מופיע sync: true.",
+        "card.automation_yaml_alias": "ConX Dynamic Panel - פרופיל לפי שעות היום",
+        "card.automation_yaml_header": "ConX Dynamic Panel: החלפת הפרופיל הפעיל לפי שעות היום.",
+        "card.automation_yaml_sync": "sync: true שולח את הפרופיל לפאנל הפיזי. בלעדיו משתנה רק הטיוטה.",
+        "card.automation_yaml_ids": "החליפו את entry_id ואת profile_id בערכים של הפאנל שלכם.",
+        "card.automation_yaml_morning": "בוקר",
+        "card.automation_yaml_evening": "ערב",
+        "card.automation_yaml_night": "לילה",
         "mode.toggle": "החלפה", "mode.radio_mandatory": "רדיו חובה", "mode.radio_optional": "רדיו אופציונלי",
         "mode.radio_split": "רדיו ספליט",
       },
@@ -1288,7 +1356,7 @@
         "card.more": "Ещё",
         "card.radio_member": "В радиогруппе", "card.radio_toggle": "Независимый тоггл",
         "card.radio_groups": "Радиогруппы",
-        "card.radio_groups_hint": "Кнопки в группе работают как классическое радио: ровно одна включена. Кнопки вне групп остаются независимыми тогглами.",
+        "card.radio_groups_hint": "Нажмите L1–L4, чтобы добавить или убрать кнопку. Кнопки в группе работают как классическое радио: ровно одна включена. Кнопки вне групп остаются независимыми тогглами.",
         "card.radio_group": "Группа",
         "card.radio_groups_overlap": "Каждая кнопка может входить только в одну радиогруппу.",
         "card.dialog_ok": "ОК", "card.dialog_cancel": "Отмена", "card.dialog_confirm": "Подтвердить",
@@ -1317,6 +1385,19 @@
         "card.step_1": "Шаг 1",
         "card.step_2": "Шаг 2",
         "card.step_3": "Шаг 3",
+        "card.close": "Закрыть",
+        "card.copy_yaml": "Копировать YAML",
+        "card.copied": "Скопировано",
+        "card.copy_failed": "Не удалось скопировать — выделите текст вручную.",
+        "card.automation_example": "Пример автоматизации",
+        "card.automation_example_hint": "Переключение профилей по времени суток. Активация профиля меняет только сохранённый черновик — физическая панель меняется, только если вызов также синхронизирует, поэтому во всех действиях указано sync: true.",
+        "card.automation_yaml_alias": "ConX Dynamic Panel - профиль по времени суток",
+        "card.automation_yaml_header": "ConX Dynamic Panel: переключение активного профиля по времени суток.",
+        "card.automation_yaml_sync": "sync: true отправляет профиль на физическую панель. Без него меняется только черновик.",
+        "card.automation_yaml_ids": "Замените entry_id и profile_id на значения вашей панели.",
+        "card.automation_yaml_morning": "Утро",
+        "card.automation_yaml_evening": "Вечер",
+        "card.automation_yaml_night": "Ночь",
         "mode.toggle": "Переключатель", "mode.radio_mandatory": "Радио (обязательно)", "mode.radio_optional": "Радио (опционально)",
         "mode.radio_split": "Радио сплит",
       },
@@ -1576,6 +1657,10 @@
       dialogBody: document.getElementById("dialog-body"),
       dialogActions: document.getElementById("dialog-actions"),
       dialogClose: document.getElementById("dialog-close"),
+      automationLayer: document.getElementById("automation-layer"),
+      automationModal: document.getElementById("automation-modal"),
+      automationYaml: document.getElementById("automation-yaml"),
+      automationCopy: document.getElementById("automation-copy"),
       radioGroupsHosts: [
         {
           section: document.getElementById("radio-groups-section-buttons"),
@@ -1686,21 +1771,16 @@
       return set;
     }
     function radioMemberCell(opts) {
-      const { index, checked, groupIndex, readonly } = opts;
+      const { index, checked, groupIndex, independent } = opts;
       const on = checked ? " on" : "";
-      const ro = readonly ? " is-readonly" : "";
-      const tag = readonly ? "div" : "label";
-      const dataAttrs = readonly
-        ? ""
+      const ind = independent ? " is-independent" : "";
+      const dataAttrs = independent
+        ? ` data-independent="1" data-button="${index}"`
         : ` data-group="${groupIndex}" data-button="${index}"`;
-      const disabled = readonly ? " disabled" : "";
-      return `<${tag} class="radio-member${on}${ro}">
+      const disabled = independent && checked ? " disabled" : "";
+      return `<button type="button" class="radio-member${on}${ind}"${dataAttrs} role="switch" aria-checked="${checked ? "true" : "false"}"${disabled}>
         <span class="radio-member-label">L${index}</span>
-        <span class="switch">
-          <input type="checkbox"${dataAttrs}${checked ? " checked" : ""}${disabled} />
-          <span class="slider"></span>
-        </span>
-      </${tag}>`;
+      </button>`;
     }
     function groupSummaryLabel(buttons) {
       const list = (buttons || []).slice().sort((a, b) => a - b).map((n) => `L${n}`);
@@ -1741,7 +1821,7 @@
               index: i,
               checked: group.buttons.includes(i),
               groupIndex: gIndex,
-              readonly: false,
+              independent: false,
             })).join("")}
           </div>
         </div>`;
@@ -1756,7 +1836,7 @@
               index: i,
               checked: !grouped.has(i),
               groupIndex: null,
-              readonly: true,
+              independent: true,
             })).join("")}
           </div>
         </div>`;
@@ -1776,12 +1856,13 @@
             renderRadioGroupsEditor();
           });
         });
-        host.editor.querySelectorAll(".radio-member:not(.is-readonly) input[type=\"checkbox\"]").forEach((input) => {
-          input.addEventListener("change", () => {
-            const gIndex = Number(input.dataset.group);
-            const button = Number(input.dataset.button);
+        host.editor.querySelectorAll(".radio-member[data-group]").forEach((chip) => {
+          chip.addEventListener("click", () => {
+            const gIndex = Number(chip.dataset.group);
+            const button = Number(chip.dataset.button);
             const groups = normalizeRadioGroups(state.draft.radio_groups);
-            if (input.checked) {
+            const selected = chip.classList.contains("on");
+            if (!selected) {
               groups.forEach((g, idx) => {
                 if (idx === gIndex) {
                   if (!g.buttons.includes(button)) g.buttons.push(button);
@@ -1792,6 +1873,20 @@
             } else if (groups[gIndex]) {
               groups[gIndex].buttons = groups[gIndex].buttons.filter((b) => b !== button);
             }
+            state.draft.radio_groups = groups;
+            markDirty(true);
+            renderRadioGroupsEditor();
+            renderFaceplate();
+          });
+        });
+        host.editor.querySelectorAll(".radio-member[data-independent]").forEach((chip) => {
+          chip.addEventListener("click", () => {
+            if (chip.classList.contains("on")) return;
+            const button = Number(chip.dataset.button);
+            const groups = normalizeRadioGroups(state.draft.radio_groups).map((g) => ({
+              ...g,
+              buttons: g.buttons.filter((b) => b !== button),
+            }));
             state.draft.radio_groups = groups;
             markDirty(true);
             renderRadioGroupsEditor();
@@ -1956,6 +2051,76 @@
       els.menuOpen.setAttribute("aria-expanded", open ? "true" : "false");
       if (open) setExportView(false);
     }
+    const AUTOMATION_ENTRY_PLACEHOLDER = "YOUR_ENTRY_ID";
+    const AUTOMATION_SLOTS = [
+      { id: "morning", at: "06:30:00", profile: "morning" },
+      { id: "evening", at: "18:00:00", profile: "evening" },
+      { id: "night", at: "23:00:00", profile: "night" },
+    ];
+    function automationComment(text) {
+      return String(text).split("\n").map((line) => ("# " + line.trim()).trimEnd());
+    }
+    function buildAutomationYaml() {
+      const profileIds = Object.keys(state.profiles || {});
+      const pick = (index) => (profileIds[index] || AUTOMATION_SLOTS[index].profile).trim();
+      const slotComment = {
+        morning: t("card.automation_yaml_morning"),
+        evening: t("card.automation_yaml_evening"),
+        night: t("card.automation_yaml_night"),
+      };
+      const lines = [
+        ...automationComment(t("card.automation_yaml_header")),
+        ...automationComment(t("card.automation_yaml_sync")),
+        ...automationComment(t("card.automation_yaml_ids")),
+        "alias: " + t("card.automation_yaml_alias"),
+        "mode: single",
+        "triggers:",
+      ];
+      AUTOMATION_SLOTS.forEach((slot) => {
+        lines.push("  # " + slotComment[slot.id]);
+        lines.push("  - trigger: time");
+        lines.push('    at: "' + slot.at + '"');
+        lines.push("    id: " + slot.id);
+      });
+      lines.push("actions:");
+      lines.push("  - choose:");
+      AUTOMATION_SLOTS.forEach((slot, index) => {
+        lines.push("      - conditions:");
+        lines.push("          - condition: trigger");
+        lines.push("            id: " + slot.id);
+        lines.push("        sequence:");
+        lines.push("          - action: conx_dynamic_panel.activate_profile");
+        lines.push("            data:");
+        lines.push("              entry_id: " + AUTOMATION_ENTRY_PLACEHOLDER);
+        lines.push("              profile_id: " + pick(index));
+        lines.push("              sync: true");
+      });
+      return lines.join("\n") + "\n";
+    }
+    function renderAutomationYaml() {
+      if (els.automationYaml) els.automationYaml.textContent = buildAutomationYaml();
+    }
+    function setAutomationOpen(open) {
+      if (!els.automationLayer) return;
+      if (open) {
+        setMenuOpen(false);
+        renderAutomationYaml();
+      }
+      els.automationLayer.hidden = !open;
+      els.automationLayer.classList.toggle("open", open);
+      if (els.automationModal) {
+        els.automationModal.setAttribute("aria-hidden", open ? "false" : "true");
+      }
+    }
+    async function copyAutomationYaml() {
+      const yaml = buildAutomationYaml();
+      try {
+        await navigator.clipboard.writeText(yaml);
+        showNotice(t("card.copied") + " ✓");
+      } catch (_e) {
+        showNotice(t("card.copy_failed"));
+      }
+    }
     function setExportView(open) {
       state.view = open ? "export" : "editor";
       if (els.exportLayer) {
@@ -1999,6 +2164,7 @@
       else { els.dirtyWarn.textContent = t("card.unsaved"); els.statusBadge.textContent = t("card.status") + ": pending"; }
       renderButtonsEditor();
       renderRadioGroupsEditor();
+      renderAutomationYaml();
     }
     function syncFormFromDraft() {
       const d = state.draft;
@@ -2137,6 +2303,7 @@
       document.addEventListener("keydown", (event) => {
         if (event.key !== "Escape") return;
         if (els.dialogLayer && els.dialogLayer.classList.contains("open")) closeDialog(false);
+        else if (els.automationLayer && els.automationLayer.classList.contains("open")) setAutomationOpen(false);
         else if (els.exportLayer && els.exportLayer.classList.contains("open")) setExportView(false);
         else setMenuOpen(false);
       });
@@ -2166,6 +2333,18 @@
           persistState();
         });
       });
+      const automationOpen = document.getElementById("btn-automation-example");
+      if (automationOpen) automationOpen.addEventListener("click", () => setAutomationOpen(true));
+      ["automation-close", "automation-close-2"].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener("click", () => setAutomationOpen(false));
+      });
+      if (els.automationLayer) {
+        els.automationLayer.addEventListener("click", (event) => {
+          if (event.target === els.automationLayer) setAutomationOpen(false);
+        });
+      }
+      if (els.automationCopy) els.automationCopy.addEventListener("click", () => void copyAutomationYaml());
       if (els.btnReset) els.btnReset.addEventListener("click", () => { setMenuOpen(false); void resetToDefaults(); });
       if (els.panelNameInput) {
         els.panelNameInput.addEventListener("input", () => {

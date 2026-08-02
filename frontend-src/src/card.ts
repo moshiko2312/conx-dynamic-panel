@@ -16,6 +16,7 @@ import {
   updatePanelName,
   updateProfile,
 } from "./api";
+import { buildAutomationExampleYaml } from "./automationExample";
 import {
   buildImportServiceYaml,
   buildProfilesExport,
@@ -127,6 +128,7 @@ export class ConXDynamicPanelCard extends LitElement {
   @state() private _expandedButtons: Record<number, boolean> = {};
   @state() private _activeTab: "profiles" | "appearance" | "buttons" = "profiles";
   @state() private _menuOpen = false;
+  @state() private _automationOpen = false;
   @state() private _previewOpen = true;
   @state() private _panelNameDraft = "";
   /** Open/collapsed state for radio_split group cards (g0/g1/ungrouped). */
@@ -220,12 +222,37 @@ export class ConXDynamicPanelCard extends LitElement {
   private async _copyServiceYaml(): Promise<void> {
     const yaml = this._buildServiceYaml();
     this._serviceYaml = yaml;
+    await this._copyToClipboard(yaml);
+  }
+
+  private async _copyToClipboard(text: string): Promise<void> {
     try {
-      await navigator.clipboard.writeText(yaml);
-      this._notice = this.t("card.copy_yaml") + " ✓";
+      await navigator.clipboard.writeText(text);
+      this._notice = this.t("card.copied") + " ✓";
     } catch {
       this._error = "Clipboard unavailable";
     }
+  }
+
+  private _buildAutomationYaml(): string {
+    const profileIds = this._panel ? Object.keys(this._panel.profiles) : [];
+    return buildAutomationExampleYaml({
+      entryId: this._config?.entry_id,
+      profileIds,
+      comments: {
+        alias: this.t("card.automation_yaml_alias"),
+        header: this.t("card.automation_yaml_header"),
+        sync: this.t("card.automation_yaml_sync"),
+        ids: this.t("card.automation_yaml_ids"),
+        morning: this.t("card.automation_yaml_morning"),
+        evening: this.t("card.automation_yaml_evening"),
+        night: this.t("card.automation_yaml_night"),
+      },
+    });
+  }
+
+  private async _copyAutomationYaml(): Promise<void> {
+    await this._copyToClipboard(this._buildAutomationYaml());
   }
 
   private _ensureFonts(): void {
@@ -369,48 +396,55 @@ export class ConXDynamicPanelCard extends LitElement {
     return new Set([1, 2, 3, 4].filter((index) => !grouped.has(index)));
   }
 
+  private _makeButtonIndependent(buttonIndex: number): void {
+    this._patchDraft((draft) => {
+      this._ensureRadioGroups(draft);
+      for (const group of draft.radio_groups || []) {
+        group.buttons = group.buttons.filter((n) => n !== buttonIndex);
+      }
+    });
+  }
+
   private _renderRadioMemberCell(
     buttonIndex: number,
-    checked: boolean,
-    options: { groupIndex?: number; readonly?: boolean } = {}
+    selected: boolean,
+    options: { groupIndex?: number; independent?: boolean } = {}
   ) {
-    const readonly = Boolean(options.readonly);
-    const on = checked ? "on" : "";
-    const ro = readonly ? "is-readonly" : "";
-    const onChange = (e: Event) => {
-      if (readonly) {
+    const independent = Boolean(options.independent);
+    const classes = [
+      "radio-member",
+      selected ? "on" : "",
+      independent ? "is-independent" : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+    const onClick = () => {
+      if (this._busy) {
+        return;
+      }
+      if (independent) {
+        if (!selected) {
+          this._makeButtonIndependent(buttonIndex);
+        }
         return;
       }
       this._toggleSplitGroupButton(
         options.groupIndex ?? 0,
         buttonIndex,
-        (e.target as HTMLInputElement).checked
+        !selected
       );
     };
-    const switchEl = html`
-      <span class="switch">
-        <input
-          type="checkbox"
-          .checked=${checked}
-          ?disabled=${readonly || this._busy}
-          @change=${onChange}
-        />
-        <span class="slider"></span>
-      </span>
-    `;
-    if (readonly) {
-      return html`
-        <div class="radio-member ${on} ${ro}">
-          <span class="radio-member-label">L${buttonIndex}</span>
-          ${switchEl}
-        </div>
-      `;
-    }
     return html`
-      <label class="radio-member ${on} ${ro}">
+      <button
+        type="button"
+        class=${classes}
+        role="switch"
+        aria-checked=${selected ? "true" : "false"}
+        ?disabled=${this._busy || (independent && selected)}
+        @click=${onClick}
+      >
         <span class="radio-member-label">L${buttonIndex}</span>
-        ${switchEl}
-      </label>
+      </button>
     `;
   }
 
@@ -493,7 +527,7 @@ export class ConXDynamicPanelCard extends LitElement {
                     this._renderRadioMemberCell(
                       buttonIndex,
                       ungrouped.has(buttonIndex),
-                      { readonly: true }
+                      { independent: true }
                     )
                   )}
                 </div>
@@ -1768,6 +1802,7 @@ export class ConXDynamicPanelCard extends LitElement {
 
         ${this._renderMainEditor()}
         ${this._menuOpen ? this._renderSettingsMenu() : nothing}
+        ${this._automationOpen ? this._renderAutomationExample() : nothing}
         ${this._view === "export" ? this._renderExportView() : nothing}
       </ha-card>
     `;
@@ -1868,7 +1903,69 @@ export class ConXDynamicPanelCard extends LitElement {
               </button>
             </div>
           </div>
+          <div class="menu-section">
+            <span class="menu-label">${this.t("card.more")}</span>
+            <div class="menu-actions">
+              <button
+                type="button"
+                class="btn automation-menu-btn"
+                @click=${() => {
+                  this._menuOpen = false;
+                  this._automationOpen = true;
+                }}
+              >
+                ${this.t("card.automation_example")}
+              </button>
+            </div>
+          </div>
         </aside>
+      </div>
+    `;
+  }
+
+  private _renderAutomationExample() {
+    const yaml = this._buildAutomationYaml();
+    return html`
+      <div
+        class="conx-layer"
+        @click=${(e: Event) => {
+          if (e.target === e.currentTarget) this._automationOpen = false;
+        }}
+      >
+        <div class="conx-panel xwide automation-panel" role="dialog" aria-modal="true">
+          <div class="menu-head">
+            <div class="menu-title">${this.t("card.automation_example")}</div>
+            <button
+              type="button"
+              class="menu-close"
+              @click=${() => {
+                this._automationOpen = false;
+              }}
+            >
+              ×
+            </button>
+          </div>
+          <p class="automation-hint">${this.t("card.automation_example_hint")}</p>
+          <pre class="automation-yaml" dir="ltr" lang="en">${yaml}</pre>
+          <div class="automation-actions">
+            <button
+              type="button"
+              class="btn primary"
+              @click=${this._copyAutomationYaml}
+            >
+              ${this.t("card.copy_yaml")}
+            </button>
+            <button
+              type="button"
+              class="btn"
+              @click=${() => {
+                this._automationOpen = false;
+              }}
+            >
+              ${this.t("card.close")}
+            </button>
+          </div>
+        </div>
       </div>
     `;
   }
@@ -2969,13 +3066,13 @@ export class ConXDynamicPanelCard extends LitElement {
       gap: 6px;
     }
     .radio-member {
+      appearance: none;
+      -webkit-appearance: none;
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 7px;
-      min-height: 0;
-      padding: 8px 4px 9px;
+      min-height: 38px;
+      padding: 9px 4px;
       border-radius: 10px;
       border: 1px solid var(--btn-border, var(--border));
       background: var(--btn-bg);
@@ -2985,32 +3082,30 @@ export class ConXDynamicPanelCard extends LitElement {
       user-select: none;
       transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
     }
+    .radio-member:hover:not(:disabled) {
+      border-color: var(--accent);
+    }
+    .radio-member:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
     .radio-member.on {
       border-color: var(--accent);
       background: var(--accent-soft);
       color: var(--text);
+      box-shadow: inset 0 0 0 1px var(--accent);
     }
-    .radio-member.is-readonly {
+    .radio-member:disabled {
       cursor: default;
-      opacity: 0.92;
+    }
+    .radio-member.is-independent.on:disabled {
+      opacity: 1;
     }
     .radio-member-label {
       font-size: 0.8rem;
       font-weight: 800;
       letter-spacing: 0.02em;
       line-height: 1;
-    }
-    .radio-member .switch {
-      --switch-w: 40px;
-      --switch-h: 24px;
-      --switch-thumb: 20px;
-      --switch-pad: 2px;
-    }
-    .radio-member .switch input:disabled {
-      cursor: default;
-    }
-    .radio-member .switch:has(input:disabled) {
-      opacity: 0.88;
     }
     .radio-groups-error {
       margin-top: 10px;
@@ -3401,6 +3496,38 @@ export class ConXDynamicPanelCard extends LitElement {
       padding: 14px;
     }
     .conx-panel.wide { width: min(100%, 560px); }
+    .conx-panel.xwide { width: min(100%, 760px); max-height: min(90vh, 860px); }
+    .automation-hint {
+      margin: 0 0 12px;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+    .automation-yaml {
+      margin: 0;
+      max-height: 52vh;
+      overflow: auto;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--input-bg);
+      color: var(--input-text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.78rem;
+      line-height: 1.5;
+      white-space: pre;
+      text-align: left;
+      -webkit-user-select: text;
+      user-select: text;
+    }
+    .automation-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+      margin-top: 12px;
+    }
+    .automation-actions .btn { min-width: 112px; justify-content: center; }
     .menu-head {
       display: flex;
       align-items: center;

@@ -11,6 +11,10 @@ import {
 import type { Profile } from "../src/types";
 import { COLOR_PREVIEW, resolveLedPreviewColor } from "../src/card";
 import {
+  AUTOMATION_EXAMPLE_ENTRY_PLACEHOLDER,
+  buildAutomationExampleYaml,
+} from "../src/automationExample";
+import {
   PROFILES_EXPORT_SCHEMA_VERSION,
   buildImportServiceYaml,
   buildProfilesExport,
@@ -341,9 +345,11 @@ describe("custom elements", () => {
     // tabs use active class; query section directly
     const section = el.shadowRoot?.querySelector(".radio-groups-section") as HTMLElement;
     expect(section).toBeTruthy();
-    expect(section.querySelectorAll(".radio-member .switch").length).toBe(12);
+    // Membership is chip-based: no per-button switches, only one collapse switch per card.
+    expect(section.querySelectorAll(".radio-member .switch").length).toBe(0);
+    expect(section.querySelectorAll("button.radio-member").length).toBe(12);
     expect(section.querySelector(".radio-group-card.is-summary")).toBeTruthy();
-    expect(section.querySelectorAll(".radio-member.is-readonly").length).toBe(4);
+    expect(section.querySelectorAll(".radio-member.is-independent").length).toBe(4);
     // Collapse group 1 — membership controls hide, summary remains
     const groupHeads = section.querySelectorAll(".radio-group-card .radio-group-head input");
     expect(groupHeads.length).toBe(3);
@@ -355,6 +361,85 @@ describe("custom elements", () => {
     expect(firstCard.classList.contains("open")).toBe(false);
     expect(firstCard.querySelector(".radio-group-summary")?.textContent).toMatch(/L1|L4|—/);
     expect(firstCard.querySelector(".radio-group-members")).toBeFalsy();
+  });
+
+  it("assigns and removes buttons by tapping radio group chips", async () => {
+    const callWS = vi.fn().mockResolvedValue(
+      panelPayload({
+        profiles: {
+          lighting: {
+            ...sampleProfile,
+            mode: "radio_split",
+            radio_groups: [
+              { id: "g1", buttons: [1] },
+              { id: "g2", buttons: [2] },
+            ],
+          },
+        },
+      })
+    );
+    const el = await mountCard({ language: "en", callWS });
+    el._activeTab = "buttons";
+    await el.updateComplete;
+    const chipsIn = (cardIndex: number) =>
+      Array.from(
+        (el.shadowRoot?.querySelectorAll(".radio-group-card")[
+          cardIndex
+        ] as HTMLElement).querySelectorAll("button.radio-member")
+      ) as HTMLButtonElement[];
+
+    // Tap L3 in group 1 to add it.
+    chipsIn(0)[2].click();
+    await el.updateComplete;
+    expect(el._draft?.radio_groups?.[0].buttons).toEqual([1, 3]);
+    expect(chipsIn(0)[2].classList.contains("on")).toBe(true);
+
+    // Tap L2 in group 1: moves it out of group 2, never in both.
+    chipsIn(0)[1].click();
+    await el.updateComplete;
+    expect(el._draft?.radio_groups?.[0].buttons).toEqual([1, 3, 2]);
+    expect(el._draft?.radio_groups?.[1].buttons).toEqual([]);
+
+    // Tap L1 again in group 1 to remove it.
+    chipsIn(0)[0].click();
+    await el.updateComplete;
+    expect(el._draft?.radio_groups?.[0].buttons).toEqual([3, 2]);
+  });
+
+  it("detaches a button from every group when tapped in the independent section", async () => {
+    const callWS = vi.fn().mockResolvedValue(
+      panelPayload({
+        profiles: {
+          lighting: {
+            ...sampleProfile,
+            mode: "radio_split",
+            radio_groups: [
+              { id: "g1", buttons: [1, 2] },
+              { id: "g2", buttons: [3] },
+            ],
+          },
+        },
+      })
+    );
+    const el = await mountCard({ language: "en", callWS });
+    el._activeTab = "buttons";
+    await el.updateComplete;
+    const independentChips = () =>
+      Array.from(
+        (el.shadowRoot?.querySelector(
+          ".radio-group-card.is-summary"
+        ) as HTMLElement).querySelectorAll("button.radio-member")
+      ) as HTMLButtonElement[];
+
+    // L4 is already independent, so its chip is on and inert.
+    expect(independentChips()[3].classList.contains("on")).toBe(true);
+    expect(independentChips()[3].disabled).toBe(true);
+
+    independentChips()[1].click();
+    await el.updateComplete;
+    expect(el._draft?.radio_groups?.[0].buttons).toEqual([1]);
+    expect(el._draft?.radio_groups?.[1].buttons).toEqual([3]);
+    expect(independentChips()[1].classList.contains("on")).toBe(true);
   });
 
   it("reflects toggle entity on/off state in ring preview when available", async () => {
@@ -544,6 +629,91 @@ describe("custom elements", () => {
     el._activeTab = "buttons";
     await el.updateComplete;
     expect(el.shadowRoot?.querySelector(".button-edit")).toBeTruthy();
+  });
+
+  it("opens a copyable automation example from the settings menu", async () => {
+    const callWS = vi.fn().mockResolvedValue(panelPayload({ sync_status: "synced" }));
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
+    const el = await mountCard({ language: "he", callWS });
+    (el.shadowRoot?.querySelector(".menu-btn") as HTMLButtonElement).click();
+    await el.updateComplete;
+    const menuItem = el.shadowRoot?.querySelector(
+      ".automation-menu-btn"
+    ) as HTMLButtonElement;
+    expect(menuItem.textContent?.trim()).toBe("דוגמה לאוטומציה");
+
+    menuItem.click();
+    await el.updateComplete;
+    expect(el._menuOpen).toBe(false);
+    expect(el._automationOpen).toBe(true);
+
+    const panel = el.shadowRoot?.querySelector(".automation-panel") as HTMLElement;
+    expect(panel).toBeTruthy();
+    const yaml = (panel.querySelector(".automation-yaml") as HTMLElement).textContent || "";
+    expect(yaml).toContain("action: conx_dynamic_panel.activate_profile");
+    // Every branch syncs; the Hebrew comment mentions sync: true as well.
+    expect(yaml.match(/^ +sync: true$/gm)?.length).toBe(3);
+    expect(yaml).toContain("entry_id: abc");
+    expect(yaml).toContain("profile_id: lighting");
+    expect(yaml).toContain('at: "06:30:00"');
+    expect(yaml).toContain('at: "18:00:00"');
+    expect(yaml).toContain('at: "23:00:00"');
+
+    const copyBtn = [
+      ...(panel.querySelectorAll(".automation-actions .btn") || []),
+    ][0] as HTMLButtonElement;
+    copyBtn.click();
+    await el.updateComplete;
+    expect(writeText).toHaveBeenCalledWith(yaml);
+
+    const closeBtn = panel.querySelector(".menu-close") as HTMLButtonElement;
+    closeBtn.click();
+    await el.updateComplete;
+    expect(el._automationOpen).toBe(false);
+    expect(el.shadowRoot?.querySelector(".automation-panel")).toBeFalsy();
+  });
+});
+
+describe("automation example yaml", () => {
+  const comments = {
+    alias: "ConX Dynamic Panel - profile by time of day",
+    header: "header note",
+    sync: "sync note",
+    ids: "ids note",
+    morning: "Morning",
+    evening: "Evening",
+    night: "Night",
+  };
+
+  it("uses placeholders when no entry or profiles are known", () => {
+    const yaml = buildAutomationExampleYaml({ comments });
+    expect(yaml).toContain(`entry_id: ${AUTOMATION_EXAMPLE_ENTRY_PLACEHOLDER}`);
+    expect(yaml).toContain("profile_id: morning");
+    expect(yaml).toContain("profile_id: evening");
+    expect(yaml).toContain("profile_id: night");
+    expect(yaml.startsWith("# header note")).toBe(true);
+    expect(yaml).toContain("# sync note");
+    expect(yaml).toContain("# ids note");
+  });
+
+  it("prefers real ids and always syncs each branch", () => {
+    const yaml = buildAutomationExampleYaml({
+      comments,
+      entryId: "entry123",
+      profileIds: ["day", "evening_scene"],
+    });
+    expect(yaml).toContain("entry_id: entry123");
+    expect(yaml).toContain("profile_id: day");
+    expect(yaml).toContain("profile_id: evening_scene");
+    // Third slot falls back to its placeholder.
+    expect(yaml).toContain("profile_id: night");
+    expect(yaml.match(/sync: true/g)?.length).toBe(3);
+    expect(yaml.match(/- trigger: time/g)?.length).toBe(3);
+    expect(yaml).not.toContain("service:");
   });
 });
 
