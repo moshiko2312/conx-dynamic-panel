@@ -1,20 +1,16 @@
 # ConX Dynamic Panel
 
-Transform a supported multi-button smart switch into a configurable, multi-profile control panel for Home Assistant.
+Private commercial Home Assistant project for ConX.
 
-ConX Dynamic Panel is a Home Assistant custom integration with a built-in Lovelace custom card. It allows one physical 4-button Zemismart panel to represent multiple virtual pages/profiles. Each profile can change the four displayed names, ON/OFF colors, radar timeout, backlight behavior, and button logic.
+ConX Dynamic Panel transforms a supported multi-button smart switch into a configurable, multi-profile control panel. A single physical 4-button Zemismart panel can represent many virtual profiles, with different button names, actions, colors, radar settings, and button behavior.
 
-## Project status
+> **Private software:** This repository is intended only for ConX business use. It is not prepared for HACS, public distribution, resale, or third-party redistribution.
 
-Initial development specification / MVP.
+## Product concept
 
-## Core idea
+The physical relays are not connected to electrical loads. They are used only as physical inputs and LED-state indicators.
 
-A physical panel has four relays and four editable text labels. The relays are not connected to electrical loads; they are used only as physical input and LED state indicators.
-
-The same four buttons can therefore represent different controls depending on the active profile.
-
-Example:
+Example profiles:
 
 | Profile | L1 | L2 | L3 | L4 |
 |---|---|---|---|---|
@@ -23,13 +19,11 @@ Example:
 | Scenes | Morning | Evening | Hosting | Night |
 | Security | Arm home | Arm away | Disarm | Panic |
 
-Profile editing is performed inside Home Assistant. Changes remain in a draft until the user presses **Sync to Panel**.
+Profiles are edited inside Home Assistant. Changes remain as a draft until the user presses **Sync to Panel**.
 
-## Supported device for MVP
+## MVP device mapping
 
-Zemismart 4-button smart screen switch exposed through Zigbee2MQTT and Home Assistant entities.
-
-Default entity mapping used during development:
+The first supported device is a Zemismart 4-button smart screen switch exposed through Zigbee2MQTT and Home Assistant entities.
 
 ```yaml
 relays:
@@ -52,7 +46,7 @@ settings:
   child_lock: switch.child_lock
 ```
 
-The integration must not hard-code these entity IDs. The user selects them in the config flow.
+These IDs are examples only. The integration must let the installer select every entity through Config Flow and must never hard-code customer entity IDs.
 
 ### Supported colors
 
@@ -81,89 +75,82 @@ none
 
 ## Main features
 
-- UI-based setup through Home Assistant Config Flow.
-- Support for multiple physical panels.
+- Home Assistant Config Flow setup.
+- Multiple physical panels.
 - Unlimited profiles per panel.
-- Four configurable button names per profile.
-- Configurable ON and OFF colors per profile.
-- Radar timeout, backlight, and child-lock settings.
-- Toggle and Radio button modes.
-- Optional Mixed mode in a later release.
-- Draft editing separated from the running panel state.
-- Manual **Sync to Panel** operation.
-- Sync state: `synced`, `pending`, `syncing`, `error`, `out_of_sync`.
-- Pull current hardware display/settings into a profile.
-- Activate a profile from the card, service call, automation, or script.
-- Lovelace editor and live preview.
-- Import/export profile JSON in a later release.
-- Adapter architecture for future panel models.
+- Four editable button names per profile.
+- Four Home Assistant actions per profile.
+- Configurable ON/OFF colors.
+- Radar timeout, backlight, and child lock.
+- Toggle mode.
+- Radio mandatory mode.
+- Radio optional mode.
+- Draft configuration separated from applied hardware state.
+- Manual **Sync to Panel**.
+- Sync status: `synced`, `pending`, `syncing`, `error`, `out_of_sync`.
+- Pull hardware state into the current profile.
+- Profile activation from the card, services, scripts, and automations.
+- Bundled private Lovelace custom card.
+- English and Hebrew RTL UI.
+- Adapter architecture for additional panel models.
 
 ## Button modes
 
 ### Toggle
 
-All four buttons are independent. Every physical state change is treated as a press. The configured action is executed once per physical state change.
-
-The integration must not automatically reset a relay in Toggle mode.
+All four buttons are independent. Every real physical relay state transition executes the configured action once. The integration must not automatically reset the relay.
 
 ### Radio mandatory
 
-Only one button may remain ON.
+Exactly one button remains ON.
 
 When a button changes to ON:
 
 1. Execute its action.
-2. Turn the other radio-group relays OFF.
-3. Keep the selected relay ON.
+2. Turn the other buttons OFF.
+3. Keep the selected button ON.
 
-When the active button is physically pressed and changes to OFF, restore it to ON without executing the action again.
+If the selected button is physically switched OFF, restore it to ON without executing the action again.
 
 ### Radio optional
 
-Only one button may be ON, but all buttons may also be OFF.
+Zero or one button may remain ON.
 
 When a button changes to ON:
 
 1. Execute its action.
-2. Turn all other radio-group relays OFF.
+2. Turn the other buttons OFF.
 
-When the active button changes to OFF, leave all buttons OFF.
+If the selected button changes to OFF, leave all buttons OFF.
 
-### Preventing feedback loops
+### Feedback-loop protection
 
-Home Assistant state changes caused by the integration itself must not be interpreted as physical button presses.
-
-Implement a per-entity suppression mechanism. Before the integration writes a relay state, record the expected target state and an expiry timestamp. Ignore the matching state transition while the suppression entry is valid.
-
-Do not rely only on delays.
+Every integration-generated relay change must be registered in a per-entity suppression tracker before the service call. A matching expected transition is ignored by the physical-press handler. Do not depend only on delays.
 
 ## Draft and sync model
 
-Each profile has two representations:
+Each profile has:
 
-- **Draft**: the editable configuration stored by the integration.
-- **Applied snapshot**: the last configuration successfully written to the physical panel.
+- **Draft:** editable configuration stored by the integration.
+- **Applied snapshot:** the last configuration successfully written to the physical panel.
 
-Changing a draft marks the panel/profile as `pending`. No device entity is changed while editing.
+Editing changes only the draft and sets the state to `pending`.
 
-Pressing **Sync to Panel** writes, in this order:
+Sync writes sequentially:
 
-1. `text.name_l1`
-2. `text.name_l2`
-3. `text.name_l3`
-4. `text.name_l4`
-5. `select.switch_color_off`
-6. `select.switch_color_on`
-7. `select.radar_config`
-8. `switch.backlight_mode`
-9. `switch.child_lock`
-10. Relay states required by the profile's button mode
+1. Names L1-L4.
+2. OFF color.
+3. ON color.
+4. Radar timeout.
+5. Backlight.
+6. Child lock.
+7. Relay state required by the selected mode.
 
-Writes should be sequential, with state confirmation and a configurable timeout. A failed write must set sync status to `error` and expose a useful error message.
+Every write must be confirmed from Home Assistant state with a timeout. A failed write sets the state to `error`, preserves the previous applied snapshot, and exposes a useful error message.
 
-## Home Assistant entities created by the integration
+## Integration-created entities
 
-Suggested entities per configured panel:
+Suggested entities per panel:
 
 ```text
 select.<panel>_active_profile
@@ -175,13 +162,7 @@ button.<panel>_pull_from_panel
 switch.<panel>_auto_sync
 ```
 
-Optional event entity:
-
-```text
-event.<panel>_button
-```
-
-Event attributes:
+Button events should expose:
 
 ```yaml
 panel_id: kitchen_panel
@@ -194,7 +175,7 @@ new_relay_state: "on"
 
 ## Services
 
-```yaml
+```text
 conx_dynamic_panel.sync
 conx_dynamic_panel.activate_profile
 conx_dynamic_panel.pull_from_panel
@@ -212,33 +193,7 @@ data:
   sync: true
 ```
 
-## Action model
-
-A button action is stored as a Home Assistant service call structure, not arbitrary Python or templates.
-
-```json
-{
-  "action": "light.toggle",
-  "target": {
-    "entity_id": "light.living_room"
-  },
-  "data": {}
-}
-```
-
-Supported MVP action targets:
-
-- Entity service call
-- Scene activation
-- Script execution
-- Automation trigger
-- Generic Home Assistant action/service call
-
-The frontend should provide presets, but the backend must store and execute the normalized Home Assistant action structure.
-
 ## Repository structure
-
-The frontend card is bundled inside the integration repository so the project can be distributed as one HACS integration.
 
 ```text
 conx-dynamic-panel/
@@ -268,80 +223,69 @@ conx-dynamic-panel/
 │       └── frontend/
 │           └── conx-dynamic-panel-card.js
 ├── frontend-src/
-│   ├── package.json
-│   ├── tsconfig.json
-│   ├── vite.config.ts
-│   └── src/
-│       ├── conx-dynamic-panel-card.ts
-│       ├── conx-dynamic-panel-editor.ts
-│       ├── api.ts
-│       ├── types.ts
-│       └── styles.ts
+├── docs/
+├── examples/
 ├── tests/
+├── scripts/
+│   ├── build_frontend.sh
+│   ├── install_local.sh
+│   └── update_local.sh
+├── .cursor/rules/
 ├── .github/workflows/
-│   ├── hassfest.yml
-│   ├── hacs.yml
-│   ├── pytest.yml
-│   └── frontend.yml
-├── hacs.json
-├── pyproject.toml
+├── AGENTS.md
+├── AI_BUILD_SPEC.md
+├── CURSOR_CODEX_MASTER_PROMPT.md
+├── CHANGELOG.md
+├── LICENSE-PRIVATE.md
 ├── README.md
-├── LICENSE
-└── CHANGELOG.md
+└── pyproject.toml
 ```
 
-## Installation during development
+## Private installation
 
-1. Copy `custom_components/conx_dynamic_panel` into Home Assistant's `config/custom_components/` directory.
-2. Restart Home Assistant.
-3. Add the integration from **Settings → Devices & services → Add integration**.
-4. Select the relay, name, color, radar, backlight, and child-lock entities.
-5. Add the frontend resource:
+No HACS support is required.
 
-```text
-/conx_dynamic_panel_static/conx-dynamic-panel-card.js
-```
-
-Resource type: `JavaScript Module`.
-
-6. Add a manual card:
+1. Build the frontend.
+2. Copy `custom_components/conx_dynamic_panel` to the target Home Assistant configuration under `custom_components/`.
+3. Restart Home Assistant.
+4. Add **ConX Dynamic Panel** from **Settings → Devices & services**.
+5. Select all mapped entities.
+6. Add the bundled JavaScript resource if it is not registered automatically.
+7. Add the card:
 
 ```yaml
 type: custom:conx-dynamic-panel-card
 entry_id: YOUR_CONFIG_ENTRY_ID
 ```
 
-## Development principles
+## Development rules
 
+- Private commercial project only.
+- Do not add HACS files, HACS workflows, public-store metadata, or public-release language.
 - UI setup only; no YAML configuration for the integration.
 - Fully asynchronous backend.
-- No direct MQTT dependency in the MVP; communicate through Home Assistant entities.
-- Never hard-code user entity IDs.
-- Avoid private Home Assistant frontend/backend APIs where a public API exists.
-- All user-visible strings must support translations.
-- Mobile-first, RTL-aware, and compatible with light/dark themes.
-- Do not execute untrusted code or arbitrary templates stored by users.
-- Keep hardware-specific behavior inside adapters.
-- Add tests for state-change suppression, radio behavior, profile activation, storage migration, and failed sync recovery.
+- Use Home Assistant entities, not direct MQTT, in the MVP.
+- Use current public Home Assistant APIs.
+- Keep device-specific behavior inside adapters.
+- Support desktop, mobile, RTL, light theme, and dark theme.
+- Do not store or execute arbitrary Python or untrusted templates.
+- Add automated tests for suppression, radio behavior, storage migration, profile activation, and failed sync recovery.
 
 ## MVP acceptance criteria
 
-The MVP is complete when:
-
-1. A user can add a panel entirely through the UI.
-2. The integration validates all required entity domains and capabilities.
-3. A user can create at least two profiles.
-4. Each profile supports four names, ON/OFF colors, radar, backlight, child lock, and four actions.
-5. Editing does not immediately modify the physical panel.
-6. Sync applies the selected profile and reports success/failure.
-7. Activating another profile can optionally sync it immediately.
-8. Toggle mode executes exactly once per physical state change.
-9. Radio mandatory and optional modes behave as specified without event loops.
+1. Full UI setup.
+2. Entity-domain and capability validation.
+3. At least two profiles can be created.
+4. Four labels, four actions, colors, radar, backlight, child lock, and mode per profile.
+5. Editing never changes the panel before Sync.
+6. Sync reports success or a useful failure.
+7. Profile activation may optionally sync immediately.
+8. Toggle executes once per physical state change.
+9. Radio mandatory and optional work without loops.
 10. The custom card works on desktop and mobile, including Hebrew RTL.
 11. Backend and frontend tests pass.
-12. Hassfest and HACS validation pass.
 
-## Planned roadmap
+## Roadmap
 
 ### v0.1.0
 
@@ -350,11 +294,11 @@ The MVP is complete when:
 - Profile storage
 - Toggle mode
 - Manual sync
-- Basic card
+- Basic custom card
 
 ### v0.2.0
 
-- Radio mandatory/optional
+- Radio mandatory and optional
 - Pull from panel
 - Better sync diagnostics
 - Hebrew translation
@@ -370,10 +314,12 @@ The MVP is complete when:
 
 - Multi-click experiments
 - Automatic profile conditions
-- Additional manufacturers/adapters
-- Profile library
-- Advanced device preview
+- Additional panel adapters
+- Internal ConX profile library
+- Advanced preview
 
-## License
+## Ownership
 
-Choose a license before the first public release. MIT is recommended for a permissive open-source project.
+Copyright © ConX. All rights reserved.
+
+See `LICENSE-PRIVATE.md`.
