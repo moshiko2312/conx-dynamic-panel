@@ -22,6 +22,18 @@ coverage/
 .vscode/
 *.swp
 
+# iCloud Drive conflict / duplicate copies
+* 2.*
+* 2.py
+* 2.ts
+* 2.json
+* 2.sh
+* 2.yaml
+* 2.toml
+* 2.md
+* 2.js
+* 2.map
+
 # Environment and secrets
 .env
 .env.*

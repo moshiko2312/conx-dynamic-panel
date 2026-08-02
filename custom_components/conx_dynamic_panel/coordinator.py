@@ -17,6 +17,7 @@ from .const import (
     MODE_RADIO_MANDATORY,
     MODE_RADIO_OPTIONAL,
     MODE_TOGGLE,
+    STORAGE_VERSION,
     SYNC_ERROR,
     SYNC_OUT_OF_SYNC,
     SYNC_PENDING,
@@ -353,6 +354,55 @@ class PanelCoordinator:
         self.data.refresh_pending_status()
         await self._async_after_draft_change()
         return profile
+
+    def export_profiles(self) -> dict[str, Any]:
+        """Return a portable JSON payload of stored profiles."""
+        return {
+            "schema_version": STORAGE_VERSION,
+            "active_profile_id": self.data.active_profile_id,
+            "profiles": {
+                key: profile.to_dict() for key, profile in self.data.profiles.items()
+            },
+        }
+
+    async def async_import_profiles(
+        self, payload: dict[str, Any], *, mode: str = "merge"
+    ) -> dict[str, Any]:
+        """Import profiles from a portable JSON payload.
+
+        mode=merge updates/adds by profile id.
+        mode=replace replaces the full profile set (at least one profile required).
+        """
+        if mode not in {"merge", "replace"}:
+            raise ValueError(f"Unsupported import mode: {mode}")
+        raw_profiles = payload.get("profiles")
+        if not isinstance(raw_profiles, dict) or not raw_profiles:
+            raise ValueError("Import payload must include a non-empty profiles object")
+
+        imported: dict[str, Profile] = {}
+        for profile_id, raw in raw_profiles.items():
+            if not isinstance(raw, dict):
+                raise ValueError(f"Invalid profile payload for {profile_id}")
+            data = dict(raw)
+            data["id"] = str(data.get("id") or profile_id)
+            profile = Profile.from_dict(data)
+            self._validate_profile_actions(profile)
+            imported[profile.id] = profile
+
+        if mode == "replace":
+            self.data.profiles = imported
+        else:
+            self.data.profiles.update(imported)
+
+        requested_active = payload.get("active_profile_id")
+        if isinstance(requested_active, str) and requested_active in self.data.profiles:
+            self.data.active_profile_id = requested_active
+        elif self.data.active_profile_id not in self.data.profiles:
+            self.data.active_profile_id = next(iter(self.data.profiles))
+
+        self.data.refresh_pending_status()
+        await self._async_after_draft_change()
+        return self.get_config_payload()
 
     async def _async_after_draft_change(self) -> None:
         if self.data.sync_status != SYNC_SYNCING:

@@ -42,10 +42,17 @@ export interface PanelConfig {
   applied_snapshot: Record<string, unknown>;
 }
 
+export interface ProfilesExport {
+  schema_version: number;
+  active_profile_id: string | null;
+  profiles: Record<string, Profile>;
+}
+
 export interface CardConfig {
   type: string;
   entry_id: string;
   compact?: boolean;
+  language?: string;
 }
 
 export interface HomeAssistant {

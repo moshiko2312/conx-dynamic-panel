@@ -2,6 +2,21 @@
 
 All notable changes to this private project will be documented here.
 
+## [Unreleased]
+
+### Added
+
+- Premium Lovelace card redesign with industrial glass/steel depth, collapsible settings sections, and intentional motion (section expand, sync pulse, ring press).
+- On-card language flag selectors for Hebrew, English, and Russian (RTL for Hebrew); preference persisted in `localStorage`, with optional card `language` config.
+- Zemismart-accurate horizontal faceplate preview: black label bar on top, white glass face, four LED rings left→right; CSS skin extension point `--conx-faceplate-skin`.
+- Profile import/export via WebSocket (`export_profiles`, `import_profiles` with merge/replace) and card file download/upload UI.
+- Reference photo at `frontend-src/assets/zemismart-4gang-faceplate.png` for topography (preview itself is a CSS recreation for HA reliability).
+
+### Changed
+
+- Card text inputs mutate draft state in place so continuous typing keeps focus.
+- Button preview layout is a single horizontal row matching physical L1–L4 order (no 2×2 grid).
+
 ## [0.1.0] - 2026-08-02
 
 ### Added
@@ -41,9 +56,3 @@ All notable changes to this private project will be documented here.
 - Public marketplace distribution.
 - Open-source licensing.
 - Direct MQTT implementation in the MVP.
-
-## [Unreleased]
-
-### Notes
-
-- Post-0.1.0 work tracked in the README roadmap (mixed mode, import/export, additional adapters, and related items).

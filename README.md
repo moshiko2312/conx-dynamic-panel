@@ -109,8 +109,10 @@ none
 - Sync status: `synced`, `pending`, `syncing`, `error`, `out_of_sync`.
 - Pull hardware state into the current profile.
 - Profile activation from the card, services, scripts, and automations.
-- Bundled private Lovelace custom card.
-- English and Hebrew RTL UI.
+- Bundled private Lovelace custom card with premium industrial glass UI.
+- Card languages: English, Hebrew (RTL), and Russian, with on-card flag selectors.
+- Profile import/export (JSON merge or replace) from the card and WebSocket API.
+- Zemismart-style horizontal faceplate preview (labels on top black bar, LED rings below).
 - Adapter architecture for additional panel models.
 
 ## Button modes
@@ -257,7 +259,16 @@ Or manually:
 ```yaml
 type: custom:conx-dynamic-panel-card
 entry_id: YOUR_CONFIG_ENTRY_ID
+# optional: compact: true
+# optional: language: he   # en | he | ru (also choosable on the card; persisted in localStorage)
 ```
+
+### Card UX notes
+
+- Draft edits never write hardware until **Sync to Panel** (unless auto-sync is enabled).
+- Collapsible settings sections each have their own toggle.
+- The live preview is a 1×4 landscape faceplate matching the Zemismart topography (not a 2×2 grid). A CSS extension point (`--conx-faceplate-skin`) is reserved for a future photo overlay.
+- **Export** downloads profiles JSON; **Import (merge)** / **Import (replace)** load a JSON file through the authenticated WebSocket API.
 
 Update an existing install without touching Home Assistant storage:
 
@@ -289,7 +300,7 @@ Update an existing install without touching Home Assistant storage:
 7. Profile activation may optionally sync immediately.
 8. Toggle executes once per physical state change.
 9. Radio mandatory and optional work without loops.
-10. The custom card works on desktop and mobile, including Hebrew RTL.
+10. The custom card works on desktop and mobile, including Hebrew RTL, English, and Russian.
 11. Backend and frontend tests pass.
 
 ## Roadmap
@@ -305,16 +316,21 @@ Update an existing install without touching Home Assistant storage:
 - Bundled Lit card with English and Hebrew RTL
 - Services, WebSocket API, private install scripts, and automated tests
 
+### Unreleased / next
+
+- Premium card redesign with collapsible settings, flag language selectors (he/en/ru)
+- Horizontal Zemismart faceplate preview (labels top / rings bottom)
+- Profile import/export WebSocket API and card UI
+
 ### Later
 
 - Mixed mode
-- Import/export
 - Sync all panels
 - Multi-click experiments
 - Automatic profile conditions
 - Additional panel adapters
 - Internal ConX profile library
-- Advanced preview
+- Photo-based faceplate skin overlay
 
 ## Troubleshooting
 
@@ -326,7 +342,8 @@ Update an existing install without touching Home Assistant storage:
 | Draft edits do not change the panel | Expected draft behavior | Press **Sync to Panel** (or enable auto-sync in options) |
 | Reconfigure cannot save mapping | Duplicate relays or invalid entity domains | Ensure each relay/name is unique and domains match (`switch` / `text` / `select`) |
 | Actions do not run on press | Wrong mode, suppressed transition, or invalid service | Confirm the profile mode, that the press is physical (not sync-driven), and that the action service exists |
-| Hebrew UI not RTL | Browser/HA language not Hebrew | Set Home Assistant language to Hebrew; the card follows `hass.language` |
+| Hebrew UI not RTL | Language not set to Hebrew | Use the on-card IL flag, set card `language: he`, or set HA language to Hebrew |
+| Import fails | Invalid JSON or missing profiles object | Export first for the expected schema; import requires a non-empty `profiles` map |
 
 See also `docs/PRIVATE_DEPLOYMENT.md` for install/update rules.
 

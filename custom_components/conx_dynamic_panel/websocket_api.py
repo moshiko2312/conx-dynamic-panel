@@ -32,6 +32,8 @@ async def async_register_websocket_api(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_set_active_profile)
     websocket_api.async_register_command(hass, ws_sync)
     websocket_api.async_register_command(hass, ws_pull)
+    websocket_api.async_register_command(hass, ws_export_profiles)
+    websocket_api.async_register_command(hass, ws_import_profiles)
 
 
 @websocket_api.websocket_command(
@@ -201,3 +203,37 @@ async def ws_pull(
     coordinator = _coordinator(hass, msg["entry_id"])
     await coordinator.async_pull_from_panel()
     connection.send_result(msg["id"], coordinator.get_config_payload())
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "conx_dynamic_panel/export_profiles",
+        vol.Required("entry_id"): str,
+    }
+)
+@websocket_api.async_response
+async def ws_export_profiles(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Export profiles as portable JSON."""
+    coordinator = _coordinator(hass, msg["entry_id"])
+    connection.send_result(msg["id"], coordinator.export_profiles())
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "conx_dynamic_panel/import_profiles",
+        vol.Required("entry_id"): str,
+        vol.Required("payload"): dict,
+        vol.Optional("mode", default="merge"): vol.In(["merge", "replace"]),
+    }
+)
+@websocket_api.async_response
+async def ws_import_profiles(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Import profiles from portable JSON (merge or replace)."""
+    coordinator = _coordinator(hass, msg["entry_id"])
+    result = await coordinator.async_import_profiles(msg["payload"], mode=msg["mode"])
+    connection.send_result(msg["id"], result)

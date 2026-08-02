@@ -1,4 +1,4 @@
-import type { HomeAssistant, PanelConfig, Profile } from "./types";
+import type { HomeAssistant, PanelConfig, Profile, ProfilesExport } from "./types";
 
 export async function fetchConfig(
   hass: HomeAssistant,
@@ -98,6 +98,30 @@ export async function pullPanel(
   });
 }
 
+export async function exportProfiles(
+  hass: HomeAssistant,
+  entryId: string
+): Promise<ProfilesExport> {
+  return hass.callWS<ProfilesExport>({
+    type: "conx_dynamic_panel/export_profiles",
+    entry_id: entryId,
+  });
+}
+
+export async function importProfiles(
+  hass: HomeAssistant,
+  entryId: string,
+  payload: ProfilesExport,
+  mode: "merge" | "replace" = "merge"
+): Promise<PanelConfig> {
+  return hass.callWS<PanelConfig>({
+    type: "conx_dynamic_panel/import_profiles",
+    entry_id: entryId,
+    payload,
+    mode,
+  });
+}
+
 export function cloneProfile(profile: Profile): Profile {
   return structuredClone(profile);
 }
@@ -107,4 +131,16 @@ export function profilesEqual(a: Profile | null, b: Profile | null): boolean {
     return a === b;
   }
   return JSON.stringify(a) === JSON.stringify(b);
+}
+
+export function downloadJson(filename: string, data: unknown): void {
+  const blob = new Blob([JSON.stringify(data, null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
 }

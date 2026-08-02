@@ -1,6 +1,6 @@
 import { LitElement, css, html } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
-import { isRtl, localize } from "./localize";
+import { LANGUAGE_OPTIONS, isRtl, localize, normalizeLanguage } from "./localize";
 import type { CardConfig, HomeAssistant } from "./types";
 
 @customElement("conx-dynamic-panel-card-editor")
@@ -14,7 +14,12 @@ export class ConXDynamicPanelCardEditor extends LitElement {
   }
 
   private get _language(): string {
-    return this.hass?.locale?.language || this.hass?.language || "en";
+    return (
+      this._config?.language ||
+      this.hass?.locale?.language ||
+      this.hass?.language ||
+      "en"
+    );
   }
 
   private _valueChanged(patch: Partial<CardConfig>): void {
@@ -48,6 +53,20 @@ export class ConXDynamicPanelCardEditor extends LitElement {
                 entry_id: (e.target as HTMLInputElement).value.trim(),
               })}
           />
+        </label>
+        <label>
+          ${localize(this._language, "card.language")}
+          <select
+            .value=${normalizeLanguage(this._config.language || this._language)}
+            @change=${(e: Event) =>
+              this._valueChanged({
+                language: (e.target as HTMLSelectElement).value,
+              })}
+          >
+            ${LANGUAGE_OPTIONS.map(
+              (opt) => html`<option value=${opt.id}>${opt.label}</option>`
+            )}
+          </select>
         </label>
         <label class="check">
           <input
@@ -83,7 +102,7 @@ export class ConXDynamicPanelCardEditor extends LitElement {
     }
     input[type="text"],
     input:not([type]),
-    input[type=""] {
+    select {
       font: inherit;
       padding: 8px 10px;
       border-radius: 8px;

@@ -20,7 +20,7 @@ Work autonomously. Do not ask routine implementation questions. Make safe, conve
 8. Radio optional allows zero or one ON relay.
 9. Integration-generated relay changes must never trigger user actions.
 10. Profile activation and profile synchronization are separate operations, with an option to perform both.
-11. The UI must support English and Hebrew RTL.
+11. The UI must support English, Hebrew RTL, and Russian.
 12. The MVP communicates through Home Assistant entities, not directly through MQTT.
 13. The project must install manually and remain independent of HACS.
 
@@ -278,6 +278,8 @@ conx_dynamic_panel/duplicate_profile
 conx_dynamic_panel/set_active_profile
 conx_dynamic_panel/sync
 conx_dynamic_panel/pull
+conx_dynamic_panel/export_profiles
+conx_dynamic_panel/import_profiles
 ```
 
 Require admin permission for configuration-changing commands. Validate payloads with current Home Assistant schema tools.
