@@ -1,0 +1,132 @@
+"""Integration services."""
+
+from __future__ import annotations
+
+import voluptuous as vol
+from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import device_registry as dr
+
+from .const import (
+    ATTR_BUTTON,
+    ATTR_DEVICE_ID,
+    ATTR_ENTRY_ID,
+    ATTR_PROFILE_ID,
+    ATTR_SYNC,
+    DOMAIN,
+    SERVICE_ACTIVATE_PROFILE,
+    SERVICE_EXECUTE_BUTTON,
+    SERVICE_PULL_FROM_PANEL,
+    SERVICE_RELOAD,
+    SERVICE_SYNC,
+)
+from .coordinator import PanelCoordinator
+
+ENTRY_SCHEMA = vol.Schema(
+    {
+        vol.Optional(ATTR_ENTRY_ID): cv.string,
+        vol.Optional(ATTR_DEVICE_ID): cv.string,
+    }
+)
+
+
+def _get_coordinator(hass: HomeAssistant, call: ServiceCall) -> PanelCoordinator:
+    entry_id = call.data.get(ATTR_ENTRY_ID)
+    device_id = call.data.get(ATTR_DEVICE_ID)
+    if device_id and not entry_id:
+        registry = dr.async_get(hass)
+        device = registry.async_get(device_id)
+        if device is None or not device.config_entries:
+            raise HomeAssistantError("Unknown device")
+        entry_id = next(iter(device.config_entries))
+    if not entry_id:
+        raise HomeAssistantError("entry_id or device_id is required")
+    data = hass.data.get(DOMAIN, {}).get(entry_id)
+    if data is None:
+        raise HomeAssistantError(f"Unknown config entry: {entry_id}")
+    return data["coordinator"]
+
+
+async def async_register_services(hass: HomeAssistant) -> None:
+    """Register domain services once."""
+    if hass.services.has_service(DOMAIN, SERVICE_SYNC):
+        return
+
+    async def handle_sync(call: ServiceCall) -> None:
+        coordinator = _get_coordinator(hass, call)
+        await coordinator.async_sync()
+
+    async def handle_activate(call: ServiceCall) -> None:
+        coordinator = _get_coordinator(hass, call)
+        await coordinator.async_activate_profile(
+            call.data[ATTR_PROFILE_ID],
+            sync=bool(call.data.get(ATTR_SYNC, False)),
+        )
+
+    async def handle_pull(call: ServiceCall) -> None:
+        coordinator = _get_coordinator(hass, call)
+        await coordinator.async_pull_from_panel()
+
+    async def handle_execute(call: ServiceCall) -> None:
+        coordinator = _get_coordinator(hass, call)
+        await coordinator.async_execute_button(int(call.data[ATTR_BUTTON]))
+
+    async def handle_reload(call: ServiceCall) -> None:
+        entry_id = call.data.get(ATTR_ENTRY_ID)
+        if entry_id:
+            await hass.config_entries.async_reload(entry_id)
+            return
+        for item in list(hass.data.get(DOMAIN, {})):
+            await hass.config_entries.async_reload(item)
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_SYNC,
+        handle_sync,
+        schema=ENTRY_SCHEMA,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_ACTIVATE_PROFILE,
+        handle_activate,
+        schema=ENTRY_SCHEMA.extend(
+            {
+                vol.Required(ATTR_PROFILE_ID): cv.string,
+                vol.Optional(ATTR_SYNC, default=False): cv.boolean,
+            }
+        ),
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_PULL_FROM_PANEL,
+        handle_pull,
+        schema=ENTRY_SCHEMA,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_EXECUTE_BUTTON,
+        handle_execute,
+        schema=ENTRY_SCHEMA.extend(
+            {vol.Required(ATTR_BUTTON): vol.All(int, vol.Range(min=1, max=4))}
+        ),
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_RELOAD,
+        handle_reload,
+        schema=vol.Schema({vol.Optional(ATTR_ENTRY_ID): cv.string}),
+    )
+
+
+def async_unregister_services(hass: HomeAssistant) -> None:
+    """Remove domain services when no entries remain."""
+    for service in (
+        SERVICE_SYNC,
+        SERVICE_ACTIVATE_PROFILE,
+        SERVICE_PULL_FROM_PANEL,
+        SERVICE_EXECUTE_BUTTON,
+        SERVICE_RELOAD,
+    ):
+        if hass.services.has_service(DOMAIN, service):
+            hass.services.async_remove(DOMAIN, service)

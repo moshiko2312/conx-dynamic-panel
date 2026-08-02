@@ -15,6 +15,16 @@ For Cursor or Codex:
 3. Follow `AGENTS.md` and `.cursor/rules/conx-dynamic-panel.mdc`.
 4. Review `docs/ARCHITECTURE.md` before creating code.
 
+### Implementation status
+
+MVP `0.1.0` is implemented in this repository:
+
+- Backend package under `custom_components/conx_dynamic_panel/`
+- Bundled card source under `frontend-src/`
+- Built card artifact under `custom_components/conx_dynamic_panel/frontend/`
+- Tests under `tests/` and `frontend-src/tests/`
+- Private scripts under `scripts/`
+
 ## Product concept
 
 The physical relays are not connected to electrical loads. They are used only as physical inputs and LED-state indicators.
@@ -228,17 +238,31 @@ conx-dynamic-panel/
 
 No HACS support is required.
 
-1. Build the frontend.
+```bash
+./scripts/build_frontend.sh
+./scripts/install_local.sh /path/to/homeassistant/config
+```
+
+Or manually:
+
+1. Build the frontend with `./scripts/build_frontend.sh`.
 2. Copy `custom_components/conx_dynamic_panel` to the target Home Assistant configuration under `custom_components/`.
 3. Restart Home Assistant.
 4. Add **ConX Dynamic Panel** from **Settings → Devices & services**.
 5. Select all mapped entities.
-6. Add the bundled JavaScript resource if it is not registered automatically.
+6. Add the bundled JavaScript resource if it is not registered automatically:
+   `/conx_dynamic_panel/frontend/conx-dynamic-panel-card.js` as a Lovelace module resource.
 7. Add the card:
 
 ```yaml
 type: custom:conx-dynamic-panel-card
 entry_id: YOUR_CONFIG_ENTRY_ID
+```
+
+Update an existing install without touching Home Assistant storage:
+
+```bash
+./scripts/update_local.sh /path/to/homeassistant/config
 ```
 
 ## Development rules
@@ -270,36 +294,41 @@ entry_id: YOUR_CONFIG_ENTRY_ID
 
 ## Roadmap
 
-### v0.1.0
+### v0.1.0 (implemented)
 
-- Config Flow
-- Zemismart adapter
-- Profile storage
-- Toggle mode
-- Manual sync
-- Basic custom card
-
-### v0.2.0
-
-- Radio mandatory and optional
-- Pull from panel
-- Better sync diagnostics
-- Hebrew translation
-
-### v0.3.0
-
-- Mixed mode
-- Import/export
-- Profile duplication
-- Sync all panels
+- Config Flow, Reconfigure Flow, and Options Flow
+- Zemismart adapter with confirmation waits
+- Versioned profile storage with draft vs applied snapshot
+- Toggle, radio mandatory, and radio optional
+- Manual Sync, Pull from panel, and sync diagnostics
+- Profile create / update / duplicate / delete
+- Bundled Lit card with English and Hebrew RTL
+- Services, WebSocket API, private install scripts, and automated tests
 
 ### Later
 
+- Mixed mode
+- Import/export
+- Sync all panels
 - Multi-click experiments
 - Automatic profile conditions
 - Additional panel adapters
 - Internal ConX profile library
 - Advanced preview
+
+## Troubleshooting
+
+| Symptom | Likely cause | What to do |
+|---|---|---|
+| Card missing / custom element unknown | Lovelace resource not registered | Add `/conx_dynamic_panel/frontend/conx-dynamic-panel-card.js` as a Lovelace **module** resource, then hard-refresh the browser |
+| Sync status `error` / timeout | Entity unavailable, Zigbee delay, or short timeout | Confirm mapped entities are available; increase **Confirm timeout** / **Sync timeout** in integration options |
+| Sync status `out_of_sync` | Hardware values differ from the last successful sync | Use **Pull from Panel** to inspect, then **Sync to Panel** to re-apply the draft, or keep the pulled draft and sync it |
+| Draft edits do not change the panel | Expected draft behavior | Press **Sync to Panel** (or enable auto-sync in options) |
+| Reconfigure cannot save mapping | Duplicate relays or invalid entity domains | Ensure each relay/name is unique and domains match (`switch` / `text` / `select`) |
+| Actions do not run on press | Wrong mode, suppressed transition, or invalid service | Confirm the profile mode, that the press is physical (not sync-driven), and that the action service exists |
+| Hebrew UI not RTL | Browser/HA language not Hebrew | Set Home Assistant language to Hebrew; the card follows `hass.language` |
+
+See also `docs/PRIVATE_DEPLOYMENT.md` for install/update rules.
 
 ## Ownership
 

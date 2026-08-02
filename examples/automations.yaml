@@ -1,0 +1,23 @@
+# Example automations for ConX Dynamic Panel (replace entry_id values).
+
+- id: conx_activate_scenes_at_evening
+  alias: Activate Scenes profile at evening
+  trigger:
+    - platform: time
+      at: "18:00:00"
+  action:
+    - action: conx_dynamic_panel.activate_profile
+      data:
+        entry_id: YOUR_CONFIG_ENTRY_ID
+        profile_id: scenes
+        sync: true
+
+- id: conx_sync_kitchen_panel
+  alias: Sync kitchen panel on demand
+  trigger:
+    - platform: event
+      event_type: conx_manual_sync_kitchen
+  action:
+    - action: conx_dynamic_panel.sync
+      data:
+        entry_id: YOUR_CONFIG_ENTRY_ID
