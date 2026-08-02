@@ -122,6 +122,18 @@ export async function importProfiles(
   });
 }
 
+export async function updatePanelName(
+  hass: HomeAssistant,
+  entryId: string,
+  panelName: string
+): Promise<PanelConfig> {
+  return hass.callWS<PanelConfig>({
+    type: "conx_dynamic_panel/update_panel_name",
+    entry_id: entryId,
+    panel_name: panelName,
+  });
+}
+
 /** Normalize legacy/partial profiles so new fields always exist in the card draft. */
 export function normalizeProfile(profile: Profile): Profile {
   const cloned = structuredClone(profile);
@@ -142,6 +154,19 @@ export function normalizeProfile(profile: Profile): Profile {
       radio_member: found?.radio_member !== false,
     };
   });
+  const groups = Array.isArray(cloned.radio_groups) ? cloned.radio_groups : [];
+  const normalizedGroups = groups.map((group, index) => ({
+    id: String(group?.id || `g${index + 1}`),
+    buttons: Array.isArray(group?.buttons)
+      ? group.buttons
+          .map((n) => Number(n))
+          .filter((n, i, arr) => n >= 1 && n <= 4 && arr.indexOf(n) === i)
+      : [],
+  }));
+  while (normalizedGroups.length < 2) {
+    normalizedGroups.push({ id: `g${normalizedGroups.length + 1}`, buttons: [] });
+  }
+  cloned.radio_groups = normalizedGroups;
   return cloned;
 }
 

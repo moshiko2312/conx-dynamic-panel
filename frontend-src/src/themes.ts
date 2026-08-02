@@ -13,7 +13,7 @@ export const THEME_STORAGE_KEY = "conx-dynamic-panel-theme";
 
 /**
  * Legacy aliases map onto current theme ids.
- * Inspired by a noir/gold + ivory/stone visual language (premium dark + warm light).
+ * Inspired by a noir/gold + ivory/stone visual language (premium dark + cool light).
  */
 const THEME_ALIASES: Record<string, CardThemeId> = {
   industrial: "ivory",
@@ -32,13 +32,15 @@ const THEME_ALIASES: Record<string, CardThemeId> = {
 export const THEME_OPTIONS: ThemeSwatch[] = [
   {
     id: "noir",
-    swatch: "linear-gradient(145deg, #070809 0%, #1d1e20 55%, #d7b56d 100%)",
-    accent: "#d7b56d",
+    swatch:
+      "linear-gradient(145deg, #2e3440 0%, #1a1d22 38%, #242830 68%, #d4af61 100%)",
+    accent: "#d4af61",
   },
   {
     id: "ivory",
-    swatch: "linear-gradient(145deg, #fffaf2 0%, #f5f0e7 55%, #9d7837 100%)",
-    accent: "#9d7837",
+    swatch:
+      "linear-gradient(145deg, #ffffff 0%, #f5f7fa 48%, #e8ecf1 72%, #8a7348 100%)",
+    accent: "#8a7348",
   },
 ];
 

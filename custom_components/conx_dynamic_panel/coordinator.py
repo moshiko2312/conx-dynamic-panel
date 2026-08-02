@@ -13,11 +13,14 @@ from homeassistant.helpers.event import async_track_state_change_event
 
 from .const import (
     BUTTON_COUNT,
+    DOMAIN,
     EVENT_BUTTON_PRESS,
     MODE_RADIO_MANDATORY,
     MODE_RADIO_OPTIONAL,
+    MODE_RADIO_SPLIT,
     MODE_TOGGLE,
     STORAGE_VERSION,
+    SUPPORTED_MODES,
     SYNC_ERROR,
     SYNC_OUT_OF_SYNC,
     SYNC_PENDING,
@@ -31,11 +34,13 @@ from .exceptions import (
 )
 from .models import (
     ButtonAction,
+    EntityMapping,
     HardwareState,
     PanelStorageData,
     Profile,
     SyncResult,
     capability_defaults,
+    validate_radio_groups,
 )
 from .runtime import PanelRuntime
 
@@ -48,6 +53,8 @@ class PanelCoordinator:
     def __init__(self, runtime: PanelRuntime) -> None:
         self.runtime = runtime
         self.hass = runtime.hass
+        # When True, config-entry update listener skips a full reload (panel rename).
+        self.skip_next_reload = False
 
     @property
     def data(self) -> PanelStorageData:
@@ -107,6 +114,9 @@ class PanelCoordinator:
         if profile.mode == MODE_TOGGLE:
             await self._async_execute_button_action(profile, index, turned_on)
             return
+        if profile.mode == MODE_RADIO_SPLIT:
+            await self._async_radio_split(profile, index, turned_on)
+            return
         # Independent toggles inside a radio profile skip exclusivity.
         if not profile.is_radio_member(index):
             await self._async_execute_button_action(profile, index, turned_on)
@@ -116,6 +126,23 @@ class PanelCoordinator:
             return
         if profile.mode == MODE_RADIO_OPTIONAL:
             await self._async_radio_optional(profile, index, turned_on)
+
+    async def _async_radio_split(self, profile: Profile, index: int, turned_on: bool) -> None:
+        """Handle radio_split: exclusivity only within the button's group."""
+        group = profile.radio_group_for(index)
+        if group is None:
+            # Ungrouped buttons behave as independent toggles.
+            await self._async_execute_button_action(profile, index, turned_on)
+            return
+        members = list(group.buttons)
+        if turned_on:
+            await self._async_execute_button_action(profile, index, True)
+            for other in members:
+                if other != index:
+                    await self.runtime.adapter.async_set_relay(other, False, suppress_event=True)
+            return
+        # Classic radio within group: keep exactly one ON (restore; no self-toggle-off).
+        await self.runtime.adapter.async_set_relay(index, True, suppress_event=True)
 
     async def _async_radio_mandatory(self, profile: Profile, index: int, turned_on: bool) -> None:
         members = profile.radio_member_indexes()
@@ -136,20 +163,8 @@ class PanelCoordinator:
             self.runtime.async_notify()
 
     async def _async_radio_optional(self, profile: Profile, index: int, turned_on: bool) -> None:
-        members = profile.radio_member_indexes()
-        if turned_on:
-            await self._async_execute_button_action(profile, index, True)
-            profile.selected_button = index
-            for other in members:
-                if other != index:
-                    await self.runtime.adapter.async_set_relay(other, False, suppress_event=True)
-            await self.runtime.store.async_save()
-            self.runtime.async_notify()
-            return
-        if profile.selected_button == index:
-            profile.selected_button = None
-            await self.runtime.store.async_save()
-            self.runtime.async_notify()
+        """Classic radio among members: exactly one ON; no self-toggle-off."""
+        await self._async_radio_mandatory(profile, index, turned_on)
 
     async def _async_execute_button_action(
         self, profile: Profile, index: int, new_relay_state: bool
@@ -324,8 +339,10 @@ class PanelCoordinator:
 
     def _validate_profile_actions(self, profile: Profile) -> None:
         """Validate mode and action service existence when practical."""
-        if profile.mode not in {MODE_TOGGLE, MODE_RADIO_MANDATORY, MODE_RADIO_OPTIONAL}:
+        if profile.mode not in SUPPORTED_MODES:
             raise ValueError(f"Unsupported mode: {profile.mode}")
+        if profile.mode == MODE_RADIO_SPLIT:
+            validate_radio_groups(profile.radio_groups)
         for button in profile.buttons:
             action = button.action
             if action is None:
@@ -473,6 +490,45 @@ class PanelCoordinator:
         if button < 1 or button > BUTTON_COUNT:
             raise ValueError("Button must be 1-4")
         await self._async_execute_button_action(profile, button, True)
+
+    async def async_update_panel_name(self, panel_name: str) -> dict[str, Any]:
+        """Rename the panel in mapping, config entry title/data, and device registry."""
+        name = str(panel_name or "").strip()
+        if not name:
+            raise ValueError("Panel name cannot be empty")
+        if name == self.runtime.mapping.panel_name:
+            return self.get_config_payload()
+
+        mapping_dict = self.runtime.mapping.to_dict()
+        mapping_dict["panel_name"] = name
+        self.runtime.mapping = EntityMapping.from_dict(mapping_dict)
+
+        entry = self.runtime.entry
+        self.skip_next_reload = True
+        try:
+            self.hass.config_entries.async_update_entry(
+                entry,
+                title=name,
+                data=mapping_dict,
+            )
+        except Exception:  # noqa: BLE001
+            self.skip_next_reload = False
+            raise
+
+        try:
+            from homeassistant.helpers import device_registry as dr
+
+            device_registry = dr.async_get(self.hass)
+            device = device_registry.async_get_device(
+                identifiers={(DOMAIN, entry.entry_id)}
+            )
+            if device is not None:
+                device_registry.async_update_device(device.id, name=name)
+        except Exception:  # noqa: BLE001
+            _LOGGER.debug("Could not update device registry name", exc_info=True)
+
+        self.runtime.async_notify()
+        return self.get_config_payload()
 
     def get_config_payload(self) -> dict[str, Any]:
         """Return frontend configuration payload."""

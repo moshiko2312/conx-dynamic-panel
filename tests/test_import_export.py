@@ -69,6 +69,15 @@ def _runtime(adapter: FakeAdapter, store: FakeStore) -> Any:
         backlight_entity="switch.backlight",
         child_lock_entity="switch.lock",
     )
+    updated = {"calls": []}
+
+    def async_update_entry(entry, **kwargs):
+        updated["calls"].append(kwargs)
+        if "data" in kwargs:
+            entry.data = kwargs["data"]
+        if "title" in kwargs:
+            entry.title = kwargs["title"]
+
     hass = SimpleNamespace(
         services=SimpleNamespace(
             has_service=lambda domain, service: True,
@@ -76,8 +85,16 @@ def _runtime(adapter: FakeAdapter, store: FakeStore) -> Any:
         ),
         bus=SimpleNamespace(async_fire=lambda *args, **kwargs: None),
         async_create_task=lambda coro: asyncio.create_task(coro),
+        config_entries=SimpleNamespace(async_update_entry=async_update_entry),
+        data={},
     )
-    entry = SimpleNamespace(entry_id="entry-1", options={"auto_sync": False})
+    entry = SimpleNamespace(
+        entry_id="entry-1",
+        options={"auto_sync": False},
+        data={},
+        title="Kitchen",
+    )
+    hass._updated = updated
     return SimpleNamespace(
         hass=hass,
         entry=entry,
@@ -253,3 +270,16 @@ async def test_import_rejects_future_schema_version() -> None:
             },
             mode="merge",
         )
+
+@pytest.mark.asyncio
+async def test_update_panel_name_updates_mapping_without_empty() -> None:
+    store = FakeStore()
+    runtime = _runtime(FakeAdapter(), store)
+    coordinator = PanelCoordinator(runtime)  # type: ignore[arg-type]
+    payload = await coordinator.async_update_panel_name("Salon")
+    assert payload["panel_name"] == "Salon"
+    assert runtime.mapping.panel_name == "Salon"
+    assert coordinator.skip_next_reload is True or runtime.entry.title == "Salon"
+    with pytest.raises(ValueError, match="cannot be empty"):
+        await coordinator.async_update_panel_name("   ")
+

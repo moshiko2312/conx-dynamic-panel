@@ -13,6 +13,7 @@ import {
   pullPanel,
   setActiveProfile,
   syncPanel,
+  updatePanelName,
   updateProfile,
 } from "./api";
 import {
@@ -105,6 +106,7 @@ export class ConXDynamicPanelCard extends LitElement {
   @state() private _busy = false;
   @state() private _syncPulse = false;
   @state() private _pressedRing: number | null = null;
+  @state() private _splitPreviewOn: Record<number, boolean> = {};
   @state() private _uiLang?: CardLanguage;
   @state() private _theme: CardThemeId = "noir";
   /** Main editor vs export/import wizard view. */
@@ -123,6 +125,16 @@ export class ConXDynamicPanelCard extends LitElement {
   };
   /** Expanded button editors (collapsed by default). */
   @state() private _expandedButtons: Record<number, boolean> = {};
+  @state() private _activeTab: "profiles" | "appearance" | "buttons" = "profiles";
+  @state() private _menuOpen = false;
+  @state() private _previewOpen = true;
+  @state() private _panelNameDraft = "";
+  /** Open/collapsed state for radio_split group cards (g0/g1/ungrouped). */
+  @state() private _radioGroupOpen: Record<string, boolean> = {
+    g0: true,
+    g1: true,
+    ungrouped: true,
+  };
 
   private _importInput?: HTMLInputElement;
 
@@ -294,6 +306,209 @@ export class ConXDynamicPanelCard extends LitElement {
     return button?.radio_member !== false;
   }
 
+  private _ensureRadioGroups(draft: Profile): void {
+    const groups = Array.isArray(draft.radio_groups) ? draft.radio_groups : [];
+    const normalized = groups.map((group, index) => ({
+      id: String(group?.id || `g${index + 1}`),
+      buttons: Array.isArray(group?.buttons)
+        ? group.buttons
+            .map((n) => Number(n))
+            .filter((n, i, arr) => n >= 1 && n <= 4 && arr.indexOf(n) === i)
+        : [],
+    }));
+    while (normalized.length < 2) {
+      normalized.push({ id: `g${normalized.length + 1}`, buttons: [] });
+    }
+    draft.radio_groups = normalized;
+  }
+
+  private _radioGroupFor(buttonIndex: number) {
+    return (
+      this._draft?.radio_groups?.find((group) =>
+        group.buttons.includes(buttonIndex)
+      ) ?? null
+    );
+  }
+
+  private _radioGroupsOverlap(): boolean {
+    const ownership = new Map<number, string>();
+    for (const group of this._draft?.radio_groups || []) {
+      for (const index of group.buttons) {
+        if (ownership.has(index)) return true;
+        ownership.set(index, group.id);
+      }
+    }
+    return false;
+  }
+
+  private _toggleSplitGroupButton(groupIndex: number, buttonIndex: number, checked: boolean): void {
+    this._patchDraft((draft) => {
+      this._ensureRadioGroups(draft);
+      const groups = draft.radio_groups || [];
+      groups.forEach((group, index) => {
+        if (index === groupIndex) {
+          if (checked && !group.buttons.includes(buttonIndex)) {
+            group.buttons = [...group.buttons, buttonIndex];
+          } else if (!checked) {
+            group.buttons = group.buttons.filter((n) => n !== buttonIndex);
+          }
+        } else if (checked) {
+          group.buttons = group.buttons.filter((n) => n !== buttonIndex);
+        }
+      });
+    });
+  }
+
+  private _ungroupedButtons(): Set<number> {
+    const grouped = new Set<number>();
+    for (const group of this._draft?.radio_groups || []) {
+      for (const index of group.buttons) {
+        grouped.add(index);
+      }
+    }
+    return new Set([1, 2, 3, 4].filter((index) => !grouped.has(index)));
+  }
+
+  private _renderRadioMemberCell(
+    buttonIndex: number,
+    checked: boolean,
+    options: { groupIndex?: number; readonly?: boolean } = {}
+  ) {
+    const readonly = Boolean(options.readonly);
+    const on = checked ? "on" : "";
+    const ro = readonly ? "is-readonly" : "";
+    const onChange = (e: Event) => {
+      if (readonly) {
+        return;
+      }
+      this._toggleSplitGroupButton(
+        options.groupIndex ?? 0,
+        buttonIndex,
+        (e.target as HTMLInputElement).checked
+      );
+    };
+    const switchEl = html`
+      <span class="switch">
+        <input
+          type="checkbox"
+          .checked=${checked}
+          ?disabled=${readonly || this._busy}
+          @change=${onChange}
+        />
+        <span class="slider"></span>
+      </span>
+    `;
+    if (readonly) {
+      return html`
+        <div class="radio-member ${on} ${ro}">
+          <span class="radio-member-label">L${buttonIndex}</span>
+          ${switchEl}
+        </div>
+      `;
+    }
+    return html`
+      <label class="radio-member ${on} ${ro}">
+        <span class="radio-member-label">L${buttonIndex}</span>
+        ${switchEl}
+      </label>
+    `;
+  }
+
+  private _renderRadioGroupsEditor() {
+    if (!this._draft || this._draft.mode !== "radio_split") {
+      return nothing;
+    }
+    const ungrouped = this._ungroupedButtons();
+    const ungroupedList = [1, 2, 3, 4].filter((n) => ungrouped.has(n));
+    const renderHead = (title: string, key: string, summary: string) => {
+      const open = this._radioGroupOpen[key] !== false;
+      return html`
+        <div class="radio-group-head">
+          <div class="radio-group-head-main">
+            <div class="radio-group-title">${title}</div>
+            ${open
+              ? nothing
+              : html`<div class="radio-group-summary">${summary}</div>`}
+          </div>
+          <label class="switch" title=${this.t("card.section_toggle")}>
+            <input
+              type="checkbox"
+              .checked=${open}
+              ?disabled=${this._busy}
+              @change=${(e: Event) =>
+                this._toggleRadioGroupOpen(
+                  key,
+                  (e.target as HTMLInputElement).checked
+                )}
+            />
+            <span class="slider"></span>
+          </label>
+        </div>
+      `;
+    };
+    return html`
+      <div class="radio-groups-section">
+        <span class="menu-label">${this.t("card.radio_groups")}</span>
+        <p class="radio-groups-hint">${this.t("card.radio_groups_hint")}</p>
+        ${(this._draft.radio_groups || []).map((group, gIndex) => {
+          const key = `g${gIndex}`;
+          const open = this._radioGroupOpen[key] !== false;
+          return html`
+            <div class="radio-group-card ${open ? "open" : ""}">
+              ${renderHead(
+                `${this.t("card.radio_group")} ${gIndex + 1}`,
+                key,
+                this._groupSummary(group.buttons)
+              )}
+              ${open
+                ? html`
+                    <div class="radio-group-members">
+                      ${[1, 2, 3, 4].map((buttonIndex) =>
+                        this._renderRadioMemberCell(
+                          buttonIndex,
+                          group.buttons.includes(buttonIndex),
+                          { groupIndex: gIndex }
+                        )
+                      )}
+                    </div>
+                  `
+                : nothing}
+            </div>
+          `;
+        })}
+        <div
+          class="radio-group-card is-summary ${
+            this._radioGroupOpen.ungrouped !== false ? "open" : ""
+          }"
+        >
+          ${renderHead(
+            this.t("card.radio_toggle"),
+            "ungrouped",
+            this._groupSummary(ungroupedList)
+          )}
+          ${this._radioGroupOpen.ungrouped !== false
+            ? html`
+                <div class="radio-group-members">
+                  ${[1, 2, 3, 4].map((buttonIndex) =>
+                    this._renderRadioMemberCell(
+                      buttonIndex,
+                      ungrouped.has(buttonIndex),
+                      { readonly: true }
+                    )
+                  )}
+                </div>
+              `
+            : nothing}
+        </div>
+        ${this._radioGroupsOverlap()
+          ? html`<div class="radio-groups-error">
+              ${this.t("card.radio_groups_overlap")}
+            </div>`
+          : nothing}
+      </div>
+    `;
+  }
+
   private _toggleSection(id: SectionId): void {
     this._sections = { ...this._sections, [id]: !this._sections[id] };
   }
@@ -323,10 +538,33 @@ export class ConXDynamicPanelCard extends LitElement {
 
   private _applyPanel(panel: PanelConfig): void {
     this._panel = panel;
+    this._panelNameDraft = panel.panel_name;
     const activeId = panel.active_profile_id;
     const profile = activeId ? panel.profiles[activeId] : undefined;
     this._saved = profile ? cloneProfile(profile) : undefined;
     this._draft = profile ? cloneProfile(profile) : undefined;
+    if (this._draft?.mode === "radio_split") {
+      this._ensureRadioGroupOpenDefaults(false);
+    }
+  }
+
+  private _ensureRadioGroupOpenDefaults(forceExpand: boolean): void {
+    const next = { ...this._radioGroupOpen };
+    for (const key of ["g0", "g1", "ungrouped"]) {
+      if (forceExpand || next[key] === undefined) {
+        next[key] = true;
+      }
+    }
+    this._radioGroupOpen = next;
+  }
+
+  private _toggleRadioGroupOpen(key: string, open: boolean): void {
+    this._radioGroupOpen = { ...this._radioGroupOpen, [key]: open };
+  }
+
+  private _groupSummary(buttons: number[]): string {
+    const list = [...buttons].sort((a, b) => a - b).map((n) => `L${n}`);
+    return list.length ? list.join(", ") : "—";
   }
 
   private async _guardDirty(): Promise<boolean> {
@@ -699,6 +937,16 @@ export class ConXDynamicPanelCard extends LitElement {
     if (!this._draft) {
       return false;
     }
+    if (this._draft.mode === "radio_split") {
+      const entityId = this._buttonEntityId(buttonIndex);
+      if (entityId) {
+        const on = this._entityIsOn(entityId);
+        if (on !== null) {
+          return on;
+        }
+      }
+      return Boolean(this._splitPreviewOn[buttonIndex]);
+    }
     const radioMode = this._draft.mode !== "toggle";
     if (radioMode && this._isRadioMember(buttonIndex)) {
       return this._draft.selected_button === buttonIndex;
@@ -724,15 +972,31 @@ export class ConXDynamicPanelCard extends LitElement {
     if (!this._draft || this._draft.mode === "toggle") {
       return;
     }
+    if (this._draft.mode === "radio_split") {
+      const group = this._radioGroupFor(buttonIndex);
+      const next = { ...this._splitPreviewOn };
+      if (!group) {
+        next[buttonIndex] = !next[buttonIndex];
+      } else if (next[buttonIndex]) {
+        // Classic radio within group: re-pressing selected does nothing.
+        return;
+      } else {
+        for (const index of group.buttons) {
+          next[index] = index === buttonIndex;
+        }
+      }
+      this._splitPreviewOn = next;
+      return;
+    }
     if (!this._isRadioMember(buttonIndex)) {
       return;
     }
+    // Classic radio: exactly one on; re-pressing selected does not turn it off.
+    if (this._draft.selected_button === buttonIndex) {
+      return;
+    }
     this._patchDraft((draft) => {
-      if (draft.mode === "radio_optional" && draft.selected_button === buttonIndex) {
-        draft.selected_button = null;
-      } else {
-        draft.selected_button = buttonIndex;
-      }
+      draft.selected_button = buttonIndex;
     });
   }
 
@@ -957,24 +1221,35 @@ export class ConXDynamicPanelCard extends LitElement {
           `
         )}
       </div>
-      <label class="field">
-        <span>${this.t("card.profile_name")}</span>
-        <input
-          type="text"
-          .value=${this._draft.name}
-          ?disabled=${this._busy}
-          @input=${this._onProfileNameInput}
-        />
-      </label>
-      <div class="row actions">
+      <div class="profile-name-row">
+        <label class="field">
+          <span>${this.t("card.panel_name")}</span>
+          <input
+            type="text"
+            .value=${this._panelNameDraft}
+            ?disabled=${this._busy}
+            @input=${(e: Event) => {
+              this._panelNameDraft = (e.target as HTMLInputElement).value;
+            }}
+            @change=${this._commitPanelName}
+          />
+        </label>
+        <label class="field">
+          <span>${this.t("card.profile_name")}</span>
+          <input
+            type="text"
+            .value=${this._draft.name}
+            ?disabled=${this._busy}
+            @input=${this._onProfileNameInput}
+          />
+        </label>
+      </div>
+      <div class="profile-actions">
         <button type="button" class="btn" ?disabled=${this._busy} @click=${this._createProfile}>
           ${this.t("card.create")}
         </button>
         <button type="button" class="btn" ?disabled=${this._busy} @click=${this._duplicateProfile}>
           ${this.t("card.duplicate")}
-        </button>
-        <button type="button" class="btn" ?disabled=${this._busy} @click=${this._renameProfile}>
-          ${this.t("card.rename")}
         </button>
         <button type="button" class="btn danger" ?disabled=${this._busy} @click=${this._deleteProfile}>
           ${this.t("card.delete")}
@@ -983,16 +1258,39 @@ export class ConXDynamicPanelCard extends LitElement {
     `;
   }
 
-  private _renderStepEdit() {
+  private async _commitPanelName(): Promise<void> {
+    if (!this.hass || !this._config || !this._panel) {
+      return;
+    }
+    const name = this._panelNameDraft.trim();
+    if (!name || name === this._panel.panel_name) {
+      this._panelNameDraft = this._panel.panel_name;
+      return;
+    }
+    this._busy = true;
+    this._error = undefined;
+    try {
+      const panel = await updatePanelName(
+        this.hass,
+        this._config.entry_id,
+        name
+      );
+      this._applyPanel(panel);
+      this._notice = this.t("card.panel_name_ok");
+    } catch (err) {
+      this._error = err instanceof Error ? err.message : String(err);
+      this._panelNameDraft = this._panel.panel_name;
+    } finally {
+      this._busy = false;
+    }
+  }
+
+  private _renderAppearanceFields() {
     if (!this._panel || !this._draft) {
       return nothing;
     }
     return html`
-      ${this._renderSection(
-        "appearance",
-        this.t("card.editor"),
-        html`
-          <label class="field">
+<label class="field">
             <span>${this.t("card.mode")}</span>
             <div class="select-wrap">
               <select
@@ -1001,6 +1299,23 @@ export class ConXDynamicPanelCard extends LitElement {
                 @change=${(e: Event) =>
                   this._patchDraft((draft) => {
                     draft.mode = (e.target as HTMLSelectElement).value as Profile["mode"];
+                    if (draft.mode === "radio_split") {
+                      this._ensureRadioGroups(draft);
+                      this._ensureRadioGroupOpenDefaults(true);
+                    } else if (
+                      draft.mode !== "toggle" &&
+                      (draft.selected_button == null ||
+                        !draft.buttons.some(
+                          (b) =>
+                            b.index === draft.selected_button &&
+                            b.radio_member !== false
+                        ))
+                    ) {
+                      const firstMember =
+                        draft.buttons.find((b) => b.radio_member !== false)?.index ??
+                        1;
+                      draft.selected_button = firstMember;
+                    }
                   })}
               >
                 ${this._panel.capabilities.modes.map(
@@ -1103,16 +1418,17 @@ export class ConXDynamicPanelCard extends LitElement {
             </label>
           </div>
           <label class="field dimmer-field ${this._draft.backlight ? "" : "dimmed"}">
-            <span
-              >${this.t("card.backlight_brightness")}
-              <strong>${this._draft.backlight_brightness ?? 100}%</strong></span
-            >
+            <span class="dimmer-label-row">
+              <span>${this.t("card.backlight_brightness")}</span>
+              <strong class="dimmer-pct">${this._draft.backlight_brightness ?? 100}%</strong>
+            </span>
             <input
               type="range"
               min="0"
               max="100"
               step="1"
               .value=${String(this._draft.backlight_brightness ?? 100)}
+              style="--brightness-pct: ${this._draft.backlight_brightness ?? 100}%"
               ?disabled=${this._busy || !this._draft.backlight}
               @input=${(e: Event) =>
                 this._patchDraft((draft) => {
@@ -1122,17 +1438,15 @@ export class ConXDynamicPanelCard extends LitElement {
                 })}
             />
           </label>
-        `
-      )}
-      ${this._renderSection(
-        "theme",
-        this.t("card.theme"),
-        this._renderThemePicker()
-      )}
-      ${this._renderSection(
-        "buttons",
-        this.t("card.buttons"),
-        html`
+    `;
+  }
+
+  private _renderButtonsFields() {
+    if (!this._panel || !this._draft) {
+      return nothing;
+    }
+    return html`
+      ${this._renderRadioGroupsEditor()}
           <div class="buttons-accordion">
             ${this._draft.buttons.map((button) => {
               const open = Boolean(this._expandedButtons[button.index]);
@@ -1143,7 +1457,9 @@ export class ConXDynamicPanelCard extends LitElement {
               );
               const label = (button.name || "").trim() || "—";
               const action = button.action?.action || "";
-              const radioMode = this._draft?.mode !== "toggle";
+              const radioMode =
+                this._draft?.mode === "radio_mandatory" ||
+                this._draft?.mode === "radio_optional";
               const isMember = button.radio_member !== false;
               const behavior = radioMode
                 ? isMember
@@ -1250,8 +1566,16 @@ export class ConXDynamicPanelCard extends LitElement {
               `;
             })}
           </div>
-        `
-      )}
+    `;
+  }
+
+  private _renderStepEdit() {
+    if (!this._panel || !this._draft) {
+      return nothing;
+    }
+    return html`
+      ${this._renderAppearanceFields()}
+      ${this._renderButtonsFields()}
     `;
   }
 
@@ -1409,16 +1733,69 @@ export class ConXDynamicPanelCard extends LitElement {
       <ha-card
         dir=${rtl ? "rtl" : "ltr"}
         data-theme=${this._theme}
-        class="conx-card theme-${this._theme} ${this._view === "export" ? "export-open" : "editor-open"} ${compact ? "compact" : ""} ${this._syncPulse ? "syncing-pulse" : ""}"
+        class="conx-card theme-${this._theme} ${this._view === "export" ? "export-open" : "editor-open"} ${this._menuOpen ? "menu-open" : ""} ${compact ? "compact" : ""} ${this._syncPulse ? "syncing-pulse" : ""}"
       >
         <div class="atmosphere"></div>
-        <div class="header">
-          <div class="brand-block">
-            <div class="brand">ConX</div>
-            <div class="title">${this._panel.panel_name}</div>
-            <div class="subtitle">${this._draft.name}</div>
-          </div>
+        <div class="header" dir="ltr">
           <div class="header-side">
+            <div class="badge status-${this._panel.sync_status}">
+              ${this.t("card.status")}: ${this._panel.sync_status}
+            </div>
+            <button
+              type="button"
+              class="menu-btn"
+              aria-label=${this.t("card.menu")}
+              aria-expanded=${this._menuOpen ? "true" : "false"}
+              ?disabled=${this._busy}
+              @click=${() => {
+                this._menuOpen = !this._menuOpen;
+              }}
+            >
+              <span></span><span></span><span></span>
+            </button>
+          </div>
+        </div>
+
+        ${this._dirty
+          ? html`<div class="warn">${this.t("card.unsaved")}</div>`
+          : nothing}
+        ${this._notice
+          ? html`<div class="notice">${this._notice}</div>`
+          : nothing}
+        ${this._error || this._panel.last_error
+          ? html`<div class="error">${this._error || this._panel.last_error}</div>`
+          : nothing}
+
+        ${this._renderMainEditor()}
+        ${this._menuOpen ? this._renderSettingsMenu() : nothing}
+        ${this._view === "export" ? this._renderExportView() : nothing}
+      </ha-card>
+    `;
+  }
+
+  private _renderSettingsMenu() {
+    return html`
+      <div
+        class="conx-layer"
+        @click=${(e: Event) => {
+          if (e.target === e.currentTarget) this._menuOpen = false;
+        }}
+      >
+        <aside class="conx-panel compact" role="dialog" aria-modal="true">
+          <div class="menu-head">
+            <div class="menu-title">${this.t("card.menu")}</div>
+            <button
+              type="button"
+              class="menu-close"
+              @click=${() => {
+                this._menuOpen = false;
+              }}
+            >
+              ×
+            </button>
+          </div>
+          <div class="menu-section">
+            <span class="menu-label">${this.t("card.language")}</span>
             <div class="lang-flags" role="group" aria-label=${this.t("card.language")}>
               ${LANGUAGE_OPTIONS.map(
                 (opt) => html`
@@ -1435,26 +1812,64 @@ export class ConXDynamicPanelCard extends LitElement {
                 `
               )}
             </div>
-            <div class="badge status-${this._panel.sync_status}">
-              ${this.t("card.status")}: ${this._panel.sync_status}
+          </div>
+          <div class="menu-section">
+            <span class="menu-label">${this.t("card.theme")}</span>
+            ${this._renderThemePicker()}
+          </div>
+          <div class="menu-section">
+            <span class="menu-label">${this.t("card.step_transfer")}</span>
+            <div class="menu-actions">
+              <button
+                type="button"
+                class="btn success"
+                ?disabled=${this._busy}
+                @click=${() => {
+                  this._menuOpen = false;
+                  void this._export();
+                }}
+              >
+                ${this.t("card.export")}
+              </button>
+              <button
+                type="button"
+                class="btn primary"
+                ?disabled=${this._busy}
+                @click=${() => {
+                  this._menuOpen = false;
+                  this._openExportWizard();
+                }}
+              >
+                ${this.t("card.open_export_wizard")}
+              </button>
+              <button
+                type="button"
+                class="btn"
+                ?disabled=${this._busy}
+                @click=${() => {
+                  this._menuOpen = false;
+                  this._importMode = "merge";
+                  this._openImport();
+                }}
+              >
+                ${this.t("card.import_merge")}
+              </button>
+              <button
+                type="button"
+                class="btn danger"
+                ?disabled=${this._busy}
+                @click=${() => {
+                  this._menuOpen = false;
+                  this._importMode = "replace";
+                  this._openImport();
+                }}
+              >
+                ${this.t("card.import_replace")}
+              </button>
             </div>
           </div>
-        </div>
-
-        ${this._dirty
-          ? html`<div class="warn">${this.t("card.unsaved")}</div>`
-          : nothing}
-        ${this._notice
-          ? html`<div class="notice">${this._notice}</div>`
-          : nothing}
-        ${this._error || this._panel.last_error
-          ? html`<div class="error">${this._error || this._panel.last_error}</div>`
-          : nothing}
-
-        ${this._view === "export"
-          ? this._renderExportView()
-          : this._renderMainEditor()}
-      </ha-card>
+        </aside>
+      </div>
     `;
   }
 
@@ -1462,91 +1877,178 @@ export class ConXDynamicPanelCard extends LitElement {
     if (!this._draft || !this._panel) {
       return nothing;
     }
+    const tabs: Array<"profiles" | "appearance" | "buttons"> = [
+      "profiles",
+      "appearance",
+      "buttons",
+    ];
+    const tabLabels: Record<string, string> = {
+      profiles: this.t("card.profiles"),
+      appearance: this.t("card.editor"),
+      buttons: this.t("card.buttons"),
+    };
     return html`
       <div class="layout single-layout">
-        ${this._renderSection(
-          "profiles",
-          this.t("card.profiles"),
-          this._renderStepProfiles()
-        )}
-        ${this._renderStepEdit()}
-        ${this._renderSection(
-          "preview",
-          this.t("card.preview"),
-          this._renderFaceplate()
-        )}
-        ${this._renderSection(
-          "actions",
-          this.t("card.actions"),
-          html`
-            <div class="row actions">
-              <button
-                type="button"
-                class="btn primary"
-                ?disabled=${this._busy || !this._dirty}
-                @click=${this._saveDraft}
-              >
-                ${this.t("card.save")}
-              </button>
-              <button
-                type="button"
-                class="btn"
-                ?disabled=${this._busy || !this._dirty}
-                @click=${this._discard}
-              >
-                ${this.t("card.discard")}
-              </button>
-              <button
-                type="button"
-                class="btn primary sync-btn"
-                ?disabled=${this._busy}
-                @click=${this._sync}
-              >
-                ${this.t("card.sync")}
-              </button>
-              <button type="button" class="btn" ?disabled=${this._busy} @click=${this._pull}>
-                ${this.t("card.pull")}
-              </button>
-              <button
-                type="button"
-                class="btn"
-                ?disabled=${this._busy}
-                @click=${this._openExportWizard}
-              >
-                ${this.t("card.open_export_wizard")}
-              </button>
+        <section class="hero-preview ${this._previewOpen ? "open" : "closed"}">
+          <header class="section-head">
+            <div class="section-head-main">
+              <div class="section-title">${this.t("card.preview")}</div>
             </div>
-          `
-        )}
+            <div class="hero-profile-name" aria-live="polite">${this._draft.name}</div>
+            <label class="switch" title=${this.t("card.section_toggle")}>
+              <input
+                type="checkbox"
+                .checked=${this._previewOpen}
+                @change=${() => {
+                  this._previewOpen = !this._previewOpen;
+                }}
+              />
+              <span class="slider"></span>
+            </label>
+          </header>
+          ${this._previewOpen
+            ? html`<div class="hero-body">${this._renderFaceplate()}</div>`
+            : nothing}
+        </section>
+
+        <p class="layout-hint">${this.t("card.tabs_hint")}</p>
+
+        <div class="settings-tabs">
+          <div class="tab-bar" role="tablist">
+            ${tabs.map(
+              (tab, index) => html`
+                <button
+                  type="button"
+                  class="tab-btn ${this._activeTab === tab ? "active" : ""}"
+                  role="tab"
+                  aria-selected=${this._activeTab === tab ? "true" : "false"}
+                  ?disabled=${this._busy}
+                  @click=${() => {
+                    this._activeTab = tab;
+                  }}
+                >
+                  <span class="tab-step">${this.t(`card.step_${index + 1}`)}</span>
+                  <span class="tab-label">${tabLabels[tab]}</span>
+                </button>
+              `
+            )}
+          </div>
+          <div class="tab-panels">
+            <section
+              class="tab-panel ${this._activeTab === "profiles" ? "active" : ""}"
+              ?hidden=${this._activeTab !== "profiles"}
+            >
+              ${this._renderStepProfiles()}
+            </section>
+            <section
+              class="tab-panel ${this._activeTab === "appearance" ? "active" : ""}"
+              ?hidden=${this._activeTab !== "appearance"}
+            >
+              ${this._renderAppearanceFields()}
+            </section>
+            <section
+              class="tab-panel ${this._activeTab === "buttons" ? "active" : ""}"
+              ?hidden=${this._activeTab !== "buttons"}
+            >
+              ${this._renderButtonsFields()}
+            </section>
+          </div>
+        </div>
+
+        <div class="actions-dock">
+          <div class="actions-grid">
+            <button
+              type="button"
+              class="btn primary"
+              ?disabled=${this._busy || !this._dirty}
+              @click=${this._saveDraft}
+            >
+              ${this.t("card.save")}
+            </button>
+            <button
+              type="button"
+              class="btn"
+              ?disabled=${this._busy || !this._dirty}
+              @click=${this._discard}
+            >
+              ${this.t("card.discard")}
+            </button>
+            <button
+              type="button"
+              class="btn primary sync-btn"
+              ?disabled=${this._busy}
+              @click=${this._sync}
+            >
+              ${this.t("card.sync")}
+            </button>
+            <button type="button" class="btn" ?disabled=${this._busy} @click=${this._pull}>
+              ${this.t("card.pull")}
+            </button>
+          </div>
+        </div>
       </div>
     `;
   }
 
   private _renderExportView() {
     return html`
-      <div class="export-view">
-        <div class="export-toolbar">
-          <button
-            type="button"
-            class="btn primary back-to-editor"
-            ?disabled=${this._busy}
-            @click=${this._backToEditor}
-          >
-            ← ${this.t("card.back_to_editor")}
-          </button>
-          <div class="export-title">${this.t("card.step_transfer")}</div>
-        </div>
-        <p class="wizard-hint">${this.t("card.step_transfer_hint")}</p>
-        ${this._renderStepTransfer()}
-        <div class="row actions" style="margin-top:14px">
-          <button
-            type="button"
-            class="btn primary back-to-editor"
-            ?disabled=${this._busy}
-            @click=${this._backToEditor}
-          >
-            ← ${this.t("card.back_to_editor")}
-          </button>
+      <div
+        class="conx-layer"
+        @click=${(e: Event) => {
+          if (e.target === e.currentTarget) this._backToEditor();
+        }}
+      >
+        <div class="conx-panel wide" role="dialog" aria-modal="true">
+          <div class="menu-head">
+            <div class="export-title">${this.t("card.step_transfer")}</div>
+            <button type="button" class="menu-close" @click=${this._backToEditor}>
+              ×
+            </button>
+          </div>
+          <p class="export-hint">${this.t("card.step_transfer_hint")}</p>
+          <div class="export-actions">
+            <button
+              type="button"
+              class="btn success"
+              ?disabled=${this._busy}
+              @click=${this._export}
+            >
+              ${this.t("card.export")}
+            </button>
+            <button
+              type="button"
+              class="btn"
+              ?disabled=${this._busy}
+              @click=${() => {
+                this._importMode = "merge";
+                this._openImport();
+              }}
+            >
+              ${this.t("card.import_merge")}
+            </button>
+            <button
+              type="button"
+              class="btn danger"
+              ?disabled=${this._busy}
+              @click=${() => {
+                this._importMode = "replace";
+                this._openImport();
+              }}
+            >
+              ${this.t("card.import_replace")}
+            </button>
+          </div>
+          <div class="export-details">${this._renderStepTransfer()}</div>
+          <div class="export-footer">
+            <button
+              type="button"
+              class="btn"
+              ?disabled=${this._busy}
+              @click=${this._backToEditor}
+            >
+              ← ${this.t("card.back_to_editor")}
+            </button>
+          </div>
         </div>
       </div>
     `;
@@ -1578,34 +2080,43 @@ export class ConXDynamicPanelCard extends LitElement {
       overflow: hidden;
       font-family: var(--conx-font);
       color: var(--text);
-      background: var(--bg);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.08) 0%, transparent 36%),
+        linear-gradient(165deg, #262b34 0%, #1a1d22 44%, #15181e 100%);
       border: 1px solid var(--border);
       box-shadow: var(--card-shadow);
       padding: 18px;
 
-      /* Noir gold (default) — premium dark with gold CTAs */
-      --bg: #111214;
-      --surface: #111214;
-      --surface-2: #1d1e20;
-      --border: rgba(255, 255, 255, 0.12);
-      --text: #f5f0e7;
-      --text-muted: #b7b9bd;
-      --accent: #d7b56d;
-      --accent-soft: rgba(215, 181, 109, 0.14);
-      --accent-text: #070809;
+      /* Noir gold — elevated charcoal/slate with 3D depth */
+      --bg: #1a1d22;
+      --surface: #1a1d22;
+      --surface-2: #242830;
+      --border: rgba(255, 255, 255, 0.13);
+      --text: #f0f2f5;
+      --text-muted: #a8afb8;
+      --accent: #d4af61;
+      --accent-soft: rgba(212, 175, 97, 0.16);
+      --accent-text: #1a1d22;
       --danger: #b42318;
-      --btn-bg: #1d1e20;
-      --btn-text: #f5f0e7;
-      --btn-primary-bg: #d7b56d;
-      --btn-primary-text: #070809;
-      --input-bg: #0c0d0e;
-      --input-text: #f5f0e7;
-      --bevel-light: rgba(255, 255, 255, 0.08);
-      --bevel-dark: rgba(0, 0, 0, 0.4);
-      --atm-1: rgba(215, 181, 109, 0.12);
-      --atm-2: rgba(157, 120, 55, 0.08);
-      --faceplate-well: radial-gradient(ellipse at 50% 0%, #2a2620 0%, #121314 55%, #0a0b0c 100%);
-      --card-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+      --btn-bg: #2a2f38;
+      --btn-text: #f0f2f5;
+      --btn-border: rgba(255, 255, 255, 0.16);
+      --btn-primary-bg: #d4af61;
+      --btn-primary-text: #1a1d22;
+      --btn-success-bg: #1f8a4c;
+      --btn-success-text: #fff;
+      --input-bg: #15181e;
+      --input-text: #f0f2f5;
+      --label: #c8ced6;
+      --bevel-light: rgba(255, 255, 255, 0.14);
+      --bevel-dark: rgba(0, 0, 0, 0.38);
+      --atm-1: rgba(212, 175, 97, 0.12);
+      --atm-2: rgba(90, 115, 150, 0.11);
+      --faceplate-well: radial-gradient(ellipse at 50% 0%, #2e3440 0%, #1e232b 52%, #15191f 100%);
+      --card-shadow:
+        0 22px 48px rgba(0, 0, 0, 0.42),
+        0 1px 0 rgba(255, 255, 255, 0.10) inset,
+        inset 0 -1px 0 rgba(0, 0, 0, 0.28);
 
       --conx-ink: var(--text);
       --conx-steel: #8a837a;
@@ -1625,49 +2136,56 @@ export class ConXDynamicPanelCard extends LitElement {
     }
 
     ha-card.conx-card[data-theme="noir"] {
-      --bg: #111214;
-      --surface: #111214;
-      --surface-2: #1d1e20;
-      --border: rgba(255, 255, 255, 0.12);
-      --text: #f5f0e7;
-      --text-muted: #b7b9bd;
-      --accent: #d7b56d;
-      --accent-soft: rgba(215, 181, 109, 0.14);
-      --accent-text: #070809;
+      --bg: #1a1d22;
+      --surface: #1a1d22;
+      --surface-2: #242830;
+      --border: rgba(255, 255, 255, 0.13);
+      --text: #f0f2f5;
+      --text-muted: #a8afb8;
+      --accent: #d4af61;
+      --accent-soft: rgba(212, 175, 97, 0.16);
+      --accent-text: #1a1d22;
       --danger: #b42318;
-      --btn-bg: #1d1e20;
-      --btn-text: #f5f0e7;
-      --btn-primary-bg: #d7b56d;
-      --btn-primary-text: #070809;
-      --input-bg: #0c0d0e;
-      --input-text: #f5f0e7;
-      --faceplate-well: radial-gradient(ellipse at 50% 0%, #2a2620 0%, #121314 55%, #0a0b0c 100%);
+      --btn-bg: #2a2f38;
+      --btn-text: #f0f2f5;
+      --btn-primary-bg: #d4af61;
+      --btn-primary-text: #1a1d22;
+      --btn-success-bg: #1f8a4c;
+      --btn-success-text: #fff;
+      --input-bg: #15181e;
+      --input-text: #f0f2f5;
+      --faceplate-well: radial-gradient(ellipse at 50% 0%, #2e3440 0%, #1e232b 52%, #15191f 100%);
     }
 
     ha-card.conx-card[data-theme="ivory"] {
-      --bg: #f7f2ea;
-      --surface: #f7f2ea;
-      --surface-2: #fffaf2;
-      --border: #d8cfbf;
-      --text: #151617;
-      --text-muted: #6a645a;
-      --accent: #9d7837;
-      --accent-soft: rgba(157, 120, 55, 0.12);
-      --accent-text: #fffaf2;
+      --bg: #f5f7fa;
+      --surface: #f5f7fa;
+      --surface-2: #ffffff;
+      --border: #d0d6df;
+      --text: #1a1c1f;
+      --text-muted: #5c636e;
+      --accent: #8a7348;
+      --accent-soft: rgba(138, 115, 72, 0.12);
+      --accent-text: #ffffff;
       --danger: #b42318;
-      --btn-bg: #f0ebe3;
-      --btn-text: #151617;
-      --btn-primary-bg: #9d7837;
-      --btn-primary-text: #fffaf2;
+      --btn-bg: #e8ecf1;
+      --btn-text: #1a1c1f;
+      --btn-border: #c0c6d0;
+      --btn-primary-bg: #8a7348;
+      --btn-primary-text: #ffffff;
+      --btn-success-bg: #1f8a4c;
+      --btn-success-text: #fff;
       --input-bg: #ffffff;
-      --input-text: #151617;
-      --bevel-light: rgba(255, 255, 255, 0.7);
-      --bevel-dark: rgba(0, 0, 0, 0.08);
-      --atm-1: rgba(157, 120, 55, 0.1);
-      --atm-2: rgba(200, 192, 178, 0.2);
-      --faceplate-well: linear-gradient(180deg, #e8e0d2, #d9d0c0);
-      --card-shadow: 0 14px 36px rgba(40, 28, 14, 0.12);
-      --conx-steel: #9a8b76;
+      --input-text: #1a1c1f;
+      --label: #3d434c;
+      --bevel-light: rgba(255, 255, 255, 0.8);
+      --bevel-dark: rgba(0, 0, 0, 0.07);
+      --atm-1: rgba(138, 115, 72, 0.07);
+      --atm-2: rgba(90, 115, 150, 0.08);
+      --faceplate-well: linear-gradient(180deg, #e8eaee, #dce1e8);
+      --card-shadow: 0 14px 36px rgba(20, 28, 40, 0.10), 0 1px 0 rgba(255, 255, 255, 0.9) inset;
+      --conx-steel: #8a9098;
+      background: linear-gradient(180deg, #ffffff 0%, #f5f7fa 55%, #eef1f5 100%);
     }
 
     .atmosphere {
@@ -2401,6 +2919,110 @@ export class ConXDynamicPanelCard extends LitElement {
       gap: 8px;
     }
 
+    .radio-groups-section {
+      margin: 4px 0 10px;
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: color-mix(in srgb, var(--surface-2, var(--surface)) 88%, transparent);
+    }
+    .radio-groups-section .menu-label {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    .radio-groups-hint {
+      margin: 0 0 10px;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.45;
+    }
+    .radio-group-card {
+      padding: 10px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--input-bg, var(--surface));
+      margin-bottom: 8px;
+    }
+    .radio-group-card:last-child {
+      margin-bottom: 0;
+    }
+    .radio-group-card.is-summary {
+      border-style: dashed;
+      background: color-mix(in srgb, var(--surface-2, var(--surface)) 70%, transparent);
+    }
+    .radio-group-title {
+      font-size: 0.8rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--label, var(--text-muted));
+      margin-bottom: 8px;
+    }
+    .radio-group-members {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 6px;
+    }
+    .radio-member {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      min-height: 0;
+      padding: 8px 4px 9px;
+      border-radius: 10px;
+      border: 1px solid var(--btn-border, var(--border));
+      background: var(--btn-bg);
+      color: var(--btn-text);
+      cursor: pointer;
+      font: inherit;
+      user-select: none;
+      transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
+    }
+    .radio-member.on {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      color: var(--text);
+    }
+    .radio-member.is-readonly {
+      cursor: default;
+      opacity: 0.92;
+    }
+    .radio-member-label {
+      font-size: 0.8rem;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      line-height: 1;
+    }
+    .radio-member .switch {
+      --switch-w: 40px;
+      --switch-h: 24px;
+      --switch-thumb: 20px;
+      --switch-pad: 2px;
+    }
+    .radio-member .switch input:disabled {
+      cursor: default;
+    }
+    .radio-member .switch:has(input:disabled) {
+      opacity: 0.88;
+    }
+    .radio-groups-error {
+      margin-top: 10px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid var(--warn-border, var(--border));
+      background: var(--warn-bg, var(--accent-soft));
+      color: var(--warn-text, var(--text));
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
     @media (max-width: 520px) {
       .grid-2 {
         grid-template-columns: 1fr;
@@ -2726,6 +3348,275 @@ export class ConXDynamicPanelCard extends LitElement {
       padding: 16px;
       position: relative;
       z-index: 1;
+    }
+
+    .header {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 10px;
+    }
+    .header-side {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      direction: ltr;
+    }
+    .menu-btn {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      border: 1px solid var(--btn-border, var(--border));
+      background: var(--btn-bg);
+      display: inline-grid;
+      place-items: center;
+      gap: 4px;
+      cursor: pointer;
+      padding: 10px 9px;
+    }
+    .menu-btn span {
+      display: block;
+      width: 18px;
+      height: 2px;
+      border-radius: 2px;
+      background: var(--text);
+    }
+    .conx-layer {
+      position: absolute;
+      inset: 0;
+      z-index: 20;
+      display: grid;
+      place-items: center;
+      padding: 16px;
+      background: rgba(8, 12, 18, 0.55);
+      backdrop-filter: blur(2px);
+    }
+    .conx-panel {
+      width: min(100%, 420px);
+      max-height: min(86vh, 720px);
+      overflow: auto;
+      border-radius: 18px;
+      border: 1px solid var(--border);
+      background: var(--surface-2, var(--surface));
+      box-shadow: var(--card-shadow);
+      padding: 14px;
+    }
+    .conx-panel.wide { width: min(100%, 560px); }
+    .menu-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .menu-title, .export-title {
+      font-family: var(--conx-display);
+      font-size: 1.25rem;
+      font-weight: 700;
+    }
+    .menu-close {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--btn-bg);
+      color: var(--text);
+      cursor: pointer;
+      font-size: 1.2rem;
+      line-height: 1;
+    }
+    .menu-section { margin-bottom: 14px; }
+    .menu-section .menu-label,
+    .radio-groups-section .menu-label {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+    .menu-actions {
+      display: grid;
+      gap: 8px;
+    }
+    .lang-flags {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+    .hero-preview {
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      overflow: hidden;
+      margin-bottom: 10px;
+    }
+    .hero-preview .section-head {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .hero-profile-name {
+      font-family: var(--conx-display);
+      font-weight: 700;
+      font-size: 1.05rem;
+      text-align: center;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .hero-body {
+      padding: 16px;
+      background: var(--faceplate-well);
+    }
+    .layout-hint {
+      margin: 0 0 10px;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    .tab-bar {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .tab-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      border-radius: 14px;
+      border: 1px solid var(--btn-border, var(--border));
+      background: var(--btn-bg);
+      color: var(--text-muted);
+      padding: 10px 8px;
+      cursor: pointer;
+      font: inherit;
+    }
+    .tab-btn.active {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      color: var(--text);
+    }
+    .tab-step {
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .tab-label {
+      font-family: var(--conx-display);
+      font-size: 1.02rem;
+      font-weight: 600;
+    }
+    .tab-panel { display: none; padding: 4px 0 8px; }
+    .tab-panel.active { display: block; }
+    .profile-list {
+      display: grid !important;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .profile-name-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .profile-name-row .field { margin-bottom: 0; }
+    .profile-actions {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .profile-actions .btn {
+      width: 100%;
+      min-height: 50px;
+      justify-content: center;
+    }
+    .actions-dock { margin-top: 12px; }
+    .actions-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .btn.success {
+      background: var(--btn-success-bg, #1f8a4c);
+      color: var(--btn-success-text, #fff);
+      border-color: var(--btn-success-bg, #1f8a4c);
+    }
+    .export-hint {
+      margin: 0 0 12px;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+    .export-actions {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .export-footer { margin-top: 12px; }
+    .radio-group-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-height: 34px;
+    }
+    .radio-group-head-main {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 2px;
+      min-width: 0;
+      flex: 1;
+    }
+    .radio-group-title {
+      margin-bottom: 0 !important;
+      line-height: 1.2;
+    }
+    .radio-group-summary {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 100%;
+    }
+    .radio-group-card.open .radio-group-members { margin-top: 8px; }
+    .radio-group-card:not(.open) { padding-top: 8px; padding-bottom: 8px; }
+    .dimmer-label-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 28px;
+    }
+    .dimmer-pct {
+      min-width: 3.4em;
+      text-align: end;
+      font-variant-numeric: tabular-nums;
+    }
+    .dimmer-field input[type="range"] {
+      width: 100%;
+      height: 28px;
+      accent-color: var(--accent);
+    }
+    .single-layout {
+      display: grid !important;
+      gap: var(--conx-gap);
+      grid-template-columns: 1fr !important;
+    }
+    @media (max-width: 520px) {
+      .profile-list { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+      .profile-name-row, .export-actions, .actions-grid { grid-template-columns: 1fr; }
+      .tab-label { font-size: 0.95rem; }
     }
   `;
 }

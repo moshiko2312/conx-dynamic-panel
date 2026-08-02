@@ -11,179 +11,289 @@
     :root {
       --font: "Manrope", ui-sans-serif, sans-serif;
       --display: "Cormorant Garamond", Georgia, serif;
-      --ink: #070809;
-      --charcoal: #151617;
-      --panel: #1d1e20;
-      --gold: #d7b56d;
-      --gold-deep: #9d7837;
-      --silver: #b7b9bd;
-      --ivory: #f5f0e7;
-      --stone: #c8c0b2;
+      --ink: #12151a;
+      --charcoal: #1a1d22;
+      --panel: #242830;
+      --gold: #d4af61;
+      --gold-deep: #8a7348;
+      --silver: #a8afb8;
+      --ivory: #f5f7fa;
+      --stone: #c4c8ce;
       --ring-on: #00e5ff;
       --ring-off: #2979ff;
 
-      /* Noir gold (default — Izzy-inspired) */
-      --page-bg: #070809;
-      --surface: #111214;
-      --surface-2: #1d1e20;
-      --border: rgba(255,255,255,.12);
-      --text: #f5f0e7;
-      --text-muted: #b7b9bd;
-      --accent: #d7b56d;
-      --accent-soft: rgba(215,181,109,.14);
-      --accent-text: #070809;
-      --btn-bg: #1d1e20;
-      --btn-text: #f5f0e7;
+      /* Noir gold — elevated charcoal/slate with 3D depth (not pure black) */
+      --page-bg: #14171c;
+      --surface: #1a1d22;
+      --surface-2: #242830;
+      --surface-fill:
+        linear-gradient(180deg, rgba(255,255,255,.08) 0%, transparent 36%),
+        linear-gradient(165deg, #262b34 0%, #1a1d22 44%, #15181e 100%);
+      --border: rgba(255,255,255,.13);
+      --text: #f0f2f5;
+      --text-muted: #a8afb8;
+      --accent: #d4af61;
+      --accent-soft: rgba(212,175,97,.16);
+      --accent-text: #1a1d22;
+      --btn-bg: #2a2f38;
+      --btn-text: #f0f2f5;
       --btn-border: rgba(255,255,255,.16);
-      --btn-primary-bg: #d7b56d;
-      --btn-primary-text: #070809;
+      --btn-primary-bg: #d4af61;
+      --btn-primary-text: #1a1d22;
       --btn-danger-bg: #b42318;
       --btn-danger-text: #fff;
-      --input-bg: #0c0d0e;
-      --input-text: #f5f0e7;
+      --btn-success-bg: #1f8a4c;
+      --btn-success-text: #fff;
+      --input-bg: #15181e;
+      --input-text: #f0f2f5;
       --input-border: rgba(255,255,255,.14);
-      --label: #c8c0b2;
-      --chip-active-bg: rgba(215,181,109,.16);
-      --chip-active-text: #f5f0e7;
-      --warn-bg: rgba(215,181,109,.12);
-      --warn-border: rgba(215,181,109,.35);
-      --warn-text: #f0dfb0;
-      --notice-bg: rgba(215,181,109,.12);
-      --notice-border: rgba(215,181,109,.35);
-      --notice-text: #f5e6c0;
-      --shadow: 0 18px 48px rgba(0,0,0,.45);
-      --focus: #d7b56d;
-      --faceplate-well: radial-gradient(ellipse at 50% 0%, #2a2620 0%, #121314 55%, #0a0b0c 100%);
-      --glass: rgba(11,12,13,.82);
-      --drag-hover: rgba(215,181,109,.22);
+      --label: #c8ced6;
+      --chip-active-bg: rgba(212,175,97,.18);
+      --chip-active-text: #f0f2f5;
+      --warn-bg: rgba(212,175,97,.14);
+      --warn-border: rgba(212,175,97,.38);
+      --warn-text: #e8d5a3;
+      --notice-bg: rgba(212,175,97,.14);
+      --notice-border: rgba(212,175,97,.38);
+      --notice-text: #efe0b8;
+      --shadow:
+        0 22px 48px rgba(0,0,0,.42),
+        0 1px 0 rgba(255,255,255,.10) inset,
+        inset 0 -1px 0 rgba(0,0,0,.28);
+      --focus: #d4af61;
+      --faceplate-well: radial-gradient(ellipse at 50% 0%, #2e3440 0%, #1e232b 52%, #15191f 100%);
+      --glass: rgba(22,26,32,.86);
       --conx-ink: var(--text);
       --conx-accent: var(--accent);
       --conx-accent-soft: var(--accent-soft);
-      --conx-steel: #8a837a;
+      --conx-steel: #8a9098;
       --conx-danger: var(--btn-danger-bg);
-      --conx-bevel-light: rgba(255,255,255,.08);
-      --conx-bevel-dark: rgba(0,0,0,.4);
+      --conx-bevel-light: rgba(255,255,255,.14);
+      --conx-bevel-dark: rgba(0,0,0,.38);
     }
 
     body[data-theme="ivory"] {
-      --page-bg: #efe9df;
-      --surface: #f7f2ea;
-      --surface-2: #fffaf2;
-      --border: #d8cfbf;
-      --text: #151617;
-      --text-muted: #6a645a;
-      --accent: #9d7837;
-      --accent-soft: rgba(157,120,55,.12);
-      --accent-text: #fffaf2;
-      --btn-bg: #f0ebe3;
-      --btn-text: #151617;
-      --btn-border: #c8c0b2;
-      --btn-primary-bg: #9d7837;
-      --btn-primary-text: #fffaf2;
+      /* Ivory stone — cool near-white / soft stone, not cream */
+      --page-bg: #e8ecf1;
+      --surface: #f5f7fa;
+      --surface-2: #ffffff;
+      --surface-fill: linear-gradient(180deg, #ffffff 0%, #f5f7fa 55%, #eef1f5 100%);
+      --border: #d0d6df;
+      --text: #1a1c1f;
+      --text-muted: #5c636e;
+      --accent: #8a7348;
+      --accent-soft: rgba(138,115,72,.12);
+      --accent-text: #ffffff;
+      --btn-bg: #e8ecf1;
+      --btn-text: #1a1c1f;
+      --btn-border: #c0c6d0;
+      --btn-primary-bg: #8a7348;
+      --btn-primary-text: #ffffff;
       --btn-danger-bg: #b42318;
       --btn-danger-text: #fff;
+      --btn-success-bg: #1f8a4c;
+      --btn-success-text: #fff;
       --input-bg: #ffffff;
-      --input-text: #151617;
-      --input-border: #d8cfbf;
-      --label: #4a453c;
-      --chip-active-bg: rgba(157,120,55,.14);
-      --chip-active-text: #151617;
-      --warn-bg: #fff4e5;
-      --warn-border: #e0b27a;
-      --warn-text: #7a3e00;
-      --notice-bg: rgba(157,120,55,.12);
-      --notice-border: rgba(157,120,55,.35);
-      --notice-text: #5c3a0a;
-      --shadow: 0 14px 36px rgba(40,28,14,.12);
-      --focus: #9d7837;
-      --faceplate-well: linear-gradient(180deg, #e8e0d2, #d9d0c0);
-      --glass: rgba(247,242,234,.88);
-      --drag-hover: rgba(157,120,55,.2);
-      --conx-steel: #9a8b76;
-      --conx-bevel-light: rgba(255,255,255,.7);
-      --conx-bevel-dark: rgba(0,0,0,.08);
+      --input-text: #1a1c1f;
+      --input-border: #d0d6df;
+      --label: #3d434c;
+      --chip-active-bg: rgba(138,115,72,.12);
+      --chip-active-text: #1a1c1f;
+      --warn-bg: #eef1f5;
+      --warn-border: #c4a574;
+      --warn-text: #5c4a28;
+      --notice-bg: rgba(138,115,72,.10);
+      --notice-border: rgba(138,115,72,.32);
+      --notice-text: #4a3a1e;
+      --shadow: 0 14px 36px rgba(20,28,40,.10), 0 1px 0 rgba(255,255,255,.9) inset;
+      --focus: #8a7348;
+      --faceplate-well: linear-gradient(180deg, #e8eaee, #dce1e8);
+      --glass: rgba(245,247,250,.92);
+      --conx-steel: #8a9098;
+      --conx-bevel-light: rgba(255,255,255,.8);
+      --conx-bevel-dark: rgba(0,0,0,.07);
     }
 
     * { box-sizing: border-box; }
     body {
       margin: 0; min-height: 100vh; font-family: var(--font);
-      color: var(--text); background: var(--page-bg);
+      color: var(--text);
       padding: 24px 16px 56px;
+      background-color: var(--page-bg);
       background-image:
-        radial-gradient(ellipse at 15% 0%, rgba(215,181,109,.12), transparent 42%),
-        radial-gradient(ellipse at 90% 20%, rgba(157,120,55,.08), transparent 40%);
+        radial-gradient(ellipse at 18% 0%, rgba(212,175,97,.12), transparent 44%),
+        radial-gradient(ellipse at 88% 16%, rgba(90,115,150,.11), transparent 42%),
+        linear-gradient(165deg, #1e242c 0%, #161a20 46%, #111418 100%);
     }
     body[data-theme="ivory"] {
       background-image:
-        radial-gradient(ellipse at 20% 0%, rgba(157,120,55,.1), transparent 45%),
-        radial-gradient(ellipse at 80% 10%, rgba(200,192,178,.25), transparent 40%);
+        radial-gradient(ellipse at 20% 0%, rgba(138,115,72,.07), transparent 45%),
+        radial-gradient(ellipse at 80% 10%, rgba(160,175,195,.22), transparent 42%),
+        linear-gradient(165deg, #f4f6f9 0%, #e8ecf1 55%, #e2e7ee 100%);
     }
 
     .page { max-width: 1120px; margin: 0 auto; }
-    .page-intro { text-align: center; margin-bottom: 20px; }
-    .eyebrow {
-      color: var(--accent); letter-spacing: .16em; text-transform: uppercase;
-      font-size: .72rem; font-weight: 700; margin: 0 0 8px;
+    .page-intro {
+      margin-bottom: 22px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
     }
     .page-intro h1 {
       font-family: var(--display); font-weight: 600;
-      font-size: clamp(2.2rem, 6vw, 3.4rem); line-height: .98;
-      margin: 0 0 8px; letter-spacing: -.02em; color: var(--text);
+      font-size: clamp(2.2rem, 6vw, 3.4rem); line-height: 1.05;
+      margin: 0; letter-spacing: -.02em; color: var(--text);
     }
     .page-intro h1 .gold { color: var(--accent); }
-    .page-intro p { margin: 0; color: var(--text-muted); font-size: .98rem; max-width: 42rem; margin-inline: auto; }
-
-    .nav-link-bar { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-top:16px; }
-    .nav-link-bar a, .nav-link-bar button {
-      font: inherit; font-weight: 700; cursor: pointer;
-      border-radius: 999px; padding: 10px 16px; min-height: 44px;
-      border: 1px solid var(--btn-border);
-      background: var(--btn-bg); color: var(--btn-text); text-decoration: none;
-      display: inline-flex; align-items: center;
-    }
-    .nav-link-bar button.primary, .nav-link-bar a.primary {
-      background: var(--btn-primary-bg); color: var(--btn-primary-text); border-color: var(--btn-primary-bg);
-    }
-
-    .hint-bar { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:14px; }
-    .hint-chip {
-      font-size:.75rem; padding:6px 11px; border-radius:999px;
-      background: var(--glass); color: var(--text-muted);
-      border: 1px solid var(--border); backdrop-filter: blur(12px);
-    }
 
     .conx-card {
       position: relative; overflow: hidden; border-radius: 20px; padding: 18px;
-      color: var(--text); background: var(--surface);
-      border: 1px solid var(--border); box-shadow: var(--shadow);
+      color: var(--text);
+      background: var(--surface-fill, var(--surface));
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+    }
+    .conx-card::before {
+      content: "";
+      position: absolute; inset: 0 0 auto 0; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,.22), transparent);
+      pointer-events: none; z-index: 2;
+    }
+    body[data-theme="ivory"] .conx-card::before {
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,.95), transparent);
     }
     .conx-card.syncing-pulse .sync-btn { animation: conx-pulse 700ms ease; }
 
-    .header, .warn, .notice, .hero-preview, .settings-layout, .actions-dock { position: relative; z-index: 1; }
-    .header { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:14px; }
-    .brand {
+    .panel-title, .header, .warn, .notice, .hero-preview, .settings-tabs, .actions-dock, .layout-hint { position: relative; z-index: 1; }
+    .panel-title {
+      text-align: center;
+      margin: 0 0 14px;
+      padding: 0 8px;
+    }
+    .panel-title .brand {
       font-family: var(--display); font-size: 1.75rem; font-weight: 700;
       letter-spacing: .04em; line-height: 1; color: var(--accent);
     }
-    .title { font-family: var(--display); font-size: 1.35rem; font-weight: 600; margin-top: 4px; }
-    .subtitle { color: var(--text-muted); margin-top: 2px; font-size: .92rem; }
-    .header-side { display:flex; flex-direction:column; align-items:flex-end; gap:8px; }
-    [dir="rtl"] .header-side { align-items:flex-start; }
+    .panel-title .title {
+      font-family: var(--display); font-size: 1.35rem; font-weight: 600;
+      margin-top: 6px; color: var(--text);
+    }
+    /* Chrome only: status + hamburger — fixed LTR so HE/EN match visually */
+    .header {
+      display: flex; justify-content: flex-end; gap: 12px;
+      align-items: center; margin-bottom: 14px;
+      direction: ltr;
+    }
+    .header-side {
+      display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+      flex-direction: row;
+    }
 
-    .lang-flags { display:flex; gap:6px; }
+    .menu-btn {
+      width: 46px; height: 46px; border-radius: 14px;
+      border: 1px solid var(--btn-border);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.08), transparent 55%),
+        var(--btn-bg);
+      color: var(--text);
+      box-shadow: 0 1px 0 rgba(255,255,255,.08) inset, 0 2px 6px rgba(0,0,0,.2);
+      display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+      cursor: pointer; padding: 0;
+    }
+    body[data-theme="ivory"] .menu-btn {
+      background: linear-gradient(180deg, #ffffff, var(--btn-bg));
+      box-shadow: 0 1px 0 rgba(255,255,255,.9) inset, 0 2px 6px rgba(20,28,40,.08);
+    }
+    .menu-btn span {
+      display: block; width: 18px; height: 2px; border-radius: 2px;
+      background: currentColor;
+    }
+    .menu-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* Shared centered modal layer (settings / export / confirm) */
+    .conx-layer {
+      position: fixed; inset: 0; z-index: 80;
+      display: flex; align-items: center; justify-content: center;
+      padding: 16px;
+      background: rgba(8, 10, 14, .55);
+      opacity: 0; pointer-events: none;
+      transition: opacity .18s ease;
+    }
+    body[data-theme="ivory"] .conx-layer { background: rgba(20, 28, 40, .42); }
+    .conx-layer.open { opacity: 1; pointer-events: auto; }
+    .conx-panel {
+      width: min(400px, 100%);
+      max-height: calc(100vh - 32px);
+      overflow: auto;
+      display: flex; flex-direction: column;
+      padding: 14px 14px 16px;
+      border-radius: 18px;
+      border: 1px solid var(--border);
+      background: var(--surface-fill, var(--surface));
+      color: var(--text);
+      box-shadow:
+        0 22px 56px rgba(8,10,14,.48),
+        inset 0 1px 0 var(--conx-bevel-light);
+      transform: scale(0.96) translateY(8px);
+      transition: transform .18s ease;
+    }
+    .conx-layer.open .conx-panel { transform: scale(1) translateY(0); }
+    .conx-panel.wide { width: min(520px, 100%); }
+    .conx-panel.compact { width: min(380px, 100%); }
+    .menu-head, .conx-modal-head {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 10px; margin-bottom: 12px; flex-shrink: 0;
+    }
+    .menu-title, .conx-modal-title, .export-title {
+      font-family: var(--display); font-size: 1.35rem; font-weight: 700;
+      letter-spacing: .01em;
+    }
+    .menu-close, .conx-modal-close {
+      width: 36px; height: 36px; border-radius: 12px;
+      border: 1px solid var(--btn-border); background: var(--btn-bg); color: var(--btn-text);
+      cursor: pointer; font-size: 1.15rem; font-weight: 700; flex-shrink: 0;
+    }
+    .menu-close:hover, .conx-modal-close:hover { border-color: var(--accent); color: var(--accent); }
+    .menu-section { margin-bottom: 12px; flex-shrink: 0; }
+    .menu-section:last-child { margin-bottom: 0; }
+    .menu-label {
+      display: block; font-size: .72rem; font-weight: 800; letter-spacing: .06em;
+      text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;
+    }
+    .menu-section .lang-flags { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .conx-modal-body {
+      color: var(--text);
+      line-height: 1.5;
+      font-size: .95rem;
+      margin-bottom: 14px;
+    }
+    .conx-modal-body .field { margin-bottom: 0; }
+    .conx-modal-actions {
+      display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end;
+    }
+    .conx-modal-actions .btn { min-width: 96px; justify-content: center; }
+    html[dir="rtl"] .conx-modal-actions { justify-content: flex-start; }
     .lang-btn {
-      display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px;
-      border:1px solid var(--btn-border); background: var(--btn-bg); color: var(--btn-text);
-      cursor:pointer; font:inherit;
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 8px 6px; border-radius: 12px; min-height: 38px;
+      border: 1px solid var(--btn-border); background: var(--btn-bg); color: var(--btn-text);
+      cursor: pointer; font: inherit; width: 100%;
     }
     .lang-btn.active { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
-    .lang-code { font-size:.72rem; font-weight:800; letter-spacing:.06em; }
-    .flag { width:18px; height:12px; border-radius:2px; border:1px solid rgba(0,0,0,.18); display:inline-block; overflow:hidden; flex-shrink:0; }
-    .flag-il { background:#fff; display:grid; grid-template-rows:2px 1fr 2px; place-items:center; }
-    .flag-il-bar { width:100%; height:2px; background:#0038b8; }
-    .flag-il-star { color:#0038b8; font-size:7px; line-height:1; }
+    .lang-code { font-size: .72rem; font-weight: 800; letter-spacing: .06em; }
+    .flag { width: 18px; height: 12px; border-radius: 2px; border: 1px solid rgba(0,0,0,.18); display: inline-block; overflow: hidden; flex-shrink: 0; }
+    .flag-il { background: #fff; display: grid; grid-template-rows: 2px 1fr 2px; place-items: center; }
+    .flag-il-bar { width: 100%; height: 2px; background: #0038b8; }
+    .flag-il-star { color: #0038b8; font-size: 7px; line-height: 1; }
     .flag-gb { background: linear-gradient(90deg, transparent 44%, #fff 44%, #fff 56%, transparent 56%), linear-gradient(#fff 38%, transparent 38%, transparent 62%, #fff 62%), linear-gradient(90deg, transparent 46%, #c8102e 46%, #c8102e 54%, transparent 54%), linear-gradient(#c8102e 42%, transparent 42%, transparent 58%, #c8102e 58%), #012169; }
     .flag-ru { background: linear-gradient(to bottom, #fff 0 33%, #0039a6 33% 66%, #d52b1e 66% 100%); }
+    .menu-actions { display: grid; gap: 6px; }
+    .menu-actions .btn { width: 100%; justify-content: center; min-height: 38px; padding: 8px 12px; }
+    .menu-actions a.btn { text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
+    .app-menu .theme-swatches { gap: 8px; }
+    .app-menu .theme-swatch { padding: 10px 8px; gap: 6px; }
+    .app-menu .theme-swatch-face { width: 34px; height: 34px; }
 
     .badge {
       border-radius:999px; padding:5px 11px; font-size:.8rem; font-weight:700;
@@ -198,22 +308,55 @@
     .warn.visible, .notice.visible { display:block; }
     .notice { background:var(--notice-bg); border-color:var(--notice-border); color:var(--notice-text); }
 
-    /* —— HERO faceplate (pinned top, full width) —— */
+    /* —— HERO faceplate (top, full width) —— */
     .hero-preview {
       border-radius: 18px; border: 1px solid var(--border);
-      background: var(--surface-2); margin-bottom: 14px; overflow: hidden;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.05), transparent 40%),
+        var(--surface-2);
+      margin-bottom: 14px; overflow: hidden;
+      box-shadow: 0 1px 0 rgba(255,255,255,.06) inset;
+    }
+    body[data-theme="ivory"] .hero-preview {
+      background: linear-gradient(180deg, #ffffff, var(--surface-2));
+      box-shadow: none;
     }
     .hero-preview .section-head {
-      display:flex; align-items:center; justify-content:space-between; gap:10px;
-      padding: 12px 16px; border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      position: relative;
+    }
+    .hero-preview .section-head-main,
+    .hero-preview .section-head > .switch {
+      position: relative;
+      z-index: 1;
+      flex: 0 1 auto;
+      min-width: 0;
     }
     .hero-preview .section-title {
       font-family: var(--display); font-size: 1.35rem; font-weight: 600; letter-spacing: -.01em;
     }
-    .hero-pin {
-      font-size: .7rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
-      color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
-      border-radius: 999px; padding: 4px 10px;
+    .hero-preview .hero-profile-name {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 0;
+      text-align: center;
+      font-family: var(--display);
+      font-weight: 600;
+      font-size: clamp(1.05rem, 2.8vw, 1.45rem);
+      letter-spacing: .01em;
+      line-height: 1.15;
+      color: var(--accent);
+      max-width: min(46%, 280px);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      pointer-events: none;
     }
     .hero-body { padding: 18px 16px 22px; background: var(--faceplate-well); }
     .hero-preview.collapsed .hero-body { display: none; }
@@ -233,7 +376,7 @@
     }
     .faceplate-labels {
       display: grid; grid-template-columns: repeat(4, 1fr); align-items: center;
-      background: #0a0a0a; color: #f5f5f5; padding: 0 6px;
+      background: linear-gradient(180deg, #2a3038 0%, #1a1d22 100%); color: #f0f2f5; padding: 0 6px;
     }
     .faceplate-label {
       text-align: center; font-size: clamp(.85rem, 2.4vw, 1.2rem); font-weight: 600;
@@ -263,43 +406,69 @@
 
     .layout-hint { font-size:.8rem; color: var(--text-muted); margin: 0 0 10px; }
 
-    /* Settings grid below hero */
-    .settings-layout {
-      display: grid; gap: 12px; grid-template-columns: 1fr; align-items: start;
-    }
-    @media (min-width: 900px) {
-      .settings-layout { grid-template-columns: 1fr 1fr; }
-    }
-    .settings-layout.hidden-for-export { display: none; }
+    /* 3 setup tabs below hero */
     .hero-preview.hidden-for-export { display: none; }
+    .layout-hint.hidden-for-export { display: none; }
 
-    .panel-section {
-      border-radius: 14px; border: 1px solid var(--border);
-      background: var(--surface-2); color: var(--text);
-      overflow: hidden; min-height: 0; align-self: start;
+    .settings-tabs {
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      overflow: hidden;
     }
-    .panel-section.dragging { opacity: .55; }
-    .panel-section.drag-over { outline: 2px solid var(--accent); outline-offset: 2px; }
-    .panel-section.span-2 { grid-column: 1 / -1; }
+    .settings-tabs.hidden-for-export { display: none; }
+    .tab-bar {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0;
+      border-bottom: 1px solid var(--border);
+      background: color-mix(in srgb, var(--surface) 70%, var(--surface-2));
+    }
+    .tab-btn {
+      appearance: none;
+      border: 0;
+      background: transparent;
+      color: var(--text-muted);
+      font: inherit;
+      font-weight: 700;
+      min-height: 54px;
+      padding: 10px 8px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      border-bottom: 2px solid transparent;
+      transition: color .15s ease, background .15s ease, border-color .15s ease;
+    }
+    .tab-btn:hover { color: var(--text); background: var(--accent-soft); }
+    .tab-btn.active {
+      color: var(--text);
+      border-bottom-color: var(--accent);
+      background: color-mix(in srgb, var(--accent-soft) 55%, transparent);
+    }
+    .tab-step {
+      font-size: .68rem;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      font-weight: 800;
+    }
+    .tab-btn:not(.active) .tab-step { color: var(--text-muted); opacity: .8; }
+    .tab-label { font-family: var(--display); font-size: 1.05rem; font-weight: 600; }
+    .tab-panels { padding: 0; }
+    .tab-panel { display: none; padding: 16px; }
+    .tab-panel.active { display: block; }
 
     .section-head {
       display:flex; align-items:center; justify-content:space-between; gap:10px;
       padding: 10px 12px; min-height: 48px; background: transparent;
     }
     .section-head-main { display:flex; align-items:center; gap:8px; min-width:0; flex:1; }
-    .drag-handle {
-      display:inline-flex; align-items:center; justify-content:center;
-      width:28px; height:28px; border-radius:8px;
-      border:1px solid var(--btn-border); background: var(--btn-bg); color: var(--text-muted);
-      cursor: grab; flex-shrink:0; font-size:14px; user-select:none;
-    }
-    .drag-handle:active { cursor: grabbing; }
     .section-title { font-family: var(--display); font-weight: 600; font-size: 1.15rem; color: var(--text);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-    .section-body { display: none; }
-    .panel-section.open .section-body { display: block; border-top: 1px solid var(--border); }
-    .section-body-inner { padding: 12px; }
+    .section-body-inner { padding: 0; }
 
     .switch {
       --switch-w:44px; --switch-h:26px; --switch-thumb:22px; --switch-pad:2px;
@@ -320,14 +489,40 @@
     .switch input:checked + .slider::before { left: calc(100% - var(--switch-thumb) - var(--switch-pad)); }
     .switch input:focus-visible + .slider { outline:2px solid var(--focus); outline-offset:2px; }
 
-    .profile-list { display:flex; flex-direction:column; gap:8px; margin-bottom:10px; }
+    .profile-list {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 10px;
+    }
     .profile-chip {
-      border-radius:12px; padding:9px 12px; border:1px solid var(--btn-border);
+      border-radius:12px; padding:8px 10px; border:1px solid var(--btn-border);
       background: var(--btn-bg); color: var(--btn-text); cursor:pointer; font:inherit; text-align:start;
+      min-width: 0; min-height: 44px;
     }
     .profile-chip.active { border-color: var(--accent); background: var(--chip-active-bg); color: var(--chip-active-text); }
-    .chip-name { font-weight:700; }
-    .chip-id { font-size:.75rem; color: var(--text-muted); }
+    .chip-name {
+      font-weight:700; font-size:.9rem; line-height:1.25;
+      overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    }
+    .chip-id {
+      font-size:.7rem; color: var(--text-muted); line-height:1.2;
+      overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    }
+    .profile-name-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .profile-name-row .field { margin-bottom: 0; min-width: 0; }
+    @media (max-width:520px) {
+      .profile-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width:360px) {
+      .profile-list { grid-template-columns: 1fr; }
+      .profile-name-row { grid-template-columns: 1fr; }
+    }
 
     .field { display:flex; flex-direction:column; gap:5px; margin-bottom:10px; font-size:.9rem; }
     .field > span, .field > span span { font-weight:600; color: var(--label); }
@@ -350,8 +545,8 @@
     .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
     @media (max-width:520px) {
       .grid-2 { grid-template-columns:1fr; }
-      .header { flex-direction:column; }
-      .header-side, [dir="rtl"] .header-side { align-items:flex-start; }
+      .panel-title .brand { font-size: 1.5rem; }
+      .panel-title .title { font-size: 1.2rem; }
     }
 
     .btn {
@@ -361,28 +556,154 @@
     }
     .btn:hover:not(:disabled) { filter: brightness(1.06); }
     .btn.primary { background: var(--btn-primary-bg); color: var(--btn-primary-text); border-color: var(--btn-primary-bg); }
+    .btn.success { background: var(--btn-success-bg); color: var(--btn-success-text); border-color: var(--btn-success-bg); }
     .btn.danger { background: var(--btn-danger-bg); color: var(--btn-danger-text); border-color: var(--btn-danger-bg); }
     .btn:disabled { opacity:.5; cursor:not-allowed; filter:none; }
 
-    .theme-swatches { display:flex; flex-wrap:wrap; gap:16px; }
+    .theme-swatches { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .theme-swatch {
-      display:flex; flex-direction:column; align-items:center; gap:7px;
-      padding:0; border:0; background:transparent; cursor:pointer; font:inherit; color:var(--text-muted); min-width:72px;
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      padding: 14px 10px; border-radius: 14px; cursor: pointer; font: inherit;
+      border: 1px solid var(--btn-border); background: var(--btn-bg); color: var(--text-muted);
     }
     .theme-swatch-face {
-      width:36px; height:36px; border-radius:50%; background:var(--swatch);
-      border:2px solid var(--border); box-shadow: 0 2px 8px rgba(0,0,0,.25);
+      width: 42px; height: 42px; border-radius: 50%; background: var(--swatch);
+      border: 2px solid var(--border); box-shadow: 0 2px 8px rgba(0,0,0,.25);
+    }
+    .theme-swatch.active {
+      border-color: var(--accent); background: var(--accent-soft); color: var(--text);
     }
     .theme-swatch.active .theme-swatch-face {
       border-color: var(--swatch-accent, var(--accent));
       box-shadow: 0 0 0 3px color-mix(in srgb, var(--swatch-accent, var(--accent)) 40%, transparent);
     }
-    .theme-swatch-name { font-size:.72rem; font-weight:700; color: var(--text-muted); }
+    .theme-swatch-name { font-size: .78rem; font-weight: 700; text-align: center; }
     .theme-swatch.active .theme-swatch-name { color: var(--text); }
+    .profile-actions {
+      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 4px;
+    }
+    .profile-actions .btn {
+      width: 100%;
+      min-height: 50px;
+      padding: 12px 14px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-size: .95rem;
+    }
 
     .dimmer-field { margin-top:8px; }
-    .dimmer-field input[type=range] { width:100%; accent-color: var(--accent); }
     .dimmer-field.dimmed { opacity:.45; }
+    .dimmer-label-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 28px;
+    }
+    .dimmer-pct {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 3.4em;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: .92rem;
+      font-weight: 800;
+      letter-spacing: .02em;
+      color: var(--accent-text);
+      background: var(--accent);
+      box-shadow: 0 1px 0 rgba(255,255,255,.18) inset, 0 2px 8px rgba(0,0,0,.22);
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+    }
+    .dimmer-field input[type=range] {
+      --brightness-pct: 100%;
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 44px;
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      cursor: pointer;
+      outline: none;
+      accent-color: var(--accent);
+    }
+    .dimmer-field input[type=range]:focus-visible {
+      outline: 2px solid var(--focus);
+      outline-offset: 4px;
+      border-radius: 12px;
+    }
+    .dimmer-field input[type=range]:disabled {
+      cursor: not-allowed;
+    }
+    .dimmer-field input[type=range]::-webkit-slider-runnable-track {
+      height: 12px;
+      border-radius: 999px;
+      border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+      background:
+        linear-gradient(
+          to right,
+          var(--accent) 0%,
+          var(--accent) var(--brightness-pct),
+          color-mix(in srgb, var(--surface-2) 70%, #000) var(--brightness-pct),
+          color-mix(in srgb, var(--surface-2) 70%, #000) 100%
+        );
+      box-shadow: inset 0 1px 2px rgba(0,0,0,.35);
+    }
+    [dir="rtl"] .dimmer-field input[type=range]::-webkit-slider-runnable-track {
+      background:
+        linear-gradient(
+          to left,
+          var(--accent) 0%,
+          var(--accent) var(--brightness-pct),
+          color-mix(in srgb, var(--surface-2) 70%, #000) var(--brightness-pct),
+          color-mix(in srgb, var(--surface-2) 70%, #000) 100%
+        );
+    }
+    .dimmer-field input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 26px;
+      height: 26px;
+      margin-top: -8px; /* (12px track - 26px thumb) / 2 */
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 30%, #fff 0%, #f7f3e8 42%, var(--accent) 100%);
+      border: 2px solid #fff;
+      box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--accent) 55%, #000),
+        0 2px 8px rgba(0,0,0,.45),
+        0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
+      cursor: grab;
+    }
+    .dimmer-field input[type=range]::-webkit-slider-thumb:active { cursor: grabbing; }
+    .dimmer-field input[type=range]::-moz-range-track {
+      height: 12px;
+      border-radius: 999px;
+      border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+      background: color-mix(in srgb, var(--surface-2) 70%, #000);
+      box-shadow: inset 0 1px 2px rgba(0,0,0,.35);
+    }
+    .dimmer-field input[type=range]::-moz-range-progress {
+      height: 12px;
+      border-radius: 999px;
+      background: var(--accent);
+    }
+    .dimmer-field input[type=range]::-moz-range-thumb {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 30%, #fff 0%, #f7f3e8 42%, var(--accent) 100%);
+      border: 2px solid #fff;
+      box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--accent) 55%, #000),
+        0 2px 8px rgba(0,0,0,.45),
+        0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
+      cursor: grab;
+    }
+    .dimmer-field input[type=range]::-moz-range-thumb:active { cursor: grabbing; }
 
     .buttons-accordion { display:flex; flex-direction:column; gap:8px; }
     .button-edit { border-radius:12px; border:1px solid var(--border); background: var(--surface); overflow:hidden; }
@@ -411,23 +732,183 @@
       background: var(--surface-2); padding: 12px;
     }
     .actions-dock.hidden-for-export { display: none; }
-
-    .export-overlay {
-      display:none; margin-top:12px; padding:16px; border-radius:16px;
-      border:1px solid var(--border); background: var(--surface-2);
+    .actions-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin: 0;
     }
-    .export-overlay.visible { display:block; }
-    .export-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-bottom:12px; }
-    .export-title { font-family: var(--display); font-weight:700; font-size:1.25rem; }
-    .export-overlay a { color: var(--accent); font-weight:700; }
-
-    .ref-photo { margin-top:22px; text-align:center; }
-    .ref-photo details {
-      border-radius:14px; border:1px solid var(--border); background: var(--surface);
-      color: var(--text); padding:10px 14px; text-align:start;
+    .actions-grid .btn { width: 100%; justify-content: center; }
+    @media (max-width: 720px) {
+      .actions-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
-    .ref-photo summary { cursor:pointer; font-weight:700; font-family: var(--display); font-size:1.1rem; }
-    .ref-photo img { display:block; width:min(100%,520px); margin:12px auto 4px; border-radius:12px; }
+
+    .export-hint {
+      margin: 0 0 14px;
+      color: var(--text-muted);
+      line-height: 1.5;
+      font-size: .92rem;
+    }
+    .export-actions {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      width: 100%;
+      margin-bottom: 14px;
+    }
+    .export-actions .btn {
+      width: 100%;
+      min-height: 46px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 10px 12px;
+    }
+    .export-footer {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+      width: 100%;
+    }
+    .export-link {
+      color: var(--accent);
+      font-weight: 700;
+      text-decoration: none;
+    }
+    .export-link:hover { text-decoration: underline; }
+    @media (max-width: 640px) {
+      .export-actions { grid-template-columns: 1fr; }
+      .export-footer { flex-direction: column; align-items: stretch; }
+      .export-footer .btn { width: 100%; }
+    }
+
+    .radio-groups-section {
+      margin: 4px 0 12px;
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: color-mix(in srgb, var(--surface-2) 88%, transparent);
+    }
+    .radio-groups-section[hidden] { display: none !important; }
+    .radio-groups-hint {
+      margin: 0 0 10px;
+      font-size: .85rem;
+      color: var(--text-muted);
+      line-height: 1.45;
+    }
+    .radio-group-card {
+      padding: 10px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--input-bg);
+      margin-bottom: 8px;
+    }
+    .radio-group-card:last-child { margin-bottom: 0; }
+    .radio-group-card.is-summary {
+      border-style: dashed;
+      background: color-mix(in srgb, var(--surface-2) 70%, transparent);
+    }
+    .radio-group-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-height: 34px;
+      margin-bottom: 0;
+    }
+    .radio-group-head-main {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 2px;
+      min-width: 0;
+      flex: 1;
+    }
+    .radio-group-title {
+      font-size: .8rem;
+      font-weight: 800;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      color: var(--label);
+      margin-bottom: 0;
+      line-height: 1.2;
+    }
+    .radio-group-summary {
+      font-size: .72rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: .02em;
+      line-height: 1.2;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 100%;
+    }
+    .radio-group-card.open .radio-group-summary { display: none; }
+    .radio-group-card:not(.open) .radio-group-members { display: none; }
+    .radio-group-card.open .radio-group-members { margin-top: 8px; }
+    .radio-group-card:not(.open) { padding-top: 8px; padding-bottom: 8px; }
+    .radio-group-members {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 6px;
+    }
+    .radio-member {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      min-height: 0;
+      padding: 8px 4px 9px;
+      border-radius: 10px;
+      border: 1px solid var(--btn-border);
+      background: var(--btn-bg);
+      color: var(--btn-text);
+      cursor: pointer;
+      font: inherit;
+      user-select: none;
+      transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
+    }
+    .radio-member.on {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      color: var(--text);
+    }
+    .radio-member.is-readonly {
+      cursor: default;
+      opacity: .92;
+    }
+    .radio-member-label {
+      font-size: .8rem;
+      font-weight: 800;
+      letter-spacing: .02em;
+      line-height: 1;
+    }
+    .radio-member .switch {
+      --switch-w: 40px;
+      --switch-h: 24px;
+      --switch-thumb: 20px;
+      --switch-pad: 2px;
+    }
+    .radio-member .switch input:disabled { cursor: default; }
+    .radio-member .switch:has(input:disabled) { opacity: .88; }
+    .radio-groups-error {
+      margin-top: 10px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid var(--warn-border);
+      background: var(--warn-bg);
+      color: var(--warn-text);
+      font-size: .85rem;
+      font-weight: 600;
+    }
+    .radio-groups-error[hidden] { display: none !important; }
 
     @keyframes conx-pulse {
       0% { filter:brightness(1); }
@@ -439,58 +920,108 @@
 <body data-theme="noir">
   <div class="page">
     <div class="page-intro">
-      <p class="eyebrow">ConX Dynamic Panel</p>
-      <h1>Living control.<br /><span class="gold">Clear craft.</span></h1>
-      <p id="intro-sub">תצוגה אינטראקטיבית של עיצוב הכרטיס החדש</p>
-      <div class="nav-link-bar">
-        <button type="button" class="primary" id="btn-open-export" data-i18n="card.open_export_wizard">אשף ייצוא</button>
-        <button type="button" id="btn-import-top" data-i18n="card.import">ייבוא</button>
-        <a href="conx-panel-wizard.html" id="link-standalone-wizard" data-i18n="card.open_standalone_wizard">אשף נפרד (HTML)</a>
-        <button type="button" id="btn-reset-layout" data-i18n="card.reset_layout">איפוס לייאוט</button>
+      <h1 dir="ltr" lang="en"><span class="gold">ConX</span> Dynamic Panel</h1>
+    </div>
+
+    <div class="conx-layer" id="menu-layer" hidden>
+      <aside class="conx-panel compact" id="app-menu" role="dialog" aria-modal="true" aria-labelledby="menu-title" aria-hidden="true">
+      <div class="menu-head">
+        <div class="menu-title" id="menu-title" data-i18n="card.menu">הגדרות</div>
+        <button type="button" class="menu-close" id="menu-close" aria-label="Close">×</button>
       </div>
-      <div class="hint-bar">
-        <span class="hint-chip" id="hint-lang">דגלי שפה HE / EN / RU</span>
-        <span class="hint-chip" id="hint-colors">צבעי טבעות LED משתנים</span>
-        <span class="hint-chip" id="hint-sections">מקטעים מתקפלים</span>
-        <span class="hint-chip" id="hint-drag" data-i18n="card.drag_hint">גררו את ⠿ כדי לסדר מחדש</span>
+      <div class="menu-section">
+        <span class="menu-label" data-i18n="card.language">שפה</span>
+        <div class="lang-flags" role="group" aria-label="Language">
+          <button type="button" class="lang-btn active" data-lang="he" title="עברית">
+            <span class="flag flag-il" aria-hidden="true"><span class="flag-il-bar"></span><span class="flag-il-star">✦</span><span class="flag-il-bar"></span></span>
+            <span class="lang-code">HE</span>
+          </button>
+          <button type="button" class="lang-btn" data-lang="en" title="English">
+            <span class="flag flag-gb" aria-hidden="true"></span><span class="lang-code">EN</span>
+          </button>
+          <button type="button" class="lang-btn" data-lang="ru" title="Русский">
+            <span class="flag flag-ru" aria-hidden="true"></span><span class="lang-code">RU</span>
+          </button>
+        </div>
+      </div>
+      <div class="menu-section">
+        <span class="menu-label" data-i18n="card.theme">ערכת נושא</span>
+        <div class="theme-picker"><div class="theme-swatches" id="theme-swatches"></div></div>
+      </div>
+      <div class="menu-section">
+        <span class="menu-label" data-i18n="card.step_transfer">ייצוא / ייבוא</span>
+        <div class="menu-actions">
+          <button type="button" class="btn success" data-action="export" data-i18n="card.export">ייצוא</button>
+          <button type="button" class="btn primary" id="btn-open-export" data-i18n="card.open_export_wizard">אשף ייצוא</button>
+          <button type="button" class="btn" id="btn-import-top" data-i18n="card.import_merge">ייבוא (מיזוג)</button>
+          <button type="button" class="btn danger" id="btn-import-replace-menu" data-i18n="card.import_replace">ייבוא (החלפה)</button>
+        </div>
+      </div>
+      <div class="menu-section">
+        <span class="menu-label" data-i18n="card.more">עוד</span>
+        <div class="menu-actions">
+          <a class="btn" href="conx-panel-wizard.html" id="link-standalone-wizard" data-i18n="card.open_standalone_wizard">אשף נפרד (HTML)</a>
+          <button type="button" class="btn danger" id="btn-reset" data-i18n="card.reset">איפוס נתונים</button>
+        </div>
+      </div>
+      </aside>
+    </div>
+
+    <div class="conx-layer" id="export-layer" hidden>
+      <div class="conx-panel wide" id="export-overlay" role="dialog" aria-modal="true" aria-labelledby="export-title" aria-hidden="true">
+        <div class="menu-head">
+          <div class="export-title" id="export-title" data-i18n="card.step_transfer">Export / Import</div>
+          <button type="button" class="menu-close" id="btn-back-editor" aria-label="Close">×</button>
+        </div>
+        <p class="export-hint" id="export-hint" data-i18n="card.step_transfer_hint">Download or upload portable JSON.</p>
+        <div class="export-actions">
+          <button type="button" class="btn success" data-action="export" data-i18n="card.export">Export</button>
+          <button type="button" class="btn" data-action="import-merge" data-i18n="card.import_merge">Import (merge)</button>
+          <button type="button" class="btn danger" data-action="import-replace" data-i18n="card.import_replace">Import (replace)</button>
+        </div>
+        <div class="export-footer">
+          <a class="export-link" href="conx-panel-wizard.html" id="link-wizard-from-export" data-i18n="card.open_standalone_wizard">Open standalone wizard</a>
+          <button type="button" class="btn" id="btn-back-editor-2" data-i18n="card.back_to_editor">← חזרה לעריכה</button>
+        </div>
       </div>
     </div>
 
-    <article class="conx-card" id="card" dir="rtl">
-      <div class="header">
-        <div class="brand-block">
-          <div class="brand">ConX</div>
-          <div class="title" id="panel-name">Living Room Panel</div>
-          <div class="subtitle" id="profile-subtitle">Evening</div>
+    <div class="conx-layer" id="dialog-layer" hidden>
+      <div class="conx-panel compact" id="dialog-panel" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
+        <div class="conx-modal-head">
+          <div class="conx-modal-title" id="dialog-title"></div>
+          <button type="button" class="conx-modal-close" id="dialog-close" aria-label="Close">×</button>
         </div>
+        <div class="conx-modal-body" id="dialog-body"></div>
+        <div class="conx-modal-actions" id="dialog-actions"></div>
+      </div>
+    </div>
+
+    <div class="panel-title" id="panel-title">
+      <div class="brand" dir="ltr" lang="en">ConX</div>
+      <div class="title" id="panel-name">Living Room Panel</div>
+    </div>
+
+    <article class="conx-card" id="card" dir="rtl">
+      <div class="header" dir="ltr">
         <div class="header-side">
-          <div class="lang-flags" role="group" aria-label="Language">
-            <button type="button" class="lang-btn active" data-lang="he" title="עברית">
-              <span class="flag flag-il" aria-hidden="true"><span class="flag-il-bar"></span><span class="flag-il-star">✦</span><span class="flag-il-bar"></span></span>
-              <span class="lang-code">HE</span>
-            </button>
-            <button type="button" class="lang-btn" data-lang="en" title="English">
-              <span class="flag flag-gb" aria-hidden="true"></span><span class="lang-code">EN</span>
-            </button>
-            <button type="button" class="lang-btn" data-lang="ru" title="Русский">
-              <span class="flag flag-ru" aria-hidden="true"></span><span class="lang-code">RU</span>
-            </button>
-          </div>
           <div class="badge status-synced" id="status-badge">Status: synced</div>
-          <button type="button" class="btn danger" id="btn-reset" data-i18n="card.reset">Reset</button>
+          <button type="button" class="menu-btn" id="menu-open" aria-label="Open settings menu" aria-expanded="false" aria-controls="app-menu">
+            <span></span><span></span><span></span>
+          </button>
         </div>
       </div>
 
       <div class="warn" id="dirty-warn"></div>
       <div class="notice" id="notice"></div>
 
-      <!-- HERO: pinned panel preview -->
+      <!-- HERO: panel preview -->
       <section class="hero-preview open" id="hero-preview" data-section="preview">
         <header class="section-head">
           <div class="section-head-main">
             <div class="section-title" data-i18n="card.preview">Panel preview</div>
-            <span class="hero-pin" data-i18n="card.pinned">Pinned</span>
           </div>
+          <div class="hero-profile-name" id="hero-profile-name" aria-live="polite"></div>
           <label class="switch" title="Show section">
             <input type="checkbox" checked data-section-toggle="preview" />
             <span class="slider"></span>
@@ -510,137 +1041,101 @@
         </div>
       </section>
 
-      <p class="layout-hint" id="layout-hint" data-i18n="card.drag_hint">גררו את ⠿ כדי לסדר מחדש · המצב נשמר בדפדפן</p>
+      <p class="layout-hint" id="layout-hint" data-i18n="card.tabs_hint">שלושה שלבי הגדרה מתחת לתצוגת הפאנל</p>
 
-      <div class="settings-layout" id="main-layout">
-        <section class="panel-section open" data-section="profiles">
-          <header class="section-head">
-            <div class="section-head-main">
-              <button type="button" class="drag-handle" draggable="true" data-drag-for="profiles" aria-label="Drag">⠿</button>
-              <div class="section-title" data-i18n="card.profiles">Profiles</div>
+      <div class="settings-tabs" id="main-layout">
+        <div class="tab-bar" role="tablist" aria-label="Setup steps">
+          <button type="button" class="tab-btn active" role="tab" id="tab-profiles" data-tab="profiles" aria-selected="true" aria-controls="panel-profiles">
+            <span class="tab-step" data-i18n="card.step_1">שלב 1</span>
+            <span class="tab-label" data-i18n="card.profiles">Profiles</span>
+          </button>
+          <button type="button" class="tab-btn" role="tab" id="tab-appearance" data-tab="appearance" aria-selected="false" aria-controls="panel-appearance">
+            <span class="tab-step" data-i18n="card.step_2">שלב 2</span>
+            <span class="tab-label" data-i18n="card.editor">Appearance</span>
+          </button>
+          <button type="button" class="tab-btn" role="tab" id="tab-buttons" data-tab="buttons" aria-selected="false" aria-controls="panel-buttons">
+            <span class="tab-step" data-i18n="card.step_3">שלב 3</span>
+            <span class="tab-label" data-i18n="card.buttons">Buttons</span>
+          </button>
+        </div>
+        <div class="tab-panels">
+          <section class="tab-panel active" role="tabpanel" id="panel-profiles" data-section="profiles" aria-labelledby="tab-profiles">
+            <div class="section-body-inner">
+              <div class="profile-list" id="profile-list"></div>
+              <div class="profile-name-row">
+                <label class="field"><span data-i18n="card.panel_name">שם פאנל</span><input type="text" id="panel-name-input" autocomplete="off" /></label>
+                <label class="field"><span data-i18n="card.profile_name">Profile name</span><input type="text" id="profile-name-input" /></label>
+              </div>
+              <div class="profile-actions">
+                <button type="button" class="btn" data-action="create" data-i18n="card.create">Create</button>
+                <button type="button" class="btn" data-action="duplicate" data-i18n="card.duplicate">Duplicate</button>
+                <button type="button" class="btn danger" data-action="delete" data-i18n="card.delete">Delete</button>
+              </div>
             </div>
-            <label class="switch"><input type="checkbox" checked data-section-toggle="profiles" /><span class="slider"></span></label>
-          </header>
-          <div class="section-body"><div class="section-body-inner">
-            <div class="profile-list" id="profile-list"></div>
-            <label class="field"><span data-i18n="card.profile_name">Profile name</span><input type="text" id="profile-name-input" /></label>
-            <div class="row actions">
-              <button type="button" class="btn" data-action="create" data-i18n="card.create">Create</button>
-              <button type="button" class="btn" data-action="duplicate" data-i18n="card.duplicate">Duplicate</button>
-              <button type="button" class="btn" data-action="rename" data-i18n="card.rename">Rename</button>
-              <button type="button" class="btn danger" data-action="delete" data-i18n="card.delete">Delete</button>
-            </div>
-            <div class="row actions">
-              <button type="button" class="btn primary" id="btn-open-export-2" data-i18n="card.open_export_wizard">Export wizard</button>
-              <button type="button" class="btn" id="btn-import-profiles" data-i18n="card.import">Import</button>
-            </div>
-          </div></div>
-        </section>
+          </section>
 
-        <section class="panel-section open" data-section="appearance">
-          <header class="section-head">
-            <div class="section-head-main">
-              <button type="button" class="drag-handle" draggable="true" data-drag-for="appearance" aria-label="Drag">⠿</button>
-              <div class="section-title" data-i18n="card.editor">Appearance</div>
+          <section class="tab-panel" role="tabpanel" id="panel-appearance" data-section="appearance" aria-labelledby="tab-appearance" hidden>
+            <div class="section-body-inner">
+              <label class="field"><span data-i18n="card.mode">Mode</span>
+                <select id="mode-select">
+                  <option value="toggle" data-i18n-option="mode.toggle">Toggle</option>
+                  <option value="radio_mandatory" data-i18n-option="mode.radio_mandatory">Radio mandatory</option>
+                  <option value="radio_optional" data-i18n-option="mode.radio_optional">Radio optional</option>
+                  <option value="radio_split" data-i18n-option="mode.radio_split">Radio split</option>
+                </select>
+              </label>
+              <div class="grid-2">
+                <label class="field"><span data-i18n="card.color_on">Color ON</span>
+                  <div class="color-select"><span class="swatch" id="swatch-on"></span><select id="color-on"></select></div>
+                </label>
+                <label class="field"><span data-i18n="card.color_off">Color OFF</span>
+                  <div class="color-select"><span class="swatch" id="swatch-off"></span><select id="color-off"></select></div>
+                </label>
+              </div>
+              <label class="field"><span data-i18n="card.radar">Radar</span>
+                <select id="radar-select"><option>off</option><option selected>30s</option><option>60s</option><option>120s</option></select>
+              </label>
+              <div class="toggle-row">
+                <label class="switch-field"><span data-i18n="card.backlight">Backlight</span>
+                  <label class="switch"><input type="checkbox" id="backlight" checked /><span class="slider"></span></label>
+                </label>
+                <label class="switch-field"><span data-i18n="card.child_lock">Child lock</span>
+                  <label class="switch"><input type="checkbox" id="child-lock" /><span class="slider"></span></label>
+                </label>
+              </div>
+              <label class="field dimmer-field" id="dimmer-field">
+                <span class="dimmer-label-row">
+                  <span data-i18n="card.backlight_brightness">Backlight brightness</span>
+                  <strong class="dimmer-pct" id="brightness-value">100%</strong>
+                </span>
+                <input type="range" id="backlight-brightness" min="0" max="100" value="100" style="--brightness-pct: 100%" />
+              </label>
             </div>
-            <label class="switch"><input type="checkbox" checked data-section-toggle="appearance" /><span class="slider"></span></label>
-          </header>
-          <div class="section-body"><div class="section-body-inner">
-            <label class="field"><span data-i18n="card.mode">Mode</span>
-              <select id="mode-select">
-                <option value="toggle" data-i18n-option="mode.toggle">Toggle</option>
-                <option value="radio_mandatory" data-i18n-option="mode.radio_mandatory">Radio mandatory</option>
-                <option value="radio_optional" data-i18n-option="mode.radio_optional">Radio optional</option>
-              </select>
-            </label>
-            <div class="grid-2">
-              <label class="field"><span data-i18n="card.color_on">Color ON</span>
-                <div class="color-select"><span class="swatch" id="swatch-on"></span><select id="color-on"></select></div>
-              </label>
-              <label class="field"><span data-i18n="card.color_off">Color OFF</span>
-                <div class="color-select"><span class="swatch" id="swatch-off"></span><select id="color-off"></select></div>
-              </label>
-            </div>
-            <label class="field"><span data-i18n="card.radar">Radar</span>
-              <select id="radar-select"><option>off</option><option selected>30s</option><option>60s</option><option>120s</option></select>
-            </label>
-            <div class="toggle-row">
-              <label class="switch-field"><span data-i18n="card.backlight">Backlight</span>
-                <label class="switch"><input type="checkbox" id="backlight" checked /><span class="slider"></span></label>
-              </label>
-              <label class="switch-field"><span data-i18n="card.child_lock">Child lock</span>
-                <label class="switch"><input type="checkbox" id="child-lock" /><span class="slider"></span></label>
-              </label>
-            </div>
-            <label class="field dimmer-field" id="dimmer-field">
-              <span><span data-i18n="card.backlight_brightness">Backlight brightness</span> <strong id="brightness-value">100%</strong></span>
-              <input type="range" id="backlight-brightness" min="0" max="100" value="100" />
-            </label>
-          </div></div>
-        </section>
+          </section>
 
-        <section class="panel-section" data-section="theme">
-          <header class="section-head">
-            <div class="section-head-main">
-              <button type="button" class="drag-handle" draggable="true" data-drag-for="theme" aria-label="Drag">⠿</button>
-              <div class="section-title" data-i18n="card.theme">Interface theme</div>
+          <section class="tab-panel" role="tabpanel" id="panel-buttons" data-section="buttons" aria-labelledby="tab-buttons" hidden>
+            <div class="section-body-inner">
+              <div class="radio-groups-section" id="radio-groups-section-buttons" hidden>
+                <span class="menu-label" data-i18n="card.radio_groups">Radio groups</span>
+                <p class="radio-groups-hint" data-i18n="card.radio_groups_hint">Check which buttons work together in each group.</p>
+                <div id="radio-groups-editor-buttons"></div>
+                <div class="radio-groups-error" id="radio-groups-error-buttons" hidden></div>
+              </div>
+              <div id="buttons-editor"></div>
             </div>
-            <label class="switch"><input type="checkbox" data-section-toggle="theme" /><span class="slider"></span></label>
-          </header>
-          <div class="section-body"><div class="section-body-inner">
-            <div class="theme-picker"><div class="theme-swatches" id="theme-swatches"></div></div>
-          </div></div>
-        </section>
-
-        <section class="panel-section open" data-section="buttons">
-          <header class="section-head">
-            <div class="section-head-main">
-              <button type="button" class="drag-handle" draggable="true" data-drag-for="buttons" aria-label="Drag">⠿</button>
-              <div class="section-title" data-i18n="card.buttons">Buttons</div>
-            </div>
-            <label class="switch"><input type="checkbox" checked data-section-toggle="buttons" /><span class="slider"></span></label>
-          </header>
-          <div class="section-body"><div class="section-body-inner" id="buttons-editor"></div></div>
-        </section>
+          </section>
+        </div>
       </div>
 
       <div class="actions-dock" id="actions-dock" data-section="actions">
-        <div class="row actions" style="margin:0">
+        <div class="actions-grid">
           <button type="button" class="btn primary" id="btn-save" disabled data-i18n="card.save">Save Draft</button>
           <button type="button" class="btn" id="btn-discard" disabled data-i18n="card.discard">Discard Changes</button>
           <button type="button" class="btn primary sync-btn" id="btn-sync" data-i18n="card.sync">Sync to Panel</button>
           <button type="button" class="btn" id="btn-pull" data-i18n="card.pull">Pull from Panel</button>
         </div>
       </div>
-
-      <div class="export-overlay" id="export-overlay" aria-live="polite">
-        <div class="export-toolbar">
-          <button type="button" class="btn primary" id="btn-back-editor" data-i18n="card.back_to_editor">← חזרה לעריכה</button>
-          <div class="export-title" data-i18n="card.step_transfer">Export / Import</div>
-        </div>
-        <p id="export-hint" style="margin:0 0 12px;color:var(--text-muted)" data-i18n="card.step_transfer_hint">Download or upload portable JSON.</p>
-        <div class="row actions">
-          <button type="button" class="btn primary" data-action="export" data-i18n="card.download_export">Download .json</button>
-          <button type="button" class="btn" data-action="import-merge" data-i18n="card.import_merge">Import (merge)</button>
-          <button type="button" class="btn danger" data-action="import-replace" data-i18n="card.import_replace">Import (replace)</button>
-        </div>
-        <p style="margin-top:14px;font-size:.9rem;color:var(--text-muted)">
-          <a href="conx-panel-wizard.html" id="link-wizard-from-export" data-i18n="card.open_standalone_wizard">Open standalone wizard</a>
-        </p>
-        <div class="row actions" style="margin-top:12px">
-          <button type="button" class="btn primary" id="btn-back-editor-2" data-i18n="card.back_to_editor">← חזרה לעריכה</button>
-        </div>
-      </div>
     </article>
-
-    <div class="ref-photo">
-      <details>
-        <summary id="ref-summary">תמונת ייחוס — לוחית Zemismart 4-gang</summary>
-        <img src="../frontend-src/assets/zemismart-4gang-faceplate.png" alt="Zemismart 4-gang faceplate reference"
-          onerror="this.style.display='none'; this.nextElementSibling.style.display='block'" />
-        <p style="display:none;color:var(--text-muted);font-size:.9rem;margin:10px 0 0">Reference photo not found.</p>
-      </details>
-    </div>
   </div>
 
   <input type="file" id="import-file-input" accept="application/json,.json" hidden />
@@ -652,16 +1147,17 @@
       warm_white: "#ffe0b2", warm_yellow: "#ffc400",
     };
     const COLORS = Object.keys(COLOR_PREVIEW);
-    const STORAGE_KEY = "conx-card-preview-state-v4";
-    const LEGACY_KEYS = ["conx-card-preview-state-v2", "conx-card-preview-state-v3"];
-    const DEFAULT_ORDER = ["profiles", "appearance", "theme", "buttons"];
+    const STORAGE_KEY = "conx-card-preview-state-v8";
+    const LEGACY_KEYS = ["conx-card-preview-state-v2", "conx-card-preview-state-v3", "conx-card-preview-state-v4", "conx-card-preview-state-v5", "conx-card-preview-state-v6", "conx-card-preview-state-v7"];
+    const PROFILE_MODES = ["toggle", "radio_mandatory", "radio_optional", "radio_split"];
+    const TAB_IDS = ["profiles", "appearance", "buttons"];
     const THEME_ALIASES = {
       industrial: "ivory", light_soft: "ivory", light: "ivory",
       black_orange: "noir", graphite: "noir", midnight_teal: "noir", dark: "noir",
     };
     const THEMES = [
-      { id: "noir", swatch: "linear-gradient(145deg,#070809 0%,#1d1e20 55%,#d7b56d 100%)", accent: "#d7b56d" },
-      { id: "ivory", swatch: "linear-gradient(145deg,#fffaf2 0%,#f5f0e7 55%,#9d7837 100%)", accent: "#9d7837" },
+      { id: "noir", swatch: "linear-gradient(145deg,#2e3440 0%,#1a1d22 38%,#242830 68%,#d4af61 100%)", accent: "#d4af61" },
+      { id: "ivory", swatch: "linear-gradient(145deg,#ffffff 0%,#f5f7fa 48%,#e8ecf1 72%,#8a7348 100%)", accent: "#8a7348" },
     ];
 
     const I18N = {
@@ -670,7 +1166,6 @@
         "hint.lang": "Language flags HE / EN / RU",
         "hint.colors": "LED rings change with color picks",
         "hint.sections": "Collapsible sections",
-        "ref.summary": "Reference photo — Zemismart 4-gang faceplate",
         "card.sync": "Sync to Panel", "card.pull": "Pull from Panel",
         "card.save": "Save Draft", "card.discard": "Discard Changes",
         "card.create": "Create", "card.duplicate": "Duplicate",
@@ -682,7 +1177,16 @@
         "card.radar": "Radar", "card.backlight": "Backlight",
         "card.backlight_brightness": "Backlight brightness",
         "card.theme": "Interface theme",
+        "card.menu": "Settings",
+        "card.language": "Language",
+        "card.more": "More",
         "card.radio_member": "Radio group", "card.radio_toggle": "Independent toggle",
+        "card.radio_groups": "Radio groups",
+        "card.radio_groups_hint": "Buttons in a group act as classic radio: exactly one stays on. Ungrouped buttons stay independent toggles.",
+        "card.radio_group": "Group",
+        "card.radio_groups_overlap": "Each button can belong to only one radio group.",
+        "card.dialog_ok": "OK", "card.dialog_cancel": "Cancel", "card.dialog_confirm": "Confirm",
+        "card.keep_one_profile": "At least one profile must remain.",
         "theme.noir": "Noir gold", "theme.ivory": "Ivory stone",
         "card.child_lock": "Child lock", "card.button": "Button",
         "card.button_expand": "Expand button settings", "card.button_collapse": "Collapse button settings",
@@ -699,21 +1203,22 @@
         "card.export_ok": "Profiles exported (demo).", "card.import_ok": "Profiles imported.",
         "card.import_invalid": "Invalid profiles JSON file.",
         "card.profile_name": "Profile name",
+        "card.panel_name": "Panel name",
         "card.synced_demo": "Status: synced", "card.syncing_demo": "Status: syncing",
-        "card.reset": "Reset", "card.reset_ok": "Preview reset to defaults.",
+        "card.reset": "Reset data", "card.reset_ok": "Preview reset to defaults.",
         "card.reset_confirm": "Clear saved preview data and restore defaults?",
-        "card.reset_layout": "Reset layout",
-        "card.reset_layout_ok": "Layout reset.",
-        "card.drag_hint": "Drag ⠿ to reorder panels · saved in this browser",
-        "card.pinned": "Pinned",
+        "card.tabs_hint": "Three setup steps below the panel preview",
+        "card.step_1": "Step 1",
+        "card.step_2": "Step 2",
+        "card.step_3": "Step 3",
         "mode.toggle": "Toggle", "mode.radio_mandatory": "Radio mandatory", "mode.radio_optional": "Radio optional",
+        "mode.radio_split": "Radio split",
       },
       he: {
         "intro.sub": "תצוגה אינטראקטיבית של עיצוב הכרטיס החדש",
         "hint.lang": "דגלי שפה HE / EN / RU",
         "hint.colors": "צבעי טבעות LED משתנים",
         "hint.sections": "מקטעים מתקפלים",
-        "ref.summary": "תמונת ייחוס — לוחית Zemismart 4-gang",
         "card.sync": "סנכרון לפאנל", "card.pull": "משיכה מהפאנל",
         "card.save": "שמור טיוטה", "card.discard": "בטל שינויים",
         "card.create": "צור", "card.duplicate": "שכפל",
@@ -725,7 +1230,16 @@
         "card.radar": "רדאר", "card.backlight": "תאורת רקע",
         "card.backlight_brightness": "עוצמת תאורת רקע",
         "card.theme": "ערכת נושא",
+        "card.menu": "הגדרות",
+        "card.language": "שפה",
+        "card.more": "עוד",
         "card.radio_member": "משתתף ברדיו", "card.radio_toggle": "טוגל עצמאי",
+        "card.radio_groups": "קבוצות רדיו",
+        "card.radio_groups_hint": "כפתורים בקבוצה מתנהגים כרדיו קלאסי: תמיד אחד דלוק. כפתורים מחוץ לקבוצה נשארים טוגלים עצמאיים.",
+        "card.radio_group": "קבוצה",
+        "card.radio_groups_overlap": "כל כפתור יכול להשתייך לקבוצת רדיו אחת בלבד.",
+        "card.dialog_ok": "אישור", "card.dialog_cancel": "ביטול", "card.dialog_confirm": "אישור",
+        "card.keep_one_profile": "חייבים להשאיר לפחות פרופיל אחד.",
         "theme.noir": "נואר זהב", "theme.ivory": "שנהב אבן",
         "card.child_lock": "נעילת ילדים", "card.button": "כפתור",
         "card.button_expand": "הרחב הגדרות כפתור", "card.button_collapse": "כווץ הגדרות כפתור",
@@ -742,21 +1256,22 @@
         "card.export_ok": "הפרופילים יוצאו (הדגמה).", "card.import_ok": "הפרופילים יובאו.",
         "card.import_invalid": "קובץ JSON של פרופילים לא תקין.",
         "card.profile_name": "שם פרופיל",
+        "card.panel_name": "שם פאנל",
         "card.synced_demo": "סטטוס: מסונכרן", "card.syncing_demo": "סטטוס: מסנכרן",
-        "card.reset": "איפוס", "card.reset_ok": "התצוגה אופסה לברירת מחדל.",
+        "card.reset": "איפוס נתונים", "card.reset_ok": "התצוגה אופסה לברירת מחדל.",
         "card.reset_confirm": "לנקות נתונים שמורים ולהחזיר לברירת מחדל?",
-        "card.reset_layout": "איפוס לייאוט",
-        "card.reset_layout_ok": "הלייאוט אופס.",
-        "card.drag_hint": "גררו את ⠿ כדי לסדר מחדש · נשמר בדפדפן",
-        "card.pinned": "נעול למעלה",
+        "card.tabs_hint": "שלושה שלבי הגדרה מתחת לתצוגת הפאנל",
+        "card.step_1": "שלב 1",
+        "card.step_2": "שלב 2",
+        "card.step_3": "שלב 3",
         "mode.toggle": "החלפה", "mode.radio_mandatory": "רדיו חובה", "mode.radio_optional": "רדיו אופציונלי",
+        "mode.radio_split": "רדיו ספליט",
       },
       ru: {
         "intro.sub": "Интерактивный превью обновлённой карточки",
         "hint.lang": "Флаги языка HE / EN / RU",
         "hint.colors": "Цвета LED-колец меняются",
         "hint.sections": "Сворачиваемые разделы",
-        "ref.summary": "Эталонное фото — панель Zemismart 4-gang",
         "card.sync": "Синхронизация", "card.pull": "Считать с панели",
         "card.save": "Сохранить черновик", "card.discard": "Отменить изменения",
         "card.create": "Создать", "card.duplicate": "Дублировать",
@@ -768,7 +1283,16 @@
         "card.radar": "Радар", "card.backlight": "Подсветка",
         "card.backlight_brightness": "Яркость подсветки",
         "card.theme": "Тема интерфейса",
+        "card.menu": "Настройки",
+        "card.language": "Язык",
+        "card.more": "Ещё",
         "card.radio_member": "В радиогруппе", "card.radio_toggle": "Независимый тоггл",
+        "card.radio_groups": "Радиогруппы",
+        "card.radio_groups_hint": "Кнопки в группе работают как классическое радио: ровно одна включена. Кнопки вне групп остаются независимыми тогглами.",
+        "card.radio_group": "Группа",
+        "card.radio_groups_overlap": "Каждая кнопка может входить только в одну радиогруппу.",
+        "card.dialog_ok": "ОК", "card.dialog_cancel": "Отмена", "card.dialog_confirm": "Подтвердить",
+        "card.keep_one_profile": "Должен остаться хотя бы один профиль.",
         "theme.noir": "Нуар / золото", "theme.ivory": "Слоновая кость",
         "card.child_lock": "Блокировка", "card.button": "Кнопка",
         "card.button_expand": "Развернуть настройки кнопки", "card.button_collapse": "Свернуть настройки кнопки",
@@ -785,14 +1309,16 @@
         "card.export_ok": "Профили экспортированы (демо).", "card.import_ok": "Профили импортированы.",
         "card.import_invalid": "Некорректный JSON файл профилей.",
         "card.profile_name": "Имя профиля",
+        "card.panel_name": "Имя панели",
         "card.synced_demo": "Статус: синхронизировано", "card.syncing_demo": "Статус: синхронизация",
         "card.reset": "Сброс", "card.reset_ok": "Превью сброшено к значениям по умолчанию.",
         "card.reset_confirm": "Очистить сохранённые данные и вернуть значения по умолчанию?",
-        "card.reset_layout": "Сброс раскладки",
-        "card.reset_layout_ok": "Раскладка сброшена.",
-        "card.drag_hint": "Тяните ⠿ чтобы менять порядок · сохраняется в браузере",
-        "card.pinned": "Закреплено",
+        "card.tabs_hint": "Три шага настройки под превью панели",
+        "card.step_1": "Шаг 1",
+        "card.step_2": "Шаг 2",
+        "card.step_3": "Шаг 3",
         "mode.toggle": "Переключатель", "mode.radio_mandatory": "Радио (обязательно)", "mode.radio_optional": "Радио (опционально)",
+        "mode.radio_split": "Радио сплит",
       },
     };
 
@@ -814,6 +1340,43 @@
         radio_member: !b || b.radio_member !== false,
       };
     }
+    function normalizeRadioGroups(raw) {
+      const groups = [];
+      if (Array.isArray(raw)) {
+        raw.forEach((item, index) => {
+          if (!item || typeof item !== "object") return;
+          const buttons = [];
+          (Array.isArray(item.buttons) ? item.buttons : []).forEach((n) => {
+            const i = Number(n);
+            if (i >= 1 && i <= 4 && !buttons.includes(i)) buttons.push(i);
+          });
+          groups.push({ id: String(item.id || ("g" + (index + 1))), buttons });
+        });
+      }
+      while (groups.length < 2) groups.push({ id: "g" + (groups.length + 1), buttons: [] });
+      const seen = new Set();
+      groups.forEach((g, index) => {
+        let id = g.id || ("g" + (index + 1));
+        let n = 2;
+        while (seen.has(id)) { id = g.id + "_" + n; n += 1; }
+        g.id = id;
+        seen.add(id);
+      });
+      return groups;
+    }
+    function radioGroupOverlap(groups) {
+      const ownership = {};
+      for (const g of groups || []) {
+        for (const i of g.buttons || []) {
+          if (ownership[i]) return true;
+          ownership[i] = g.id;
+        }
+      }
+      return false;
+    }
+    function findRadioGroup(index, groups) {
+      return (groups || []).find((g) => (g.buttons || []).includes(index)) || null;
+    }
     function makeProfile(id, name, overrides = {}) {
       const baseButtons = [
         { index: 1, name: "Ceiling", action: "light.toggle", entity: "light.ceiling", radio_member: true },
@@ -824,9 +1387,13 @@
       const profile = {
         id, name, mode: "toggle", color_on: "cyan", color_off: "blue", radar: "30s",
         backlight: true, backlight_brightness: 100, child_lock: false, selected_button: null,
-        ringOn: { 1: true, 2: false, 3: true, 4: false }, buttons: baseButtons, ...overrides,
+        ringOn: { 1: true, 2: false, 3: true, 4: false }, buttons: baseButtons,
+        radio_groups: [{ id: "g1", buttons: [] }, { id: "g2", buttons: [] }],
+        ...overrides,
       };
+      if (!PROFILE_MODES.includes(profile.mode)) profile.mode = "toggle";
       profile.buttons = [1,2,3,4].map((i) => normalizeButton((profile.buttons || []).find((x) => x.index === i), i));
+      profile.radio_groups = normalizeRadioGroups(profile.radio_groups);
       if (typeof profile.backlight_brightness !== "number") profile.backlight_brightness = 100;
       return profile;
     }
@@ -855,19 +1422,21 @@
         }),
       };
     }
-    function defaultLayout() {
-      return {
-        order: DEFAULT_ORDER.slice(),
-        open: { profiles: true, appearance: true, theme: false, buttons: true, preview: true, actions: true },
-      };
+    function normalizeTabId(value) {
+      return TAB_IDS.includes(value) ? value : "profiles";
     }
+    const DEFAULT_PANEL_NAME = "Living Room Panel";
+
     function createDefaultState() {
       const profiles = createDefaultProfiles();
       const activeId = "evening";
       return {
         lang: "he", theme: "noir", view: "editor", dirty: false, activeId,
-        expandedButtons: [], layout: defaultLayout(),
-        sections: defaultLayout().open,
+        activeTab: "profiles",
+        previewOpen: true,
+        panelName: DEFAULT_PANEL_NAME,
+        expandedButtons: [],
+        radioGroupOpen: defaultRadioGroupOpen(),
         profiles, draft: deepClone(profiles[activeId]), saved: deepClone(profiles[activeId]),
       };
     }
@@ -875,24 +1444,30 @@
       if (!value || typeof value !== "object") return makeProfile(String(id), String(id));
       return makeProfile(String(value.id || id), String(value.name || id), value);
     }
-    function normalizeLayout(raw, sectionsFallback) {
-      const base = defaultLayout();
-      const open = { ...base.open };
-      if (sectionsFallback && typeof sectionsFallback === "object") Object.assign(open, sectionsFallback);
-      if (raw && raw.open && typeof raw.open === "object") Object.assign(open, raw.open);
-      let order = Array.isArray(raw && raw.order) ? raw.order.map(String) : base.order.slice();
-      order = order.filter((id) => DEFAULT_ORDER.includes(id));
-      for (const id of DEFAULT_ORDER) if (!order.includes(id)) order.push(id);
-      return { order, open };
-    }
 
+
+    function defaultRadioGroupOpen() {
+      return { g0: true, g1: true, ungrouped: true };
+    }
+    function normalizeRadioGroupOpen(value) {
+      const base = defaultRadioGroupOpen();
+      if (!value || typeof value !== "object") return base;
+      return {
+        g0: value.g0 !== false,
+        g1: value.g1 !== false,
+        ungrouped: value.ungrouped !== false,
+      };
+    }
     function persistState() {
       try {
         const payload = {
           lang: state.lang, theme: state.theme || "noir", view: state.view || "editor",
           dirty: state.dirty, activeId: state.activeId,
+          activeTab: state.activeTab || "profiles",
+          previewOpen: state.previewOpen !== false,
+          panelName: typeof state.panelName === "string" ? state.panelName : DEFAULT_PANEL_NAME,
           expandedButtons: Array.from(state.expandedButtons),
-          layout: state.layout, sections: state.layout.open,
+          radioGroupOpen: normalizeRadioGroupOpen(state.radioGroupOpen),
           profiles: state.profiles, draft: state.draft, saved: state.saved,
         };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -916,14 +1491,19 @@
         for (const [key, value] of Object.entries(data.profiles)) profiles[key] = normalizeStoredProfile(key, value);
         if (!Object.keys(profiles).length) return null;
         const activeId = typeof data.activeId === "string" && profiles[data.activeId] ? data.activeId : Object.keys(profiles)[0];
-        const layout = normalizeLayout(data.layout, data.sections);
+        const previewOpen = data.previewOpen !== false && !(data.layout && data.layout.open && data.layout.open.preview === false);
         return {
           lang: ["he","en","ru"].includes(data.lang) ? data.lang : defaults.lang,
           theme: normalizeThemeId(data.theme),
           view: data.view === "export" ? "export" : "editor",
           dirty: Boolean(data.dirty), activeId,
+          activeTab: normalizeTabId(data.activeTab),
+          previewOpen,
+          panelName: typeof data.panelName === "string" && data.panelName.trim()
+            ? data.panelName : defaults.panelName,
           expandedButtons: new Set(Array.isArray(data.expandedButtons) ? data.expandedButtons.map(Number).filter((n)=>n>=1&&n<=4) : []),
-          layout, sections: layout.open, profiles,
+          radioGroupOpen: normalizeRadioGroupOpen(data.radioGroupOpen),
+          profiles,
           draft: data.draft && typeof data.draft === "object" ? normalizeStoredProfile(activeId, data.draft) : deepClone(profiles[activeId]),
           saved: data.saved && typeof data.saved === "object" ? normalizeStoredProfile(activeId, data.saved) : deepClone(profiles[activeId]),
         };
@@ -937,28 +1517,28 @@
     try {
       state = loadPersistedState() || createDefaultState();
       if (!(state.expandedButtons instanceof Set)) state.expandedButtons = new Set(state.expandedButtons || []);
-      if (!state.layout) state.layout = normalizeLayout(null, state.sections);
-      state.sections = state.layout.open;
+      state.activeTab = normalizeTabId(state.activeTab);
+      if (typeof state.previewOpen !== "boolean") state.previewOpen = true;
+      if (typeof state.panelName !== "string" || !state.panelName.trim()) state.panelName = DEFAULT_PANEL_NAME;
+      state.radioGroupOpen = normalizeRadioGroupOpen(state.radioGroupOpen);
       if (!state.profiles || !state.profiles[state.activeId] || !state.draft || !state.saved) throw new Error("bad state");
     } catch (_e) {
       try { localStorage.removeItem(STORAGE_KEY); } catch (_x) {}
       state = createDefaultState();
       state.expandedButtons = new Set();
+      state.radioGroupOpen = defaultRadioGroupOpen();
     }
 
     const els = {
       card: document.getElementById("card"),
-      introSub: document.getElementById("intro-sub"),
-      hintLang: document.getElementById("hint-lang"),
-      hintColors: document.getElementById("hint-colors"),
-      hintSections: document.getElementById("hint-sections"),
-      refSummary: document.getElementById("ref-summary"),
       statusBadge: document.getElementById("status-badge"),
       dirtyWarn: document.getElementById("dirty-warn"),
       notice: document.getElementById("notice"),
       profileList: document.getElementById("profile-list"),
+      panelName: document.getElementById("panel-name"),
+      panelNameInput: document.getElementById("panel-name-input"),
       profileName: document.getElementById("profile-name-input"),
-      profileSubtitle: document.getElementById("profile-subtitle"),
+      heroProfileName: document.getElementById("hero-profile-name"),
       modeSelect: document.getElementById("mode-select"),
       colorOn: document.getElementById("color-on"),
       colorOff: document.getElementById("color-off"),
@@ -981,8 +1561,28 @@
       btnPull: document.getElementById("btn-pull"),
       btnReset: document.getElementById("btn-reset"),
       mainLayout: document.getElementById("main-layout"),
+      layoutHint: document.getElementById("layout-hint"),
       hero: document.getElementById("hero-preview"),
       actionsDock: document.getElementById("actions-dock"),
+      menu: document.getElementById("app-menu"),
+      menuLayer: document.getElementById("menu-layer"),
+      menuOpen: document.getElementById("menu-open"),
+      menuClose: document.getElementById("menu-close"),
+      exportLayer: document.getElementById("export-layer"),
+      exportOverlay: document.getElementById("export-overlay"),
+      dialogLayer: document.getElementById("dialog-layer"),
+      dialogPanel: document.getElementById("dialog-panel"),
+      dialogTitle: document.getElementById("dialog-title"),
+      dialogBody: document.getElementById("dialog-body"),
+      dialogActions: document.getElementById("dialog-actions"),
+      dialogClose: document.getElementById("dialog-close"),
+      radioGroupsHosts: [
+        {
+          section: document.getElementById("radio-groups-section-buttons"),
+          editor: document.getElementById("radio-groups-editor-buttons"),
+          error: document.getElementById("radio-groups-error-buttons"),
+        },
+      ],
     };
 
     function markDirty(dirty) {
@@ -1020,10 +1620,48 @@
     }
     function isRingOn(index) {
       const d = state.draft;
+      if (d.mode === "radio_split") return Boolean(d.ringOn[index]);
       if (d.mode !== "toggle" && isRadioMember(index)) return d.selected_button === index;
       return Boolean(d.ringOn[index]);
     }
+    function handleFaceplatePress(index) {
+      const d = state.draft;
+      if (d.mode === "radio_split") {
+        const group = findRadioGroup(index, d.radio_groups);
+        if (!group) {
+          d.ringOn[index] = !d.ringOn[index];
+          return true;
+        }
+        // Classic radio within group: re-pressing selected does nothing.
+        if (d.ringOn[index]) return false;
+        for (const i of group.buttons) d.ringOn[i] = i === index;
+        return true;
+      }
+      if (d.mode === "toggle" || !isRadioMember(index)) {
+        d.ringOn[index] = !d.ringOn[index];
+        return true;
+      }
+      // Classic radio (mandatory/optional): exactly one on; no self-toggle-off.
+      if (d.selected_button === index) return false;
+      d.selected_button = index;
+      return true;
+    }
+    function syncPanelNameUi() {
+      const name = (typeof state.panelName === "string" && state.panelName.trim())
+        ? state.panelName : DEFAULT_PANEL_NAME;
+      state.panelName = name;
+      if (els.panelName) els.panelName.textContent = name;
+      if (els.panelNameInput && els.panelNameInput.value !== name) els.panelNameInput.value = name;
+    }
+    function syncHeroProfileName() {
+      const name = (state.draft && state.draft.name) || "";
+      if (els.heroProfileName) {
+        els.heroProfileName.textContent = name;
+        els.heroProfileName.title = name;
+      }
+    }
     function renderFaceplate() {
+      syncHeroProfileName();
       els.labels.innerHTML = state.draft.buttons.map((b) => `<div class="faceplate-label">${b.name || "L" + b.index}</div>`).join("");
       els.rings.innerHTML = state.draft.buttons.map((b) => {
         const on = isRingOn(b.index);
@@ -1035,15 +1673,130 @@
           const index = Number(btn.dataset.ring);
           btn.classList.add("pressed");
           setTimeout(() => btn.classList.remove("pressed"), 180);
-          if (state.draft.mode === "toggle" || !isRadioMember(index)) {
-            state.draft.ringOn[index] = !state.draft.ringOn[index];
-          } else if (state.draft.mode === "radio_optional" && state.draft.selected_button === index) {
-            state.draft.selected_button = null;
-          } else {
-            state.draft.selected_button = index;
-          }
-          markDirty(true);
+          if (handleFaceplatePress(index)) markDirty(true);
           renderFaceplate();
+        });
+      });
+    }
+    function groupedButtonSet(groups) {
+      const set = new Set();
+      for (const group of groups || []) {
+        for (const index of group.buttons || []) set.add(index);
+      }
+      return set;
+    }
+    function radioMemberCell(opts) {
+      const { index, checked, groupIndex, readonly } = opts;
+      const on = checked ? " on" : "";
+      const ro = readonly ? " is-readonly" : "";
+      const tag = readonly ? "div" : "label";
+      const dataAttrs = readonly
+        ? ""
+        : ` data-group="${groupIndex}" data-button="${index}"`;
+      const disabled = readonly ? " disabled" : "";
+      return `<${tag} class="radio-member${on}${ro}">
+        <span class="radio-member-label">L${index}</span>
+        <span class="switch">
+          <input type="checkbox"${dataAttrs}${checked ? " checked" : ""}${disabled} />
+          <span class="slider"></span>
+        </span>
+      </${tag}>`;
+    }
+    function groupSummaryLabel(buttons) {
+      const list = (buttons || []).slice().sort((a, b) => a - b).map((n) => `L${n}`);
+      return list.length ? list.join(", ") : "—";
+    }
+    function radioGroupHead(title, openKey, summary) {
+      const open = state.radioGroupOpen[openKey] !== false;
+      return `
+        <div class="radio-group-head">
+          <div class="radio-group-head-main">
+            <div class="radio-group-title">${title}</div>
+            <div class="radio-group-summary">${summary}</div>
+          </div>
+          <label class="switch" title="${t("card.section_toggle")}">
+            <input type="checkbox" data-group-open="${openKey}" ${open ? "checked" : ""} />
+            <span class="slider"></span>
+          </label>
+        </div>`;
+    }
+    function renderRadioGroupsEditor() {
+      const hosts = (els.radioGroupsHosts || []).filter((host) => host.section && host.editor);
+      if (!hosts.length) return;
+      const split = state.draft.mode === "radio_split";
+      hosts.forEach((host) => { host.section.hidden = !split; });
+      if (!split) return;
+      state.radioGroupOpen = normalizeRadioGroupOpen(state.radioGroupOpen);
+      state.draft.radio_groups = normalizeRadioGroups(state.draft.radio_groups);
+      const overlap = radioGroupOverlap(state.draft.radio_groups);
+      const grouped = groupedButtonSet(state.draft.radio_groups);
+      const groupsHtml = state.draft.radio_groups.map((group, gIndex) => {
+        const openKey = `g${gIndex}`;
+        const open = state.radioGroupOpen[openKey] !== false;
+        return `
+        <div class="radio-group-card ${open ? "open" : ""}" data-group="${gIndex}">
+          ${radioGroupHead(`${t("card.radio_group")} ${gIndex + 1}`, openKey, groupSummaryLabel(group.buttons))}
+          <div class="radio-group-members">
+            ${[1, 2, 3, 4].map((i) => radioMemberCell({
+              index: i,
+              checked: group.buttons.includes(i),
+              groupIndex: gIndex,
+              readonly: false,
+            })).join("")}
+          </div>
+        </div>`;
+      }).join("");
+      const ungroupedButtons = [1, 2, 3, 4].filter((i) => !grouped.has(i));
+      const ungroupedOpen = state.radioGroupOpen.ungrouped !== false;
+      const summaryHtml = `
+        <div class="radio-group-card is-summary ${ungroupedOpen ? "open" : ""}" data-summary="ungrouped">
+          ${radioGroupHead(t("card.radio_toggle"), "ungrouped", groupSummaryLabel(ungroupedButtons))}
+          <div class="radio-group-members">
+            ${[1, 2, 3, 4].map((i) => radioMemberCell({
+              index: i,
+              checked: !grouped.has(i),
+              groupIndex: null,
+              readonly: true,
+            })).join("")}
+          </div>
+        </div>`;
+      const editorHtml = groupsHtml + summaryHtml;
+      hosts.forEach((host) => {
+        if (host.error) {
+          host.error.hidden = !overlap;
+          host.error.textContent = overlap ? t("card.radio_groups_overlap") : "";
+        }
+        host.editor.innerHTML = editorHtml;
+        host.editor.querySelectorAll("input[data-group-open]").forEach((input) => {
+          input.addEventListener("change", () => {
+            const key = input.dataset.groupOpen;
+            state.radioGroupOpen = normalizeRadioGroupOpen(state.radioGroupOpen);
+            state.radioGroupOpen[key] = input.checked;
+            persistState();
+            renderRadioGroupsEditor();
+          });
+        });
+        host.editor.querySelectorAll(".radio-member:not(.is-readonly) input[type=\"checkbox\"]").forEach((input) => {
+          input.addEventListener("change", () => {
+            const gIndex = Number(input.dataset.group);
+            const button = Number(input.dataset.button);
+            const groups = normalizeRadioGroups(state.draft.radio_groups);
+            if (input.checked) {
+              groups.forEach((g, idx) => {
+                if (idx === gIndex) {
+                  if (!g.buttons.includes(button)) g.buttons.push(button);
+                } else {
+                  g.buttons = g.buttons.filter((b) => b !== button);
+                }
+              });
+            } else if (groups[gIndex]) {
+              groups[gIndex].buttons = groups[gIndex].buttons.filter((b) => b !== button);
+            }
+            state.draft.radio_groups = groups;
+            markDirty(true);
+            renderRadioGroupsEditor();
+            renderFaceplate();
+          });
         });
       });
     }
@@ -1054,10 +1807,10 @@
           <div class="chip-name">${p.name}</div><div class="chip-id">${p.id}</div></button>`;
       }).join("");
       els.profileList.querySelectorAll(".profile-chip").forEach((chip) => {
-        chip.addEventListener("click", () => {
+        chip.addEventListener("click", async () => {
           const id = chip.dataset.profile;
           if (id === state.activeId) return;
-          if (state.dirty && !confirm(t("card.unsaved"))) return;
+          if (state.dirty && !(await showConfirm(t("card.unsaved")))) return;
           state.profiles[state.activeId] = deepClone(state.draft);
           state.activeId = id;
           state.draft = deepClone(state.profiles[id]);
@@ -1085,7 +1838,7 @@
             <label class="field"><span>${t("card.label")}</span><input type="text" data-field="name" value="${b.name}" /></label>
             <label class="field"><span>${t("card.action")}</span><input type="text" data-field="action" value="${b.action || ""}" placeholder="light.toggle" /></label>
             <label class="field"><span>${t("card.entity_id")}</span><input type="text" data-field="entity" value="${b.entity || ""}" placeholder="light.living_room" /></label>
-            ${state.draft.mode !== "toggle" ? `<label class="field"><span>${t("card.radio_member")}</span>
+            ${state.draft.mode === "radio_mandatory" || state.draft.mode === "radio_optional" ? `<label class="field"><span>${t("card.radio_member")}</span>
               <select data-field="radio_member">
                 <option value="true" ${b.radio_member !== false ? "selected" : ""}>${t("card.radio_member")}</option>
                 <option value="false" ${b.radio_member === false ? "selected" : ""}>${t("card.radio_toggle")}</option>
@@ -1120,37 +1873,97 @@
       });
     }
 
-    function applySectionToggles() {
-      const open = state.layout.open;
-      document.querySelectorAll("[data-section-toggle]").forEach((input) => {
-        const id = input.dataset.sectionToggle;
-        const isOpen = open[id] !== false;
-        input.checked = isOpen;
-        if (id === "preview") {
-          els.hero.classList.toggle("collapsed", !isOpen);
-          els.hero.classList.toggle("open", isOpen);
-        } else if (id === "actions") {
-          /* actions dock always visible for ops; toggle unused */
-        } else {
-          const section = els.mainLayout.querySelector(`[data-section="${id}"]`);
-          if (section) section.classList.toggle("open", isOpen);
+    function applyPreviewToggle() {
+      const isOpen = state.previewOpen !== false;
+      const input = document.querySelector('[data-section-toggle="preview"]');
+      if (input) input.checked = isOpen;
+      if (els.hero) {
+        els.hero.classList.toggle("collapsed", !isOpen);
+        els.hero.classList.toggle("open", isOpen);
+      }
+    }
+    function setActiveTab(tabId) {
+      const id = normalizeTabId(tabId);
+      state.activeTab = id;
+      document.querySelectorAll(".tab-btn").forEach((btn) => {
+        const active = btn.dataset.tab === id;
+        btn.classList.toggle("active", active);
+        btn.setAttribute("aria-selected", active ? "true" : "false");
+      });
+      document.querySelectorAll(".tab-panel").forEach((panel) => {
+        const active = panel.dataset.section === id;
+        panel.classList.toggle("active", active);
+        if (active) panel.removeAttribute("hidden");
+        else panel.setAttribute("hidden", "");
+      });
+      persistState();
+    }
+    let dialogResolver = null;
+    function closeDialog(result) {
+      if (!els.dialogLayer) return;
+      els.dialogLayer.classList.remove("open");
+      els.dialogLayer.hidden = true;
+      const resolve = dialogResolver;
+      dialogResolver = null;
+      if (resolve) resolve(result);
+    }
+    function openDialog({ title, message, html, confirmLabel, cancelLabel, danger }) {
+      return new Promise((resolve) => {
+        if (!els.dialogLayer || !els.dialogTitle || !els.dialogBody || !els.dialogActions) {
+          resolve(false);
+          return;
         }
+        if (dialogResolver) closeDialog(false);
+        dialogResolver = resolve;
+        setMenuOpen(false);
+        els.dialogTitle.textContent = title || t("card.dialog_confirm");
+        if (html) els.dialogBody.innerHTML = html;
+        else els.dialogBody.textContent = message || "";
+        const showCancel = cancelLabel !== null && cancelLabel !== false;
+        els.dialogActions.innerHTML = `
+          ${showCancel ? `<button type="button" class="btn" data-dialog="cancel">${cancelLabel || t("card.dialog_cancel")}</button>` : ""}
+          <button type="button" class="btn ${danger ? "danger" : "primary"}" data-dialog="ok">${confirmLabel || t("card.dialog_ok")}</button>
+        `;
+        els.dialogActions.querySelectorAll("[data-dialog]").forEach((btn) => {
+          btn.addEventListener("click", () => closeDialog(btn.dataset.dialog === "ok"));
+        });
+        els.dialogLayer.hidden = false;
+        requestAnimationFrame(() => els.dialogLayer.classList.add("open"));
       });
     }
-    function applyPanelOrder() {
-      const order = state.layout.order.slice();
-      order.forEach((id) => {
-        const el = els.mainLayout.querySelector(`[data-section="${id}"]`);
-        if (el) els.mainLayout.appendChild(el);
+    function showAlert(message, title) {
+      return openDialog({
+        title: title || t("card.dialog_confirm"),
+        message,
+        confirmLabel: t("card.dialog_ok"),
+        cancelLabel: null,
       });
+    }
+    function showConfirm(message, options = {}) {
+      return openDialog({
+        title: options.title || t("card.dialog_confirm"),
+        message,
+        confirmLabel: options.confirmLabel || t("card.dialog_confirm"),
+        cancelLabel: options.cancelLabel || t("card.dialog_cancel"),
+        danger: Boolean(options.danger),
+      });
+    }
+    function setMenuOpen(open) {
+      if (!els.menu || !els.menuLayer || !els.menuOpen) return;
+      els.menuLayer.hidden = !open;
+      els.menuLayer.classList.toggle("open", open);
+      els.menu.setAttribute("aria-hidden", open ? "false" : "true");
+      els.menuOpen.setAttribute("aria-expanded", open ? "true" : "false");
+      if (open) setExportView(false);
     }
     function setExportView(open) {
       state.view = open ? "export" : "editor";
-      const overlay = document.getElementById("export-overlay");
-      if (overlay) overlay.classList.toggle("visible", open);
-      els.mainLayout.classList.toggle("hidden-for-export", open);
-      els.hero.classList.toggle("hidden-for-export", open);
-      els.actionsDock.classList.toggle("hidden-for-export", open);
+      if (els.exportLayer) {
+        els.exportLayer.hidden = !open;
+        els.exportLayer.classList.toggle("open", open);
+      }
+      if (els.exportOverlay) els.exportOverlay.setAttribute("aria-hidden", open ? "false" : "true");
+      if (open) setMenuOpen(false);
       persistState();
     }
     function applyTheme() {
@@ -1178,11 +1991,6 @@
       const rtl = state.lang === "he";
       document.documentElement.dir = rtl ? "rtl" : "ltr";
       els.card.dir = rtl ? "rtl" : "ltr";
-      els.introSub.textContent = t("intro.sub");
-      els.hintLang.textContent = t("hint.lang");
-      els.hintColors.textContent = t("hint.colors");
-      els.hintSections.textContent = t("hint.sections");
-      els.refSummary.textContent = t("ref.summary");
       document.querySelectorAll("[data-i18n]").forEach((node) => { node.textContent = t(node.dataset.i18n); });
       document.querySelectorAll("[data-i18n-option]").forEach((opt) => { opt.textContent = t(opt.dataset.i18nOption); });
       document.querySelectorAll(".lang-btn").forEach((btn) => btn.classList.toggle("active", btn.dataset.lang === state.lang));
@@ -1190,12 +1998,14 @@
       if (!state.dirty) els.statusBadge.textContent = t("card.synced_demo");
       else { els.dirtyWarn.textContent = t("card.unsaved"); els.statusBadge.textContent = t("card.status") + ": pending"; }
       renderButtonsEditor();
+      renderRadioGroupsEditor();
     }
     function syncFormFromDraft() {
       const d = state.draft;
+      syncPanelNameUi();
       els.profileName.value = d.name || "";
-      els.profileSubtitle.textContent = d.name || "";
-      els.modeSelect.value = d.mode || "toggle";
+      syncHeroProfileName();
+      els.modeSelect.value = PROFILE_MODES.includes(d.mode) ? d.mode : "toggle";
       els.colorOn.value = d.color_on || "cyan";
       els.colorOff.value = d.color_off || "blue";
       els.radar.value = d.radar || "30s";
@@ -1203,28 +2013,29 @@
       const bri = typeof d.backlight_brightness === "number" ? d.backlight_brightness : 100;
       els.brightness.value = String(bri);
       els.brightnessValue.textContent = bri + "%";
+      els.brightness.style.setProperty("--brightness-pct", bri + "%");
       els.brightness.disabled = !els.backlight.checked;
       els.dimmerField.classList.toggle("dimmed", !els.backlight.checked);
       els.childLock.checked = Boolean(d.child_lock);
       renderProfiles();
       renderButtonsEditor();
+      renderRadioGroupsEditor();
       renderFaceplate();
     }
-    function resetToDefaults() {
-      if (!confirm(t("card.reset_confirm"))) return;
+    async function resetToDefaults() {
+      if (!(await showConfirm(t("card.reset_confirm"), { danger: true }))) return;
       try { localStorage.removeItem(STORAGE_KEY); LEGACY_KEYS.forEach((k)=>localStorage.removeItem(k)); } catch (_e) {}
       const fresh = createDefaultState();
       Object.keys(state).forEach((k) => delete state[k]);
       Object.assign(state, fresh);
       state.expandedButtons = new Set();
-      applyPanelOrder(); applySectionToggles(); applyI18n(); syncFormFromDraft(); markDirty(false); persistState();
+      applyPreviewToggle();
+      setActiveTab(state.activeTab);
+      applyI18n();
+      syncFormFromDraft();
+      markDirty(false);
+      persistState();
       showNotice(t("card.reset_ok"));
-    }
-    function resetLayout() {
-      state.layout = defaultLayout();
-      state.sections = state.layout.open;
-      applyPanelOrder(); applySectionToggles(); persistState();
-      showNotice(t("card.reset_layout_ok"));
     }
 
     function validateImportPayload(raw) {
@@ -1247,9 +2058,10 @@
       for (const [key, value] of Object.entries(profiles)) {
         if (!value || typeof value !== "object") continue;
         const id = String(value.id || key);
-        const mode = ["toggle", "radio_mandatory", "radio_optional"].includes(value.mode) ? value.mode : "toggle";
+        const mode = PROFILE_MODES.includes(value.mode) ? value.mode : "toggle";
         normalized[id] = makeProfile(id, String(value.name || id), {
           ...value, mode,
+          radio_groups: normalizeRadioGroups(value.radio_groups),
           buttons: [1,2,3,4].map((i) => {
             const found = (value.buttons || []).find((b) => Number(b.index) === i) || {};
             let action = "", entity = "";
@@ -1298,84 +2110,94 @@
       }
     }
 
-    function bindDragDrop() {
-      let dragId = null;
-      els.mainLayout.querySelectorAll(".drag-handle").forEach((handle) => {
-        handle.addEventListener("dragstart", (e) => {
-          dragId = handle.dataset.dragFor;
-          const section = els.mainLayout.querySelector(`[data-section="${dragId}"]`);
-          if (section) section.classList.add("dragging");
-          e.dataTransfer.effectAllowed = "move";
-          e.dataTransfer.setData("text/plain", dragId);
-        });
-        handle.addEventListener("dragend", () => {
-          els.mainLayout.querySelectorAll(".panel-section").forEach((s) => s.classList.remove("dragging", "drag-over"));
-          dragId = null;
-        });
-      });
-      els.mainLayout.querySelectorAll(".panel-section").forEach((section) => {
-        section.addEventListener("dragover", (e) => {
-          e.preventDefault();
-          section.classList.add("drag-over");
-        });
-        section.addEventListener("dragleave", () => section.classList.remove("drag-over"));
-        section.addEventListener("drop", (e) => {
-          e.preventDefault();
-          section.classList.remove("drag-over");
-          const from = e.dataTransfer.getData("text/plain") || dragId;
-          const to = section.dataset.section;
-          if (!from || !to || from === to) return;
-          const order = state.layout.order.slice();
-          const fromIdx = order.indexOf(from);
-          const toIdx = order.indexOf(to);
-          if (fromIdx < 0 || toIdx < 0) return;
-          order.splice(fromIdx, 1);
-          order.splice(toIdx, 0, from);
-          state.layout.order = order;
-          applyPanelOrder();
-          persistState();
-        });
-      });
-    }
-
     function bindControls() {
+      if (els.menuOpen) {
+        els.menuOpen.addEventListener("click", (event) => {
+          event.stopPropagation();
+          setMenuOpen(!(els.menuLayer && els.menuLayer.classList.contains("open")));
+        });
+      }
+      if (els.menuClose) els.menuClose.addEventListener("click", () => setMenuOpen(false));
+      if (els.menuLayer) {
+        els.menuLayer.addEventListener("click", (event) => {
+          if (event.target === els.menuLayer) setMenuOpen(false);
+        });
+      }
+      if (els.exportLayer) {
+        els.exportLayer.addEventListener("click", (event) => {
+          if (event.target === els.exportLayer) setExportView(false);
+        });
+      }
+      if (els.dialogLayer) {
+        els.dialogLayer.addEventListener("click", (event) => {
+          if (event.target === els.dialogLayer) closeDialog(false);
+        });
+      }
+      if (els.dialogClose) els.dialogClose.addEventListener("click", () => closeDialog(false));
+      document.addEventListener("keydown", (event) => {
+        if (event.key !== "Escape") return;
+        if (els.dialogLayer && els.dialogLayer.classList.contains("open")) closeDialog(false);
+        else if (els.exportLayer && els.exportLayer.classList.contains("open")) setExportView(false);
+        else setMenuOpen(false);
+      });
+
+      document.querySelectorAll(".tab-btn").forEach((btn) => {
+        btn.addEventListener("click", () => setActiveTab(btn.dataset.tab));
+      });
+
       const openExport = document.getElementById("btn-open-export");
-      if (openExport) openExport.addEventListener("click", () => setExportView(true));
-      const openExport2 = document.getElementById("btn-open-export-2");
-      if (openExport2) openExport2.addEventListener("click", () => setExportView(true));
+      if (openExport) openExport.addEventListener("click", () => { setMenuOpen(false); setExportView(true); });
       ["btn-back-editor", "btn-back-editor-2"].forEach((id) => {
         const el = document.getElementById(id);
         if (el) el.addEventListener("click", () => setExportView(false));
       });
       const importTop = document.getElementById("btn-import-top");
-      if (importTop) importTop.addEventListener("click", () => openImportPicker("merge"));
-      const importProfiles = document.getElementById("btn-import-profiles");
-      if (importProfiles) importProfiles.addEventListener("click", () => openImportPicker("merge"));
-      const resetLayoutBtn = document.getElementById("btn-reset-layout");
-      if (resetLayoutBtn) resetLayoutBtn.addEventListener("click", () => resetLayout());
+      if (importTop) importTop.addEventListener("click", () => { setMenuOpen(false); openImportPicker("merge"); });
+      const importReplaceMenu = document.getElementById("btn-import-replace-menu");
+      if (importReplaceMenu) importReplaceMenu.addEventListener("click", () => { setMenuOpen(false); openImportPicker("replace"); });
 
       document.querySelectorAll(".lang-btn").forEach((btn) => {
         btn.addEventListener("click", () => { state.lang = btn.dataset.lang; applyI18n(); persistState(); });
       });
-      document.querySelectorAll("[data-section-toggle]").forEach((input) => {
+      document.querySelectorAll('[data-section-toggle="preview"]').forEach((input) => {
         input.addEventListener("change", () => {
-          const id = input.dataset.sectionToggle;
-          state.layout.open[id] = input.checked;
-          state.sections = state.layout.open;
-          applySectionToggles();
+          state.previewOpen = input.checked;
+          applyPreviewToggle();
           persistState();
         });
       });
-      els.btnReset.addEventListener("click", () => resetToDefaults());
+      if (els.btnReset) els.btnReset.addEventListener("click", () => { setMenuOpen(false); void resetToDefaults(); });
+      if (els.panelNameInput) {
+        els.panelNameInput.addEventListener("input", () => {
+          state.panelName = els.panelNameInput.value;
+          if (els.panelName) els.panelName.textContent = state.panelName || DEFAULT_PANEL_NAME;
+          persistState();
+        });
+        els.panelNameInput.addEventListener("change", () => {
+          const trimmed = (els.panelNameInput.value || "").trim() || DEFAULT_PANEL_NAME;
+          state.panelName = trimmed;
+          els.panelNameInput.value = trimmed;
+          if (els.panelName) els.panelName.textContent = trimmed;
+          persistState();
+        });
+      }
       els.profileName.addEventListener("input", () => {
         state.draft.name = els.profileName.value;
-        els.profileSubtitle.textContent = state.draft.name;
+        syncHeroProfileName();
         markDirty(true); renderProfiles();
       });
       els.modeSelect.addEventListener("change", () => {
         state.draft.mode = els.modeSelect.value;
-        if (state.draft.mode !== "toggle" && !state.draft.selected_button) state.draft.selected_button = 1;
-        markDirty(true); renderFaceplate(); renderButtonsEditor();
+        if (state.draft.mode === "radio_split") {
+          state.draft.radio_groups = normalizeRadioGroups(state.draft.radio_groups);
+          state.radioGroupOpen = defaultRadioGroupOpen();
+        } else if (state.draft.mode !== "toggle" && !state.draft.selected_button) {
+          state.draft.selected_button = 1;
+        }
+        markDirty(true);
+        renderFaceplate();
+        renderButtonsEditor();
+        renderRadioGroupsEditor();
       });
       els.colorOn.addEventListener("change", () => { state.draft.color_on = els.colorOn.value; markDirty(true); applyRingColors(); });
       els.colorOff.addEventListener("change", () => { state.draft.color_off = els.colorOff.value; markDirty(true); applyRingColors(); });
@@ -1390,12 +2212,13 @@
         const value = Number(els.brightness.value);
         state.draft.backlight_brightness = value;
         els.brightnessValue.textContent = value + "%";
+        els.brightness.style.setProperty("--brightness-pct", value + "%");
         markDirty(true);
       });
       els.childLock.addEventListener("change", () => { state.draft.child_lock = els.childLock.checked; markDirty(true); });
 
       document.querySelectorAll("[data-action]").forEach((btn) => {
-        btn.addEventListener("click", () => {
+        btn.addEventListener("click", async () => {
           const action = btn.dataset.action;
           if (action === "create") {
             const id = "profile_" + Date.now();
@@ -1407,14 +2230,9 @@
             const p = deepClone(state.draft); p.id = id; p.name = state.draft.name + " copy";
             state.profiles[id] = p; state.activeId = id; state.draft = deepClone(p); state.saved = deepClone(p);
             markDirty(false); syncFormFromDraft(); showNotice(t("card.duplicate") + " ✓");
-          } else if (action === "rename") {
-            const name = prompt(t("card.rename"), state.draft.name);
-            if (!name) return;
-            state.draft.name = name; els.profileName.value = name; els.profileSubtitle.textContent = name;
-            markDirty(true); renderProfiles();
           } else if (action === "delete") {
-            if (Object.keys(state.profiles).length <= 1) { alert("At least one profile must remain"); return; }
-            if (!confirm(t("card.delete") + " " + state.draft.name + "?")) return;
+            if (Object.keys(state.profiles).length <= 1) { await showAlert(t("card.keep_one_profile")); return; }
+            if (!(await showConfirm(t("card.delete") + " " + state.draft.name + "?", { danger: true }))) return;
             delete state.profiles[state.activeId];
             state.activeId = Object.keys(state.profiles)[0];
             state.draft = deepClone(state.profiles[state.activeId]);
@@ -1423,6 +2241,7 @@
           } else if (action === "export") {
             const blob = new Blob([JSON.stringify({ schema_version: 1, active_profile_id: state.activeId, profiles: state.profiles }, null, 2)], { type: "application/json" });
             const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "conx-profiles-preview.json"; a.click(); URL.revokeObjectURL(a.href);
+            setMenuOpen(false);
             showNotice(t("card.export_ok"));
           } else if (action === "import-merge") openImportPicker("merge");
           else if (action === "import-replace") openImportPicker("replace");
@@ -1446,11 +2265,10 @@
           showNotice(t("card.sync") + " ✓");
         }, 700);
       });
-      els.btnPull.addEventListener("click", () => {
-        if (state.dirty && !confirm(t("card.unsaved"))) return;
+      els.btnPull.addEventListener("click", async () => {
+        if (state.dirty && !(await showConfirm(t("card.unsaved")))) return;
         state.draft = deepClone(state.saved); markDirty(false); syncFormFromDraft(); showNotice(t("card.pull") + " ✓");
       });
-      bindDragDrop();
     }
 
     try {
@@ -1465,8 +2283,8 @@
           if (file) void handleImportFile(file);
         });
       }
-      applyPanelOrder();
-      applySectionToggles();
+      applyPreviewToggle();
+      setActiveTab(state.activeTab || "profiles");
       applyI18n();
       syncFormFromDraft();
       markDirty(Boolean(state.dirty));

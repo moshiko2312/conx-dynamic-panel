@@ -234,13 +234,14 @@ class Zemismart4GangAdapter(PanelAdapter):
 
     async def _async_apply_relay_mode(self, profile: Profile) -> None:
         """Apply relay pattern required by the profile mode for radio members only."""
-        if profile.mode == "toggle":
+        # Toggle and radio_split leave relays as-is; exclusivity is enforced on press.
+        if profile.mode in {"toggle", "radio_split"}:
             return
         members = set(profile.radio_member_indexes())
         selected = profile.selected_button
         if selected not in members:
             selected = None
-        if profile.mode == "radio_mandatory" and selected is None:
+        if profile.mode in {"radio_mandatory", "radio_optional"} and selected is None:
             selected = next(iter(sorted(members)), 1)
             profile.selected_button = selected
         elif selected is not None:

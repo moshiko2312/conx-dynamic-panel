@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import pytest
 
-from custom_components.conx_dynamic_panel.models import PanelStorageData, Profile
+from custom_components.conx_dynamic_panel.models import (
+    PanelStorageData,
+    Profile,
+    RadioGroup,
+    validate_radio_groups,
+)
 from custom_components.conx_dynamic_panel.storage import _migrate
 
 
@@ -50,6 +55,38 @@ def test_profile_defaults_brightness_and_radio_member() -> None:
     payload = profile.to_dict()
     assert payload["backlight_brightness"] == 100
     assert payload["buttons"][0]["radio_member"] is False
+    assert len(payload["radio_groups"]) >= 2
+
+
+def test_radio_groups_roundtrip_and_lookup() -> None:
+    profile = Profile.from_dict(
+        {
+            "id": "split",
+            "name": "Split",
+            "mode": "radio_split",
+            "radio_groups": [
+                {"id": "g1", "buttons": [1, 4]},
+                {"id": "g2", "buttons": [2, 3]},
+            ],
+        }
+    )
+    group1 = profile.radio_group_for(1)
+    group2 = profile.radio_group_for(2)
+    assert group1 is not None and group1.id == "g1"
+    assert group2 is not None and group2.id == "g2"
+    assert profile.radio_group_for(3) is group2
+    payload = profile.to_dict()
+    assert payload["radio_groups"][0]["buttons"] == [1, 4]
+
+
+def test_validate_radio_groups_rejects_overlap() -> None:
+    with pytest.raises(ValueError, match="Button 1"):
+        validate_radio_groups(
+            [
+                RadioGroup(id="g1", buttons=[1, 4]),
+                RadioGroup(id="g2", buttons=[1, 2]),
+            ]
+        )
 
 
 def test_backlight_brightness_clamped() -> None:

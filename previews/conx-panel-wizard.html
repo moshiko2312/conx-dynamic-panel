@@ -208,6 +208,35 @@
     .howto li { margin-bottom: 6px; }
     .review-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; font-size: .92rem; }
     .swatch { width: 14px; height: 14px; border-radius: 50%; display: inline-block; border: 1px solid #0002; vertical-align: middle; margin-inline-end: 6px; }
+    .conx-layer {
+      position: fixed; inset: 0; z-index: 80;
+      display: flex; align-items: center; justify-content: center;
+      padding: 16px; background: rgba(8,10,14,.52);
+      opacity: 0; pointer-events: none; transition: opacity .18s ease;
+    }
+    .conx-layer.open { opacity: 1; pointer-events: auto; }
+    .conx-panel {
+      width: min(380px, 100%); max-height: calc(100vh - 32px); overflow: auto;
+      border-radius: 18px; padding: 14px 14px 16px;
+      border: 1px solid color-mix(in srgb, var(--conx-steel) 40%, transparent);
+      background: linear-gradient(155deg, color-mix(in srgb, #fff 88%, #d7dee6), #f7f9fb 48%, color-mix(in srgb, #fff 90%, #c5d0da));
+      box-shadow: inset 0 1px 0 var(--conx-bevel-light), 0 18px 48px rgba(8,10,14,.35);
+      color: var(--conx-ink);
+      transform: scale(.96) translateY(8px); transition: transform .18s ease;
+    }
+    body[data-theme="noir"] .conx-panel { background: #111214; border-color: rgba(255,255,255,.12); }
+    body[data-theme="ivory"] .conx-panel { background: #f7f2ea; border-color: #d8cfbf; }
+    .conx-layer.open .conx-panel { transform: scale(1) translateY(0); }
+    .conx-modal-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; }
+    .conx-modal-title { font-family: var(--conx-display); font-size: 1.25rem; font-weight: 700; }
+    .conx-modal-close {
+      width: 36px; height: 36px; border-radius: 12px; cursor: pointer; font-size: 1.15rem; font-weight: 700;
+      border: 1px solid color-mix(in srgb, var(--conx-steel) 40%, transparent); background: #fff8; color: inherit;
+    }
+    .conx-modal-body { line-height: 1.5; margin-bottom: 14px; font-size: .95rem; }
+    .conx-modal-body .field { margin-bottom: 0; }
+    .conx-modal-actions { display:flex; flex-wrap:wrap; gap:10px; justify-content:flex-end; }
+    html[dir="rtl"] .conx-modal-actions { justify-content:flex-start; }
     @media (max-width: 640px) {
       .lang-hero, .grid-2, .review-grid { grid-template-columns: 1fr; }
       .wizard-step .lbl { display: none; }
@@ -215,6 +244,16 @@
   </style>
 </head>
 <body>
+  <div class="conx-layer" id="dialog-layer" hidden>
+    <div class="conx-panel" id="dialog-panel" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
+      <div class="conx-modal-head">
+        <div class="conx-modal-title" id="dialog-title"></div>
+        <button type="button" class="conx-modal-close" id="dialog-close" aria-label="Close">×</button>
+      </div>
+      <div class="conx-modal-body" id="dialog-body"></div>
+      <div class="conx-modal-actions" id="dialog-actions"></div>
+    </div>
+  </div>
   <div class="page">
     <div class="page-intro">
       <div class="back-editor-bar">
@@ -287,7 +326,8 @@ const I18N = {
       "לאחר ייבוא ב-HA לחצו Sync כדי לדחוף לפאנל הפיזי (אם auto-sync כבוי)."
     ],
     serviceYaml: "YAML מוכן להדבקה",
-    reset: "איפוס", resetOk: "האשף אופס לברירת מחדל.", resetConfirm: "לנקות נתונים שמורים ולהחזיר לברירת מחדל?"
+    reset: "איפוס", resetOk: "האשף אופס לברירת מחדל.", resetConfirm: "לנקות נתונים שמורים ולהחזיר לברירת מחדל?",
+    dialogOk: "אישור", dialogCancel: "ביטול", dialogConfirm: "אישור", promptRename: "שם פרופיל חדש"
   },
   en: {
     pageTitle: "ConX Dynamic Panel Wizard",
@@ -321,7 +361,8 @@ const I18N = {
       "After HA import, press Sync to push to the physical panel (unless auto-sync is on)."
     ],
     serviceYaml: "Ready-to-paste service YAML",
-    reset: "Reset", resetOk: "Wizard reset to defaults.", resetConfirm: "Clear saved wizard data and restore defaults?"
+    reset: "Reset", resetOk: "Wizard reset to defaults.", resetConfirm: "Clear saved wizard data and restore defaults?",
+    dialogOk: "OK", dialogCancel: "Cancel", dialogConfirm: "Confirm", promptRename: "New profile name"
   },
   ru: {
     pageTitle: "Мастер ConX Dynamic Panel",
@@ -355,7 +396,8 @@ const I18N = {
       "После импорта в HA нажмите Sync, чтобы отправить на панель."
     ],
     serviceYaml: "YAML для сервиса",
-    reset: "Сброс", resetOk: "Мастер сброшен к значениям по умолчанию.", resetConfirm: "Очистить сохранённые данные и вернуть значения по умолчанию?"
+    reset: "Сброс", resetOk: "Мастер сброшен к значениям по умолчанию.", resetConfirm: "Очистить сохранённые данные и вернуть значения по умолчанию?",
+    dialogOk: "ОК", dialogCancel: "Отмена", dialogConfirm: "Подтвердить", promptRename: "Новое имя профиля"
   }
 };
 
@@ -439,8 +481,8 @@ function loadPersistedState(){
   } catch (_e) { return null; }
 }
 
-function resetToDefaults(){
-  if (!confirm(t().resetConfirm)) return;
+async function resetToDefaults(){
+  if (!(await showConfirm(t().resetConfirm))) return;
   try { localStorage.removeItem(STORAGE_KEY); } catch (_e) { /* ignore */ }
   const fresh = createDefaultState();
   Object.keys(state).forEach(k => delete state[k]);
@@ -451,6 +493,61 @@ function resetToDefaults(){
   persistState();
   showNotice(t().resetOk);
   render();
+}
+
+let dialogResolver = null;
+function closeDialog(result){
+  const layer = document.getElementById("dialog-layer");
+  if (!layer) return;
+  layer.classList.remove("open");
+  layer.hidden = true;
+  const resolve = dialogResolver;
+  dialogResolver = null;
+  if (resolve) resolve(result);
+}
+function openDialog({ title, message, html, confirmLabel, cancelLabel, danger }){
+  return new Promise((resolve) => {
+    const layer = document.getElementById("dialog-layer");
+    const titleEl = document.getElementById("dialog-title");
+    const bodyEl = document.getElementById("dialog-body");
+    const actionsEl = document.getElementById("dialog-actions");
+    if (!layer || !titleEl || !bodyEl || !actionsEl) { resolve(false); return; }
+    if (dialogResolver) closeDialog(false);
+    dialogResolver = resolve;
+    const i = t();
+    titleEl.textContent = title || i.dialogConfirm;
+    if (html) bodyEl.innerHTML = html;
+    else bodyEl.textContent = message || "";
+    const showCancel = cancelLabel !== null && cancelLabel !== false;
+    actionsEl.innerHTML = `
+      ${showCancel ? `<button type="button" class="btn" data-dialog="cancel">${cancelLabel || i.dialogCancel}</button>` : ""}
+      <button type="button" class="btn ${danger ? "danger" : "primary"}" data-dialog="ok">${confirmLabel || i.dialogOk}</button>
+    `;
+    actionsEl.querySelectorAll("[data-dialog]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        if (btn.dataset.dialog !== "ok") { closeDialog(false); return; }
+        const input = bodyEl.querySelector("input");
+        closeDialog(input ? (input.value.trim() || false) : true);
+      });
+    });
+    layer.hidden = false;
+    requestAnimationFrame(() => layer.classList.add("open"));
+    const input = bodyEl.querySelector("input");
+    if (input) setTimeout(() => input.focus(), 30);
+  });
+}
+function showConfirm(message){
+  const i = t();
+  return openDialog({ title: i.dialogConfirm, message, confirmLabel: i.dialogConfirm, cancelLabel: i.dialogCancel, danger: true });
+}
+function showPrompt(message, defaultValue){
+  const i = t();
+  return openDialog({
+    title: i.promptRename,
+    html: `<label class="field"><span>${message}</span><input type="text" id="dialog-input" value="${String(defaultValue || "").replace(/"/g, "&quot;")}" /></label>`,
+    confirmLabel: i.dialogOk,
+    cancelLabel: i.dialogCancel,
+  });
 }
 
 const state = loadPersistedState() || createDefaultState();
@@ -719,7 +816,12 @@ function bindBody(){
       const p = deepClone(state.draft); p.id=id; p.name=state.draft.name+" copy";
       state.profiles[id]=p; state.activeId=id; state.draft=deepClone(p); persistState(); render();
     } else if (act === "rename") {
-      const n = prompt(t().rename, state.draft.name); if (!n) return; state.draft.name=n; persistState(); render();
+      void showPrompt(t().rename, state.draft.name).then((n) => {
+        if (!n) return;
+        state.draft.name = n;
+        persistState();
+        render();
+      });
     } else if (act === "delete") {
       if (Object.keys(state.profiles).length<=1) return;
       delete state.profiles[state.activeId];
@@ -788,8 +890,7 @@ function bindBody(){
     state.selectedRing = idx;
     const member = (state.draft.buttons.find(b => b.index === idx)?.radio_member) !== false;
     if (state.draft.mode.startsWith("radio") && member) {
-      if (state.draft.mode === "radio_optional" && state.draft.selected_button === idx) state.draft.selected_button = null;
-      else state.draft.selected_button = idx;
+      if (state.draft.selected_button !== idx) state.draft.selected_button = idx;
     }
     persistState();
     render();
@@ -830,7 +931,18 @@ function render(){
 
 document.getElementById("btnBack").addEventListener("click", () => { const i=stepIndex(); if(i>0) goStep(STEPS[i-1]); });
 document.getElementById("btnNext").addEventListener("click", () => { const i=stepIndex(); if(i<STEPS.length-1) goStep(STEPS[i+1]); });
-document.getElementById("btnReset").addEventListener("click", () => resetToDefaults());
+document.getElementById("btnReset").addEventListener("click", () => { void resetToDefaults(); });
+const dialogLayer = document.getElementById("dialog-layer");
+if (dialogLayer) {
+  dialogLayer.addEventListener("click", (event) => {
+    if (event.target === dialogLayer) closeDialog(false);
+  });
+}
+const dialogClose = document.getElementById("dialog-close");
+if (dialogClose) dialogClose.addEventListener("click", () => closeDialog(false));
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") closeDialog(false);
+});
 document.getElementById("fileInput").addEventListener("change", async (e) => {
   const file = e.target.files && e.target.files[0]; e.target.value = "";
   if (!file) return;

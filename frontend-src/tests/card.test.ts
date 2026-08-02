@@ -48,6 +48,10 @@ const sampleProfile: Profile = {
     { index: 3, name: "Outdoor", action: null, radio_member: true },
     { index: 4, name: "All off", action: null, radio_member: true },
   ],
+  radio_groups: [
+    { id: "g1", buttons: [] },
+    { id: "g2", buttons: [] },
+  ],
 };
 
 function panelPayload(overrides: Record<string, unknown> = {}) {
@@ -63,7 +67,7 @@ function panelPayload(overrides: Record<string, unknown> = {}) {
     capabilities: {
       colors: ALL_COLORS,
       radar: ["30s"],
-      modes: ["toggle", "radio_mandatory", "radio_optional"],
+      modes: ["toggle", "radio_mandatory", "radio_optional", "radio_split"],
       button_count: 4,
     },
     profiles: { lighting: sampleProfile },
@@ -155,8 +159,6 @@ describe("custom elements", () => {
       entry_id: "abc",
     });
     expect(el.shadowRoot?.textContent).toContain("Kitchen");
-    el._goToStep("preview");
-    await el.updateComplete;
     expect(el.shadowRoot?.textContent).toContain("Living room");
   });
 
@@ -176,6 +178,8 @@ describe("custom elements", () => {
   it("switches language via flag controls", async () => {
     const callWS = vi.fn().mockResolvedValue(panelPayload({ sync_status: "synced" }));
     const el = await mountCard({ language: "en", callWS });
+    (el.shadowRoot?.querySelector(".menu-btn") as HTMLButtonElement).click();
+    await el.updateComplete;
     const ruBtn = [...(el.shadowRoot?.querySelectorAll(".lang-btn") || [])].find((btn) =>
       (btn as HTMLElement).textContent?.includes("RU")
     ) as HTMLButtonElement;
@@ -183,8 +187,6 @@ describe("custom elements", () => {
     ruBtn.click();
     await el.updateComplete;
     expect(el._language).toBe("ru");
-    el._goToStep("review");
-    await el.updateComplete;
     expect(el.shadowRoot?.textContent).toContain("Синхронизация");
     expect(loadStoredLanguage()).toBe("ru");
   });
@@ -192,8 +194,6 @@ describe("custom elements", () => {
   it("renders horizontal faceplate with labels and rings", async () => {
     const callWS = vi.fn().mockResolvedValue(panelPayload({ sync_status: "synced" }));
     const el = await mountCard({ language: "en", callWS });
-    el._goToStep("preview");
-    await el.updateComplete;
     const faceplate = el.shadowRoot?.querySelector(".faceplate");
     const labels = el.shadowRoot?.querySelectorAll(".faceplate-label");
     const rings = el.shadowRoot?.querySelectorAll(".ring");
@@ -231,8 +231,6 @@ describe("custom elements", () => {
       })
     );
     const el = await mountCard({ language: "en", callWS });
-    el._goToStep("preview");
-    await el.updateComplete;
     const faceplate = el.shadowRoot?.querySelector(".faceplate") as HTMLElement;
     expect(faceplate.style.getPropertyValue("--ring-on").trim()).toBe(
       resolveLedPreviewColor("cyan")
@@ -278,8 +276,6 @@ describe("custom elements", () => {
       })
     );
     const el = await mountCard({ language: "en", callWS });
-    el._goToStep("preview");
-    await el.updateComplete;
     const faceplate = el.shadowRoot?.querySelector(".faceplate") as HTMLElement;
     expect(faceplate.style.getPropertyValue("--ring-on").trim()).toBe(
       COLOR_PREVIEW.magenta
@@ -294,6 +290,71 @@ describe("custom elements", () => {
       true,
       false,
     ]);
+  });
+
+  it("keeps classic radio selection when re-pressing the selected ring", async () => {
+    const callWS = vi.fn().mockResolvedValue(
+      panelPayload({
+        sync_status: "synced",
+        profiles: {
+          lighting: {
+            ...sampleProfile,
+            mode: "radio_optional",
+            selected_button: 2,
+          },
+        },
+      })
+    );
+    const el = await mountCard({ language: "en", callWS });
+    el._onRingPress(2);
+    await el.updateComplete;
+    expect(el._draft?.selected_button).toBe(2);
+    el._onRingPress(4);
+    await el.updateComplete;
+    expect(el._draft?.selected_button).toBe(4);
+  });
+
+  it("shows radio groups editor only in buttons section for radio_split", async () => {
+    const callWS = vi.fn().mockResolvedValue(
+      panelPayload({
+        sync_status: "synced",
+        profiles: {
+          lighting: {
+            ...sampleProfile,
+            mode: "radio_split",
+            radio_groups: [
+              { id: "g1", buttons: [1, 4] },
+              { id: "g2", buttons: [2, 3] },
+            ],
+          },
+        },
+      })
+    );
+    const el = await mountCard({ language: "en", callWS });
+    el._activeTab = "buttons";
+    await el.updateComplete;
+    const groups = el.shadowRoot?.querySelectorAll(".radio-groups-section");
+    expect(groups?.length).toBe(1);
+    const buttonsHost = el.shadowRoot?.querySelector(
+      '.tab-panel[class*="active"]'
+    ) || el.shadowRoot?.querySelector(".tab-panel.active");
+    // tabs use active class; query section directly
+    const section = el.shadowRoot?.querySelector(".radio-groups-section") as HTMLElement;
+    expect(section).toBeTruthy();
+    expect(section.querySelectorAll(".radio-member .switch").length).toBe(12);
+    expect(section.querySelector(".radio-group-card.is-summary")).toBeTruthy();
+    expect(section.querySelectorAll(".radio-member.is-readonly").length).toBe(4);
+    // Collapse group 1 — membership controls hide, summary remains
+    const groupHeads = section.querySelectorAll(".radio-group-card .radio-group-head input");
+    expect(groupHeads.length).toBe(3);
+    (groupHeads[0] as HTMLInputElement).checked = false;
+    groupHeads[0].dispatchEvent(new Event("change", { bubbles: true }));
+    await el.updateComplete;
+    expect(el._radioGroupOpen.g0).toBe(false);
+    const firstCard = section.querySelector(".radio-group-card") as HTMLElement;
+    expect(firstCard.classList.contains("open")).toBe(false);
+    expect(firstCard.querySelector(".radio-group-summary")?.textContent).toMatch(/L1|L4|—/);
+    expect(firstCard.querySelector(".radio-group-members")).toBeFalsy();
   });
 
   it("reflects toggle entity on/off state in ring preview when available", async () => {
@@ -338,8 +399,6 @@ describe("custom elements", () => {
         "switch.kitchen": { state: "off" },
       },
     });
-    el._goToStep("preview");
-    await el.updateComplete;
     const rings = [...(el.shadowRoot?.querySelectorAll(".ring") || [])];
     expect(rings[0]?.classList.contains("on")).toBe(true);
     expect(rings[1]?.classList.contains("on")).toBe(false);
@@ -348,7 +407,7 @@ describe("custom elements", () => {
   it("keeps text input focus across continuous typing updates", async () => {
     const callWS = vi.fn().mockResolvedValue(panelPayload());
     const el = await mountCard({ language: "en", callWS });
-    el._goToStep("edit");
+    el._activeTab = "buttons";
     await el.updateComplete;
     const toggle = el.shadowRoot?.querySelector(
       '.button-edit[data-button="1"] .button-edit-toggle'
@@ -377,7 +436,7 @@ describe("custom elements", () => {
   it("collapses button editors by default and expands on header click", async () => {
     const callWS = vi.fn().mockResolvedValue(panelPayload());
     const el = await mountCard({ language: "en", callWS });
-    el._goToStep("edit");
+    el._activeTab = "buttons";
     await el.updateComplete;
     const row = el.shadowRoot?.querySelector(
       '.button-edit[data-button="1"]'
@@ -412,11 +471,11 @@ describe("custom elements", () => {
     const callWS = vi.fn().mockResolvedValue(panelPayload({ sync_status: "synced" }));
     const el = await mountCard({ language: "en", callWS });
     expect(el._view).toBe("editor");
-    expect(el.shadowRoot?.textContent).toMatch(/Export wizard|Profiles|Appearance/i);
+    expect(el.shadowRoot?.textContent).toMatch(/Profiles|Appearance/i);
     el._openExportWizard();
     await el.updateComplete;
     expect(el._view).toBe("export");
-    expect(el.shadowRoot?.textContent).toContain("Download .json");
+    expect(el.shadowRoot?.querySelector(".conx-layer")).toBeTruthy();
     expect(el.shadowRoot?.textContent).toContain("Import (merge)");
     expect(el.shadowRoot?.textContent).toContain("Back to editor");
     expect(el.shadowRoot?.textContent).toContain("schema_version");
@@ -425,7 +484,7 @@ describe("custom elements", () => {
     el._backToEditor();
     await el.updateComplete;
     expect(el._view).toBe("editor");
-    expect(el.shadowRoot?.textContent).toMatch(/Export wizard/i);
+    expect(el.shadowRoot?.querySelector(".tab-bar")).toBeTruthy();
   });
 
   it("defaults to single-page main editor with all key sections", async () => {
@@ -436,7 +495,9 @@ describe("custom elements", () => {
     expect(text).toMatch(/Profiles/i);
     expect(text).toMatch(/Appearance|Buttons/i);
     expect(text).toMatch(/Panel preview|preview/i);
-    expect(text).toMatch(/Export wizard/i);
+    expect(el.shadowRoot?.querySelector(".tab-bar")).toBeTruthy();
+    expect(el.shadowRoot?.querySelector(".menu-btn")).toBeTruthy();
+    expect(el.shadowRoot?.querySelector(".hero-preview")).toBeTruthy();
     expect(el.shadowRoot?.querySelector(".wizard-steps")).toBeFalsy();
   });
 
@@ -472,16 +533,17 @@ describe("custom elements", () => {
     );
   });
 
-  it("toggles edit settings sections with switches", async () => {
+  it("switches editor tabs between profiles appearance and buttons", async () => {
     const callWS = vi.fn().mockResolvedValue(panelPayload({ sync_status: "synced" }));
     const el = await mountCard({ language: "en", callWS });
-    el._goToStep("edit");
+    expect(el._activeTab).toBe("profiles");
+    expect(el.shadowRoot?.querySelector(".profile-list")).toBeTruthy();
+    el._activeTab = "appearance";
+    await el.updateComplete;
+    expect(el.shadowRoot?.querySelector(".dimmer-field")).toBeTruthy();
+    el._activeTab = "buttons";
     await el.updateComplete;
     expect(el.shadowRoot?.querySelector(".button-edit")).toBeTruthy();
-    el._toggleSection("buttons");
-    await el.updateComplete;
-    expect(el._sections.buttons).toBe(false);
-    expect(el.shadowRoot?.querySelector(".button-edit")).toBeFalsy();
   });
 });
 

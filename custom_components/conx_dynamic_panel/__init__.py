@@ -119,6 +119,12 @@ async def async_reload_entry(hass: HomeAssistant, entry: ConXConfigEntry) -> Non
 
 async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
     _apply_log_level(entry)
+    data = hass.data.get(DOMAIN, {}).get(entry.entry_id)
+    if data is not None:
+        coordinator: PanelCoordinator = data["coordinator"]
+        if coordinator.skip_next_reload:
+            coordinator.skip_next_reload = False
+            return
     await hass.config_entries.async_reload(entry.entry_id)
 
 
@@ -149,7 +155,7 @@ async def _async_register_frontend(hass: HomeAssistant) -> None:
         # Older/newer HA builds may differ; installation docs cover manual resources.
         _LOGGER.debug("Could not register static frontend path", exc_info=True)
 
-    await _async_register_lovelace_resource(hass, f"{FRONTEND_SCRIPT_URL}?v=0.1.0")
+    await _async_register_lovelace_resource(hass, f"{FRONTEND_SCRIPT_URL}?v=0.1.1")
 
 
 async def _async_register_lovelace_resource(hass: HomeAssistant, url: str) -> None:

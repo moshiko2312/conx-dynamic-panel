@@ -6,30 +6,33 @@ All notable changes to this private project will be documented here.
 
 ### Added
 
-- Premium Lovelace card redesign with collapsible settings sections and intentional motion (section expand, sync pulse, ring press).
-- HTML preview layout: large pinned faceplate hero on top, settings panels below in a reorderable 2-column grid, actions dock at bottom; panel collapse removes empty body space; layout order/open state persisted (`conx-card-preview-state-v4`).
-- On-card language flag selectors for Hebrew, English, and Russian (RTL for Hebrew); preference persisted in `localStorage`, with optional card `language` config.
-- Zemismart-accurate horizontal faceplate preview: black label bar on top, white glass face, four LED rings left→right; CSS skin extension point `--conx-faceplate-skin`.
-- Single-page main editor by default; Export/Import opens a dedicated view with prominent **Back to editor** / **חזרה לעריכה**.
-- Standalone wizard at `previews/conx-panel-wizard.html` with HA-compatible JSON, HE/EN/RU, and a clear link back to the main card preview editor.
-- Profile import/export via WebSocket (`export_profiles`, `import_profiles` with merge/replace), HA services, and card/preview file download/upload UI with real file-picker import (merge/replace).
-- Shared frontend export schema validator (`frontend-src/src/exportSchema.ts`) matching backend `STORAGE_VERSION`.
-- Backlight brightness (`0–100`) in profiles + dimmer UI; optional `number` backlight brightness entity in Config Flow / Zemismart adapter.
+- (none yet)
+
+## [0.1.1] - 2026-08-03
+
+### Added
+
+- Profile mode `radio_split` with editable `radio_groups` on the Buttons tab; exclusivity is per-group classic radio, ungrouped buttons stay independent toggles.
+- Collapsible radio-group category headers (Group 1 / Group 2 / Independent toggle) with app-style switches; collapsed rows show a compact summary (e.g. `L1, L4`). Preview persists open state in `localStorage` (`conx-card-preview-state-v8`).
+- Lovelace card UX aligned with the HTML preview: hamburger settings modal (language / theme / import-export), hero faceplate with centered profile name, three tabs (Profiles / Appearance / Buttons), editable panel name via WebSocket `update_panel_name`.
+- Centered modal chrome for settings and export/import (card + HTML previews).
+- On-card language selectors for Hebrew, English, and Russian (RTL for Hebrew); preference persisted in `localStorage`, with optional card `language` config.
+- Zemismart-accurate horizontal faceplate preview: labels on top, four LED rings left→right; rings follow draft `color_on` / `color_off`.
+- Standalone wizard at `previews/conx-panel-wizard.html` with HA-compatible JSON and a link back to the card preview.
+- Profile import/export via WebSocket (`export_profiles`, `import_profiles` merge/replace), green Export CTA, and file picker UI.
+- Shared frontend export schema validator matching backend `STORAGE_VERSION`.
+- Backlight brightness (`0–100`) in profiles + large dimmer UI; optional `number` backlight brightness entity in Config Flow / Zemismart adapter.
 - Per-button `radio_member` for mixed radio/toggle participation in `radio_optional` / `radio_mandatory`.
-- Theme system with accessible design tokens and two premium themes (**Noir gold**, **Ivory stone**) inspired by a refined noir/gold + ivory craft palette; legacy theme ids map automatically.
+- Theme system with **Noir gray** (3D charcoal/slate gradient) and **Ivory cool** (near-white stone); legacy theme ids map automatically.
 - Reference photo at `frontend-src/assets/zemismart-4gang-faceplate.png` for topography (preview itself is a CSS recreation for HA reliability).
 
 ### Changed
 
+- Radio modes are classic radio only: exactly one ON in `radio_mandatory`, `radio_optional`, and each `radio_split` group; re-pressing the selected member does not turn it off.
+- Profiles tab: 3-column profile chips, 2-column panel/profile name fields, Create / Duplicate / Delete only (no rename button / no pinned-drag layout).
+- Radio groups editor is shown only under Buttons; Appearance keeps Mode + colors + radar + backlight.
 - Card text inputs mutate draft state in place so continuous typing keeps focus.
-- Button preview layout is a single horizontal row matching physical L1–L4 order (no 2×2 grid).
-- Faceplate LED rings now follow draft `color_on` / `color_off` (live while editing): radio uses on-color for the selected button and off-color for the rest; toggle uses mapped entity state when available, otherwise a mixed on/off sample so both LED colors stay visible.
-- Buttons section uses compact collapsible rows (number + label summary); editors expand on demand.
-- Toggle switches redesigned with balanced track/thumb proportions and physical LTR thumb travel (fixes RTL misalignment).
-- HTML previews (`conx-card-preview.html`, `conx-panel-wizard.html`) persist editable state in `localStorage` across refresh, with a Reset control.
 - Import accepts profiles as an object or array, validates `schema_version`, and rejects future schema versions.
-- Themes use cohesive surface/button/input tokens so controls stay readable (no light-on-light text); primary CTAs use solid accent with high-contrast text.
-- Preview visual language refreshed (Manrope + Cormorant Garamond, gold accent on near-black / warm ivory surfaces, pill buttons, glass hint chips).
 
 ## [0.1.0] - 2026-08-02
 

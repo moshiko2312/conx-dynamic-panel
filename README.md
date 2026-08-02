@@ -17,7 +17,7 @@ For Cursor or Codex:
 
 ### Implementation status
 
-MVP `0.1.0` is implemented in this repository:
+MVP `0.1.1` is implemented in this repository:
 
 - Backend package under `custom_components/conx_dynamic_panel/`
 - Bundled card source under `frontend-src/`
@@ -104,6 +104,7 @@ none
 - Toggle mode.
 - Radio mandatory mode.
 - Radio optional mode.
+- Radio split mode (per-group classic radio + independent toggles).
 - Draft configuration separated from applied hardware state.
 - Manual **Sync to Panel**.
 - Sync status: `synced`, `pending`, `syncing`, `error`, `out_of_sync`.
@@ -135,14 +136,11 @@ If the selected button is physically switched OFF, restore it to ON without exec
 
 ### Radio optional
 
-Zero or one button may remain ON.
+Classic radio among radio members: exactly one button remains ON. Re-pressing the selected button does not turn it off (same exclusivity as radio mandatory).
 
-When a button changes to ON:
+### Radio split
 
-1. Execute its action.
-2. Turn the other buttons OFF.
-
-If the selected button changes to OFF, leave all buttons OFF.
+Define multiple radio groups (for example buttons 1+4 in one group and 2+3 in another). Within a group exactly one button stays ON (classic radio; no self-toggle-off). Buttons not assigned to any group behave as independent toggles.
 
 ### Feedback-loop protection
 
@@ -266,9 +264,17 @@ entry_id: YOUR_CONFIG_ENTRY_ID
 ### Card UX notes
 
 - Draft edits never write hardware until **Sync to Panel** (unless auto-sync is enabled).
-- Collapsible settings sections each have their own toggle.
-- The live preview is a 1×4 landscape faceplate matching the Zemismart topography (not a 2×2 grid). A CSS extension point (`--conx-faceplate-skin`) is reserved for a future photo overlay.
-- **Export** downloads profiles JSON; **Import (merge)** / **Import (replace)** load a JSON file through the authenticated WebSocket API.
+- **Hamburger menu** opens a centered settings modal: language (HE/EN/RU), theme (**Noir gray** / **Ivory cool**), and import/export actions (green Export).
+- **Hero faceplate** sits above three tabs: **Profiles** · **Appearance** · **Buttons**. The active profile name is centered in the preview header; panel name is editable on Profiles.
+- Profiles: 3-column chips, Create / Duplicate / Delete (no rename / no drag layout).
+- Appearance: mode, colors, radar, backlight + large brightness dimmer, child lock.
+- Buttons: collapsible per-button editors; when mode is **Radio split**, Group 1 / Group 2 / Independent toggle sections each have a collapse switch (collapsed header can show e.g. `L1, L4`).
+- Faceplate is 1×4 L→R (not 2×2). LED rings follow draft `color_on` / `color_off`. CSS extension point: `--conx-faceplate-skin`.
+- **Export** downloads profiles JSON; **Import (merge)** / **Import (replace)** use the authenticated WebSocket API.
+
+### HTML preview
+
+`previews/conx-card-preview.html` is a standalone interactive mock of the Lovelace card (no Home Assistant required). Use it to iterate on layout, themes, radio split, and i18n before rebuilding the Lit bundle. Demo state persists in `localStorage` (`conx-card-preview-state-v8`). The companion file `previews/conx-panel-wizard.html` exercises portable JSON import/export.
 
 Update an existing install without touching Home Assistant storage:
 
@@ -316,15 +322,14 @@ Update an existing install without touching Home Assistant storage:
 - Bundled Lit card with English and Hebrew RTL
 - Services, WebSocket API, private install scripts, and automated tests
 
-### Unreleased / next
+### v0.1.1 (implemented)
 
-- Premium card redesign with collapsible settings, flag language selectors (he/en/ru)
-- Horizontal Zemismart faceplate preview (labels top / rings bottom)
-- Profile import/export WebSocket API and card UI
+- Premium Lit card aligned with HTML preview (tabs, menu modal, themes, radio split)
+- Profile import/export + panel rename WebSocket APIs
+- Collapsible radio-group category editors
 
 ### Later
 
-- Mixed mode
 - Sync all panels
 - Multi-click experiments
 - Automatic profile conditions

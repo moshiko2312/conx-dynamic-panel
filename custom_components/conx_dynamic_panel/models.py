@@ -28,8 +28,78 @@ def clamp_backlight_brightness(value: Any) -> int:
         return DEFAULT_BACKLIGHT_BRIGHTNESS
     return max(BACKLIGHT_BRIGHTNESS_MIN, min(BACKLIGHT_BRIGHTNESS_MAX, brightness))
 
-ButtonMode = Literal["toggle", "radio_mandatory", "radio_optional"]
+ButtonMode = Literal["toggle", "radio_mandatory", "radio_optional", "radio_split"]
 SyncStatus = Literal["synced", "pending", "syncing", "error", "out_of_sync"]
+
+
+@dataclass(slots=True)
+class RadioGroup:
+    """One exclusive radio group within radio_split mode."""
+
+    id: str
+    buttons: list[int] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize radio group."""
+        return {"id": self.id, "buttons": list(self.buttons)}
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> RadioGroup:
+        """Deserialize radio group."""
+        raw_buttons = data.get("buttons") or []
+        buttons: list[int] = []
+        for item in raw_buttons:
+            try:
+                index = int(item)
+            except (TypeError, ValueError):
+                continue
+            if 1 <= index <= BUTTON_COUNT and index not in buttons:
+                buttons.append(index)
+        group_id = str(data.get("id") or "").strip() or "g"
+        return cls(id=group_id, buttons=buttons)
+
+
+def normalize_radio_groups(raw: Any) -> list[RadioGroup]:
+    """Normalize radio_groups payload; ensure two editable groups by default."""
+    groups: list[RadioGroup] = []
+    if isinstance(raw, list):
+        for index, item in enumerate(raw):
+            if isinstance(item, RadioGroup):
+                group = RadioGroup(id=item.id, buttons=list(item.buttons))
+            elif isinstance(item, dict):
+                group = RadioGroup.from_dict(item)
+            else:
+                continue
+            if not group.id or group.id == "g":
+                group.id = f"g{index + 1}"
+            groups.append(group)
+    # Always expose at least two groups for the UI editors.
+    while len(groups) < 2:
+        groups.append(RadioGroup(id=f"g{len(groups) + 1}", buttons=[]))
+    # Deduplicate ids.
+    seen: set[str] = set()
+    for index, group in enumerate(groups):
+        base = group.id or f"g{index + 1}"
+        candidate = base
+        suffix = 2
+        while candidate in seen:
+            candidate = f"{base}_{suffix}"
+            suffix += 1
+        group.id = candidate
+        seen.add(candidate)
+    return groups
+
+
+def validate_radio_groups(groups: list[RadioGroup]) -> None:
+    """Raise ValueError when a button appears in more than one group."""
+    ownership: dict[int, str] = {}
+    for group in groups:
+        for index in group.buttons:
+            if index in ownership:
+                raise ValueError(
+                    f"Button {index} belongs to both '{ownership[index]}' and '{group.id}'"
+                )
+            ownership[index] = group.id
 
 
 @dataclass(slots=True)
@@ -103,6 +173,7 @@ class Profile:
     child_lock: bool = False
     selected_button: int | None = None
     buttons: list[ButtonConfig] = field(default_factory=list)
+    radio_groups: list[RadioGroup] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         by_index = {button.index: button for button in self.buttons}
@@ -111,6 +182,7 @@ class Profile:
             for i in range(1, BUTTON_COUNT + 1)
         ]
         self.backlight_brightness = clamp_backlight_brightness(self.backlight_brightness)
+        self.radio_groups = normalize_radio_groups(self.radio_groups)
 
     def button_names(self) -> tuple[str, str, str, str]:
         """Return ordered button names."""
@@ -133,6 +205,13 @@ class Profile:
         members = [button.index for button in self.buttons if button.radio_member]
         return members or list(range(1, BUTTON_COUNT + 1))
 
+    def radio_group_for(self, index: int) -> RadioGroup | None:
+        """Return the radio_split group containing a button, if any."""
+        for group in self.radio_groups:
+            if index in group.buttons:
+                return group
+        return None
+
     def to_dict(self) -> dict[str, Any]:
         """Serialize profile."""
         return {
@@ -147,6 +226,7 @@ class Profile:
             "child_lock": self.child_lock,
             "selected_button": self.selected_button,
             "buttons": [button.to_dict() for button in self.buttons],
+            "radio_groups": [group.to_dict() for group in self.radio_groups],
         }
 
     @classmethod
@@ -167,6 +247,7 @@ class Profile:
             child_lock=bool(data.get("child_lock", False)),
             selected_button=data.get("selected_button"),
             buttons=buttons,
+            radio_groups=normalize_radio_groups(data.get("radio_groups")),
         )
 
     def clone(self, new_id: str, new_name: str | None = None) -> Profile:
@@ -393,6 +474,6 @@ def capability_defaults() -> dict[str, Any]:
     return {
         "colors": list(DEFAULT_COLORS),
         "radar": list(DEFAULT_RADAR),
-        "modes": ["toggle", "radio_mandatory", "radio_optional"],
+        "modes": ["toggle", "radio_mandatory", "radio_optional", "radio_split"],
         "button_count": BUTTON_COUNT,
     }

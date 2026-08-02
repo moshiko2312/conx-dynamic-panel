@@ -5,7 +5,27 @@ import type { Profile, ProfilesExport } from "./types";
 /** Must match custom_components/conx_dynamic_panel/const.py STORAGE_VERSION. */
 export const PROFILES_EXPORT_SCHEMA_VERSION = 1;
 
-const MODES = new Set(["toggle", "radio_mandatory", "radio_optional"]);
+const MODES = new Set(["toggle", "radio_mandatory", "radio_optional", "radio_split"]);
+
+function normalizeRadioGroups(raw: unknown): Profile["radio_groups"] {
+  const groups: NonNullable<Profile["radio_groups"]> = [];
+  if (Array.isArray(raw)) {
+    raw.forEach((item, index) => {
+      if (!isRecord(item)) return;
+      const buttons: number[] = [];
+      const rawButtons = Array.isArray(item.buttons) ? item.buttons : [];
+      for (const value of rawButtons) {
+        const n = Number(value);
+        if (n >= 1 && n <= 4 && !buttons.includes(n)) buttons.push(n);
+      }
+      groups.push({ id: String(item.id || `g${index + 1}`), buttons });
+    });
+  }
+  while (groups.length < 2) {
+    groups.push({ id: `g${groups.length + 1}`, buttons: [] });
+  }
+  return groups;
+}
 
 export type ProfilesExportValidation =
   | { ok: true; payload: ProfilesExport }
@@ -117,6 +137,7 @@ function parseProfile(
           ? null
           : Number(value.selected_button),
       buttons,
+      radio_groups: normalizeRadioGroups(value.radio_groups),
     },
   };
 }

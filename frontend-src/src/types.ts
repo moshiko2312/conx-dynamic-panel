@@ -12,10 +12,15 @@ export interface ButtonConfig {
   radio_member?: boolean;
 }
 
+export interface RadioGroup {
+  id: string;
+  buttons: number[];
+}
+
 export interface Profile {
   id: string;
   name: string;
-  mode: "toggle" | "radio_mandatory" | "radio_optional";
+  mode: "toggle" | "radio_mandatory" | "radio_optional" | "radio_split";
   color_on: string;
   color_off: string;
   radar: string;
@@ -25,6 +30,8 @@ export interface Profile {
   child_lock: boolean;
   selected_button: number | null;
   buttons: ButtonConfig[];
+  /** Classic radio groups for radio_split (exactly one ON per group; ungrouped stay toggles). */
+  radio_groups?: RadioGroup[];
 }
 
 export interface PanelConfig {

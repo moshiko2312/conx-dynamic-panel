@@ -17,7 +17,7 @@ Work autonomously. Do not ask routine implementation questions. Make safe, conve
 5. A profile contains an ID, display name, four labels, four actions, color settings, radar, backlight, child lock, mode, and selected radio state when relevant.
 6. Toggle mode executes once for every real physical relay state transition.
 7. Radio mandatory allows exactly one ON relay.
-8. Radio optional allows zero or one ON relay.
+8. Radio optional uses classic radio exclusivity: exactly one ON among radio members (no self-toggle-off).
 9. Integration-generated relay changes must never trigger user actions.
 10. Profile activation and profile synchronization are separate operations, with an option to perform both.
 11. The UI must support English, Hebrew RTL, and Russian.
@@ -230,10 +230,21 @@ Exactly one relay must remain ON.
 
 ### Radio optional
 
-Zero or one relay may remain ON.
+Classic radio among radio members: exactly one relay remains ON (same exclusivity as radio mandatory; no self-toggle-off).
 
-- Physical transition to ON: execute action, suppress and turn all other relays OFF, persist selected index.
-- Physical transition of selected relay to OFF: persist no selection and leave all relays OFF.
+- Physical transition to ON: execute action, suppress and turn all other member relays OFF, persist selected index.
+- Physical transition of selected relay to OFF: suppress and restore it to ON without executing the action.
+- Profile activation with no valid selected index defaults to the first radio member.
+
+### Radio split
+
+Multiple independent radio groups via profile `radio_groups` (each `{ id, buttons }`).
+
+- A button belongs to at most one group.
+- Ungrouped buttons behave as toggle.
+- Physical ON within a group: execute action, suppress and turn other members of that group only OFF.
+- Physical OFF within a group: suppress and restore that member to ON (classic radio; no all-off).
+- Sync does not force a global single selected relay pattern.
 
 ## Integration entities
 

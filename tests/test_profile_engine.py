@@ -12,6 +12,7 @@ import pytest
 from custom_components.conx_dynamic_panel.const import (
     MODE_RADIO_MANDATORY,
     MODE_RADIO_OPTIONAL,
+    MODE_RADIO_SPLIT,
     MODE_TOGGLE,
     SYNC_ERROR,
     SYNC_OUT_OF_SYNC,
@@ -24,6 +25,7 @@ from custom_components.conx_dynamic_panel.models import (
     HardwareState,
     PanelStorageData,
     Profile,
+    RadioGroup,
     SyncResult,
 )
 from custom_components.conx_dynamic_panel.suppression import SuppressionTracker
@@ -147,7 +149,7 @@ async def test_radio_mandatory_turns_others_off_and_restores() -> None:
 
 
 @pytest.mark.asyncio
-async def test_radio_optional_allows_all_off() -> None:
+async def test_radio_optional_restores_selected_like_mandatory() -> None:
     store = FakeStore()
     adapter = FakeAdapter()
     runtime = _runtime(adapter, store)
@@ -157,8 +159,8 @@ async def test_radio_optional_allows_all_off() -> None:
     profile.mode = MODE_RADIO_OPTIONAL  # type: ignore[assignment]
     profile.selected_button = 1
     await coordinator._async_handle_physical_press(1, False)
-    assert profile.selected_button is None
-    assert adapter.relay_calls == []
+    assert profile.selected_button == 1
+    assert (1, True) in adapter.relay_calls
 
 
 @pytest.mark.asyncio
@@ -177,6 +179,63 @@ async def test_radio_optional_mixed_membership_skips_non_members() -> None:
     assert profile.selected_button == 1
     assert adapter.relay_calls == []
     runtime.hass.services.async_call.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_radio_split_exclusivity_within_group_only() -> None:
+    store = FakeStore()
+    adapter = FakeAdapter()
+    runtime = _runtime(adapter, store)
+    coordinator = PanelCoordinator(runtime)  # type: ignore[arg-type]
+    profile = store.data.active_profile()
+    assert profile is not None
+    profile.mode = MODE_RADIO_SPLIT  # type: ignore[assignment]
+    profile.radio_groups = [
+        RadioGroup(id="g1", buttons=[1, 4]),
+        RadioGroup(id="g2", buttons=[2, 3]),
+    ]
+    profile.buttons[0].action = ButtonAction(action="light.toggle", target={})
+    await coordinator._async_handle_physical_press(1, True)
+    assert (4, False) in adapter.relay_calls
+    assert (2, False) not in adapter.relay_calls
+    assert (3, False) not in adapter.relay_calls
+    runtime.hass.services.async_call.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_radio_split_ungrouped_is_independent_toggle() -> None:
+    store = FakeStore()
+    adapter = FakeAdapter()
+    runtime = _runtime(adapter, store)
+    coordinator = PanelCoordinator(runtime)  # type: ignore[arg-type]
+    profile = store.data.active_profile()
+    assert profile is not None
+    profile.mode = MODE_RADIO_SPLIT  # type: ignore[assignment]
+    profile.radio_groups = [
+        RadioGroup(id="g1", buttons=[1, 4]),
+        RadioGroup(id="g2", buttons=[]),
+    ]
+    profile.buttons[1].action = ButtonAction(action="light.toggle", target={})
+    await coordinator._async_handle_physical_press(2, True)
+    assert adapter.relay_calls == []
+    runtime.hass.services.async_call.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_radio_split_restores_selected_in_group() -> None:
+    store = FakeStore()
+    adapter = FakeAdapter()
+    runtime = _runtime(adapter, store)
+    coordinator = PanelCoordinator(runtime)  # type: ignore[arg-type]
+    profile = store.data.active_profile()
+    assert profile is not None
+    profile.mode = MODE_RADIO_SPLIT  # type: ignore[assignment]
+    profile.radio_groups = [
+        RadioGroup(id="g1", buttons=[1, 4]),
+        RadioGroup(id="g2", buttons=[2, 3]),
+    ]
+    await coordinator._async_handle_physical_press(1, False)
+    assert (1, True) in adapter.relay_calls
 
 
 @pytest.mark.asyncio

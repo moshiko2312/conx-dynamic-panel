@@ -34,6 +34,7 @@ async def async_register_websocket_api(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_pull)
     websocket_api.async_register_command(hass, ws_export_profiles)
     websocket_api.async_register_command(hass, ws_import_profiles)
+    websocket_api.async_register_command(hass, ws_update_panel_name)
 
 
 @websocket_api.websocket_command(
@@ -236,4 +237,22 @@ async def ws_import_profiles(
     """Import profiles from portable JSON (merge or replace)."""
     coordinator = _coordinator(hass, msg["entry_id"])
     result = await coordinator.async_import_profiles(msg["payload"], mode=msg["mode"])
+    connection.send_result(msg["id"], result)
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "conx_dynamic_panel/update_panel_name",
+        vol.Required("entry_id"): str,
+        vol.Required("panel_name"): str,
+    }
+)
+@websocket_api.async_response
+async def ws_update_panel_name(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Update the human-readable panel name without reloading the entry."""
+    coordinator = _coordinator(hass, msg["entry_id"])
+    result = await coordinator.async_update_panel_name(msg["panel_name"])
     connection.send_result(msg["id"], result)

@@ -43,10 +43,12 @@ BUTTON_COUNT: Final = 4
 MODE_TOGGLE: Final = "toggle"
 MODE_RADIO_MANDATORY: Final = "radio_mandatory"
 MODE_RADIO_OPTIONAL: Final = "radio_optional"
+MODE_RADIO_SPLIT: Final = "radio_split"
 SUPPORTED_MODES: Final = (
     MODE_TOGGLE,
     MODE_RADIO_MANDATORY,
     MODE_RADIO_OPTIONAL,
+    MODE_RADIO_SPLIT,
 )
 
 SYNC_SYNCED: Final = "synced"
