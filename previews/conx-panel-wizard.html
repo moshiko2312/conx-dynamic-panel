@@ -45,14 +45,10 @@
     .theme-swatch-name { font-size:.72rem; font-weight:600; text-align:start; }
     .dimmer-field span { display:flex; justify-content:space-between; }
     .dimmer-field input[type=range] { width:100%; accent-color:var(--conx-accent); }
-    body[data-theme="black_orange"] { --conx-ink:#f4ebe3; --conx-steel:#8a7464; --conx-accent:#ff6d00; --conx-accent-soft:color-mix(in srgb,#ff6d00 22%,transparent); --page-bg-1:#120e0c; --page-bg-2:#0a0908; --page-bg-3:#1c120c; color:var(--conx-ink); }
-    body[data-theme="black_orange"] .card { background:linear-gradient(160deg,#14110f,#0a0908 42%,#1c120c 78%,#24160e); border-color:color-mix(in srgb,#ff6d00 28%,#2a1a12); color:var(--conx-ink); }
-    body[data-theme="graphite"] { --conx-ink:#e8edf2; --conx-steel:#7a8490; --conx-accent:#9aa3ad; --page-bg-1:#121417; --page-bg-2:#1a1f25; --page-bg-3:#0f1216; color:var(--conx-ink); }
-    body[data-theme="graphite"] .card { background:linear-gradient(155deg,#2a3038,#171b20 48%,#0f1216); color:var(--conx-ink); }
-    body[data-theme="midnight_teal"] { --conx-ink:#e6f7f5; --conx-steel:#5f8f8a; --conx-accent:#2dd4bf; --page-bg-1:#061218; --page-bg-2:#0a1c22; --page-bg-3:#082028; color:var(--conx-ink); }
-    body[data-theme="midnight_teal"] .card { background:linear-gradient(155deg,#0a1c22,#061318 46%,#082028); color:var(--conx-ink); }
-    body[data-theme="light_soft"] { --conx-ink:#243039; --conx-steel:#9aa7b3; --conx-accent:#3d7ea6; --page-bg-1:#eef3f7; --page-bg-2:#f7fafc; --page-bg-3:#e2e9f0; }
-    body[data-theme="light_soft"] .card { background:linear-gradient(160deg,#fff,#f5f8fb 48%,#e8eef4); }
+    body[data-theme="noir"] { --conx-ink:#f5f0e7; --conx-steel:#8a837a; --conx-accent:#d7b56d; --conx-accent-soft:rgba(215,181,109,.14); --page-bg-1:#070809; --page-bg-2:#111214; --page-bg-3:#151617; color:var(--conx-ink); }
+    body[data-theme="noir"] .card { background:#111214; border-color:rgba(255,255,255,.12); color:var(--conx-ink); }
+    body[data-theme="ivory"] { --conx-ink:#151617; --conx-steel:#9a8b76; --conx-accent:#9d7837; --conx-accent-soft:rgba(157,120,55,.12); --page-bg-1:#efe9df; --page-bg-2:#f7f2ea; --page-bg-3:#e8e0d2; color:var(--conx-ink); }
+    body[data-theme="ivory"] .card { background:#f7f2ea; border-color:#d8cfbf; color:var(--conx-ink); }
 
 
     .back-editor-bar { display:flex; justify-content:center; margin-bottom:14px; }
@@ -365,11 +361,8 @@ const I18N = {
 
 function deepClone(v){ return JSON.parse(JSON.stringify(v)); }
 const THEMES = [
-  {id:"industrial", swatch:"linear-gradient(145deg,#eef2f5 0%,#c5d0da 55%,#8b949e 100%)", accent:"#1f7a8c", labelKey:"themeIndustrial"},
-  {id:"black_orange", swatch:"linear-gradient(145deg,#0a0a0c 0%,#1a120e 45%,#e65100 100%)", accent:"#ff6d00", labelKey:"themeBlackOrange"},
-  {id:"graphite", swatch:"linear-gradient(145deg,#121417 0%,#2a2f36 50%,#6b7280 100%)", accent:"#9aa3ad", labelKey:"themeGraphite"},
-  {id:"midnight_teal", swatch:"linear-gradient(145deg,#061218 0%,#0d2a32 50%,#14b8a6 100%)", accent:"#2dd4bf", labelKey:"themeMidnightTeal"},
-  {id:"light_soft", swatch:"linear-gradient(145deg,#ffffff 0%,#f3f6f9 55%,#dce4ec 100%)", accent:"#3d7ea6", labelKey:"themeLightSoft"},
+  {id:"noir", swatch:"linear-gradient(145deg,#070809 0%,#1d1e20 55%,#d7b56d 100%)", accent:"#d7b56d", labelKey:"themeNoir"},
+  {id:"ivory", swatch:"linear-gradient(145deg,#fffaf2 0%,#f5f0e7 55%,#9d7837 100%)", accent:"#9d7837", labelKey:"themeIvory"},
 ];
 function makeProfile(id, name){
   return {
@@ -396,7 +389,7 @@ function createDefaultState(){
   };
   return {
     lang: "he",
-    theme: "industrial",
+    theme: "noir",
     step: "language",
     activeId: "lighting",
     importMode: "merge",
@@ -413,7 +406,7 @@ function persistState(){
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
       lang: state.lang,
-      theme: state.theme || "industrial",
+      theme: state.theme || "noir",
       step: state.step,
       activeId: state.activeId,
       importMode: state.importMode,
@@ -809,7 +802,7 @@ function bindBody(){
 }
 
 function render(){
-  document.body.dataset.theme = state.theme || "industrial";
+  document.body.dataset.theme = state.theme || "noir";
   const i = t();
   document.getElementById("pageTitle").textContent = i.pageTitle;
   document.getElementById("pageSub").textContent = i.pageSub;

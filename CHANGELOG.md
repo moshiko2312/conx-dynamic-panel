@@ -6,7 +6,8 @@ All notable changes to this private project will be documented here.
 
 ### Added
 
-- Premium Lovelace card redesign with industrial glass/steel depth, collapsible settings sections, and intentional motion (section expand, sync pulse, ring press).
+- Premium Lovelace card redesign with collapsible settings sections and intentional motion (section expand, sync pulse, ring press).
+- HTML preview layout: large pinned faceplate hero on top, settings panels below in a reorderable 2-column grid, actions dock at bottom; panel collapse removes empty body space; layout order/open state persisted (`conx-card-preview-state-v4`).
 - On-card language flag selectors for Hebrew, English, and Russian (RTL for Hebrew); preference persisted in `localStorage`, with optional card `language` config.
 - Zemismart-accurate horizontal faceplate preview: black label bar on top, white glass face, four LED rings left→right; CSS skin extension point `--conx-faceplate-skin`.
 - Single-page main editor by default; Export/Import opens a dedicated view with prominent **Back to editor** / **חזרה לעריכה**.
@@ -15,7 +16,7 @@ All notable changes to this private project will be documented here.
 - Shared frontend export schema validator (`frontend-src/src/exportSchema.ts`) matching backend `STORAGE_VERSION`.
 - Backlight brightness (`0–100`) in profiles + dimmer UI; optional `number` backlight brightness entity in Config Flow / Zemismart adapter.
 - Per-button `radio_member` for mixed radio/toggle participation in `radio_optional` / `radio_mandatory`.
-- Theme system with design tokens and five polished themes (Glass light, Obsidian orange, Graphite steel, Midnight teal, Light soft); collapsible **Theme** section with the same section toggle as Appearance/Buttons.
+- Theme system with accessible design tokens and two premium themes (**Noir gold**, **Ivory stone**) inspired by a refined noir/gold + ivory craft palette; legacy theme ids map automatically.
 - Reference photo at `frontend-src/assets/zemismart-4gang-faceplate.png` for topography (preview itself is a CSS recreation for HA reliability).
 
 ### Changed
@@ -27,7 +28,8 @@ All notable changes to this private project will be documented here.
 - Toggle switches redesigned with balanced track/thumb proportions and physical LTR thumb travel (fixes RTL misalignment).
 - HTML previews (`conx-card-preview.html`, `conx-panel-wizard.html`) persist editable state in `localStorage` across refresh, with a Reset control.
 - Import accepts profiles as an object or array, validates `schema_version`, and rejects future schema versions.
-- Dark themes use cohesive surface/button tokens so secondary buttons and accordion rows stay readable (no light-on-light text).
+- Themes use cohesive surface/button/input tokens so controls stay readable (no light-on-light text); primary CTAs use solid accent with high-contrast text.
+- Preview visual language refreshed (Manrope + Cormorant Garamond, gold accent on near-black / warm ivory surfaces, pill buttons, glass hint chips).
 
 ## [0.1.0] - 2026-08-02
 

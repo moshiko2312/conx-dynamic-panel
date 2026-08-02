@@ -1,11 +1,6 @@
 /** Visual UI themes for the ConX Lovelace card and HTML previews. */
 
-export type CardThemeId =
-  | "industrial"
-  | "black_orange"
-  | "graphite"
-  | "midnight_teal"
-  | "light_soft";
+export type CardThemeId = "noir" | "ivory";
 
 export interface ThemeSwatch {
   id: CardThemeId;
@@ -16,39 +11,34 @@ export interface ThemeSwatch {
 
 export const THEME_STORAGE_KEY = "conx-dynamic-panel-theme";
 
-/** Legacy aliases map onto current theme ids. */
+/**
+ * Legacy aliases map onto current theme ids.
+ * Inspired by a noir/gold + ivory/stone visual language (premium dark + warm light).
+ */
 const THEME_ALIASES: Record<string, CardThemeId> = {
-  glass: "industrial",
-  glass_light: "industrial",
-  obsidian: "black_orange",
-  obsidian_orange: "black_orange",
+  industrial: "ivory",
+  glass: "ivory",
+  glass_light: "ivory",
+  light_soft: "ivory",
+  light: "ivory",
+  black_orange: "noir",
+  obsidian: "noir",
+  obsidian_orange: "noir",
+  graphite: "noir",
+  midnight_teal: "noir",
+  dark: "noir",
 };
 
 export const THEME_OPTIONS: ThemeSwatch[] = [
   {
-    id: "industrial",
-    swatch: "linear-gradient(145deg, #f4f7fa 0%, #d7e1ea 52%, #9eb0bf 100%)",
-    accent: "#1f7a8c",
+    id: "noir",
+    swatch: "linear-gradient(145deg, #070809 0%, #1d1e20 55%, #d7b56d 100%)",
+    accent: "#d7b56d",
   },
   {
-    id: "black_orange",
-    swatch: "linear-gradient(145deg, #0b0d10 0%, #1a120e 48%, #ff7a1a 100%)",
-    accent: "#ff7a1a",
-  },
-  {
-    id: "graphite",
-    swatch: "linear-gradient(145deg, #0e1216 0%, #232a32 50%, #7dd3fc 100%)",
-    accent: "#7dd3fc",
-  },
-  {
-    id: "midnight_teal",
-    swatch: "linear-gradient(145deg, #061218 0%, #0d2a32 50%, #2dd4bf 100%)",
-    accent: "#2dd4bf",
-  },
-  {
-    id: "light_soft",
-    swatch: "linear-gradient(145deg, #ffffff 0%, #f3f6f9 55%, #d5e0ea 100%)",
-    accent: "#3d7ea6",
+    id: "ivory",
+    swatch: "linear-gradient(145deg, #fffaf2 0%, #f5f0e7 55%, #9d7837 100%)",
+    accent: "#9d7837",
   },
 ];
 
@@ -56,12 +46,12 @@ const THEME_IDS = new Set<string>(THEME_OPTIONS.map((item) => item.id));
 
 export function normalizeTheme(value: string | undefined | null): CardThemeId {
   if (!value) {
-    return "industrial";
+    return "noir";
   }
   if (THEME_IDS.has(value)) {
     return value as CardThemeId;
   }
-  return THEME_ALIASES[value] || "industrial";
+  return THEME_ALIASES[value] || "noir";
 }
 
 export function loadStoredTheme(): CardThemeId | null {
@@ -93,5 +83,5 @@ export function resolveTheme(
   if (configTheme) {
     return normalizeTheme(configTheme);
   }
-  return stored || "industrial";
+  return stored || "noir";
 }

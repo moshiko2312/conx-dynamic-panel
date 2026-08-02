@@ -106,7 +106,7 @@ export class ConXDynamicPanelCard extends LitElement {
   @state() private _syncPulse = false;
   @state() private _pressedRing: number | null = null;
   @state() private _uiLang?: CardLanguage;
-  @state() private _theme: CardThemeId = "industrial";
+  @state() private _theme: CardThemeId = "noir";
   /** Main editor vs export/import wizard view. */
   @state() private _view: "editor" | "export" = "editor";
   @state() private _wizardStep: WizardStep = "transfer";
@@ -1555,8 +1555,8 @@ export class ConXDynamicPanelCard extends LitElement {
   static styles = css`
     :host {
       display: block;
-      --conx-font: "Outfit", "Sora", ui-sans-serif, sans-serif;
-      --conx-display: "Sora", "Outfit", ui-sans-serif, sans-serif;
+      --conx-font: "Manrope", "Outfit", ui-sans-serif, sans-serif;
+      --conx-display: "Cormorant Garamond", "Sora", Georgia, serif;
       --conx-steel: #8b949e;
       --conx-ink: #1a222c;
       --conx-panel: #eef2f5;
@@ -1583,36 +1583,32 @@ export class ConXDynamicPanelCard extends LitElement {
       box-shadow: var(--card-shadow);
       padding: 18px;
 
-      /* Glass light (default) */
-      --bg: linear-gradient(155deg, #eef3f7 0%, #f7fafc 48%, #dce6ef 100%);
-      --surface: #ffffff;
-      --surface-2: #f1f5f8;
-      --border: #c5d0db;
-      --text: #1a222c;
-      --text-muted: #5b6b78;
-      --accent: #1f7a8c;
-      --accent-soft: rgba(31, 122, 140, 0.14);
-      --accent-text: #ffffff;
+      /* Noir gold (default) — premium dark with gold CTAs */
+      --bg: #111214;
+      --surface: #111214;
+      --surface-2: #1d1e20;
+      --border: rgba(255, 255, 255, 0.12);
+      --text: #f5f0e7;
+      --text-muted: #b7b9bd;
+      --accent: #d7b56d;
+      --accent-soft: rgba(215, 181, 109, 0.14);
+      --accent-text: #070809;
       --danger: #b42318;
-      --btn-bg: linear-gradient(180deg, #ffffff 0%, #e7eef4 100%);
-      --btn-text: #1a222c;
-      --btn-primary-bg: linear-gradient(180deg, #2a93a8 0%, #1f7a8c 100%);
-      --btn-primary-text: #ffffff;
-      --input-bg: #ffffff;
-      --input-text: #1a222c;
-      --bevel-light: rgba(255, 255, 255, 0.85);
-      --bevel-dark: rgba(11, 18, 24, 0.12);
-      --atm-1: rgba(158, 182, 200, 0.28);
-      --atm-2: rgba(31, 122, 140, 0.12);
-      --faceplate-well: linear-gradient(180deg, #d8e2ea, #c5d3de);
-      --card-shadow:
-        inset 0 1px 0 var(--bevel-light),
-        inset 0 -1px 0 var(--bevel-dark),
-        0 12px 28px rgba(11, 18, 24, 0.12);
+      --btn-bg: #1d1e20;
+      --btn-text: #f5f0e7;
+      --btn-primary-bg: #d7b56d;
+      --btn-primary-text: #070809;
+      --input-bg: #0c0d0e;
+      --input-text: #f5f0e7;
+      --bevel-light: rgba(255, 255, 255, 0.08);
+      --bevel-dark: rgba(0, 0, 0, 0.4);
+      --atm-1: rgba(215, 181, 109, 0.12);
+      --atm-2: rgba(157, 120, 55, 0.08);
+      --faceplate-well: radial-gradient(ellipse at 50% 0%, #2a2620 0%, #121314 55%, #0a0b0c 100%);
+      --card-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
 
-      /* Compat aliases used elsewhere */
       --conx-ink: var(--text);
-      --conx-steel: #8b949e;
+      --conx-steel: #8a837a;
       --conx-accent: var(--accent);
       --conx-accent-soft: var(--accent-soft);
       --conx-bevel-light: var(--bevel-light);
@@ -1628,116 +1624,50 @@ export class ConXDynamicPanelCard extends LitElement {
       --conx-card-shadow: var(--card-shadow);
     }
 
-    ha-card.conx-card[data-theme="black_orange"] {
-      --bg: linear-gradient(160deg, #12151a 0%, #0b0d10 42%, #16120f 100%);
-      --surface: #161a20;
-      --surface-2: #1e242c;
-      --border: #3a2a1f;
-      --text: #f4ebe3;
-      --text-muted: #c4a88c;
-      --accent: #ff7a1a;
-      --accent-soft: rgba(255, 122, 26, 0.18);
-      --accent-text: #1a0e06;
-      --danger: #ff8a80;
-      --btn-bg: linear-gradient(180deg, #232933 0%, #171b22 100%);
-      --btn-text: #f4ebe3;
-      --btn-primary-bg: linear-gradient(180deg, #ff9a3d 0%, #ff7a1a 100%);
-      --btn-primary-text: #1a0e06;
-      --input-bg: #12161c;
-      --input-text: #f4ebe3;
-      --bevel-light: rgba(255, 176, 116, 0.14);
-      --bevel-dark: rgba(0, 0, 0, 0.55);
-      --atm-1: rgba(255, 122, 26, 0.14);
-      --atm-2: rgba(255, 145, 0, 0.08);
-      --faceplate-well: radial-gradient(circle at 50% 30%, #2a211a, #0f1115 70%);
-      --card-shadow:
-        inset 0 1px 0 rgba(255, 176, 116, 0.12),
-        inset 0 -2px 0 rgba(0, 0, 0, 0.55),
-        0 18px 42px rgba(0, 0, 0, 0.55);
-    }
-
-    ha-card.conx-card[data-theme="graphite"] {
-      --bg: linear-gradient(155deg, #1a1f26 0%, #101418 48%, #0c1014 100%);
-      --surface: #1b2128;
-      --surface-2: #242b34;
-      --border: #3a4450;
-      --text: #e8edf2;
-      --text-muted: #9aa7b4;
-      --accent: #7dd3fc;
-      --accent-soft: rgba(125, 211, 252, 0.16);
-      --accent-text: #0b1220;
-      --danger: #fca5a5;
-      --btn-bg: linear-gradient(180deg, #2a313a 0%, #1a2027 100%);
-      --btn-text: #e8edf2;
-      --btn-primary-bg: linear-gradient(180deg, #9adafc 0%, #38bdf8 100%);
-      --btn-primary-text: #0b1220;
-      --input-bg: #141920;
-      --input-text: #e8edf2;
-      --bevel-light: rgba(255, 255, 255, 0.12);
-      --bevel-dark: rgba(0, 0, 0, 0.5);
-      --atm-1: rgba(197, 206, 216, 0.1);
-      --atm-2: rgba(125, 211, 252, 0.1);
-      --faceplate-well: radial-gradient(circle at 50% 30%, #2a323c, #0e1216 72%);
-      --card-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.1),
-        inset 0 -2px 0 rgba(0, 0, 0, 0.45),
-        0 16px 36px rgba(0, 0, 0, 0.48);
-    }
-
-    ha-card.conx-card[data-theme="midnight_teal"] {
-      --bg: linear-gradient(155deg, #0a1c22 0%, #061318 46%, #082028 100%);
-      --surface: #0f262c;
-      --surface-2: #14343b;
-      --border: #1f4d55;
-      --text: #e6f7f5;
-      --text-muted: #8fb8b3;
-      --accent: #2dd4bf;
-      --accent-soft: rgba(45, 212, 191, 0.16);
-      --accent-text: #04201c;
-      --danger: #fca5a5;
-      --btn-bg: linear-gradient(180deg, #16353c 0%, #0d242a 100%);
-      --btn-text: #e6f7f5;
-      --btn-primary-bg: linear-gradient(180deg, #5eead4 0%, #14b8a6 100%);
-      --btn-primary-text: #04201c;
-      --input-bg: #0a1c22;
-      --input-text: #e6f7f5;
-      --bevel-light: rgba(94, 234, 212, 0.14);
-      --bevel-dark: rgba(0, 0, 0, 0.5);
-      --atm-1: rgba(45, 212, 191, 0.14);
-      --atm-2: rgba(14, 165, 233, 0.08);
-      --faceplate-well: radial-gradient(circle at 50% 30%, #164048, #061318 72%);
-      --card-shadow:
-        inset 0 1px 0 rgba(94, 234, 212, 0.12),
-        inset 0 -2px 0 rgba(0, 0, 0, 0.5),
-        0 16px 40px rgba(0, 20, 24, 0.55);
-    }
-
-    ha-card.conx-card[data-theme="light_soft"] {
-      --bg: linear-gradient(160deg, #ffffff 0%, #f5f8fb 48%, #e8eef4 100%);
-      --surface: #ffffff;
-      --surface-2: #f3f6f9;
-      --border: #c9d4de;
-      --text: #243039;
-      --text-muted: #667887;
-      --accent: #3d7ea6;
-      --accent-soft: rgba(61, 126, 166, 0.14);
-      --accent-text: #ffffff;
+    ha-card.conx-card[data-theme="noir"] {
+      --bg: #111214;
+      --surface: #111214;
+      --surface-2: #1d1e20;
+      --border: rgba(255, 255, 255, 0.12);
+      --text: #f5f0e7;
+      --text-muted: #b7b9bd;
+      --accent: #d7b56d;
+      --accent-soft: rgba(215, 181, 109, 0.14);
+      --accent-text: #070809;
       --danger: #b42318;
-      --btn-bg: linear-gradient(180deg, #ffffff 0%, #eef3f7 100%);
-      --btn-text: #243039;
-      --btn-primary-bg: linear-gradient(180deg, #5a9ec4 0%, #3d7ea6 100%);
-      --btn-primary-text: #ffffff;
+      --btn-bg: #1d1e20;
+      --btn-text: #f5f0e7;
+      --btn-primary-bg: #d7b56d;
+      --btn-primary-text: #070809;
+      --input-bg: #0c0d0e;
+      --input-text: #f5f0e7;
+      --faceplate-well: radial-gradient(ellipse at 50% 0%, #2a2620 0%, #121314 55%, #0a0b0c 100%);
+    }
+
+    ha-card.conx-card[data-theme="ivory"] {
+      --bg: #f7f2ea;
+      --surface: #f7f2ea;
+      --surface-2: #fffaf2;
+      --border: #d8cfbf;
+      --text: #151617;
+      --text-muted: #6a645a;
+      --accent: #9d7837;
+      --accent-soft: rgba(157, 120, 55, 0.12);
+      --accent-text: #fffaf2;
+      --danger: #b42318;
+      --btn-bg: #f0ebe3;
+      --btn-text: #151617;
+      --btn-primary-bg: #9d7837;
+      --btn-primary-text: #fffaf2;
       --input-bg: #ffffff;
-      --input-text: #243039;
-      --bevel-light: rgba(255, 255, 255, 0.9);
-      --bevel-dark: rgba(11, 18, 24, 0.08);
-      --atm-1: rgba(185, 201, 214, 0.22);
-      --atm-2: rgba(61, 126, 166, 0.1);
-      --faceplate-well: linear-gradient(180deg, #e8eef4, #d5e0ea);
-      --card-shadow:
-        inset 0 1px 0 #fff,
-        inset 0 -1px 0 rgba(15, 23, 32, 0.06),
-        0 12px 30px rgba(36, 48, 57, 0.1);
+      --input-text: #151617;
+      --bevel-light: rgba(255, 255, 255, 0.7);
+      --bevel-dark: rgba(0, 0, 0, 0.08);
+      --atm-1: rgba(157, 120, 55, 0.1);
+      --atm-2: rgba(200, 192, 178, 0.2);
+      --faceplate-well: linear-gradient(180deg, #e8e0d2, #d9d0c0);
+      --card-shadow: 0 14px 36px rgba(40, 28, 14, 0.12);
+      --conx-steel: #9a8b76;
     }
 
     .atmosphere {
@@ -1766,43 +1696,41 @@ export class ConXDynamicPanelCard extends LitElement {
       display: none;
     }
     .theme-swatches {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
-      gap: 8px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
     }
     .theme-swatch {
-      display: grid;
-      gap: 6px;
-      padding: 8px;
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      background: var(--surface-2);
-      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 7px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: var(--text-muted);
       cursor: pointer;
-      box-shadow:
-        inset 0 1px 0 var(--conx-bevel-light),
-        0 4px 12px color-mix(in srgb, #0b1218 10%, transparent);
-      transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+      min-width: 72px;
+      font: inherit;
     }
     .theme-swatch:hover {
-      transform: translateY(-1px);
+      color: var(--text);
     }
     .theme-swatch.active {
-      border-color: var(--swatch-accent, var(--conx-accent));
-      box-shadow:
-        inset 0 1px 0 var(--conx-bevel-light),
-        0 0 0 2px color-mix(in srgb, var(--swatch-accent, var(--conx-accent)) 45%, transparent),
-        0 8px 18px color-mix(in srgb, #0b1218 16%, transparent);
+      color: var(--text);
     }
     .theme-swatch-face {
       display: block;
-      height: 38px;
-      border-radius: 8px;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
       background: var(--swatch);
-      box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.35),
-        inset 0 -2px 4px rgba(0, 0, 0, 0.28),
-        0 2px 6px rgba(0, 0, 0, 0.18);
+      border: 2px solid var(--border);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    }
+    .theme-swatch.active .theme-swatch-face {
+      border-color: var(--swatch-accent, var(--conx-accent));
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--swatch-accent, var(--conx-accent)) 40%, transparent);
     }
     .theme-swatch-name {
       font-size: 0.72rem;
@@ -2455,8 +2383,9 @@ export class ConXDynamicPanelCard extends LitElement {
       gap: 12px;
       padding: 8px 10px;
       border-radius: 12px;
-      border: 1px solid color-mix(in srgb, var(--conx-steel) 28%, transparent);
-      background: color-mix(in srgb, #fff 40%, transparent);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
     }
 
     .row {
@@ -2515,8 +2444,9 @@ export class ConXDynamicPanelCard extends LitElement {
     }
 
     .btn.danger {
-      color: var(--danger);
-      background: var(--btn-bg);
+      color: #ffffff;
+      background: var(--danger);
+      border-color: var(--danger);
     }
 
     .btn:disabled {

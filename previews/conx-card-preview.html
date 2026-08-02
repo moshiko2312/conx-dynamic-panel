@@ -6,957 +6,457 @@
   <title>ConX Dynamic Panel — Card Preview</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Sora:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --conx-font: "Outfit", "Sora", ui-sans-serif, sans-serif;
-      --conx-display: "Sora", "Outfit", ui-sans-serif, sans-serif;
-      --conx-steel: #8b949e;
-      --conx-ink: #1a222c;
-      --conx-accent: #1f7a8c;
-      --conx-accent-soft: color-mix(in srgb, #1f7a8c 18%, transparent);
-      --conx-ring: #00e5ff;
-      --conx-ring-off: #2979ff;
-      --conx-danger: #c62828;
-      --conx-bevel-light: color-mix(in srgb, #ffffff 55%, transparent);
-      --conx-bevel-dark: color-mix(in srgb, #0b1218 22%, transparent);
+      --font: "Manrope", ui-sans-serif, sans-serif;
+      --display: "Cormorant Garamond", Georgia, serif;
+      --ink: #070809;
+      --charcoal: #151617;
+      --panel: #1d1e20;
+      --gold: #d7b56d;
+      --gold-deep: #9d7837;
+      --silver: #b7b9bd;
+      --ivory: #f5f0e7;
+      --stone: #c8c0b2;
       --ring-on: #00e5ff;
       --ring-off: #2979ff;
-      --page-bg-1: #d8e2ea;
-      --page-bg-2: #eef3f7;
-      --page-bg-3: #c5d3de;
+
+      /* Noir gold (default — Izzy-inspired) */
+      --page-bg: #070809;
+      --surface: #111214;
+      --surface-2: #1d1e20;
+      --border: rgba(255,255,255,.12);
+      --text: #f5f0e7;
+      --text-muted: #b7b9bd;
+      --accent: #d7b56d;
+      --accent-soft: rgba(215,181,109,.14);
+      --accent-text: #070809;
+      --btn-bg: #1d1e20;
+      --btn-text: #f5f0e7;
+      --btn-border: rgba(255,255,255,.16);
+      --btn-primary-bg: #d7b56d;
+      --btn-primary-text: #070809;
+      --btn-danger-bg: #b42318;
+      --btn-danger-text: #fff;
+      --input-bg: #0c0d0e;
+      --input-text: #f5f0e7;
+      --input-border: rgba(255,255,255,.14);
+      --label: #c8c0b2;
+      --chip-active-bg: rgba(215,181,109,.16);
+      --chip-active-text: #f5f0e7;
+      --warn-bg: rgba(215,181,109,.12);
+      --warn-border: rgba(215,181,109,.35);
+      --warn-text: #f0dfb0;
+      --notice-bg: rgba(215,181,109,.12);
+      --notice-border: rgba(215,181,109,.35);
+      --notice-text: #f5e6c0;
+      --shadow: 0 18px 48px rgba(0,0,0,.45);
+      --focus: #d7b56d;
+      --faceplate-well: radial-gradient(ellipse at 50% 0%, #2a2620 0%, #121314 55%, #0a0b0c 100%);
+      --glass: rgba(11,12,13,.82);
+      --drag-hover: rgba(215,181,109,.22);
+      --conx-ink: var(--text);
+      --conx-accent: var(--accent);
+      --conx-accent-soft: var(--accent-soft);
+      --conx-steel: #8a837a;
+      --conx-danger: var(--btn-danger-bg);
+      --conx-bevel-light: rgba(255,255,255,.08);
+      --conx-bevel-dark: rgba(0,0,0,.4);
     }
 
-
-    :root, body[data-theme="industrial"] {
-      --bg: linear-gradient(160deg, #eef3f7, #f7fafc 45%, #dce6ef);
-      --surface: #ffffff;
-      --surface-2: #f1f5f8;
-      --border: #c5d0db;
-      --text: #1a222c;
-      --text-muted: #5b6b78;
-      --accent: #1f7a8c;
-      --accent-soft: rgba(31,122,140,.14);
-      --btn-bg: linear-gradient(180deg, #ffffff, #e7eef4);
-      --btn-text: #1a222c;
-      --btn-primary-bg: linear-gradient(180deg, #2a93a8, #1f7a8c);
-      --btn-primary-text: #ffffff;
+    body[data-theme="ivory"] {
+      --page-bg: #efe9df;
+      --surface: #f7f2ea;
+      --surface-2: #fffaf2;
+      --border: #d8cfbf;
+      --text: #151617;
+      --text-muted: #6a645a;
+      --accent: #9d7837;
+      --accent-soft: rgba(157,120,55,.12);
+      --accent-text: #fffaf2;
+      --btn-bg: #f0ebe3;
+      --btn-text: #151617;
+      --btn-border: #c8c0b2;
+      --btn-primary-bg: #9d7837;
+      --btn-primary-text: #fffaf2;
+      --btn-danger-bg: #b42318;
+      --btn-danger-text: #fff;
       --input-bg: #ffffff;
-      --input-text: #1a222c;
-      --danger: #b42318;
-      --faceplate-well: linear-gradient(180deg, #d8e2ea, #c5d3de);
-      --conx-ink: var(--text);
-      --conx-accent: var(--accent);
-      --conx-accent-soft: var(--accent-soft);
-      --conx-steel: #8b949e;
-      --conx-danger: var(--danger);
-      --conx-bevel-light: rgba(255,255,255,.85);
-      --conx-bevel-dark: rgba(11,18,24,.12);
-      --page-bg-1: #d8e2ea;
-      --page-bg-2: #eef3f7;
-      --page-bg-3: #c5d3de;
-    }
-    body[data-theme="black_orange"] {
-      --bg: linear-gradient(160deg, #12151a, #0b0d10 42%, #16120f);
-      --surface: #161a20;
-      --surface-2: #1e242c;
-      --border: #3a2a1f;
-      --text: #f4ebe3;
-      --text-muted: #c4a88c;
-      --accent: #ff7a1a;
-      --accent-soft: rgba(255,122,26,.18);
-      --btn-bg: linear-gradient(180deg, #232933, #171b22);
-      --btn-text: #f4ebe3;
-      --btn-primary-bg: linear-gradient(180deg, #ff9a3d, #ff7a1a);
-      --btn-primary-text: #1a0e06;
-      --input-bg: #12161c;
-      --input-text: #f4ebe3;
-      --danger: #ff8a80;
-      --faceplate-well: radial-gradient(circle at 50% 30%, #2a211a, #0f1115 70%);
-      --conx-ink: var(--text);
-      --conx-accent: var(--accent);
-      --conx-accent-soft: var(--accent-soft);
-      --conx-steel: #8a7464;
-      --conx-danger: var(--danger);
-      --conx-bevel-light: rgba(255,176,116,.14);
-      --conx-bevel-dark: rgba(0,0,0,.55);
-      --page-bg-1: #120e0c; --page-bg-2: #0a0908; --page-bg-3: #1c120c;
-    }
-    body[data-theme="graphite"] {
-      --bg: linear-gradient(155deg, #1a1f26, #101418 48%, #0c1014);
-      --surface: #1b2128; --surface-2: #242b34; --border: #3a4450;
-      --text: #e8edf2; --text-muted: #9aa7b4; --accent: #7dd3fc;
-      --accent-soft: rgba(125,211,252,.16);
-      --btn-bg: linear-gradient(180deg, #2a313a, #1a2027); --btn-text: #e8edf2;
-      --btn-primary-bg: linear-gradient(180deg, #9adafc, #38bdf8); --btn-primary-text: #0b1220;
-      --input-bg: #141920; --input-text: #e8edf2; --danger: #fca5a5;
-      --faceplate-well: radial-gradient(circle at 50% 30%, #2a323c, #0e1216 72%);
-      --conx-ink: var(--text); --conx-accent: var(--accent); --conx-accent-soft: var(--accent-soft);
-      --conx-steel: #7a8490; --conx-danger: var(--danger);
-      --page-bg-1: #121417; --page-bg-2: #1a1f25; --page-bg-3: #0f1216;
-    }
-    body[data-theme="midnight_teal"] {
-      --bg: linear-gradient(155deg, #0a1c22, #061318 46%, #082028);
-      --surface: #0f262c; --surface-2: #14343b; --border: #1f4d55;
-      --text: #e6f7f5; --text-muted: #8fb8b3; --accent: #2dd4bf;
-      --accent-soft: rgba(45,212,191,.16);
-      --btn-bg: linear-gradient(180deg, #16353c, #0d242a); --btn-text: #e6f7f5;
-      --btn-primary-bg: linear-gradient(180deg, #5eead4, #14b8a6); --btn-primary-text: #04201c;
-      --input-bg: #0a1c22; --input-text: #e6f7f5; --danger: #fca5a5;
-      --faceplate-well: radial-gradient(circle at 50% 30%, #164048, #061318 72%);
-      --conx-ink: var(--text); --conx-accent: var(--accent); --conx-accent-soft: var(--accent-soft);
-      --conx-steel: #5f8f8a; --conx-danger: var(--danger);
-      --page-bg-1: #061218; --page-bg-2: #0a1c22; --page-bg-3: #082028;
-    }
-    body[data-theme="light_soft"] {
-      --bg: linear-gradient(160deg, #ffffff, #f5f8fb 48%, #e8eef4);
-      --surface: #ffffff; --surface-2: #f3f6f9; --border: #c9d4de;
-      --text: #243039; --text-muted: #667887; --accent: #3d7ea6;
-      --accent-soft: rgba(61,126,166,.14);
-      --btn-bg: linear-gradient(180deg, #ffffff, #eef3f7); --btn-text: #243039;
-      --btn-primary-bg: linear-gradient(180deg, #5a9ec4, #3d7ea6); --btn-primary-text: #ffffff;
-      --input-bg: #ffffff; --input-text: #243039; --danger: #b42318;
-      --faceplate-well: linear-gradient(180deg, #e8eef4, #d5e0ea);
-      --conx-ink: var(--text); --conx-accent: var(--accent); --conx-accent-soft: var(--accent-soft);
-      --conx-steel: #9aa7b3; --conx-danger: var(--danger);
-      --page-bg-1: #eef3f7; --page-bg-2: #f7fafc; --page-bg-3: #e2e9f0;
+      --input-text: #151617;
+      --input-border: #d8cfbf;
+      --label: #4a453c;
+      --chip-active-bg: rgba(157,120,55,.14);
+      --chip-active-text: #151617;
+      --warn-bg: #fff4e5;
+      --warn-border: #e0b27a;
+      --warn-text: #7a3e00;
+      --notice-bg: rgba(157,120,55,.12);
+      --notice-border: rgba(157,120,55,.35);
+      --notice-text: #5c3a0a;
+      --shadow: 0 14px 36px rgba(40,28,14,.12);
+      --focus: #9d7837;
+      --faceplate-well: linear-gradient(180deg, #e8e0d2, #d9d0c0);
+      --glass: rgba(247,242,234,.88);
+      --drag-hover: rgba(157,120,55,.2);
+      --conx-steel: #9a8b76;
+      --conx-bevel-light: rgba(255,255,255,.7);
+      --conx-bevel-dark: rgba(0,0,0,.08);
     }
 
     * { box-sizing: border-box; }
-
     body {
-      margin: 0;
-      min-height: 100vh;
-      font-family: var(--conx-font);
-      color: var(--text, var(--conx-ink));
-      background:
-        radial-gradient(ellipse at 20% 0%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 50%),
-        linear-gradient(160deg, var(--page-bg-1), var(--page-bg-2) 45%, var(--page-bg-3));
-      padding: 28px 16px 48px;
+      margin: 0; min-height: 100vh; font-family: var(--font);
+      color: var(--text); background: var(--page-bg);
+      padding: 24px 16px 56px;
+      background-image:
+        radial-gradient(ellipse at 15% 0%, rgba(215,181,109,.12), transparent 42%),
+        radial-gradient(ellipse at 90% 20%, rgba(157,120,55,.08), transparent 40%);
+    }
+    body[data-theme="ivory"] {
+      background-image:
+        radial-gradient(ellipse at 20% 0%, rgba(157,120,55,.1), transparent 45%),
+        radial-gradient(ellipse at 80% 10%, rgba(200,192,178,.25), transparent 40%);
     }
 
-    .page {
-      max-width: 980px;
-      margin: 0 auto;
+    .page { max-width: 1120px; margin: 0 auto; }
+    .page-intro { text-align: center; margin-bottom: 20px; }
+    .eyebrow {
+      color: var(--accent); letter-spacing: .16em; text-transform: uppercase;
+      font-size: .72rem; font-weight: 700; margin: 0 0 8px;
     }
-
-    .page-intro {
-      text-align: center;
-      margin-bottom: 22px;
-    }
-
     .page-intro h1 {
-      font-family: var(--conx-display);
-      font-size: clamp(1.4rem, 3vw, 1.85rem);
-      margin: 0 0 6px;
-      letter-spacing: 0.02em;
+      font-family: var(--display); font-weight: 600;
+      font-size: clamp(2.2rem, 6vw, 3.4rem); line-height: .98;
+      margin: 0 0 8px; letter-spacing: -.02em; color: var(--text);
+    }
+    .page-intro h1 .gold { color: var(--accent); }
+    .page-intro p { margin: 0; color: var(--text-muted); font-size: .98rem; max-width: 42rem; margin-inline: auto; }
+
+    .nav-link-bar { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-top:16px; }
+    .nav-link-bar a, .nav-link-bar button {
+      font: inherit; font-weight: 700; cursor: pointer;
+      border-radius: 999px; padding: 10px 16px; min-height: 44px;
+      border: 1px solid var(--btn-border);
+      background: var(--btn-bg); color: var(--btn-text); text-decoration: none;
+      display: inline-flex; align-items: center;
+    }
+    .nav-link-bar button.primary, .nav-link-bar a.primary {
+      background: var(--btn-primary-bg); color: var(--btn-primary-text); border-color: var(--btn-primary-bg);
     }
 
-    .page-intro p {
-      margin: 0;
-      opacity: 0.72;
-      font-size: 0.95rem;
-    }
-
-    .hint-bar {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      justify-content: center;
-      margin-top: 14px;
-    }
-
+    .hint-bar { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:14px; }
     .hint-chip {
-      font-size: 0.78rem;
-      padding: 5px 10px;
-      border-radius: 999px;
-      background: var(--surface); color: var(--text);
-      border: 1px solid color-mix(in srgb, var(--conx-steel) 35%, transparent);
-      box-shadow: inset 0 1px 0 var(--conx-bevel-light);
+      font-size:.75rem; padding:6px 11px; border-radius:999px;
+      background: var(--glass); color: var(--text-muted);
+      border: 1px solid var(--border); backdrop-filter: blur(12px);
     }
 
-
-    /* Theme system */
-    .theme-picker { display:grid; gap:8px; margin:12px 0 4px; }
-    .theme-picker-label { display:none; }
-    .theme-swatches { display:grid; grid-template-columns:repeat(auto-fit,minmax(104px,1fr)); gap:8px; }
-    .theme-swatch {
-      display:grid; gap:6px; padding:8px; border-radius:12px; font:inherit; cursor:pointer; color:inherit;
-      border:1px solid color-mix(in srgb, var(--conx-steel) 35%, transparent);
-      background: var(--surface); color: var(--text);
-      box-shadow: inset 0 1px 0 var(--conx-bevel-light), 0 4px 12px color-mix(in srgb,#0b1218 10%, transparent);
-    }
-    .theme-swatch.active { border-color: var(--swatch-accent, var(--conx-accent)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--swatch-accent, var(--conx-accent)) 45%, transparent); }
-    .theme-swatch-face {
-      display:block; height:38px; border-radius:8px; background:var(--swatch);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.35), inset 0 -2px 4px rgba(0,0,0,.28), 0 2px 6px rgba(0,0,0,.18);
-    }
-    .theme-swatch-name { font-size:.72rem; font-weight:600; text-align:start; }
-    .dimmer-field { margin-top:8px; }
-    .dimmer-field input[type=range] { width:100%; accent-color: var(--conx-accent); }
-    .dimmer-field.dimmed { opacity:.45; }
-    .dimmer-field span { display:flex; justify-content:space-between; gap:8px; }
-
-    body[data-theme="graphite"] .conx-card {
-      background: linear-gradient(155deg,#2a3038 0%,#171b20 48%,#0f1216 100%);
-      border-color: color-mix(in srgb,#9aa3ad 30%,#1b2026);
-    }
-    body[data-theme="light_soft"] .conx-card {
-      background: linear-gradient(160deg,#ffffff 0%,#f5f8fb 48%,#e8eef4 100%);
-    }
-
-    /* —— Card shell —— */
     .conx-card {
-      position: relative;
-      overflow: hidden;
-      border-radius: 20px;
-      padding: 18px;
-      color: var(--text);
-      background: var(--bg);
-      border: 1px solid var(--border);
-      box-shadow: inset 0 1px 0 var(--conx-bevel-light), inset 0 -1px 0 var(--conx-bevel-dark), 0 16px 40px rgba(0,0,0,.2);
+      position: relative; overflow: hidden; border-radius: 20px; padding: 18px;
+      color: var(--text); background: var(--surface);
+      border: 1px solid var(--border); box-shadow: var(--shadow);
     }
+    .conx-card.syncing-pulse .sync-btn { animation: conx-pulse 700ms ease; }
 
-    .conx-card.syncing-pulse .sync-btn,
-    .conx-card.syncing-pulse .badge.status-syncing {
-      animation: conx-pulse 700ms ease;
-    }
-
-    .atmosphere {
-      pointer-events: none;
-      position: absolute;
-      inset: 0;
-      background:
-        radial-gradient(circle at 12% 0%, color-mix(in srgb, #9eb6c8 28%, transparent), transparent 42%),
-        radial-gradient(circle at 88% 100%, color-mix(in srgb, #1f7a8c 12%, transparent), transparent 40%),
-        repeating-linear-gradient(
-          -18deg,
-          transparent,
-          transparent 10px,
-          color-mix(in srgb, #0b1218 2.5%, transparent) 10px,
-          color-mix(in srgb, #0b1218 2.5%, transparent) 11px
-        );
-      opacity: 0.55;
-    }
-
-    .header, .warn, .notice, .layout { position: relative; z-index: 1; }
-
-    .header {
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      align-items: flex-start;
-      margin-bottom: 14px;
-    }
-
+    .header, .warn, .notice, .hero-preview, .settings-layout, .actions-dock { position: relative; z-index: 1; }
+    .header { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:14px; }
     .brand {
-      font-family: var(--conx-display);
-      font-size: 1.55rem;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-      line-height: 1;
-      color: var(--conx-accent);
-      text-shadow: 0 1px 0 var(--conx-bevel-light);
+      font-family: var(--display); font-size: 1.75rem; font-weight: 700;
+      letter-spacing: .04em; line-height: 1; color: var(--accent);
     }
+    .title { font-family: var(--display); font-size: 1.35rem; font-weight: 600; margin-top: 4px; }
+    .subtitle { color: var(--text-muted); margin-top: 2px; font-size: .92rem; }
+    .header-side { display:flex; flex-direction:column; align-items:flex-end; gap:8px; }
+    [dir="rtl"] .header-side { align-items:flex-start; }
 
-    .title {
-      font-family: var(--conx-display);
-      font-size: 1.15rem;
-      font-weight: 600;
-      margin-top: 4px;
-    }
-
-    .subtitle {
-      opacity: 0.72;
-      margin-top: 2px;
-      font-size: 0.92rem;
-    }
-
-    .header-side {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: 8px;
-    }
-
-    [dir="rtl"] .header-side { align-items: flex-start; }
-
-    .lang-flags { display: flex; gap: 6px; }
-
+    .lang-flags { display:flex; gap:6px; }
     .lang-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 5px 8px;
-      border-radius: 999px;
-      border: 1px solid color-mix(in srgb, var(--conx-steel) 45%, transparent);
-      background: linear-gradient(180deg, color-mix(in srgb, #fff 70%, transparent), color-mix(in srgb, #c9d3dc 40%, transparent));
-      box-shadow: inset 0 1px 0 var(--conx-bevel-light);
-      cursor: pointer;
-      color: inherit;
-      font: inherit;
+      display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px;
+      border:1px solid var(--btn-border); background: var(--btn-bg); color: var(--btn-text);
+      cursor:pointer; font:inherit;
     }
-
-    .lang-btn.active {
-      border-color: color-mix(in srgb, var(--conx-accent) 55%, transparent);
-      background: var(--conx-accent-soft);
-      box-shadow:
-        inset 0 1px 0 var(--conx-bevel-light),
-        0 0 0 1px color-mix(in srgb, var(--conx-accent) 25%, transparent);
-    }
-
-    .lang-code {
-      font-size: 0.72rem;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-    }
-
-    .flag {
-      width: 18px;
-      height: 12px;
-      border-radius: 2px;
-      border: 1px solid color-mix(in srgb, #000 18%, transparent);
-      display: inline-block;
-      overflow: hidden;
-      position: relative;
-      flex-shrink: 0;
-    }
-
-    .flag-il {
-      background: #fff;
-      display: grid;
-      grid-template-rows: 2px 1fr 2px;
-      place-items: center;
-    }
-    .flag-il-bar { width: 100%; height: 2px; background: #0038b8; }
-    .flag-il-star { color: #0038b8; font-size: 7px; line-height: 1; }
-
-    .flag-gb {
-      background:
-        linear-gradient(90deg, transparent 44%, #fff 44%, #fff 56%, transparent 56%),
-        linear-gradient(#fff 38%, transparent 38%, transparent 62%, #fff 62%),
-        linear-gradient(90deg, transparent 46%, #c8102e 46%, #c8102e 54%, transparent 54%),
-        linear-gradient(#c8102e 42%, transparent 42%, transparent 58%, #c8102e 58%),
-        #012169;
-    }
-
-    .flag-ru {
-      background: linear-gradient(to bottom, #fff 0 33%, #0039a6 33% 66%, #d52b1e 66% 100%);
-    }
+    .lang-btn.active { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
+    .lang-code { font-size:.72rem; font-weight:800; letter-spacing:.06em; }
+    .flag { width:18px; height:12px; border-radius:2px; border:1px solid rgba(0,0,0,.18); display:inline-block; overflow:hidden; flex-shrink:0; }
+    .flag-il { background:#fff; display:grid; grid-template-rows:2px 1fr 2px; place-items:center; }
+    .flag-il-bar { width:100%; height:2px; background:#0038b8; }
+    .flag-il-star { color:#0038b8; font-size:7px; line-height:1; }
+    .flag-gb { background: linear-gradient(90deg, transparent 44%, #fff 44%, #fff 56%, transparent 56%), linear-gradient(#fff 38%, transparent 38%, transparent 62%, #fff 62%), linear-gradient(90deg, transparent 46%, #c8102e 46%, #c8102e 54%, transparent 54%), linear-gradient(#c8102e 42%, transparent 42%, transparent 58%, #c8102e 58%), #012169; }
+    .flag-ru { background: linear-gradient(to bottom, #fff 0 33%, #0039a6 33% 66%, #d52b1e 66% 100%); }
 
     .badge {
-      border-radius: 999px;
-      padding: 5px 11px;
-      font-size: 0.8rem;
-      font-weight: 600;
-      border: 1px solid color-mix(in srgb, var(--conx-steel) 40%, transparent);
-      background: color-mix(in srgb, #fff 45%, transparent);
-      text-transform: lowercase;
-      box-shadow: inset 0 1px 0 var(--conx-bevel-light);
+      border-radius:999px; padding:5px 11px; font-size:.8rem; font-weight:700;
+      border:1px solid var(--border); background: var(--surface-2); color: var(--text);
     }
+    .status-synced { color: #7dcea0; }
+    body[data-theme="ivory"] .status-synced { color: #2e7d32; }
+    .status-syncing { color: var(--accent); }
 
-    .status-synced { color: #2e7d32; }
-    .status-pending, .status-out_of_sync { color: #ed6c02; }
-    .status-syncing { color: var(--conx-accent); }
-    .status-error { color: var(--conx-danger); }
+    .warn, .notice { padding:10px 12px; border-radius:12px; margin-bottom:10px; font-size:.9rem; border:1px solid transparent; display:none; }
+    .warn { background:var(--warn-bg); border-color:var(--warn-border); color:var(--warn-text); }
+    .warn.visible, .notice.visible { display:block; }
+    .notice { background:var(--notice-bg); border-color:var(--notice-border); color:var(--notice-text); }
 
-    .warn, .notice {
-      padding: 9px 12px;
-      border-radius: 12px;
-      margin-bottom: 10px;
-      font-size: 0.9rem;
-      border: 1px solid transparent;
+    /* —— HERO faceplate (pinned top, full width) —— */
+    .hero-preview {
+      border-radius: 18px; border: 1px solid var(--border);
+      background: var(--surface-2); margin-bottom: 14px; overflow: hidden;
     }
-
-    .warn {
-      display: none;
-      background: color-mix(in srgb, #ed6c02 14%, transparent);
-      border-color: color-mix(in srgb, #ed6c02 28%, transparent);
+    .hero-preview .section-head {
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      padding: 12px 16px; border-bottom: 1px solid var(--border);
     }
-
-    .warn.visible { display: block; }
-
-    .notice {
-      display: none;
-      background: color-mix(in srgb, var(--conx-accent) 12%, transparent);
-      border-color: color-mix(in srgb, var(--conx-accent) 28%, transparent);
+    .hero-preview .section-title {
+      font-family: var(--display); font-size: 1.35rem; font-weight: 600; letter-spacing: -.01em;
     }
-
-    .notice.visible { display: block; }
-
-    .layout {
-      display: grid;
-      gap: 14px;
+    .hero-pin {
+      font-size: .7rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+      color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+      border-radius: 999px; padding: 4px 10px;
     }
+    .hero-body { padding: 18px 16px 22px; background: var(--faceplate-well); }
+    .hero-preview.collapsed .hero-body { display: none; }
+    .hero-preview.collapsed .section-head { border-bottom: 0; }
 
-    @media (min-width: 920px) {
-      .layout { grid-template-columns: 1fr 1.15fr; }
+    .faceplate { width: 100%; }
+    .faceplate-bezel {
+      position: relative; width: min(100%, 920px); margin: 0 auto;
+      aspect-ratio: 2.65 / 1; border-radius: 22px; padding: 7px;
+      background: linear-gradient(145deg, #f2f0ea 0%, #b8b0a4 36%, #ebe6dc 62%, #8a8378 100%);
+      box-shadow: inset 0 1px 1px #fff, inset 0 -1px 2px rgba(0,0,0,.35), 0 16px 36px rgba(0,0,0,.35);
     }
+    .faceplate-glass {
+      height: 100%; border-radius: 16px; overflow: hidden;
+      display: grid; grid-template-rows: 28% 72%; background: #fff;
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,.08);
+    }
+    .faceplate-labels {
+      display: grid; grid-template-columns: repeat(4, 1fr); align-items: center;
+      background: #0a0a0a; color: #f5f5f5; padding: 0 6px;
+    }
+    .faceplate-label {
+      text-align: center; font-size: clamp(.85rem, 2.4vw, 1.2rem); font-weight: 600;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 6px;
+      font-family: var(--font);
+    }
+    .faceplate-touch {
+      display:flex; align-items:flex-end; justify-content:stretch;
+      background: linear-gradient(180deg, #ffffff 0%, #f7f5f1 70%, #efebe4 100%);
+      padding: 0 2% 11%;
+    }
+    .faceplate-rings { display:grid; grid-template-columns:repeat(4,1fr); width:100%; place-items:center; }
+    .ring {
+      width: clamp(28px, 7vw, 48px); height: clamp(28px, 7vw, 48px);
+      border-radius: 50%; border: 3px solid color-mix(in srgb, var(--ring-off) 70%, #9aa7b5);
+      background: transparent; padding: 0; cursor: pointer; position: relative;
+      box-shadow: 0 0 8px color-mix(in srgb, var(--ring-off) 40%, transparent);
+      transition: border-color 160ms ease, box-shadow 160ms ease, transform 120ms ease;
+    }
+    .ring.on {
+      border-color: var(--ring-on);
+      box-shadow: 0 0 18px color-mix(in srgb, var(--ring-on) 75%, transparent), 0 0 6px color-mix(in srgb, var(--ring-on) 90%, transparent);
+    }
+    .ring.pressed { transform: scale(.92); }
+    .ring-glow { position:absolute; inset:6px; border-radius:50%; background: color-mix(in srgb, var(--ring-off) 14%, transparent); pointer-events:none; }
+    .ring.on .ring-glow { background: color-mix(in srgb, var(--ring-on) 28%, transparent); }
+
+    .layout-hint { font-size:.8rem; color: var(--text-muted); margin: 0 0 10px; }
+
+    /* Settings grid below hero */
+    .settings-layout {
+      display: grid; gap: 12px; grid-template-columns: 1fr; align-items: start;
+    }
+    @media (min-width: 900px) {
+      .settings-layout { grid-template-columns: 1fr 1fr; }
+    }
+    .settings-layout.hidden-for-export { display: none; }
+    .hero-preview.hidden-for-export { display: none; }
 
     .panel-section {
-      border-radius: 16px;
-      border: 1px solid color-mix(in srgb, var(--conx-steel) 32%, transparent);
-      background:
-        linear-gradient(
-          180deg,
-          color-mix(in srgb, #fff 55%, transparent),
-          color-mix(in srgb, #e8eef3 55%, transparent)
-        );
-      box-shadow:
-        inset 0 1px 0 var(--conx-bevel-light),
-        0 6px 16px color-mix(in srgb, #0b1218 8%, transparent);
-      overflow: hidden;
+      border-radius: 14px; border: 1px solid var(--border);
+      background: var(--surface-2); color: var(--text);
+      overflow: hidden; min-height: 0; align-self: start;
     }
+    .panel-section.dragging { opacity: .55; }
+    .panel-section.drag-over { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .panel-section.span-2 { grid-column: 1 / -1; }
 
     .section-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      padding: 12px 14px;
-      border-bottom: 1px solid color-mix(in srgb, var(--conx-steel) 22%, transparent);
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      padding: 10px 12px; min-height: 48px; background: transparent;
     }
-
-    .section-title {
-      font-family: var(--conx-display);
-      font-weight: 600;
-      letter-spacing: 0.01em;
+    .section-head-main { display:flex; align-items:center; gap:8px; min-width:0; flex:1; }
+    .drag-handle {
+      display:inline-flex; align-items:center; justify-content:center;
+      width:28px; height:28px; border-radius:8px;
+      border:1px solid var(--btn-border); background: var(--btn-bg); color: var(--text-muted);
+      cursor: grab; flex-shrink:0; font-size:14px; user-select:none;
     }
+    .drag-handle:active { cursor: grabbing; }
+    .section-title { font-family: var(--display); font-weight: 600; font-size: 1.15rem; color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-    .section-body {
-      display: grid;
-      grid-template-rows: 0fr;
-      transition: grid-template-rows 220ms ease;
-    }
+    .section-body { display: none; }
+    .panel-section.open .section-body { display: block; border-top: 1px solid var(--border); }
+    .section-body-inner { padding: 12px; }
 
-    .panel-section.open .section-body { grid-template-rows: 1fr; }
-
-    .section-body-inner {
-      overflow: hidden;
-      padding: 0 14px;
-    }
-
-    .panel-section.open .section-body-inner { padding: 12px 14px 14px; }
-
-    /* Shared toggle pattern (also used by wizard preview when present):
-       physical LTR thumb travel, vertically centered, balanced track/thumb. */
     .switch {
-      --switch-w: 44px;
-      --switch-h: 26px;
-      --switch-thumb: 22px;
-      --switch-pad: 2px;
-      position: relative;
-      display: inline-block;
-      width: var(--switch-w);
-      height: var(--switch-h);
-      flex-shrink: 0;
-      vertical-align: middle;
+      --switch-w:44px; --switch-h:26px; --switch-thumb:22px; --switch-pad:2px;
+      position:relative; display:inline-block; width:var(--switch-w); height:var(--switch-h); flex-shrink:0;
     }
-
-    .switch input {
-      position: absolute;
-      opacity: 0;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      margin: 0;
-      cursor: pointer;
-      z-index: 1;
-    }
-
+    .switch input { position:absolute; opacity:0; inset:0; width:100%; height:100%; margin:0; cursor:pointer; z-index:1; }
     .slider {
-      position: absolute;
-      inset: 0;
-      border-radius: 999px;
-      background: color-mix(in srgb, var(--conx-steel) 42%, #d5dde5);
-      box-shadow: inset 0 1px 2px color-mix(in srgb, #0b1218 22%, transparent);
-      transition: background 180ms ease, box-shadow 180ms ease;
-      pointer-events: none;
+      position:absolute; inset:0; border-radius:999px;
+      background: color-mix(in srgb, var(--silver) 40%, var(--surface));
+      box-shadow: inset 0 1px 2px rgba(0,0,0,.25); pointer-events:none; transition: background 180ms ease;
     }
-
     .slider::before {
-      content: "";
-      position: absolute;
-      width: var(--switch-thumb);
-      height: var(--switch-thumb);
-      top: 50%;
-      left: var(--switch-pad);
-      border-radius: 50%;
-      background: linear-gradient(180deg, #fff 0%, #e8eef3 100%);
-      box-shadow:
-        0 1px 3px color-mix(in srgb, #0b1218 28%, transparent),
-        inset 0 1px 0 #fff;
-      transform: translateY(-50%);
-      transition: left 180ms ease, background 180ms ease;
+      content:""; position:absolute; width:var(--switch-thumb); height:var(--switch-thumb);
+      top:50%; left:var(--switch-pad); border-radius:50%; background:#fff;
+      box-shadow:0 1px 3px rgba(0,0,0,.3); transform:translateY(-50%); transition:left 180ms ease;
     }
+    .switch input:checked + .slider { background: var(--accent); }
+    .switch input:checked + .slider::before { left: calc(100% - var(--switch-thumb) - var(--switch-pad)); }
+    .switch input:focus-visible + .slider { outline:2px solid var(--focus); outline-offset:2px; }
 
-    .switch input:checked + .slider {
-      background: color-mix(in srgb, var(--conx-accent) 82%, #6aa8b6);
-      box-shadow: inset 0 1px 2px color-mix(in srgb, #0b1218 18%, transparent);
-    }
-
-    .switch input:checked + .slider::before {
-      left: calc(100% - var(--switch-thumb) - var(--switch-pad));
-    }
-
-    .switch input:focus-visible + .slider {
-      outline: 2px solid color-mix(in srgb, var(--conx-accent) 55%, transparent);
-      outline-offset: 2px;
-    }
-
-    .profile-list {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      margin-bottom: 10px;
-    }
-
+    .profile-list { display:flex; flex-direction:column; gap:8px; margin-bottom:10px; }
     .profile-chip {
-      border-radius: 12px;
-      padding: 8px 12px;
-      border: 1px solid var(--border);
-      background: var(--btn-bg);
-      color: var(--btn-text);
-      cursor: pointer;
-      font: inherit;
-      text-align: start;
+      border-radius:12px; padding:9px 12px; border:1px solid var(--btn-border);
+      background: var(--btn-bg); color: var(--btn-text); cursor:pointer; font:inherit; text-align:start;
     }
+    .profile-chip.active { border-color: var(--accent); background: var(--chip-active-bg); color: var(--chip-active-text); }
+    .chip-name { font-weight:700; }
+    .chip-id { font-size:.75rem; color: var(--text-muted); }
 
-    .profile-chip:hover { transform: translateY(-1px); }
-
-    .profile-chip.active {
-      border-color: color-mix(in srgb, var(--conx-accent) 55%, transparent);
-      background: var(--conx-accent-soft);
-    }
-
-    .chip-name { font-weight: 600; }
-    .chip-id { font-size: 0.75rem; opacity: 0.65; }
-
-    .field {
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-      margin-bottom: 10px;
-      font-size: 0.9rem;
-    }
-
-    .field > span { font-weight: 500; opacity: 0.85; }
-
+    .field { display:flex; flex-direction:column; gap:5px; margin-bottom:10px; font-size:.9rem; }
+    .field > span, .field > span span { font-weight:600; color: var(--label); }
     input[type="text"], select {
-      font: inherit;
-      color: inherit;
-      background: linear-gradient(180deg, color-mix(in srgb, #fff 80%, transparent), color-mix(in srgb, #e4ebf1 55%, transparent));
-      border: 1px solid color-mix(in srgb, var(--conx-steel) 40%, transparent);
-      border-radius: 11px;
-      padding: 9px 11px;
-      box-shadow:
-        inset 0 1px 0 var(--conx-bevel-light),
-        inset 0 -1px 0 color-mix(in srgb, #0b1218 6%, transparent);
-      width: 100%;
+      font:inherit; width:100%; color: var(--input-text); background: var(--input-bg);
+      border:1px solid var(--input-border); border-radius:12px; padding:10px 12px;
     }
-
     input[type="text"]:focus, select:focus {
-      outline: none;
-      border-color: color-mix(in srgb, var(--conx-accent) 55%, transparent);
-      box-shadow:
-        inset 0 1px 0 var(--conx-bevel-light),
-        0 0 0 2px var(--conx-accent-soft);
+      outline:none; border-color: var(--focus); box-shadow: 0 0 0 3px rgba(215,181,109,.15);
     }
-
-    .color-select {
-      display: grid;
-      grid-template-columns: 18px 1fr;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .swatch {
-      width: 18px;
-      height: 18px;
-      border-radius: 50%;
-      border: 1px solid color-mix(in srgb, #000 20%, transparent);
-      box-shadow: inset 0 1px 2px color-mix(in srgb, #fff 40%, transparent);
-    }
-
-    .toggle-row { display: grid; gap: 10px; }
-
+    .color-select { display:grid; grid-template-columns:18px 1fr; align-items:center; gap:8px; }
+    .swatch { width:18px; height:18px; border-radius:50%; border:1px solid rgba(0,0,0,.25); }
+    .toggle-row { display:grid; gap:10px; }
     .switch-field {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 8px 10px;
-      border-radius: 12px;
-      border: 1px solid color-mix(in srgb, var(--conx-steel) 28%, transparent);
-      background: color-mix(in srgb, #fff 40%, transparent);
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+      padding:9px 11px; border-radius:12px; border:1px solid var(--border);
+      background: var(--surface); color: var(--text);
     }
-
-    .row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin: 8px 0;
-    }
-
-    .grid-2 {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-    }
-
-    @media (max-width: 520px) {
-      .grid-2 { grid-template-columns: 1fr; }
-      .header { flex-direction: column; }
-      .header-side, [dir="rtl"] .header-side { align-items: flex-start; }
+    .row { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0; }
+    .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    @media (max-width:520px) {
+      .grid-2 { grid-template-columns:1fr; }
+      .header { flex-direction:column; }
+      .header-side, [dir="rtl"] .header-side { align-items:flex-start; }
     }
 
     .btn {
-      font: inherit;
-      color: inherit;
-      cursor: pointer;
-      border-radius: 11px;
-      border: 1px solid color-mix(in srgb, var(--conx-steel) 40%, transparent);
-      background: linear-gradient(180deg, color-mix(in srgb, #fff 75%, transparent), color-mix(in srgb, #cfd8e1 50%, transparent));
-      padding: 8px 12px;
-      box-shadow:
-        inset 0 1px 0 var(--conx-bevel-light),
-        0 2px 6px color-mix(in srgb, #0b1218 10%, transparent);
-      transition: transform 120ms ease, filter 120ms ease;
+      font:inherit; cursor:pointer; border-radius:999px;
+      border:1px solid var(--btn-border); background: var(--btn-bg); color: var(--btn-text);
+      padding:9px 14px; font-weight:700; min-height:42px;
     }
+    .btn:hover:not(:disabled) { filter: brightness(1.06); }
+    .btn.primary { background: var(--btn-primary-bg); color: var(--btn-primary-text); border-color: var(--btn-primary-bg); }
+    .btn.danger { background: var(--btn-danger-bg); color: var(--btn-danger-text); border-color: var(--btn-danger-bg); }
+    .btn:disabled { opacity:.5; cursor:not-allowed; filter:none; }
 
-    .btn:hover:not(:disabled) { transform: translateY(-1px); }
-    .btn:active:not(:disabled) { transform: translateY(1px); }
-
-    .btn.primary {
-      background: var(--btn-primary-bg);
-      color: var(--btn-primary-text);
-      border-color: color-mix(in srgb, var(--accent) 55%, #000);
-      font-weight: 700;
+    .theme-swatches { display:flex; flex-wrap:wrap; gap:16px; }
+    .theme-swatch {
+      display:flex; flex-direction:column; align-items:center; gap:7px;
+      padding:0; border:0; background:transparent; cursor:pointer; font:inherit; color:var(--text-muted); min-width:72px;
     }
-
-    .btn.danger { color: var(--conx-danger); }
-
-    .btn:disabled {
-      opacity: 0.55;
-      cursor: not-allowed;
-      transform: none;
+    .theme-swatch-face {
+      width:36px; height:36px; border-radius:50%; background:var(--swatch);
+      border:2px solid var(--border); box-shadow: 0 2px 8px rgba(0,0,0,.25);
     }
-
-    /* Button accordion: compact headers, expand to edit */
-    .buttons-accordion {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
+    .theme-swatch.active .theme-swatch-face {
+      border-color: var(--swatch-accent, var(--accent));
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--swatch-accent, var(--accent)) 40%, transparent);
     }
+    .theme-swatch-name { font-size:.72rem; font-weight:700; color: var(--text-muted); }
+    .theme-swatch.active .theme-swatch-name { color: var(--text); }
 
-    .button-edit {
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      background: var(--surface-2);
-      color: var(--text);
-      overflow: hidden;
-    }
+    .dimmer-field { margin-top:8px; }
+    .dimmer-field input[type=range] { width:100%; accent-color: var(--accent); }
+    .dimmer-field.dimmed { opacity:.45; }
 
+    .buttons-accordion { display:flex; flex-direction:column; gap:8px; }
+    .button-edit { border-radius:12px; border:1px solid var(--border); background: var(--surface); overflow:hidden; }
     .button-edit-toggle {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      width: 100%;
-      padding: 10px 12px;
-      border: 0;
-      background: transparent;
-      color: var(--text);
-      font: inherit;
-      cursor: pointer;
-      text-align: start;
+      display:flex; align-items:center; gap:10px; width:100%; padding:11px 12px;
+      border:0; background:transparent; color:var(--text); font:inherit; cursor:pointer; text-align:start;
     }
-
-    .button-edit-toggle:hover {
-      background: color-mix(in srgb, var(--conx-accent) 6%, transparent);
-    }
-
+    .button-edit-toggle:hover { background: var(--accent-soft); }
     .button-edit-chevron {
-      width: 8px;
-      height: 8px;
-      border-inline-end: 2px solid color-mix(in srgb, var(--conx-ink) 45%, transparent);
-      border-bottom: 2px solid color-mix(in srgb, var(--conx-ink) 45%, transparent);
-      transform: rotate(-45deg);
-      transition: transform 180ms ease;
-      flex-shrink: 0;
-      margin-inline-start: 2px;
+      width:8px; height:8px; border-inline-end:2px solid var(--text-muted); border-bottom:2px solid var(--text-muted);
+      transform:rotate(-45deg); flex-shrink:0; transition: transform 180ms ease;
     }
+    [dir="rtl"] .button-edit-chevron { transform:rotate(45deg); }
+    .button-edit.open .button-edit-chevron { transform:rotate(45deg); }
+    [dir="rtl"] .button-edit.open .button-edit-chevron { transform:rotate(-45deg); }
+    .button-edit-summary { display:flex; flex-direction:column; gap:2px; min-width:0; flex:1; }
+    .button-edit-title { font-weight:700; }
+    .button-edit-meta { font-size:.78rem; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .button-edit-body { display:none; }
+    .button-edit.open .button-edit-body { display:block; }
+    .button-edit-fields { padding:0 12px 12px; border-top:1px solid var(--border); }
+    .button-edit.open .button-edit-fields .field:first-child { margin-top:10px; }
 
-    [dir="rtl"] .button-edit-chevron {
-      transform: rotate(45deg);
+    .actions-dock {
+      margin-top: 12px; border-radius: 14px; border: 1px solid var(--border);
+      background: var(--surface-2); padding: 12px;
     }
-
-    .button-edit.open .button-edit-chevron {
-      transform: rotate(45deg);
-    }
-
-    [dir="rtl"] .button-edit.open .button-edit-chevron {
-      transform: rotate(-45deg);
-    }
-
-    .button-edit-summary {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      min-width: 0;
-      flex: 1;
-    }
-
-    .button-edit-title {
-      font-weight: 600;
-      line-height: 1.2;
-    }
-
-    .button-edit-meta {
-      font-size: 0.78rem;
-      opacity: 0.62;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .button-edit-body {
-      display: grid;
-      grid-template-rows: 0fr;
-      transition: grid-template-rows 200ms ease;
-    }
-
-    .button-edit.open .button-edit-body {
-      grid-template-rows: 1fr;
-    }
-
-    .button-edit-fields {
-      overflow: hidden;
-      padding: 0 12px;
-    }
-
-    .button-edit.open .button-edit-fields {
-      padding: 0 12px 12px;
-      border-top: 1px solid color-mix(in srgb, var(--conx-steel) 22%, transparent);
-    }
-
-    .button-edit.open .button-edit-fields .field:first-child {
-      margin-top: 10px;
-    }
-
-    .button-edit .field:last-child {
-      margin-bottom: 0;
-    }
-
-    /* —— Faceplate —— */
-    .faceplate {
-      padding: 14px;
-      border-radius: 16px;
-      background: var(--faceplate-well);
-      box-shadow: inset 0 2px 8px rgba(0,0,0,.28);
-      width: 100%;
-      overflow-x: auto;
-      padding: 4px 2px 8px;
-    }
-
-    .faceplate-bezel {
-      position: relative;
-      min-width: 320px;
-      width: min(100%, 560px);
-      margin: 0 auto;
-      aspect-ratio: 2.55 / 1;
-      border-radius: 18px;
-      padding: 5px;
-      background: linear-gradient(145deg, #f4f6f8 0%, #b7c0c8 38%, #eceff2 62%, #8e99a3 100%);
-      box-shadow:
-        inset 0 1px 1px #fff,
-        inset 0 -1px 2px color-mix(in srgb, #000 35%, transparent),
-        0 8px 18px color-mix(in srgb, #0b1218 18%, transparent);
-    }
-
-    .faceplate-glass {
-      position: relative;
-      z-index: 1;
-      height: 100%;
-      border-radius: 14px;
-      overflow: hidden;
-      display: grid;
-      grid-template-rows: 26% 74%;
-      background: #fff;
-      box-shadow: inset 0 0 0 1px color-mix(in srgb, #000 8%, transparent);
-    }
-
-    .faceplate-labels {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      align-items: center;
-      background: #0a0a0a;
-      color: #f5f5f5;
-      padding: 0 4px;
-    }
-
-    .faceplate-label {
-      text-align: center;
-      font-size: clamp(0.62rem, 2.1vw, 0.9rem);
-      font-weight: 500;
-      letter-spacing: 0.01em;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      padding: 0 4px;
-    }
-
-    .faceplate-touch {
-      display: flex;
-      align-items: flex-end;
-      justify-content: stretch;
-      background: linear-gradient(180deg, #ffffff 0%, #f7f8fa 70%, #eef1f4 100%);
-      padding: 0 2% 10%;
-    }
-
-    .faceplate-rings {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      width: 100%;
-      place-items: center;
-    }
-
-    .ring {
-      width: clamp(18px, 5.2vw, 28px);
-      height: clamp(18px, 5.2vw, 28px);
-      border-radius: 50%;
-      border: 2.5px solid color-mix(in srgb, var(--ring-off) 70%, #9aa7b5);
-      background: transparent;
-      padding: 0;
-      cursor: pointer;
-      position: relative;
-      box-shadow:
-        0 0 5px color-mix(in srgb, var(--ring-off) 40%, transparent),
-        inset 0 0 0 1px color-mix(in srgb, #fff 40%, transparent);
-      transition:
-        border-color 160ms ease,
-        box-shadow 160ms ease,
-        transform 120ms ease;
-    }
-
-    .ring.on {
-      border-color: var(--ring-on);
-      box-shadow:
-        0 0 12px color-mix(in srgb, var(--ring-on) 75%, transparent),
-        0 0 4px color-mix(in srgb, var(--ring-on) 90%, transparent),
-        inset 0 0 5px color-mix(in srgb, var(--ring-on) 45%, transparent);
-    }
-
-    .ring.pressed { transform: scale(0.9); }
-
-    .ring-glow {
-      position: absolute;
-      inset: 4px;
-      border-radius: 50%;
-      background: color-mix(in srgb, var(--ring-off) 14%, transparent);
-      pointer-events: none;
-    }
-
-    .ring.on .ring-glow {
-      background: color-mix(in srgb, var(--ring-on) 28%, transparent);
-    }
-
-    .ref-photo {
-      margin-top: 22px;
-      text-align: center;
-    }
-
-    .ref-photo details {
-      border-radius: 14px;
-      border: 1px solid color-mix(in srgb, var(--conx-steel) 35%, transparent);
-      background: color-mix(in srgb, #fff 50%, transparent);
-      padding: 10px 14px;
-      text-align: start;
-    }
-
-    .ref-photo summary {
-      cursor: pointer;
-      font-weight: 600;
-      font-family: var(--conx-display);
-    }
-
-    .ref-photo img {
-      display: block;
-      width: min(100%, 520px);
-      margin: 12px auto 4px;
-      border-radius: 12px;
-      box-shadow: 0 8px 20px color-mix(in srgb, #0b1218 18%, transparent);
-    }
-
-    @keyframes conx-pulse {
-      0% {
-        filter: brightness(1);
-        box-shadow: 0 0 0 0 color-mix(in srgb, var(--conx-accent) 0%, transparent);
-      }
-      40% {
-        filter: brightness(1.12);
-        box-shadow: 0 0 0 6px color-mix(in srgb, var(--conx-accent) 22%, transparent);
-      }
-      100% {
-        filter: brightness(1);
-        box-shadow: 0 0 0 0 color-mix(in srgb, var(--conx-accent) 0%, transparent);
-      }
-    }
-
+    .actions-dock.hidden-for-export { display: none; }
 
     .export-overlay {
-      display: none;
-      position: relative;
-      z-index: 2;
-      margin-top: 12px;
-      padding: 14px;
-      border-radius: 16px;
-      border: 1px solid color-mix(in srgb, var(--conx-accent) 40%, transparent);
-      background: color-mix(in srgb, var(--conx-accent) 10%, transparent);
-      box-shadow: inset 0 1px 0 var(--conx-bevel-light), 0 10px 24px color-mix(in srgb,#0b1218 12%, transparent);
+      display:none; margin-top:12px; padding:16px; border-radius:16px;
+      border:1px solid var(--border); background: var(--surface-2);
     }
-    .export-overlay.visible { display: block; }
-    .export-overlay .export-toolbar {
-      display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 12px;
-    }
-    .export-overlay .export-title { font-family: var(--conx-display); font-weight: 700; }
-    .main-layout.hidden-for-export { display: none; }
-    .nav-link-bar {
-      display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 12px;
-    }
-    .nav-link-bar a, .nav-link-bar button {
-      font: inherit; font-weight: 700; cursor: pointer;
-      border-radius: 12px; padding: 8px 14px;
-      border: 1px solid color-mix(in srgb, var(--conx-steel) 40%, transparent);
-      background: color-mix(in srgb, #fff 70%, transparent);
-      color: inherit; text-decoration: none;
-    }
-    .nav-link-bar button.primary, .nav-link-bar a.primary {
-      background: linear-gradient(180deg, color-mix(in srgb, var(--conx-accent) 88%, #fff), var(--conx-accent));
-      color: #fff; border-color: color-mix(in srgb, var(--conx-accent) 70%, #000);
-    }
+    .export-overlay.visible { display:block; }
+    .export-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-bottom:12px; }
+    .export-title { font-family: var(--display); font-weight:700; font-size:1.25rem; }
+    .export-overlay a { color: var(--accent); font-weight:700; }
 
-    .col-span-2 { grid-column: 1 / -1; }
+    .ref-photo { margin-top:22px; text-align:center; }
+    .ref-photo details {
+      border-radius:14px; border:1px solid var(--border); background: var(--surface);
+      color: var(--text); padding:10px 14px; text-align:start;
+    }
+    .ref-photo summary { cursor:pointer; font-weight:700; font-family: var(--display); font-size:1.1rem; }
+    .ref-photo img { display:block; width:min(100%,520px); margin:12px auto 4px; border-radius:12px; }
+
+    @keyframes conx-pulse {
+      0% { filter:brightness(1); }
+      40% { filter:brightness(1.1); box-shadow: 0 0 0 6px var(--accent-soft); }
+      100% { filter:brightness(1); }
+    }
   </style>
 </head>
-<body>
+<body data-theme="noir">
   <div class="page">
     <div class="page-intro">
-      <h1>ConX Dynamic Panel</h1>
+      <p class="eyebrow">ConX Dynamic Panel</p>
+      <h1>Living control.<br /><span class="gold">Clear craft.</span></h1>
       <p id="intro-sub">תצוגה אינטראקטיבית של עיצוב הכרטיס החדש</p>
       <div class="nav-link-bar">
         <button type="button" class="primary" id="btn-open-export" data-i18n="card.open_export_wizard">אשף ייצוא</button>
+        <button type="button" id="btn-import-top" data-i18n="card.import">ייבוא</button>
         <a href="conx-panel-wizard.html" id="link-standalone-wizard" data-i18n="card.open_standalone_wizard">אשף נפרד (HTML)</a>
+        <button type="button" id="btn-reset-layout" data-i18n="card.reset_layout">איפוס לייאוט</button>
       </div>
       <div class="hint-bar">
         <span class="hint-chip" id="hint-lang">דגלי שפה HE / EN / RU</span>
         <span class="hint-chip" id="hint-colors">צבעי טבעות LED משתנים</span>
         <span class="hint-chip" id="hint-sections">מקטעים מתקפלים</span>
+        <span class="hint-chip" id="hint-drag" data-i18n="card.drag_hint">גררו את ⠿ כדי לסדר מחדש</span>
       </div>
     </div>
 
     <article class="conx-card" id="card" dir="rtl">
-      <div class="atmosphere"></div>
-
       <div class="header">
         <div class="brand-block">
           <div class="brand">ConX</div>
@@ -966,207 +466,151 @@
         <div class="header-side">
           <div class="lang-flags" role="group" aria-label="Language">
             <button type="button" class="lang-btn active" data-lang="he" title="עברית">
-              <span class="flag flag-il" aria-hidden="true">
-                <span class="flag-il-bar"></span>
-                <span class="flag-il-star">✦</span>
-                <span class="flag-il-bar"></span>
-              </span>
+              <span class="flag flag-il" aria-hidden="true"><span class="flag-il-bar"></span><span class="flag-il-star">✦</span><span class="flag-il-bar"></span></span>
               <span class="lang-code">HE</span>
             </button>
             <button type="button" class="lang-btn" data-lang="en" title="English">
-              <span class="flag flag-gb" aria-hidden="true"></span>
-              <span class="lang-code">EN</span>
+              <span class="flag flag-gb" aria-hidden="true"></span><span class="lang-code">EN</span>
             </button>
             <button type="button" class="lang-btn" data-lang="ru" title="Русский">
-              <span class="flag flag-ru" aria-hidden="true"></span>
-              <span class="lang-code">RU</span>
+              <span class="flag flag-ru" aria-hidden="true"></span><span class="lang-code">RU</span>
             </button>
           </div>
           <div class="badge status-synced" id="status-badge">Status: synced</div>
-          <button type="button" class="btn danger" id="btn-reset" data-i18n="card.reset" title="Reset saved preview data">
-            Reset
-          </button>
+          <button type="button" class="btn danger" id="btn-reset" data-i18n="card.reset">Reset</button>
         </div>
       </div>
 
       <div class="warn" id="dirty-warn"></div>
       <div class="notice" id="notice"></div>
 
-      <div class="layout main-layout" id="main-layout">
-        <!-- Profiles -->
-        <section class="panel-section open" data-section="profiles">
-          <header class="section-head">
-            <div class="section-title" data-i18n="card.profiles">Profiles</div>
-            <label class="switch" title="Show section">
-              <input type="checkbox" checked data-section-toggle="profiles" />
-              <span class="slider"></span>
-            </label>
-          </header>
-          <div class="section-body">
-            <div class="section-body-inner">
-              <div class="profile-list" id="profile-list"></div>
-              <label class="field">
-                <span data-i18n="card.profile_name">Profile name</span>
-                <input type="text" id="profile-name-input" />
-              </label>
-              <div class="row actions">
-                <button type="button" class="btn" data-action="create" data-i18n="card.create">Create</button>
-                <button type="button" class="btn" data-action="duplicate" data-i18n="card.duplicate">Duplicate</button>
-                <button type="button" class="btn" data-action="rename" data-i18n="card.rename">Rename</button>
-                <button type="button" class="btn danger" data-action="delete" data-i18n="card.delete">Delete</button>
-              </div>
-              <div class="row actions">
-                <button type="button" class="btn primary" id="btn-open-export-2" data-i18n="card.open_export_wizard">Export wizard</button>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- Appearance -->
-        <section class="panel-section open" data-section="appearance">
-          <header class="section-head">
-            <div class="section-title" data-i18n="card.editor">Appearance</div>
-            <label class="switch">
-              <input type="checkbox" checked data-section-toggle="appearance" />
-              <span class="slider"></span>
-            </label>
-          </header>
-          <div class="section-body">
-            <div class="section-body-inner">
-              <label class="field">
-                <span data-i18n="card.mode">Mode</span>
-                <select id="mode-select">
-                  <option value="toggle" data-i18n-option="mode.toggle">Toggle</option>
-                  <option value="radio_mandatory" data-i18n-option="mode.radio_mandatory">Radio mandatory</option>
-                  <option value="radio_optional" data-i18n-option="mode.radio_optional">Radio optional</option>
-                </select>
-              </label>
-              <div class="grid-2">
-                <label class="field">
-                  <span data-i18n="card.color_on">Color ON</span>
-                  <div class="color-select">
-                    <span class="swatch" id="swatch-on"></span>
-                    <select id="color-on"></select>
-                  </div>
-                </label>
-                <label class="field">
-                  <span data-i18n="card.color_off">Color OFF</span>
-                  <div class="color-select">
-                    <span class="swatch" id="swatch-off"></span>
-                    <select id="color-off"></select>
-                  </div>
-                </label>
-              </div>
-              <label class="field">
-                <span data-i18n="card.radar">Radar</span>
-                <select id="radar-select">
-                  <option>off</option>
-                  <option selected>30s</option>
-                  <option>60s</option>
-                  <option>120s</option>
-                </select>
-              </label>
-              <div class="toggle-row">
-                <label class="switch-field">
-                  <span data-i18n="card.backlight">Backlight</span>
-                  <label class="switch">
-                    <input type="checkbox" id="backlight" checked />
-                    <span class="slider"></span>
-                  </label>
-                </label>
-                <label class="switch-field">
-                  <span data-i18n="card.child_lock">Child lock</span>
-                  <label class="switch">
-                    <input type="checkbox" id="child-lock" />
-                    <span class="slider"></span>
-                  </label>
-                </label>
-              </div>
-              <label class="field dimmer-field" id="dimmer-field">
-                <span><span data-i18n="card.backlight_brightness">Backlight brightness</span> <strong id="brightness-value">100%</strong></span>
-                <input type="range" id="backlight-brightness" min="0" max="100" value="100" />
-              </label>
-            </div>
-          </div>
-        </section>
-
-        <!-- Theme (collapsible) -->
-        <section class="panel-section" data-section="theme">
-          <header class="section-head">
-            <div class="section-title" data-i18n="card.theme">Interface theme</div>
-            <label class="switch" title="Show section">
-              <input type="checkbox" data-section-toggle="theme" />
-              <span class="slider"></span>
-            </label>
-          </header>
-          <div class="section-body">
-            <div class="section-body-inner">
-              <div class="theme-picker" id="theme-picker">
-                <div class="theme-swatches" id="theme-swatches"></div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- Buttons -->
-        <section class="panel-section open" data-section="buttons">
-          <header class="section-head">
-            <div class="section-title" data-i18n="card.buttons">Buttons</div>
-            <label class="switch">
-              <input type="checkbox" checked data-section-toggle="buttons" />
-              <span class="slider"></span>
-            </label>
-          </header>
-          <div class="section-body">
-            <div class="section-body-inner" id="buttons-editor"></div>
-          </div>
-        </section>
-
-        <!-- Preview + Actions span right column on wide screens -->
-        <section class="panel-section open" data-section="preview">
-          <header class="section-head">
+      <!-- HERO: pinned panel preview -->
+      <section class="hero-preview open" id="hero-preview" data-section="preview">
+        <header class="section-head">
+          <div class="section-head-main">
             <div class="section-title" data-i18n="card.preview">Panel preview</div>
-            <label class="switch">
-              <input type="checkbox" checked data-section-toggle="preview" />
-              <span class="slider"></span>
-            </label>
-          </header>
-          <div class="section-body">
-            <div class="section-body-inner">
-              <!-- Faceplate stays LTR so gangs always read L→R like the physical panel -->
-              <div class="faceplate" id="faceplate" role="img" aria-label="Panel preview" dir="ltr">
-                <div class="faceplate-bezel">
-                  <div class="faceplate-glass">
-                    <div class="faceplate-labels" id="faceplate-labels"></div>
-                    <div class="faceplate-touch">
-                      <div class="faceplate-rings" id="faceplate-rings"></div>
-                    </div>
-                  </div>
+            <span class="hero-pin" data-i18n="card.pinned">Pinned</span>
+          </div>
+          <label class="switch" title="Show section">
+            <input type="checkbox" checked data-section-toggle="preview" />
+            <span class="slider"></span>
+          </label>
+        </header>
+        <div class="hero-body">
+          <div class="faceplate" id="faceplate" role="img" aria-label="Panel preview" dir="ltr">
+            <div class="faceplate-bezel">
+              <div class="faceplate-glass">
+                <div class="faceplate-labels" id="faceplate-labels"></div>
+                <div class="faceplate-touch">
+                  <div class="faceplate-rings" id="faceplate-rings"></div>
                 </div>
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      <p class="layout-hint" id="layout-hint" data-i18n="card.drag_hint">גררו את ⠿ כדי לסדר מחדש · המצב נשמר בדפדפן</p>
+
+      <div class="settings-layout" id="main-layout">
+        <section class="panel-section open" data-section="profiles">
+          <header class="section-head">
+            <div class="section-head-main">
+              <button type="button" class="drag-handle" draggable="true" data-drag-for="profiles" aria-label="Drag">⠿</button>
+              <div class="section-title" data-i18n="card.profiles">Profiles</div>
+            </div>
+            <label class="switch"><input type="checkbox" checked data-section-toggle="profiles" /><span class="slider"></span></label>
+          </header>
+          <div class="section-body"><div class="section-body-inner">
+            <div class="profile-list" id="profile-list"></div>
+            <label class="field"><span data-i18n="card.profile_name">Profile name</span><input type="text" id="profile-name-input" /></label>
+            <div class="row actions">
+              <button type="button" class="btn" data-action="create" data-i18n="card.create">Create</button>
+              <button type="button" class="btn" data-action="duplicate" data-i18n="card.duplicate">Duplicate</button>
+              <button type="button" class="btn" data-action="rename" data-i18n="card.rename">Rename</button>
+              <button type="button" class="btn danger" data-action="delete" data-i18n="card.delete">Delete</button>
+            </div>
+            <div class="row actions">
+              <button type="button" class="btn primary" id="btn-open-export-2" data-i18n="card.open_export_wizard">Export wizard</button>
+              <button type="button" class="btn" id="btn-import-profiles" data-i18n="card.import">Import</button>
+            </div>
+          </div></div>
         </section>
 
-        <section class="panel-section open col-span-2" data-section="actions">
+        <section class="panel-section open" data-section="appearance">
           <header class="section-head">
-            <div class="section-title" data-i18n="card.actions">Actions</div>
-            <label class="switch">
-              <input type="checkbox" checked data-section-toggle="actions" />
-              <span class="slider"></span>
-            </label>
-          </header>
-          <div class="section-body">
-            <div class="section-body-inner">
-              <div class="row actions">
-                <button type="button" class="btn primary" id="btn-save" disabled data-i18n="card.save">Save Draft</button>
-                <button type="button" class="btn" id="btn-discard" disabled data-i18n="card.discard">Discard Changes</button>
-                <button type="button" class="btn primary sync-btn" id="btn-sync" data-i18n="card.sync">Sync to Panel</button>
-                <button type="button" class="btn" id="btn-pull" data-i18n="card.pull">Pull from Panel</button>
-              </div>
+            <div class="section-head-main">
+              <button type="button" class="drag-handle" draggable="true" data-drag-for="appearance" aria-label="Drag">⠿</button>
+              <div class="section-title" data-i18n="card.editor">Appearance</div>
             </div>
-          </div>
+            <label class="switch"><input type="checkbox" checked data-section-toggle="appearance" /><span class="slider"></span></label>
+          </header>
+          <div class="section-body"><div class="section-body-inner">
+            <label class="field"><span data-i18n="card.mode">Mode</span>
+              <select id="mode-select">
+                <option value="toggle" data-i18n-option="mode.toggle">Toggle</option>
+                <option value="radio_mandatory" data-i18n-option="mode.radio_mandatory">Radio mandatory</option>
+                <option value="radio_optional" data-i18n-option="mode.radio_optional">Radio optional</option>
+              </select>
+            </label>
+            <div class="grid-2">
+              <label class="field"><span data-i18n="card.color_on">Color ON</span>
+                <div class="color-select"><span class="swatch" id="swatch-on"></span><select id="color-on"></select></div>
+              </label>
+              <label class="field"><span data-i18n="card.color_off">Color OFF</span>
+                <div class="color-select"><span class="swatch" id="swatch-off"></span><select id="color-off"></select></div>
+              </label>
+            </div>
+            <label class="field"><span data-i18n="card.radar">Radar</span>
+              <select id="radar-select"><option>off</option><option selected>30s</option><option>60s</option><option>120s</option></select>
+            </label>
+            <div class="toggle-row">
+              <label class="switch-field"><span data-i18n="card.backlight">Backlight</span>
+                <label class="switch"><input type="checkbox" id="backlight" checked /><span class="slider"></span></label>
+              </label>
+              <label class="switch-field"><span data-i18n="card.child_lock">Child lock</span>
+                <label class="switch"><input type="checkbox" id="child-lock" /><span class="slider"></span></label>
+              </label>
+            </div>
+            <label class="field dimmer-field" id="dimmer-field">
+              <span><span data-i18n="card.backlight_brightness">Backlight brightness</span> <strong id="brightness-value">100%</strong></span>
+              <input type="range" id="backlight-brightness" min="0" max="100" value="100" />
+            </label>
+          </div></div>
         </section>
+
+        <section class="panel-section" data-section="theme">
+          <header class="section-head">
+            <div class="section-head-main">
+              <button type="button" class="drag-handle" draggable="true" data-drag-for="theme" aria-label="Drag">⠿</button>
+              <div class="section-title" data-i18n="card.theme">Interface theme</div>
+            </div>
+            <label class="switch"><input type="checkbox" data-section-toggle="theme" /><span class="slider"></span></label>
+          </header>
+          <div class="section-body"><div class="section-body-inner">
+            <div class="theme-picker"><div class="theme-swatches" id="theme-swatches"></div></div>
+          </div></div>
+        </section>
+
+        <section class="panel-section open" data-section="buttons">
+          <header class="section-head">
+            <div class="section-head-main">
+              <button type="button" class="drag-handle" draggable="true" data-drag-for="buttons" aria-label="Drag">⠿</button>
+              <div class="section-title" data-i18n="card.buttons">Buttons</div>
+            </div>
+            <label class="switch"><input type="checkbox" checked data-section-toggle="buttons" /><span class="slider"></span></label>
+          </header>
+          <div class="section-body"><div class="section-body-inner" id="buttons-editor"></div></div>
+        </section>
+      </div>
+
+      <div class="actions-dock" id="actions-dock" data-section="actions">
+        <div class="row actions" style="margin:0">
+          <button type="button" class="btn primary" id="btn-save" disabled data-i18n="card.save">Save Draft</button>
+          <button type="button" class="btn" id="btn-discard" disabled data-i18n="card.discard">Discard Changes</button>
+          <button type="button" class="btn primary sync-btn" id="btn-sync" data-i18n="card.sync">Sync to Panel</button>
+          <button type="button" class="btn" id="btn-pull" data-i18n="card.pull">Pull from Panel</button>
+        </div>
       </div>
 
       <div class="export-overlay" id="export-overlay" aria-live="polite">
@@ -1174,51 +618,51 @@
           <button type="button" class="btn primary" id="btn-back-editor" data-i18n="card.back_to_editor">← חזרה לעריכה</button>
           <div class="export-title" data-i18n="card.step_transfer">Export / Import</div>
         </div>
-        <p id="export-hint" style="opacity:.8;margin:0 0 12px" data-i18n="card.step_transfer_hint">Download or upload the portable JSON file.</p>
+        <p id="export-hint" style="margin:0 0 12px;color:var(--text-muted)" data-i18n="card.step_transfer_hint">Download or upload portable JSON.</p>
         <div class="row actions">
           <button type="button" class="btn primary" data-action="export" data-i18n="card.download_export">Download .json</button>
           <button type="button" class="btn" data-action="import-merge" data-i18n="card.import_merge">Import (merge)</button>
           <button type="button" class="btn danger" data-action="import-replace" data-i18n="card.import_replace">Import (replace)</button>
         </div>
-        <p style="margin-top:14px;opacity:.75;font-size:.9rem">
+        <p style="margin-top:14px;font-size:.9rem;color:var(--text-muted)">
           <a href="conx-panel-wizard.html" id="link-wizard-from-export" data-i18n="card.open_standalone_wizard">Open standalone wizard</a>
         </p>
         <div class="row actions" style="margin-top:12px">
           <button type="button" class="btn primary" id="btn-back-editor-2" data-i18n="card.back_to_editor">← חזרה לעריכה</button>
         </div>
       </div>
-
     </article>
 
     <div class="ref-photo">
       <details>
         <summary id="ref-summary">תמונת ייחוס — לוחית Zemismart 4-gang</summary>
-        <img
-          src="../frontend-src/assets/zemismart-4gang-faceplate.png"
-          alt="Zemismart 4-gang faceplate reference"
-          onerror="this.style.display='none'; this.nextElementSibling.style.display='block'"
-        />
-        <p style="display:none;opacity:.7;font-size:.9rem;margin:10px 0 0">
-          Reference photo not found at <code>frontend-src/assets/zemismart-4gang-faceplate.png</code>
-        </p>
+        <img src="../frontend-src/assets/zemismart-4gang-faceplate.png" alt="Zemismart 4-gang faceplate reference"
+          onerror="this.style.display='none'; this.nextElementSibling.style.display='block'" />
+        <p style="display:none;color:var(--text-muted);font-size:.9rem;margin:10px 0 0">Reference photo not found.</p>
       </details>
     </div>
   </div>
 
+  <input type="file" id="import-file-input" accept="application/json,.json" hidden />
   <script>
-    const COLOR_PREVIEW = {
-      red: "#ff1744",
-      blue: "#2979ff",
-      green: "#00e676",
-      white: "#f5f7fa",
-      yellow: "#ffea00",
-      magenta: "#f50057",
-      cyan: "#00e5ff",
-      warm_white: "#ffe0b2",
-      warm_yellow: "#ffc400",
-    };
 
+    const COLOR_PREVIEW = {
+      red: "#ff1744", blue: "#2979ff", green: "#00e676", white: "#f5f7fa",
+      yellow: "#ffea00", magenta: "#f50057", cyan: "#00e5ff",
+      warm_white: "#ffe0b2", warm_yellow: "#ffc400",
+    };
     const COLORS = Object.keys(COLOR_PREVIEW);
+    const STORAGE_KEY = "conx-card-preview-state-v4";
+    const LEGACY_KEYS = ["conx-card-preview-state-v2", "conx-card-preview-state-v3"];
+    const DEFAULT_ORDER = ["profiles", "appearance", "theme", "buttons"];
+    const THEME_ALIASES = {
+      industrial: "ivory", light_soft: "ivory", light: "ivory",
+      black_orange: "noir", graphite: "noir", midnight_teal: "noir", dark: "noir",
+    };
+    const THEMES = [
+      { id: "noir", swatch: "linear-gradient(145deg,#070809 0%,#1d1e20 55%,#d7b56d 100%)", accent: "#d7b56d" },
+      { id: "ivory", swatch: "linear-gradient(145deg,#fffaf2 0%,#f5f0e7 55%,#9d7837 100%)", accent: "#9d7837" },
+    ];
 
     const I18N = {
       en: {
@@ -1227,64 +671,42 @@
         "hint.colors": "LED rings change with color picks",
         "hint.sections": "Collapsible sections",
         "ref.summary": "Reference photo — Zemismart 4-gang faceplate",
-        "card.sync": "Sync to Panel",
-        "card.pull": "Pull from Panel",
-        "card.save": "Save Draft",
-        "card.discard": "Discard Changes",
-        "card.create": "Create",
-        "card.duplicate": "Duplicate",
-        "card.rename": "Rename",
-        "card.delete": "Delete",
-        "card.profiles": "Profiles",
-        "card.editor": "Appearance",
-        "card.buttons": "Buttons",
-        "card.preview": "Panel preview",
-        "card.actions": "Actions",
-        "card.status": "Status",
-        "card.mode": "Mode",
-        "card.color_on": "Color ON",
-        "card.color_off": "Color OFF",
-        "card.radar": "Radar",
-        "card.backlight": "Backlight",
+        "card.sync": "Sync to Panel", "card.pull": "Pull from Panel",
+        "card.save": "Save Draft", "card.discard": "Discard Changes",
+        "card.create": "Create", "card.duplicate": "Duplicate",
+        "card.rename": "Rename", "card.delete": "Delete",
+        "card.profiles": "Profiles", "card.editor": "Appearance",
+        "card.buttons": "Buttons", "card.preview": "Panel preview",
+        "card.actions": "Actions", "card.status": "Status",
+        "card.mode": "Mode", "card.color_on": "Color ON", "card.color_off": "Color OFF",
+        "card.radar": "Radar", "card.backlight": "Backlight",
         "card.backlight_brightness": "Backlight brightness",
         "card.theme": "Interface theme",
-        "card.radio_participation": "Button behavior",
-        "card.radio_member": "Radio group",
-        "card.radio_toggle": "Independent toggle",
-        "theme.industrial": "Glass light",
-        "theme.black_orange": "Obsidian orange",
-        "theme.graphite": "Graphite steel",
-        "theme.midnight_teal": "Midnight teal",
-        "theme.light_soft": "Light soft",
-        "card.child_lock": "Child lock",
-        "card.button": "Button",
-        "card.button_expand": "Expand button settings",
-        "card.button_collapse": "Collapse button settings",
-        "card.label": "Label",
-        "card.action": "Action",
-        "card.entity_id": "Entity ID",
+        "card.radio_member": "Radio group", "card.radio_toggle": "Independent toggle",
+        "theme.noir": "Noir gold", "theme.ivory": "Ivory stone",
+        "card.child_lock": "Child lock", "card.button": "Button",
+        "card.button_expand": "Expand button settings", "card.button_collapse": "Collapse button settings",
+        "card.label": "Label", "card.action": "Action", "card.entity_id": "Entity ID",
         "card.unsaved": "You have unsaved draft changes.",
-        "card.export": "Export",
-        "card.open_export_wizard": "Export wizard",
+        "card.export": "Export", "card.open_export_wizard": "Export wizard",
         "card.back_to_editor": "Back to editor",
         "card.open_standalone_wizard": "Standalone wizard (HTML)",
         "card.step_transfer": "Export / Import",
         "card.step_transfer_hint": "Download or upload portable JSON for Home Assistant.",
         "card.download_export": "Download .json",
-        "card.import_merge": "Import (merge)",
+        "card.import": "Import", "card.import_merge": "Import (merge)",
         "card.import_replace": "Import (replace)",
-        "card.export_ok": "Profiles exported (demo).",
-        "card.import_ok": "Profiles imported."
-        "card.import_invalid": "Invalid profiles JSON file.",,
+        "card.export_ok": "Profiles exported (demo).", "card.import_ok": "Profiles imported.",
+        "card.import_invalid": "Invalid profiles JSON file.",
         "card.profile_name": "Profile name",
-        "card.synced_demo": "Status: synced",
-        "card.syncing_demo": "Status: syncing",
-        "card.reset": "Reset",
-        "card.reset_ok": "Preview reset to defaults.",
+        "card.synced_demo": "Status: synced", "card.syncing_demo": "Status: syncing",
+        "card.reset": "Reset", "card.reset_ok": "Preview reset to defaults.",
         "card.reset_confirm": "Clear saved preview data and restore defaults?",
-        "mode.toggle": "Toggle",
-        "mode.radio_mandatory": "Radio mandatory",
-        "mode.radio_optional": "Radio optional",
+        "card.reset_layout": "Reset layout",
+        "card.reset_layout_ok": "Layout reset.",
+        "card.drag_hint": "Drag ⠿ to reorder panels · saved in this browser",
+        "card.pinned": "Pinned",
+        "mode.toggle": "Toggle", "mode.radio_mandatory": "Radio mandatory", "mode.radio_optional": "Radio optional",
       },
       he: {
         "intro.sub": "תצוגה אינטראקטיבית של עיצוב הכרטיס החדש",
@@ -1292,64 +714,42 @@
         "hint.colors": "צבעי טבעות LED משתנים",
         "hint.sections": "מקטעים מתקפלים",
         "ref.summary": "תמונת ייחוס — לוחית Zemismart 4-gang",
-        "card.sync": "סנכרון לפאנל",
-        "card.pull": "משיכה מהפאנל",
-        "card.save": "שמור טיוטה",
-        "card.discard": "בטל שינויים",
-        "card.create": "צור",
-        "card.duplicate": "שכפל",
-        "card.rename": "שנה שם",
-        "card.delete": "מחק",
-        "card.profiles": "פרופילים",
-        "card.editor": "מראה",
-        "card.buttons": "כפתורים",
-        "card.preview": "תצוגת פאנל",
-        "card.actions": "פעולות",
-        "card.status": "סטטוס",
-        "card.mode": "מצב",
-        "card.color_on": "צבע דלוק",
-        "card.color_off": "צבע כבוי",
-        "card.radar": "רדאר",
-        "card.backlight": "תאורת רקע",
+        "card.sync": "סנכרון לפאנל", "card.pull": "משיכה מהפאנל",
+        "card.save": "שמור טיוטה", "card.discard": "בטל שינויים",
+        "card.create": "צור", "card.duplicate": "שכפל",
+        "card.rename": "שנה שם", "card.delete": "מחק",
+        "card.profiles": "פרופילים", "card.editor": "מראה",
+        "card.buttons": "כפתורים", "card.preview": "תצוגת פאנל",
+        "card.actions": "פעולות", "card.status": "סטטוס",
+        "card.mode": "מצב", "card.color_on": "צבע דלוק", "card.color_off": "צבע כבוי",
+        "card.radar": "רדאר", "card.backlight": "תאורת רקע",
         "card.backlight_brightness": "עוצמת תאורת רקע",
         "card.theme": "ערכת נושא",
-        "card.radio_participation": "התנהגות כפתור",
-        "card.radio_member": "משתתף ברדיו",
-        "card.radio_toggle": "טוגל עצמאי",
-        "theme.industrial": "זכוכית בהירה",
-        "theme.black_orange": "אובסידיאן כתום",
-        "theme.graphite": "גרפיט פלדה",
-        "theme.midnight_teal": "טורקיז חצות",
-        "theme.light_soft": "בהיר רך",
-        "card.child_lock": "נעילת ילדים",
-        "card.button": "כפתור",
-        "card.button_expand": "הרחב הגדרות כפתור",
-        "card.button_collapse": "כווץ הגדרות כפתור",
-        "card.label": "תווית",
-        "card.action": "פעולה",
-        "card.entity_id": "מזהה ישות",
+        "card.radio_member": "משתתף ברדיו", "card.radio_toggle": "טוגל עצמאי",
+        "theme.noir": "נואר זהב", "theme.ivory": "שנהב אבן",
+        "card.child_lock": "נעילת ילדים", "card.button": "כפתור",
+        "card.button_expand": "הרחב הגדרות כפתור", "card.button_collapse": "כווץ הגדרות כפתור",
+        "card.label": "תווית", "card.action": "פעולה", "card.entity_id": "מזהה ישות",
         "card.unsaved": "יש שינויי טיוטה שלא נשמרו.",
-        "card.export": "ייצוא",
-        "card.open_export_wizard": "אשף ייצוא",
+        "card.export": "ייצוא", "card.open_export_wizard": "אשף ייצוא",
         "card.back_to_editor": "חזרה לעריכה",
         "card.open_standalone_wizard": "אשף נפרד (HTML)",
         "card.step_transfer": "ייצוא / ייבוא",
         "card.step_transfer_hint": "הורידו או העלו קובץ JSON נייד עבור Home Assistant.",
         "card.download_export": "הורדת .json",
-        "card.import_merge": "ייבוא (מיזוג)",
+        "card.import": "ייבוא", "card.import_merge": "ייבוא (מיזוג)",
         "card.import_replace": "ייבוא (החלפה)",
-        "card.export_ok": "הפרופילים יוצאו (הדגמה).",
-        "card.import_ok": "הפרופילים יובאו."
-        "card.import_invalid": "קובץ JSON של פרופילים לא תקין.",,
+        "card.export_ok": "הפרופילים יוצאו (הדגמה).", "card.import_ok": "הפרופילים יובאו.",
+        "card.import_invalid": "קובץ JSON של פרופילים לא תקין.",
         "card.profile_name": "שם פרופיל",
-        "card.synced_demo": "סטטוס: מסונכרן",
-        "card.syncing_demo": "סטטוס: מסנכרן",
-        "card.reset": "איפוס",
-        "card.reset_ok": "התצוגה אופסה לברירת מחדל.",
+        "card.synced_demo": "סטטוס: מסונכרן", "card.syncing_demo": "סטטוס: מסנכרן",
+        "card.reset": "איפוס", "card.reset_ok": "התצוגה אופסה לברירת מחדל.",
         "card.reset_confirm": "לנקות נתונים שמורים ולהחזיר לברירת מחדל?",
-        "mode.toggle": "החלפה",
-        "mode.radio_mandatory": "רדיו חובה",
-        "mode.radio_optional": "רדיו אופציונלי",
+        "card.reset_layout": "איפוס לייאוט",
+        "card.reset_layout_ok": "הלייאוט אופס.",
+        "card.drag_hint": "גררו את ⠿ כדי לסדר מחדש · נשמר בדפדפן",
+        "card.pinned": "נעול למעלה",
+        "mode.toggle": "החלפה", "mode.radio_mandatory": "רדיו חובה", "mode.radio_optional": "רדיו אופציונלי",
       },
       ru: {
         "intro.sub": "Интерактивный превью обновлённой карточки",
@@ -1357,99 +757,63 @@
         "hint.colors": "Цвета LED-колец меняются",
         "hint.sections": "Сворачиваемые разделы",
         "ref.summary": "Эталонное фото — панель Zemismart 4-gang",
-        "card.sync": "Синхронизация",
-        "card.pull": "Считать с панели",
-        "card.save": "Сохранить черновик",
-        "card.discard": "Отменить изменения",
-        "card.create": "Создать",
-        "card.duplicate": "Дублировать",
-        "card.rename": "Переименовать",
-        "card.delete": "Удалить",
-        "card.profiles": "Профили",
-        "card.editor": "Внешний вид",
-        "card.buttons": "Кнопки",
-        "card.preview": "Превью панели",
-        "card.actions": "Действия",
-        "card.status": "Статус",
-        "card.mode": "Режим",
-        "card.color_on": "Цвет ВКЛ",
-        "card.color_off": "Цвет ВЫКЛ",
-        "card.radar": "Радар",
-        "card.backlight": "Подсветка",
+        "card.sync": "Синхронизация", "card.pull": "Считать с панели",
+        "card.save": "Сохранить черновик", "card.discard": "Отменить изменения",
+        "card.create": "Создать", "card.duplicate": "Дублировать",
+        "card.rename": "Переименовать", "card.delete": "Удалить",
+        "card.profiles": "Профили", "card.editor": "Внешний вид",
+        "card.buttons": "Кнопки", "card.preview": "Превью панели",
+        "card.actions": "Действия", "card.status": "Статус",
+        "card.mode": "Режим", "card.color_on": "Цвет ВКЛ", "card.color_off": "Цвет ВЫКЛ",
+        "card.radar": "Радар", "card.backlight": "Подсветка",
         "card.backlight_brightness": "Яркость подсветки",
         "card.theme": "Тема интерфейса",
-        "card.radio_participation": "Поведение кнопки",
-        "card.radio_member": "В радиогруппе",
-        "card.radio_toggle": "Независимый тоггл",
-        "theme.industrial": "Индустриальное стекло",
-        "theme.black_orange": "Чёрно–оранжевый 3D",
-        "theme.graphite": "Графит / сталь",
-        "theme.midnight_teal": "Полночный бирюзовый",
-        "theme.light_soft": "Мягкий светлый",
-        "card.child_lock": "Блокировка",
-        "card.button": "Кнопка",
-        "card.button_expand": "Развернуть настройки кнопки",
-        "card.button_collapse": "Свернуть настройки кнопки",
-        "card.label": "Название",
-        "card.action": "Действие",
-        "card.entity_id": "Entity ID",
+        "card.radio_member": "В радиогруппе", "card.radio_toggle": "Независимый тоггл",
+        "theme.noir": "Нуар / золото", "theme.ivory": "Слоновая кость",
+        "card.child_lock": "Блокировка", "card.button": "Кнопка",
+        "card.button_expand": "Развернуть настройки кнопки", "card.button_collapse": "Свернуть настройки кнопки",
+        "card.label": "Название", "card.action": "Действие", "card.entity_id": "Entity ID",
         "card.unsaved": "Есть несохранённые изменения черновика.",
-        "card.export": "Экспорт",
-        "card.open_export_wizard": "Мастер экспорта",
+        "card.export": "Экспорт", "card.open_export_wizard": "Мастер экспорта",
         "card.back_to_editor": "Назад к редактору",
         "card.open_standalone_wizard": "Отдельный мастер (HTML)",
         "card.step_transfer": "Экспорт / импорт",
         "card.step_transfer_hint": "Скачайте или загрузите JSON для Home Assistant.",
         "card.download_export": "Скачать .json",
-        "card.import_merge": "Импорт (слияние)",
+        "card.import": "Импорт", "card.import_merge": "Импорт (слияние)",
         "card.import_replace": "Импорт (замена)",
-        "card.export_ok": "Профили экспортированы (демо).",
-        "card.import_ok": "Профили импортированы."
-        "card.import_invalid": "Некорректный JSON файл профилей.",,
+        "card.export_ok": "Профили экспортированы (демо).", "card.import_ok": "Профили импортированы.",
+        "card.import_invalid": "Некорректный JSON файл профилей.",
         "card.profile_name": "Имя профиля",
-        "card.synced_demo": "Статус: синхронизировано",
-        "card.syncing_demo": "Статус: синхронизация",
-        "card.reset": "Сброс",
-        "card.reset_ok": "Превью сброшено к значениям по умолчанию.",
+        "card.synced_demo": "Статус: синхронизировано", "card.syncing_demo": "Статус: синхронизация",
+        "card.reset": "Сброс", "card.reset_ok": "Превью сброшено к значениям по умолчанию.",
         "card.reset_confirm": "Очистить сохранённые данные и вернуть значения по умолчанию?",
-        "mode.toggle": "Переключатель",
-        "mode.radio_mandatory": "Радио (обязательно)",
-        "mode.radio_optional": "Радио (опционально)",
+        "card.reset_layout": "Сброс раскладки",
+        "card.reset_layout_ok": "Раскладка сброшена.",
+        "card.drag_hint": "Тяните ⠿ чтобы менять порядок · сохраняется в браузере",
+        "card.pinned": "Закреплено",
+        "mode.toggle": "Переключатель", "mode.radio_mandatory": "Радио (обязательно)", "mode.radio_optional": "Радио (опционально)",
       },
     };
 
     function t(key) {
       return (I18N[state.lang] && I18N[state.lang][key]) || I18N.en[key] || key;
     }
-
-    function resolveColor(name, fallback) {
-      return COLOR_PREVIEW[name] || name || fallback;
+    function resolveColor(name, fallback) { return COLOR_PREVIEW[name] || name || fallback; }
+    function deepClone(obj) { return JSON.parse(JSON.stringify(obj)); }
+    function normalizeThemeId(value) {
+      if (!value) return "noir";
+      if (THEMES.some((x) => x.id === value)) return value;
+      return THEME_ALIASES[value] || "noir";
     }
-
-    function deepClone(obj) {
-      return JSON.parse(JSON.stringify(obj));
-    }
-
-    const STORAGE_KEY = "conx-card-preview-state-v2";
-
-    const THEMES = [
-      { id: "industrial", swatch: "linear-gradient(145deg,#eef2f5 0%,#c5d0da 55%,#8b949e 100%)", accent: "#1f7a8c" },
-      { id: "black_orange", swatch: "linear-gradient(145deg,#0a0a0c 0%,#1a120e 45%,#e65100 100%)", accent: "#ff6d00" },
-      { id: "graphite", swatch: "linear-gradient(145deg,#121417 0%,#2a2f36 50%,#6b7280 100%)", accent: "#9aa3ad" },
-      { id: "midnight_teal", swatch: "linear-gradient(145deg,#061218 0%,#0d2a32 50%,#14b8a6 100%)", accent: "#2dd4bf" },
-      { id: "light_soft", swatch: "linear-gradient(145deg,#ffffff 0%,#f3f6f9 55%,#dce4ec 100%)", accent: "#3d7ea6" },
-    ];
 
     function normalizeButton(b, index) {
       return {
-        index,
-        name: (b && b.name) || ("Button " + index),
-        action: (b && b.action) || "",
-        entity: (b && b.entity) || "",
+        index, name: (b && b.name) || ("Button " + index),
+        action: (b && b.action) || "", entity: (b && b.entity) || "",
         radio_member: !b || b.radio_member !== false,
       };
     }
-
     function makeProfile(id, name, overrides = {}) {
       const baseButtons = [
         { index: 1, name: "Ceiling", action: "light.toggle", entity: "light.ceiling", radio_member: true },
@@ -1458,31 +822,19 @@
         { index: 4, name: "Zemi", action: "light.toggle", entity: "light.zemi", radio_member: true },
       ];
       const profile = {
-        id,
-        name,
-        mode: "toggle",
-        color_on: "cyan",
-        color_off: "blue",
-        radar: "30s",
-        backlight: true,
-        backlight_brightness: 100,
-        child_lock: false,
-        selected_button: null,
-        ringOn: { 1: true, 2: false, 3: true, 4: false },
-        buttons: baseButtons,
-        ...overrides,
+        id, name, mode: "toggle", color_on: "cyan", color_off: "blue", radar: "30s",
+        backlight: true, backlight_brightness: 100, child_lock: false, selected_button: null,
+        ringOn: { 1: true, 2: false, 3: true, 4: false }, buttons: baseButtons, ...overrides,
       };
       profile.buttons = [1,2,3,4].map((i) => normalizeButton((profile.buttons || []).find((x) => x.index === i), i));
       if (typeof profile.backlight_brightness !== "number") profile.backlight_brightness = 100;
       return profile;
     }
-
     function createDefaultProfiles() {
       return {
         evening: makeProfile("evening", "Evening"),
         day: makeProfile("day", "Day", {
-          color_on: "warm_yellow",
-          color_off: "warm_white",
+          color_on: "warm_yellow", color_off: "warm_white",
           buttons: [
             { index: 1, name: "Main", action: "light.toggle", entity: "light.main" },
             { index: 2, name: "Spot", action: "light.toggle", entity: "light.spot" },
@@ -1492,10 +844,7 @@
           ringOn: { 1: true, 2: true, 3: false, 4: false },
         }),
         guests: makeProfile("guests", "Guests", {
-          color_on: "magenta",
-          color_off: "blue",
-          mode: "radio_optional",
-          selected_button: 2,
+          color_on: "magenta", color_off: "blue", mode: "radio_optional", selected_button: 2,
           buttons: [
             { index: 1, name: "Lounge", action: "", entity: "", radio_member: true },
             { index: 2, name: "Kitchen", action: "", entity: "", radio_member: true },
@@ -1506,119 +855,95 @@
         }),
       };
     }
-
+    function defaultLayout() {
+      return {
+        order: DEFAULT_ORDER.slice(),
+        open: { profiles: true, appearance: true, theme: false, buttons: true, preview: true, actions: true },
+      };
+    }
     function createDefaultState() {
       const profiles = createDefaultProfiles();
       const activeId = "evening";
       return {
-        lang: "he",
-        theme: "industrial",
-        view: "editor",
-        dirty: false,
-        activeId,
-        expandedButtons: [],
-        sections: {
-          profiles: true,
-          appearance: true,
-          theme: false,
-          buttons: true,
-          preview: true,
-          actions: true,
-        },
-        profiles,
-        draft: deepClone(profiles[activeId]),
-        saved: deepClone(profiles[activeId]),
+        lang: "he", theme: "noir", view: "editor", dirty: false, activeId,
+        expandedButtons: [], layout: defaultLayout(),
+        sections: defaultLayout().open,
+        profiles, draft: deepClone(profiles[activeId]), saved: deepClone(profiles[activeId]),
       };
+    }
+    function normalizeStoredProfile(id, value) {
+      if (!value || typeof value !== "object") return makeProfile(String(id), String(id));
+      return makeProfile(String(value.id || id), String(value.name || id), value);
+    }
+    function normalizeLayout(raw, sectionsFallback) {
+      const base = defaultLayout();
+      const open = { ...base.open };
+      if (sectionsFallback && typeof sectionsFallback === "object") Object.assign(open, sectionsFallback);
+      if (raw && raw.open && typeof raw.open === "object") Object.assign(open, raw.open);
+      let order = Array.isArray(raw && raw.order) ? raw.order.map(String) : base.order.slice();
+      order = order.filter((id) => DEFAULT_ORDER.includes(id));
+      for (const id of DEFAULT_ORDER) if (!order.includes(id)) order.push(id);
+      return { order, open };
     }
 
     function persistState() {
       try {
         const payload = {
-          lang: state.lang,
-          theme: state.theme || "industrial",
-          view: state.view || "editor",
-          dirty: state.dirty,
-          activeId: state.activeId,
+          lang: state.lang, theme: state.theme || "noir", view: state.view || "editor",
+          dirty: state.dirty, activeId: state.activeId,
           expandedButtons: Array.from(state.expandedButtons),
-          sections: { ...state.sections },
-          profiles: state.profiles,
-          draft: state.draft,
-          saved: state.saved,
+          layout: state.layout, sections: state.layout.open,
+          profiles: state.profiles, draft: state.draft, saved: state.saved,
         };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-      } catch (_err) {
-        /* private mode / quota — ignore */
-      }
+      } catch (_e) {}
     }
 
     function loadPersistedState() {
       try {
-        const raw = localStorage.getItem(STORAGE_KEY);
+        let raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) {
+          for (const k of LEGACY_KEYS) {
+            raw = localStorage.getItem(k);
+            if (raw) break;
+          }
+        }
         if (!raw) return null;
         const data = JSON.parse(raw);
-        if (!data || typeof data !== "object" || !data.profiles) return null;
+        if (!data || typeof data !== "object" || !data.profiles || typeof data.profiles !== "object") return null;
         const defaults = createDefaultState();
-        const profiles = data.profiles;
-        const activeId =
-          typeof data.activeId === "string" && profiles[data.activeId]
-            ? data.activeId
-            : Object.keys(profiles)[0] || defaults.activeId;
+        const profiles = {};
+        for (const [key, value] of Object.entries(data.profiles)) profiles[key] = normalizeStoredProfile(key, value);
+        if (!Object.keys(profiles).length) return null;
+        const activeId = typeof data.activeId === "string" && profiles[data.activeId] ? data.activeId : Object.keys(profiles)[0];
+        const layout = normalizeLayout(data.layout, data.sections);
         return {
-          lang: ["he", "en", "ru"].includes(data.lang) ? data.lang : defaults.lang,
-          theme: THEMES.some((t) => t.id === data.theme) ? data.theme : "industrial",
+          lang: ["he","en","ru"].includes(data.lang) ? data.lang : defaults.lang,
+          theme: normalizeThemeId(data.theme),
           view: data.view === "export" ? "export" : "editor",
-          dirty: Boolean(data.dirty),
-          activeId,
-          expandedButtons: new Set(
-            Array.isArray(data.expandedButtons)
-              ? data.expandedButtons.map(Number).filter((n) => n >= 1 && n <= 4)
-              : []
-          ),
-          sections: {
-            ...defaults.sections,
-            ...(data.sections && typeof data.sections === "object" ? data.sections : {}),
-          },
-          profiles,
-          draft: data.draft ? deepClone(data.draft) : deepClone(profiles[activeId]),
-          saved: data.saved ? deepClone(data.saved) : deepClone(profiles[activeId]),
+          dirty: Boolean(data.dirty), activeId,
+          expandedButtons: new Set(Array.isArray(data.expandedButtons) ? data.expandedButtons.map(Number).filter((n)=>n>=1&&n<=4) : []),
+          layout, sections: layout.open, profiles,
+          draft: data.draft && typeof data.draft === "object" ? normalizeStoredProfile(activeId, data.draft) : deepClone(profiles[activeId]),
+          saved: data.saved && typeof data.saved === "object" ? normalizeStoredProfile(activeId, data.saved) : deepClone(profiles[activeId]),
         };
-      } catch (_err) {
+      } catch (_e) {
+        try { localStorage.removeItem(STORAGE_KEY); } catch (_x) {}
         return null;
       }
     }
 
-    function applySectionToggles() {
-      document.querySelectorAll("[data-section-toggle]").forEach((input) => {
-        const id = input.dataset.sectionToggle;
-        const open = state.sections[id] !== false;
-        input.checked = open;
-        const section = document.querySelector(`[data-section="${id}"]`);
-        if (section) section.classList.toggle("open", open);
-      });
-    }
-
-    function resetToDefaults() {
-      if (!confirm(t("card.reset_confirm"))) return;
-      try {
-        localStorage.removeItem(STORAGE_KEY);
-      } catch (_err) {
-        /* ignore */
-      }
-      const fresh = createDefaultState();
-      Object.keys(state).forEach((k) => delete state[k]);
-      Object.assign(state, fresh);
+    let state;
+    try {
+      state = loadPersistedState() || createDefaultState();
+      if (!(state.expandedButtons instanceof Set)) state.expandedButtons = new Set(state.expandedButtons || []);
+      if (!state.layout) state.layout = normalizeLayout(null, state.sections);
+      state.sections = state.layout.open;
+      if (!state.profiles || !state.profiles[state.activeId] || !state.draft || !state.saved) throw new Error("bad state");
+    } catch (_e) {
+      try { localStorage.removeItem(STORAGE_KEY); } catch (_x) {}
+      state = createDefaultState();
       state.expandedButtons = new Set();
-      applySectionToggles();
-      applyI18n();
-      syncFormFromDraft();
-      markDirty(false);
-      persistState();
-      showNotice(t("card.reset_ok"));
-    }
-
-    const state = loadPersistedState() || createDefaultState();
-    if (!(state.expandedButtons instanceof Set)) {
-      state.expandedButtons = new Set(state.expandedButtons || []);
     }
 
     const els = {
@@ -1655,87 +980,64 @@
       btnSync: document.getElementById("btn-sync"),
       btnPull: document.getElementById("btn-pull"),
       btnReset: document.getElementById("btn-reset"),
+      mainLayout: document.getElementById("main-layout"),
+      hero: document.getElementById("hero-preview"),
+      actionsDock: document.getElementById("actions-dock"),
     };
 
     function markDirty(dirty) {
       state.dirty = dirty;
-      els.dirtyWarn.classList.toggle("visible", dirty);
-      els.dirtyWarn.textContent = dirty ? t("card.unsaved") : "";
       els.btnSave.disabled = !dirty;
       els.btnDiscard.disabled = !dirty;
-      if (dirty) {
-        els.statusBadge.className = "badge status-pending";
-        els.statusBadge.textContent = t("card.status") + ": pending";
-      } else {
-        els.statusBadge.className = "badge status-synced";
-        els.statusBadge.textContent = t("card.synced_demo");
-      }
+      els.dirtyWarn.classList.toggle("visible", dirty);
+      els.dirtyWarn.textContent = dirty ? t("card.unsaved") : "";
+      els.statusBadge.className = "badge " + (dirty ? "status-syncing" : "status-synced");
+      els.statusBadge.textContent = dirty ? t("card.status") + ": pending" : t("card.synced_demo");
       persistState();
     }
-
     function showNotice(msg) {
       els.notice.textContent = msg;
       els.notice.classList.add("visible");
-      clearTimeout(showNotice._timer);
-      showNotice._timer = setTimeout(() => els.notice.classList.remove("visible"), 2200);
+      clearTimeout(showNotice._t);
+      showNotice._t = setTimeout(() => els.notice.classList.remove("visible"), 2600);
     }
-
     function fillColorSelects() {
       for (const sel of [els.colorOn, els.colorOff]) {
-        sel.innerHTML = COLORS.map(
-          (c) => `<option value="${c}">${c}</option>`
-        ).join("");
+        sel.innerHTML = COLORS.map((c) => `<option value="${c}">${c}</option>`).join("");
       }
     }
-
     function applyRingColors() {
       const on = resolveColor(state.draft.color_on, "#00e5ff");
       const off = resolveColor(state.draft.color_off, "#2979ff");
-      els.faceplate.style.setProperty("--ring-on", on);
-      els.faceplate.style.setProperty("--ring-off", off);
+      document.documentElement.style.setProperty("--ring-on", on);
+      document.documentElement.style.setProperty("--ring-off", off);
       els.swatchOn.style.background = on;
       els.swatchOff.style.background = off;
     }
-
     function isRadioMember(index) {
       const btn = state.draft.buttons.find((b) => b.index === index);
       return !btn || btn.radio_member !== false;
     }
-
     function isRingOn(index) {
       const d = state.draft;
-      if (d.mode !== "toggle" && isRadioMember(index)) {
-        return d.selected_button === index;
-      }
+      if (d.mode !== "toggle" && isRadioMember(index)) return d.selected_button === index;
       return Boolean(d.ringOn[index]);
     }
-
     function renderFaceplate() {
-      els.labels.innerHTML = state.draft.buttons
-        .map((b) => `<div class="faceplate-label">${b.name || "L" + b.index}</div>`)
-        .join("");
-
-      els.rings.innerHTML = state.draft.buttons
-        .map((b) => {
-          const on = isRingOn(b.index);
-          return `<button type="button" class="ring ${on ? "on" : "off"}" data-ring="${b.index}" aria-label="Button ${b.index}"><span class="ring-glow"></span></button>`;
-        })
-        .join("");
-
+      els.labels.innerHTML = state.draft.buttons.map((b) => `<div class="faceplate-label">${b.name || "L" + b.index}</div>`).join("");
+      els.rings.innerHTML = state.draft.buttons.map((b) => {
+        const on = isRingOn(b.index);
+        return `<button type="button" class="ring ${on ? "on" : "off"}" data-ring="${b.index}" aria-label="Button ${b.index}"><span class="ring-glow"></span></button>`;
+      }).join("");
       applyRingColors();
-
       els.rings.querySelectorAll(".ring").forEach((btn) => {
         btn.addEventListener("click", () => {
           const index = Number(btn.dataset.ring);
           btn.classList.add("pressed");
           setTimeout(() => btn.classList.remove("pressed"), 180);
-
           if (state.draft.mode === "toggle" || !isRadioMember(index)) {
             state.draft.ringOn[index] = !state.draft.ringOn[index];
-          } else if (
-            state.draft.mode === "radio_optional" &&
-            state.draft.selected_button === index
-          ) {
+          } else if (state.draft.mode === "radio_optional" && state.draft.selected_button === index) {
             state.draft.selected_button = null;
           } else {
             state.draft.selected_button = index;
@@ -1745,23 +1047,18 @@
         });
       });
     }
-
     function renderProfiles() {
-      els.profileList.innerHTML = Object.values(state.profiles)
-        .map((p) => {
-          const active = p.id === state.activeId ? "active" : "";
-          return `<button type="button" class="profile-chip ${active}" data-profile="${p.id}">
-            <span class="chip-name">${p.name}</span>
-            <span class="chip-id">${p.id}</span>
-          </button>`;
-        })
-        .join("");
-
+      els.profileList.innerHTML = Object.values(state.profiles).map((p) => {
+        const active = p.id === state.activeId ? "active" : "";
+        return `<button type="button" class="profile-chip ${active}" data-profile="${p.id}">
+          <div class="chip-name">${p.name}</div><div class="chip-id">${p.id}</div></button>`;
+      }).join("");
       els.profileList.querySelectorAll(".profile-chip").forEach((chip) => {
         chip.addEventListener("click", () => {
           const id = chip.dataset.profile;
           if (id === state.activeId) return;
           if (state.dirty && !confirm(t("card.unsaved"))) return;
+          state.profiles[state.activeId] = deepClone(state.draft);
           state.activeId = id;
           state.draft = deepClone(state.profiles[id]);
           state.saved = deepClone(state.profiles[id]);
@@ -1770,64 +1067,37 @@
         });
       });
     }
-
     function renderButtonsEditor() {
       const openSet = state.expandedButtons;
-      els.buttonsEditor.innerHTML = `<div class="buttons-accordion">${state.draft.buttons
-        .map((b) => {
-          const open = openSet.has(b.index);
-          const label = (b.name || "").trim() || "—";
-          const meta = [b.action, b.entity].filter(Boolean).join(" · ") || "—";
-          return `
-        <div class="button-edit ${open ? "open" : ""}" data-button="${b.index}">
-          <button
-            type="button"
-            class="button-edit-toggle"
-            aria-expanded="${open ? "true" : "false"}"
-            title="${open ? t("card.button_collapse") : t("card.button_expand")}"
-          >
+      els.buttonsEditor.innerHTML = `<div class="buttons-accordion">${state.draft.buttons.map((b) => {
+        const open = openSet.has(b.index);
+        const label = (b.name || "").trim() || "—";
+        const meta = [b.action, b.entity].filter(Boolean).join(" · ") || "—";
+        return `<div class="button-edit ${open ? "open" : ""}" data-button="${b.index}">
+          <button type="button" class="button-edit-toggle" aria-expanded="${open}">
             <span class="button-edit-chevron" aria-hidden="true"></span>
             <span class="button-edit-summary">
               <span class="button-edit-title">${t("card.button")} ${b.index} · ${label}</span>
               <span class="button-edit-meta">${meta}</span>
             </span>
           </button>
-          <div class="button-edit-body">
-            <div class="button-edit-fields">
-              <label class="field">
-                <span>${t("card.label")}</span>
-                <input type="text" data-field="name" value="${b.name}" />
-              </label>
-              <label class="field">
-                <span>${t("card.action")}</span>
-                <input type="text" data-field="action" value="${b.action || ""}" placeholder="light.toggle" />
-              </label>
-              <label class="field">
-                <span>${t("card.entity_id")}</span>
-                <input type="text" data-field="entity" value="${b.entity || ""}" placeholder="light.living_room" />
-              </label>
-              ${state.draft.mode !== "toggle" ? `<label class="field">
-                <span>${t("card.radio_participation")}</span>
-                <select data-field="radio_member">
-                  <option value="true" ${b.radio_member !== false ? "selected" : ""}>${t("card.radio_member")}</option>
-                  <option value="false" ${b.radio_member === false ? "selected" : ""}>${t("card.radio_toggle")}</option>
-                </select>
-              </label>` : ""}
-            </div>
-          </div>
+          <div class="button-edit-body"><div class="button-edit-fields">
+            <label class="field"><span>${t("card.label")}</span><input type="text" data-field="name" value="${b.name}" /></label>
+            <label class="field"><span>${t("card.action")}</span><input type="text" data-field="action" value="${b.action || ""}" placeholder="light.toggle" /></label>
+            <label class="field"><span>${t("card.entity_id")}</span><input type="text" data-field="entity" value="${b.entity || ""}" placeholder="light.living_room" /></label>
+            ${state.draft.mode !== "toggle" ? `<label class="field"><span>${t("card.radio_member")}</span>
+              <select data-field="radio_member">
+                <option value="true" ${b.radio_member !== false ? "selected" : ""}>${t("card.radio_member")}</option>
+                <option value="false" ${b.radio_member === false ? "selected" : ""}>${t("card.radio_toggle")}</option>
+              </select></label>` : ""}
+          </div></div>
         </div>`;
-        })
-        .join("")}</div>`;
-
+      }).join("")}</div>`;
       els.buttonsEditor.querySelectorAll(".button-edit").forEach((row) => {
         const index = Number(row.dataset.button);
-        const toggle = row.querySelector(".button-edit-toggle");
-        toggle.addEventListener("click", () => {
-          if (state.expandedButtons.has(index)) {
-            state.expandedButtons.delete(index);
-          } else {
-            state.expandedButtons.add(index);
-          }
+        row.querySelector(".button-edit-toggle").addEventListener("click", () => {
+          if (state.expandedButtons.has(index)) state.expandedButtons.delete(index);
+          else state.expandedButtons.add(index);
           persistState();
           renderButtonsEditor();
         });
@@ -1836,55 +1106,62 @@
           input.addEventListener(eventName, () => {
             const btn = state.draft.buttons.find((x) => x.index === index);
             if (!btn) return;
-            if (input.dataset.field === "radio_member") {
-              btn.radio_member = input.value === "true";
-            } else {
-              btn[input.dataset.field] = input.value;
-            }
+            const field = input.dataset.field;
+            if (field === "radio_member") btn.radio_member = input.value === "true";
+            else btn[field] = input.value;
             markDirty(true);
             const summaryTitle = row.querySelector(".button-edit-title");
             const summaryMeta = row.querySelector(".button-edit-meta");
-            if (summaryTitle) {
-              const label = (btn.name || "").trim() || "—";
-              summaryTitle.textContent = `${t("card.button")} ${btn.index} · ${label}`;
-            }
-            if (summaryMeta) {
-              const behavior =
-                state.draft.mode !== "toggle"
-                  ? btn.radio_member !== false
-                    ? t("card.radio_member")
-                    : t("card.radio_toggle")
-                  : "";
-              summaryMeta.textContent =
-                [btn.action, btn.entity, behavior].filter(Boolean).join(" · ") || "—";
-            }
-            if (input.dataset.field === "name" || input.dataset.field === "radio_member") {
-              renderFaceplate();
-            }
+            if (summaryTitle) summaryTitle.textContent = `${t("card.button")} ${index} · ${(btn.name || "").trim() || "—"}`;
+            if (summaryMeta) summaryMeta.textContent = [btn.action, btn.entity].filter(Boolean).join(" · ") || "—";
+            renderFaceplate();
           });
         });
       });
     }
 
-
-
+    function applySectionToggles() {
+      const open = state.layout.open;
+      document.querySelectorAll("[data-section-toggle]").forEach((input) => {
+        const id = input.dataset.sectionToggle;
+        const isOpen = open[id] !== false;
+        input.checked = isOpen;
+        if (id === "preview") {
+          els.hero.classList.toggle("collapsed", !isOpen);
+          els.hero.classList.toggle("open", isOpen);
+        } else if (id === "actions") {
+          /* actions dock always visible for ops; toggle unused */
+        } else {
+          const section = els.mainLayout.querySelector(`[data-section="${id}"]`);
+          if (section) section.classList.toggle("open", isOpen);
+        }
+      });
+    }
+    function applyPanelOrder() {
+      const order = state.layout.order.slice();
+      order.forEach((id) => {
+        const el = els.mainLayout.querySelector(`[data-section="${id}"]`);
+        if (el) els.mainLayout.appendChild(el);
+      });
+    }
     function setExportView(open) {
       state.view = open ? "export" : "editor";
       const overlay = document.getElementById("export-overlay");
-      const main = document.getElementById("main-layout");
       if (overlay) overlay.classList.toggle("visible", open);
-      if (main) main.classList.toggle("hidden-for-export", open);
+      els.mainLayout.classList.toggle("hidden-for-export", open);
+      els.hero.classList.toggle("hidden-for-export", open);
+      els.actionsDock.classList.toggle("hidden-for-export", open);
       persistState();
     }
-
     function applyTheme() {
-      const theme = state.theme || "industrial";
+      const theme = normalizeThemeId(state.theme);
+      state.theme = theme;
       document.body.dataset.theme = theme;
       els.card.dataset.theme = theme;
       if (!els.themeSwatches) return;
       els.themeSwatches.innerHTML = THEMES.map((opt) => `
         <button type="button" class="theme-swatch ${theme === opt.id ? "active" : ""}"
-          style="--swatch:${opt.swatch};--swatch-accent:${opt.accent}" data-theme-id="${opt.id}">
+          style="--swatch:${opt.swatch};--swatch-accent:${opt.accent}" data-theme-id="${opt.id}" aria-label="${t("theme." + opt.id)}">
           <span class="theme-swatch-face" aria-hidden="true"></span>
           <span class="theme-swatch-name">${t("theme." + opt.id)}</span>
         </button>`).join("");
@@ -1896,185 +1173,172 @@
         });
       });
     }
-
     function applyI18n() {
       document.documentElement.lang = state.lang;
       const rtl = state.lang === "he";
       document.documentElement.dir = rtl ? "rtl" : "ltr";
       els.card.dir = rtl ? "rtl" : "ltr";
-
       els.introSub.textContent = t("intro.sub");
       els.hintLang.textContent = t("hint.lang");
       els.hintColors.textContent = t("hint.colors");
       els.hintSections.textContent = t("hint.sections");
       els.refSummary.textContent = t("ref.summary");
-
-      document.querySelectorAll("[data-i18n]").forEach((node) => {
-        node.textContent = t(node.dataset.i18n);
-      });
-
-      document.querySelectorAll("[data-i18n-option]").forEach((opt) => {
-        opt.textContent = t(opt.dataset.i18nOption);
-      });
-
-      document.querySelectorAll(".lang-btn").forEach((btn) => {
-        btn.classList.toggle("active", btn.dataset.lang === state.lang);
-      });
+      document.querySelectorAll("[data-i18n]").forEach((node) => { node.textContent = t(node.dataset.i18n); });
+      document.querySelectorAll("[data-i18n-option]").forEach((opt) => { opt.textContent = t(opt.dataset.i18nOption); });
+      document.querySelectorAll(".lang-btn").forEach((btn) => btn.classList.toggle("active", btn.dataset.lang === state.lang));
       applyTheme();
-
-      if (!state.dirty) {
-        els.statusBadge.textContent = t("card.synced_demo");
-      } else {
-        els.dirtyWarn.textContent = t("card.unsaved");
-        els.statusBadge.textContent = t("card.status") + ": pending";
-      }
-
+      if (!state.dirty) els.statusBadge.textContent = t("card.synced_demo");
+      else { els.dirtyWarn.textContent = t("card.unsaved"); els.statusBadge.textContent = t("card.status") + ": pending"; }
       renderButtonsEditor();
     }
-
     function syncFormFromDraft() {
       const d = state.draft;
-      els.profileName.value = d.name;
-      els.profileSubtitle.textContent = d.name;
-      els.modeSelect.value = d.mode;
-      els.colorOn.value = d.color_on;
-      els.colorOff.value = d.color_off;
-      els.radar.value = d.radar;
-      els.backlight.checked = d.backlight;
+      els.profileName.value = d.name || "";
+      els.profileSubtitle.textContent = d.name || "";
+      els.modeSelect.value = d.mode || "toggle";
+      els.colorOn.value = d.color_on || "cyan";
+      els.colorOff.value = d.color_off || "blue";
+      els.radar.value = d.radar || "30s";
+      els.backlight.checked = d.backlight !== false;
       const bri = typeof d.backlight_brightness === "number" ? d.backlight_brightness : 100;
       els.brightness.value = String(bri);
       els.brightnessValue.textContent = bri + "%";
-      els.dimmerField.classList.toggle("dimmed", !d.backlight);
-      els.brightness.disabled = !d.backlight;
-      els.childLock.checked = d.child_lock;
+      els.brightness.disabled = !els.backlight.checked;
+      els.dimmerField.classList.toggle("dimmed", !els.backlight.checked);
+      els.childLock.checked = Boolean(d.child_lock);
       renderProfiles();
       renderButtonsEditor();
       renderFaceplate();
     }
-
+    function resetToDefaults() {
+      if (!confirm(t("card.reset_confirm"))) return;
+      try { localStorage.removeItem(STORAGE_KEY); LEGACY_KEYS.forEach((k)=>localStorage.removeItem(k)); } catch (_e) {}
+      const fresh = createDefaultState();
+      Object.keys(state).forEach((k) => delete state[k]);
+      Object.assign(state, fresh);
+      state.expandedButtons = new Set();
+      applyPanelOrder(); applySectionToggles(); applyI18n(); syncFormFromDraft(); markDirty(false); persistState();
+      showNotice(t("card.reset_ok"));
+    }
+    function resetLayout() {
+      state.layout = defaultLayout();
+      state.sections = state.layout.open;
+      applyPanelOrder(); applySectionToggles(); persistState();
+      showNotice(t("card.reset_layout_ok"));
+    }
 
     function validateImportPayload(raw) {
-      if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-        return { ok: false, error: "Root must be a JSON object" };
-      }
+      if (!raw || typeof raw !== "object") return { ok: false, error: "not object" };
       const ver = Number(raw.schema_version ?? 1);
-      if (!Number.isInteger(ver) || ver < 1) return { ok: false, error: "bad schema_version" };
-      if (ver > 1) return { ok: false, error: "Unsupported schema_version " + ver };
+      if (ver !== 1) return { ok: false, error: "schema" };
       let profiles = raw.profiles;
       if (Array.isArray(profiles)) {
         const obj = {};
         for (const item of profiles) {
-          if (!item || typeof item !== "object" || !item.id) {
-            return { ok: false, error: "profile missing id" };
-          }
-          obj[item.id] = item;
+          if (!item || typeof item !== "object") continue;
+          const id = String(item.id || "");
+          if (!id) continue;
+          obj[id] = item;
         }
         profiles = obj;
       }
-      if (!profiles || typeof profiles !== "object" || !Object.keys(profiles).length) {
-        return { ok: false, error: "profiles required" };
-      }
+      if (!profiles || typeof profiles !== "object") return { ok: false, error: "profiles" };
       const normalized = {};
       for (const [key, value] of Object.entries(profiles)) {
-        if (!value || typeof value !== "object") {
-          return { ok: false, error: "bad profile " + key };
-        }
+        if (!value || typeof value !== "object") continue;
         const id = String(value.id || key);
-        const mode = ["toggle", "radio_mandatory", "radio_optional"].includes(value.mode)
-          ? value.mode
-          : "toggle";
+        const mode = ["toggle", "radio_mandatory", "radio_optional"].includes(value.mode) ? value.mode : "toggle";
         normalized[id] = makeProfile(id, String(value.name || id), {
-          mode,
-          color_on: String(value.color_on || "cyan"),
-          color_off: String(value.color_off || "blue"),
-          radar: String(value.radar || "30s"),
-          backlight: Boolean(value.backlight ?? true),
-          backlight_brightness: Math.max(
-            0,
-            Math.min(100, Math.round(Number(value.backlight_brightness ?? 100) || 100))
-          ),
-          child_lock: Boolean(value.child_lock ?? false),
-          selected_button:
-            value.selected_button == null ? null : Number(value.selected_button),
-          buttons: [1, 2, 3, 4].map((i) => {
+          ...value, mode,
+          buttons: [1,2,3,4].map((i) => {
             const found = (value.buttons || []).find((b) => Number(b.index) === i) || {};
-            let action = "";
-            let entity = "";
+            let action = "", entity = "";
             if (found.action && typeof found.action === "object") {
-              action = String(found.action.action || "");
+              action = String(found.action.service || found.action.action || "");
               entity = String((found.action.target && found.action.target.entity_id) || "");
             } else {
               action = String(found.action || "");
               entity = String(found.entity || "");
             }
-            return {
-              index: i,
-              name: String(found.name || "Button " + i),
-              action,
-              entity,
-              radio_member: found.radio_member !== false,
-            };
+            return { index: i, name: String(found.name || "Button " + i), action, entity, radio_member: found.radio_member !== false };
           }),
         });
       }
+      if (!Object.keys(normalized).length) return { ok: false, error: "empty" };
       let active = typeof raw.active_profile_id === "string" ? raw.active_profile_id : null;
-      if (active && !(active in normalized)) {
-        return { ok: false, error: "active_profile_id missing" };
-      }
-      return {
-        ok: true,
-        payload: {
-          schema_version: 1,
-          active_profile_id: active,
-          profiles: normalized,
-        },
-      };
+      if (active && !(active in normalized)) return { ok: false, error: "active_profile_id missing" };
+      return { ok: true, payload: { schema_version: 1, active_profile_id: active, profiles: normalized } };
     }
 
     let pendingImportMode = "merge";
-
     function openImportPicker(mode) {
       pendingImportMode = mode === "replace" ? "replace" : "merge";
       const input = document.getElementById("import-file-input");
-      if (!input) {
-        showNotice(t("card.import_invalid"));
-        return;
-      }
+      if (!input) { showNotice(t("card.import_invalid")); return; }
       input.value = "";
       input.click();
     }
-
     async function handleImportFile(file) {
       if (!file) return;
       try {
         const text = await file.text();
         const parsed = validateImportPayload(JSON.parse(text));
         if (!parsed.ok) throw new Error(parsed.error || t("card.import_invalid"));
-        // Keep current draft edits in the active profile before replacing map
         state.profiles[state.activeId] = deepClone(state.draft);
-        if (pendingImportMode === "replace") {
-          state.profiles = parsed.payload.profiles;
-        } else {
-          Object.assign(state.profiles, parsed.payload.profiles);
-        }
-        const nextId =
-          parsed.payload.active_profile_id && state.profiles[parsed.payload.active_profile_id]
-            ? parsed.payload.active_profile_id
-            : Object.keys(state.profiles)[0];
+        if (pendingImportMode === "replace") state.profiles = parsed.payload.profiles;
+        else Object.assign(state.profiles, parsed.payload.profiles);
+        const nextId = parsed.payload.active_profile_id && state.profiles[parsed.payload.active_profile_id]
+          ? parsed.payload.active_profile_id : Object.keys(state.profiles)[0];
         state.activeId = nextId;
         state.draft = deepClone(state.profiles[nextId]);
         state.saved = deepClone(state.profiles[nextId]);
-        markDirty(false);
-        syncFormFromDraft();
-        persistState();
-        showNotice(t("card.import_ok"));
+        markDirty(false); syncFormFromDraft(); persistState(); showNotice(t("card.import_ok"));
       } catch (err) {
         showNotice(err.message || t("card.import_invalid"));
       }
     }
 
-    function bindControls() {
+    function bindDragDrop() {
+      let dragId = null;
+      els.mainLayout.querySelectorAll(".drag-handle").forEach((handle) => {
+        handle.addEventListener("dragstart", (e) => {
+          dragId = handle.dataset.dragFor;
+          const section = els.mainLayout.querySelector(`[data-section="${dragId}"]`);
+          if (section) section.classList.add("dragging");
+          e.dataTransfer.effectAllowed = "move";
+          e.dataTransfer.setData("text/plain", dragId);
+        });
+        handle.addEventListener("dragend", () => {
+          els.mainLayout.querySelectorAll(".panel-section").forEach((s) => s.classList.remove("dragging", "drag-over"));
+          dragId = null;
+        });
+      });
+      els.mainLayout.querySelectorAll(".panel-section").forEach((section) => {
+        section.addEventListener("dragover", (e) => {
+          e.preventDefault();
+          section.classList.add("drag-over");
+        });
+        section.addEventListener("dragleave", () => section.classList.remove("drag-over"));
+        section.addEventListener("drop", (e) => {
+          e.preventDefault();
+          section.classList.remove("drag-over");
+          const from = e.dataTransfer.getData("text/plain") || dragId;
+          const to = section.dataset.section;
+          if (!from || !to || from === to) return;
+          const order = state.layout.order.slice();
+          const fromIdx = order.indexOf(from);
+          const toIdx = order.indexOf(to);
+          if (fromIdx < 0 || toIdx < 0) return;
+          order.splice(fromIdx, 1);
+          order.splice(toIdx, 0, from);
+          state.layout.order = order;
+          applyPanelOrder();
+          persistState();
+        });
+      });
+    }
 
+    function bindControls() {
       const openExport = document.getElementById("btn-open-export");
       if (openExport) openExport.addEventListener("click", () => setExportView(true));
       const openExport2 = document.getElementById("btn-open-export-2");
@@ -2083,78 +1347,52 @@
         const el = document.getElementById(id);
         if (el) el.addEventListener("click", () => setExportView(false));
       });
+      const importTop = document.getElementById("btn-import-top");
+      if (importTop) importTop.addEventListener("click", () => openImportPicker("merge"));
+      const importProfiles = document.getElementById("btn-import-profiles");
+      if (importProfiles) importProfiles.addEventListener("click", () => openImportPicker("merge"));
+      const resetLayoutBtn = document.getElementById("btn-reset-layout");
+      if (resetLayoutBtn) resetLayoutBtn.addEventListener("click", () => resetLayout());
 
       document.querySelectorAll(".lang-btn").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          state.lang = btn.dataset.lang;
-          applyI18n();
-          persistState();
-        });
+        btn.addEventListener("click", () => { state.lang = btn.dataset.lang; applyI18n(); persistState(); });
       });
-
       document.querySelectorAll("[data-section-toggle]").forEach((input) => {
         input.addEventListener("change", () => {
           const id = input.dataset.sectionToggle;
-          const section = document.querySelector(`[data-section="${id}"]`);
-          section.classList.toggle("open", input.checked);
-          state.sections[id] = input.checked;
+          state.layout.open[id] = input.checked;
+          state.sections = state.layout.open;
+          applySectionToggles();
           persistState();
         });
       });
-
       els.btnReset.addEventListener("click", () => resetToDefaults());
-
       els.profileName.addEventListener("input", () => {
         state.draft.name = els.profileName.value;
         els.profileSubtitle.textContent = state.draft.name;
-        markDirty(true);
-        renderProfiles();
+        markDirty(true); renderProfiles();
       });
-
       els.modeSelect.addEventListener("change", () => {
         state.draft.mode = els.modeSelect.value;
-        if (state.draft.mode !== "toggle" && !state.draft.selected_button) {
-          state.draft.selected_button = 1;
-        }
-        markDirty(true);
-        renderFaceplate();
+        if (state.draft.mode !== "toggle" && !state.draft.selected_button) state.draft.selected_button = 1;
+        markDirty(true); renderFaceplate(); renderButtonsEditor();
       });
-
-      els.colorOn.addEventListener("change", () => {
-        state.draft.color_on = els.colorOn.value;
-        markDirty(true);
-        applyRingColors();
-      });
-
-      els.colorOff.addEventListener("change", () => {
-        state.draft.color_off = els.colorOff.value;
-        markDirty(true);
-        applyRingColors();
-      });
-
-      els.radar.addEventListener("change", () => {
-        state.draft.radar = els.radar.value;
-        markDirty(true);
-      });
-
+      els.colorOn.addEventListener("change", () => { state.draft.color_on = els.colorOn.value; markDirty(true); applyRingColors(); });
+      els.colorOff.addEventListener("change", () => { state.draft.color_off = els.colorOff.value; markDirty(true); applyRingColors(); });
+      els.radar.addEventListener("change", () => { state.draft.radar = els.radar.value; markDirty(true); });
       els.backlight.addEventListener("change", () => {
         state.draft.backlight = els.backlight.checked;
         els.dimmerField.classList.toggle("dimmed", !els.backlight.checked);
         els.brightness.disabled = !els.backlight.checked;
         markDirty(true);
       });
-
       els.brightness.addEventListener("input", () => {
         const value = Number(els.brightness.value);
         state.draft.backlight_brightness = value;
         els.brightnessValue.textContent = value + "%";
         markDirty(true);
       });
-
-      els.childLock.addEventListener("change", () => {
-        state.draft.child_lock = els.childLock.checked;
-        markDirty(true);
-      });
+      els.childLock.addEventListener("change", () => { state.draft.child_lock = els.childLock.checked; markDirty(true); });
 
       document.querySelectorAll("[data-action]").forEach((btn) => {
         btn.addEventListener("click", () => {
@@ -2162,84 +1400,42 @@
           if (action === "create") {
             const id = "profile_" + Date.now();
             const p = makeProfile(id, "Profile " + (Object.keys(state.profiles).length + 1));
-            state.profiles[id] = p;
-            state.activeId = id;
-            state.draft = deepClone(p);
-            state.saved = deepClone(p);
-            markDirty(false);
-            syncFormFromDraft();
-            showNotice(t("card.create") + " ✓");
+            state.profiles[id] = p; state.activeId = id; state.draft = deepClone(p); state.saved = deepClone(p);
+            markDirty(false); syncFormFromDraft(); showNotice(t("card.create") + " ✓");
           } else if (action === "duplicate") {
             const id = state.activeId + "_copy_" + Date.now();
-            const p = deepClone(state.draft);
-            p.id = id;
-            p.name = state.draft.name + " copy";
-            state.profiles[id] = p;
-            state.activeId = id;
-            state.draft = deepClone(p);
-            state.saved = deepClone(p);
-            markDirty(false);
-            syncFormFromDraft();
-            showNotice(t("card.duplicate") + " ✓");
+            const p = deepClone(state.draft); p.id = id; p.name = state.draft.name + " copy";
+            state.profiles[id] = p; state.activeId = id; state.draft = deepClone(p); state.saved = deepClone(p);
+            markDirty(false); syncFormFromDraft(); showNotice(t("card.duplicate") + " ✓");
           } else if (action === "rename") {
             const name = prompt(t("card.rename"), state.draft.name);
             if (!name) return;
-            state.draft.name = name;
-            els.profileName.value = name;
-            els.profileSubtitle.textContent = name;
-            markDirty(true);
-            renderProfiles();
+            state.draft.name = name; els.profileName.value = name; els.profileSubtitle.textContent = name;
+            markDirty(true); renderProfiles();
           } else if (action === "delete") {
-            if (Object.keys(state.profiles).length <= 1) {
-              alert("At least one profile must remain");
-              return;
-            }
+            if (Object.keys(state.profiles).length <= 1) { alert("At least one profile must remain"); return; }
             if (!confirm(t("card.delete") + " " + state.draft.name + "?")) return;
             delete state.profiles[state.activeId];
             state.activeId = Object.keys(state.profiles)[0];
             state.draft = deepClone(state.profiles[state.activeId]);
             state.saved = deepClone(state.profiles[state.activeId]);
-            markDirty(false);
-            syncFormFromDraft();
+            markDirty(false); syncFormFromDraft();
           } else if (action === "export") {
-            const blob = new Blob(
-              [JSON.stringify({ schema_version: 1, active_profile_id: state.activeId, profiles: state.profiles }, null, 2)],
-              { type: "application/json" }
-            );
-            const a = document.createElement("a");
-            a.href = URL.createObjectURL(blob);
-            a.download = "conx-profiles-preview.json";
-            a.click();
-            URL.revokeObjectURL(a.href);
+            const blob = new Blob([JSON.stringify({ schema_version: 1, active_profile_id: state.activeId, profiles: state.profiles }, null, 2)], { type: "application/json" });
+            const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "conx-profiles-preview.json"; a.click(); URL.revokeObjectURL(a.href);
             showNotice(t("card.export_ok"));
-          } else if (action === "import-merge") {
-            openImportPicker("merge");
-          } else if (action === "import-replace") {
-            openImportPicker("replace");
-          }
+          } else if (action === "import-merge") openImportPicker("merge");
+          else if (action === "import-replace") openImportPicker("replace");
         });
       });
 
       els.btnSave.addEventListener("click", () => {
-        state.profiles[state.activeId] = deepClone(state.draft);
-        state.saved = deepClone(state.draft);
-        markDirty(false);
-        renderProfiles();
-        showNotice(t("card.save") + " ✓");
+        state.profiles[state.activeId] = deepClone(state.draft); state.saved = deepClone(state.draft);
+        markDirty(false); renderProfiles(); showNotice(t("card.save") + " ✓");
       });
-
-      els.btnDiscard.addEventListener("click", () => {
-        state.draft = deepClone(state.saved);
-        markDirty(false);
-        syncFormFromDraft();
-      });
-
+      els.btnDiscard.addEventListener("click", () => { state.draft = deepClone(state.saved); markDirty(false); syncFormFromDraft(); });
       els.btnSync.addEventListener("click", () => {
-        if (state.dirty) {
-          state.profiles[state.activeId] = deepClone(state.draft);
-          state.saved = deepClone(state.draft);
-          markDirty(false);
-        }
+        if (state.dirty) { state.profiles[state.activeId] = deepClone(state.draft); state.saved = deepClone(state.draft); markDirty(false); }
         els.card.classList.add("syncing-pulse");
         els.statusBadge.className = "badge status-syncing";
         els.statusBadge.textContent = t("card.syncing_demo");
@@ -2250,35 +1446,36 @@
           showNotice(t("card.sync") + " ✓");
         }, 700);
       });
-
       els.btnPull.addEventListener("click", () => {
         if (state.dirty && !confirm(t("card.unsaved"))) return;
-        state.draft = deepClone(state.saved);
-        markDirty(false);
-        syncFormFromDraft();
-        showNotice(t("card.pull") + " ✓");
+        state.draft = deepClone(state.saved); markDirty(false); syncFormFromDraft(); showNotice(t("card.pull") + " ✓");
       });
+      bindDragDrop();
     }
 
-    fillColorSelects();
-    bindControls();
-
-    const importInput = document.getElementById("import-file-input");
-    if (importInput && !importInput.dataset.bound) {
-      importInput.dataset.bound = "1";
-      importInput.addEventListener("change", () => {
-        const file = importInput.files && importInput.files[0];
-        importInput.value = "";
-        if (file) void handleImportFile(file);
-      });
+    try {
+      fillColorSelects();
+      bindControls();
+      const importInput = document.getElementById("import-file-input");
+      if (importInput && !importInput.dataset.bound) {
+        importInput.dataset.bound = "1";
+        importInput.addEventListener("change", () => {
+          const file = importInput.files && importInput.files[0];
+          importInput.value = "";
+          if (file) void handleImportFile(file);
+        });
+      }
+      applyPanelOrder();
+      applySectionToggles();
+      applyI18n();
+      syncFormFromDraft();
+      markDirty(Boolean(state.dirty));
+      setExportView(state.view === "export");
+    } catch (initErr) {
+      console.error("ConX preview init failed", initErr);
+      try { localStorage.removeItem(STORAGE_KEY); } catch (_e) {}
+      window.location.replace(window.location.pathname + window.location.search);
     }
-
-    applySectionToggles();
-    applyI18n();
-    syncFormFromDraft();
-    markDirty(Boolean(state.dirty));
-    setExportView(state.view === "export");
   </script>
-  <input type="file" id="import-file-input" accept="application/json,.json" hidden />
 </body>
 </html>

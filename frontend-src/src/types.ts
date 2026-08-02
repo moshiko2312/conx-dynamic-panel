@@ -57,7 +57,7 @@ export interface CardConfig {
   entry_id: string;
   compact?: boolean;
   language?: string;
-  /** Visual UI theme id (industrial, black_orange, graphite, midnight_teal, light_soft). */
+  /** Visual UI theme id (noir, ivory). Legacy ids are normalized. */
   theme?: string;
 }
 
