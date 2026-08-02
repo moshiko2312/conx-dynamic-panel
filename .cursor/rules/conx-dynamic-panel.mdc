@@ -1,0 +1,22 @@
+---
+description: ConX Dynamic Panel private project rules
+alwaysApply: true
+---
+
+# ConX Dynamic Panel Rules
+
+- This repository is private commercial software for ConX.
+- Never add HACS support, public marketplace metadata, or an open-source license.
+- Read `AI_BUILD_SPEC.md` before implementing features.
+- Keep the Home Assistant backend fully asynchronous.
+- Use public Home Assistant APIs only.
+- Never hard-code example entity IDs.
+- Keep hardware-specific behavior in `adapters/`.
+- The frontend must use the integration API and must not control mapped hardware entities directly.
+- Draft edits must never modify hardware before Sync unless auto-sync is explicitly enabled.
+- Every integration-generated relay change must use transition suppression.
+- Add or update tests for every behavior change.
+- Preserve stored profiles and applied snapshots during upgrades.
+- Support English and Hebrew RTL in all user-facing UI.
+- Do not store or execute arbitrary Python or untrusted templates.
+- Before completion, run backend checks, frontend checks, tests, and production build.
