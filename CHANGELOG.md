@@ -16,6 +16,7 @@ All notable changes to this private project will be documented here.
 
 - Card text inputs mutate draft state in place so continuous typing keeps focus.
 - Button preview layout is a single horizontal row matching physical L1–L4 order (no 2×2 grid).
+- Faceplate LED rings now follow draft `color_on` / `color_off` (live while editing): radio uses on-color for the selected button and off-color for the rest; toggle uses mapped entity state when available, otherwise a mixed on/off sample so both LED colors stay visible.
 
 ## [0.1.0] - 2026-08-02
 

@@ -55,9 +55,15 @@ export interface CardConfig {
   language?: string;
 }
 
+export interface HassEntity {
+  state: string;
+  attributes?: Record<string, unknown>;
+}
+
 export interface HomeAssistant {
   language?: string;
   locale?: { language?: string };
   callWS: <T>(msg: Record<string, unknown>) => Promise<T>;
   themes?: Record<string, unknown>;
+  states?: Record<string, HassEntity>;
 }

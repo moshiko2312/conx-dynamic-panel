@@ -28,17 +28,32 @@ import type { CardConfig, HomeAssistant, PanelConfig, Profile } from "./types";
 
 type SectionId = "profiles" | "appearance" | "buttons" | "preview" | "actions";
 
-const COLOR_PREVIEW: Record<string, string> = {
-  red: "#e53935",
-  blue: "#1e88e5",
-  green: "#43a047",
-  white: "#f5f5f5",
-  yellow: "#fdd835",
-  magenta: "#d81b60",
-  cyan: "#00acc1",
-  warm_white: "#fff3e0",
-  warm_yellow: "#ffb300",
+/** CSS colors for Zemismart LED name options (adapter select values). */
+export const COLOR_PREVIEW: Record<string, string> = {
+  red: "#ff1744",
+  blue: "#2979ff",
+  green: "#00e676",
+  white: "#f5f7fa",
+  yellow: "#ffea00",
+  magenta: "#f50057",
+  cyan: "#00e5ff",
+  warm_white: "#ffe0b2",
+  warm_yellow: "#ffc400",
 };
+
+const DEFAULT_RING_ON = "#00e5ff";
+const DEFAULT_RING_OFF = "#2979ff";
+
+/** Map a profile LED color name to a CSS color for the faceplate rings. */
+export function resolveLedPreviewColor(
+  name: string | undefined,
+  fallback = DEFAULT_RING_ON
+): string {
+  if (!name) {
+    return fallback;
+  }
+  return COLOR_PREVIEW[name] || name || fallback;
+}
 
 @customElement("conx-dynamic-panel-card")
 export class ConXDynamicPanelCard extends LitElement {
@@ -520,14 +535,42 @@ export class ConXDynamicPanelCard extends LitElement {
     });
   }
 
+  private _buttonEntityId(buttonIndex: number): string | null {
+    const button = this._draft?.buttons.find((item) => item.index === buttonIndex);
+    const entityId = (
+      button?.action?.target as { entity_id?: string } | undefined
+    )?.entity_id;
+    return entityId?.trim() || null;
+  }
+
+  private _entityIsOn(entityId: string): boolean | null {
+    const state = this.hass?.states?.[entityId]?.state;
+    if (state === undefined || state === null) {
+      return null;
+    }
+    const normalized = String(state).toLowerCase();
+    if (["unavailable", "unknown"].includes(normalized)) {
+      return null;
+    }
+    return ["on", "open", "home", "playing", "active"].includes(normalized);
+  }
+
   private _isRingOn(buttonIndex: number): boolean {
     if (!this._draft) {
       return false;
     }
-    if (this._draft.mode === "toggle") {
-      return false;
+    if (this._draft.mode !== "toggle") {
+      return this._draft.selected_button === buttonIndex;
     }
-    return this._draft.selected_button === buttonIndex;
+    const entityId = this._buttonEntityId(buttonIndex);
+    if (entityId) {
+      const on = this._entityIsOn(entityId);
+      if (on !== null) {
+        return on;
+      }
+    }
+    // No live entity state: show a mixed sample so both LED colors are visible.
+    return buttonIndex % 2 === 1;
   }
 
   private _onRingPress(buttonIndex: number): void {
@@ -549,11 +592,12 @@ export class ConXDynamicPanelCard extends LitElement {
     });
   }
 
-  private _ringColor(): string {
-    if (!this._draft) {
-      return "#1e88e5";
-    }
-    return COLOR_PREVIEW[this._draft.color_on] || this._draft.color_on || "#1e88e5";
+  private _ringOnColor(): string {
+    return resolveLedPreviewColor(this._draft?.color_on, DEFAULT_RING_ON);
+  }
+
+  private _ringOffColor(): string {
+    return resolveLedPreviewColor(this._draft?.color_off, DEFAULT_RING_OFF);
   }
 
   private _renderFlag(code: string) {
@@ -602,16 +646,18 @@ export class ConXDynamicPanelCard extends LitElement {
     if (!this._draft) {
       return nothing;
     }
-    const ringColor = this._ringColor();
+    const ringOn = this._ringOnColor();
+    const ringOff = this._ringOffColor();
     return html`
       <!--
         Faceplate topography matches Zemismart 4-gang: black label bar,
-        white glass touch face, 4 LED rings L→R. Extension point for a
-        future photo skin: set --conx-faceplate-skin on .faceplate.
+        white glass touch face, 4 LED rings L→R. Rings use profile
+        color_on / color_off. Extension point for a future photo skin:
+        set --conx-faceplate-skin on .faceplate.
       -->
       <div
         class="faceplate"
-        style="--ring-on:${ringColor}"
+        style="--ring-on:${ringOn};--ring-off:${ringOff}"
         role="img"
         aria-label=${this.t("card.preview")}
       >
@@ -806,8 +852,7 @@ export class ConXDynamicPanelCard extends LitElement {
                   <div class="select-wrap color-select">
                     <span
                       class="swatch"
-                      style="background:${COLOR_PREVIEW[this._draft.color_on] ||
-                      this._draft.color_on}"
+                      style="background:${resolveLedPreviewColor(this._draft.color_on)}"
                     ></span>
                     <select
                       .value=${this._draft.color_on}
@@ -828,8 +873,7 @@ export class ConXDynamicPanelCard extends LitElement {
                   <div class="select-wrap color-select">
                     <span
                       class="swatch"
-                      style="background:${COLOR_PREVIEW[this._draft.color_off] ||
-                      this._draft.color_off}"
+                      style="background:${resolveLedPreviewColor(this._draft.color_off)}"
                     ></span>
                     <select
                       .value=${this._draft.color_off}
@@ -1008,7 +1052,8 @@ export class ConXDynamicPanelCard extends LitElement {
       --conx-bevel-dark: color-mix(in srgb, #0b1218 22%, transparent);
       --conx-accent: #1f7a8c;
       --conx-accent-soft: color-mix(in srgb, #1f7a8c 18%, transparent);
-      --conx-ring: #1e88e5;
+      --conx-ring: #00e5ff;
+      --conx-ring-off: #2979ff;
       --conx-danger: #c62828;
       --conx-radius: 18px;
       --conx-gap: 12px;
@@ -1626,12 +1671,15 @@ export class ConXDynamicPanelCard extends LitElement {
       width: clamp(18px, 5.2vw, 28px);
       height: clamp(18px, 5.2vw, 28px);
       border-radius: 50%;
-      border: 2.5px solid color-mix(in srgb, var(--ring-on, var(--conx-ring)) 28%, #9aa7b5);
+      border: 2.5px solid
+        color-mix(in srgb, var(--ring-off, var(--conx-ring-off)) 70%, #9aa7b5);
       background: transparent;
       padding: 0;
       cursor: pointer;
       position: relative;
-      box-shadow: inset 0 0 0 1px color-mix(in srgb, #fff 40%, transparent);
+      box-shadow:
+        0 0 5px color-mix(in srgb, var(--ring-off, var(--conx-ring-off)) 40%, transparent),
+        inset 0 0 0 1px color-mix(in srgb, #fff 40%, transparent);
       transition:
         border-color 160ms ease,
         box-shadow 160ms ease,
@@ -1641,9 +1689,9 @@ export class ConXDynamicPanelCard extends LitElement {
     .ring.on {
       border-color: var(--ring-on, var(--conx-ring));
       box-shadow:
-        0 0 10px color-mix(in srgb, var(--ring-on, var(--conx-ring)) 65%, transparent),
-        0 0 2px color-mix(in srgb, var(--ring-on, var(--conx-ring)) 80%, transparent),
-        inset 0 0 4px color-mix(in srgb, var(--ring-on, var(--conx-ring)) 35%, transparent);
+        0 0 12px color-mix(in srgb, var(--ring-on, var(--conx-ring)) 75%, transparent),
+        0 0 4px color-mix(in srgb, var(--ring-on, var(--conx-ring)) 90%, transparent),
+        inset 0 0 5px color-mix(in srgb, var(--ring-on, var(--conx-ring)) 45%, transparent);
     }
 
     .ring.pressed {
@@ -1654,11 +1702,15 @@ export class ConXDynamicPanelCard extends LitElement {
       position: absolute;
       inset: 4px;
       border-radius: 50%;
-      background: transparent;
+      background: color-mix(
+        in srgb,
+        var(--ring-off, var(--conx-ring-off)) 14%,
+        transparent
+      );
     }
 
     .ring.on .ring-glow {
-      background: color-mix(in srgb, var(--ring-on, var(--conx-ring)) 18%, transparent);
+      background: color-mix(in srgb, var(--ring-on, var(--conx-ring)) 28%, transparent);
     }
 
     .syncing-pulse .sync-btn,

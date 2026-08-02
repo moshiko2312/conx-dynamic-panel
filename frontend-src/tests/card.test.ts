@@ -9,8 +9,21 @@ import {
   persistLanguage,
 } from "../src/localize";
 import type { Profile } from "../src/types";
+import { COLOR_PREVIEW, resolveLedPreviewColor } from "../src/card";
 import "../src/card";
 import "../src/editor";
+
+const ALL_COLORS = [
+  "red",
+  "blue",
+  "green",
+  "white",
+  "yellow",
+  "magenta",
+  "cyan",
+  "warm_white",
+  "warm_yellow",
+];
 
 const sampleProfile: Profile = {
   id: "lighting",
@@ -41,7 +54,7 @@ function panelPayload(overrides: Record<string, unknown> = {}) {
     last_error: null,
     auto_sync: false,
     capabilities: {
-      colors: ["cyan", "blue"],
+      colors: ALL_COLORS,
       radar: ["30s"],
       modes: ["toggle", "radio_mandatory", "radio_optional"],
       button_count: 4,
@@ -181,6 +194,136 @@ describe("custom elements", () => {
     expect(el.shadowRoot?.querySelector(".faceplate-labels")).toBeTruthy();
     expect(el.shadowRoot?.querySelector(".faceplate-touch")).toBeTruthy();
     expect(ringsStyle).toBeTruthy();
+  });
+
+  it("maps LED color names to CSS preview colors", () => {
+    expect(resolveLedPreviewColor("red")).toBe(COLOR_PREVIEW.red);
+    expect(resolveLedPreviewColor("warm_yellow")).toBe(COLOR_PREVIEW.warm_yellow);
+    expect(resolveLedPreviewColor("cyan")).not.toBe(COLOR_PREVIEW.blue);
+  });
+
+  it("updates faceplate ring CSS vars when draft color_on/color_off change", async () => {
+    const callWS = vi.fn().mockResolvedValue(
+      panelPayload({
+        sync_status: "synced",
+        profiles: {
+          lighting: {
+            ...sampleProfile,
+            mode: "radio_mandatory",
+            selected_button: 2,
+            color_on: "cyan",
+            color_off: "blue",
+          },
+        },
+      })
+    );
+    const el = await mountCard({ language: "en", callWS });
+    const faceplate = el.shadowRoot?.querySelector(".faceplate") as HTMLElement;
+    expect(faceplate.style.getPropertyValue("--ring-on").trim()).toBe(
+      resolveLedPreviewColor("cyan")
+    );
+    expect(faceplate.style.getPropertyValue("--ring-off").trim()).toBe(
+      resolveLedPreviewColor("blue")
+    );
+
+    const rings = [...(el.shadowRoot?.querySelectorAll(".ring") || [])];
+    expect(rings[1]?.classList.contains("on")).toBe(true);
+    expect(rings[0]?.classList.contains("off")).toBe(true);
+
+    el._patchDraft((draft: Profile) => {
+      draft.color_on = "red";
+      draft.color_off = "green";
+    });
+    await el.updateComplete;
+
+    expect(faceplate.style.getPropertyValue("--ring-on").trim()).toBe(
+      resolveLedPreviewColor("red")
+    );
+    expect(faceplate.style.getPropertyValue("--ring-off").trim()).toBe(
+      resolveLedPreviewColor("green")
+    );
+    expect(faceplate.style.getPropertyValue("--ring-on")).not.toBe(
+      resolveLedPreviewColor("blue")
+    );
+  });
+
+  it("uses color_on for selected radio ring and color_off for others", async () => {
+    const callWS = vi.fn().mockResolvedValue(
+      panelPayload({
+        sync_status: "synced",
+        profiles: {
+          lighting: {
+            ...sampleProfile,
+            mode: "radio_optional",
+            selected_button: 3,
+            color_on: "magenta",
+            color_off: "warm_white",
+          },
+        },
+      })
+    );
+    const el = await mountCard({ language: "en", callWS });
+    const faceplate = el.shadowRoot?.querySelector(".faceplate") as HTMLElement;
+    expect(faceplate.style.getPropertyValue("--ring-on").trim()).toBe(
+      COLOR_PREVIEW.magenta
+    );
+    expect(faceplate.style.getPropertyValue("--ring-off").trim()).toBe(
+      COLOR_PREVIEW.warm_white
+    );
+    const rings = [...(el.shadowRoot?.querySelectorAll(".ring") || [])];
+    expect(rings.map((r) => r.classList.contains("on"))).toEqual([
+      false,
+      false,
+      true,
+      false,
+    ]);
+  });
+
+  it("reflects toggle entity on/off state in ring preview when available", async () => {
+    const callWS = vi.fn().mockResolvedValue(
+      panelPayload({
+        sync_status: "synced",
+        profiles: {
+          lighting: {
+            ...sampleProfile,
+            mode: "toggle",
+            buttons: [
+              {
+                index: 1,
+                name: "Living room",
+                action: {
+                  action: "switch.toggle",
+                  target: { entity_id: "switch.living" },
+                  data: {},
+                },
+              },
+              {
+                index: 2,
+                name: "Kitchen",
+                action: {
+                  action: "switch.toggle",
+                  target: { entity_id: "switch.kitchen" },
+                  data: {},
+                },
+              },
+              { index: 3, name: "Outdoor", action: null },
+              { index: 4, name: "All off", action: null },
+            ],
+          },
+        },
+      })
+    );
+    const el = await mountCard({
+      language: "en",
+      callWS,
+      states: {
+        "switch.living": { state: "on" },
+        "switch.kitchen": { state: "off" },
+      },
+    });
+    const rings = [...(el.shadowRoot?.querySelectorAll(".ring") || [])];
+    expect(rings[0]?.classList.contains("on")).toBe(true);
+    expect(rings[1]?.classList.contains("on")).toBe(false);
   });
 
   it("keeps text input focus across continuous typing updates", async () => {
