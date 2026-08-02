@@ -657,6 +657,7 @@ export class ConXDynamicPanelCard extends LitElement {
       -->
       <div
         class="faceplate"
+        dir="ltr"
         style="--ring-on:${ringOn};--ring-off:${ringOff}"
         role="img"
         aria-label=${this.t("card.preview")}

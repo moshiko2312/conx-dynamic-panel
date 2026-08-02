@@ -1,0 +1,1515 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ConX Dynamic Panel — Card Preview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Sora:wght@500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --conx-font: "Outfit", "Sora", ui-sans-serif, sans-serif;
+      --conx-display: "Sora", "Outfit", ui-sans-serif, sans-serif;
+      --conx-steel: #8b949e;
+      --conx-ink: #1a222c;
+      --conx-accent: #1f7a8c;
+      --conx-accent-soft: color-mix(in srgb, #1f7a8c 18%, transparent);
+      --conx-ring: #00e5ff;
+      --conx-ring-off: #2979ff;
+      --conx-danger: #c62828;
+      --conx-bevel-light: color-mix(in srgb, #ffffff 55%, transparent);
+      --conx-bevel-dark: color-mix(in srgb, #0b1218 22%, transparent);
+      --ring-on: #00e5ff;
+      --ring-off: #2979ff;
+      --page-bg-1: #d8e2ea;
+      --page-bg-2: #eef3f7;
+      --page-bg-3: #c5d3de;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: var(--conx-font);
+      color: var(--conx-ink);
+      background:
+        radial-gradient(ellipse at 20% 0%, #b8c9d6 0%, transparent 50%),
+        radial-gradient(ellipse at 90% 100%, color-mix(in srgb, var(--conx-accent) 22%, transparent), transparent 45%),
+        linear-gradient(160deg, var(--page-bg-1), var(--page-bg-2) 45%, var(--page-bg-3));
+      padding: 28px 16px 48px;
+    }
+
+    .page {
+      max-width: 980px;
+      margin: 0 auto;
+    }
+
+    .page-intro {
+      text-align: center;
+      margin-bottom: 22px;
+    }
+
+    .page-intro h1 {
+      font-family: var(--conx-display);
+      font-size: clamp(1.4rem, 3vw, 1.85rem);
+      margin: 0 0 6px;
+      letter-spacing: 0.02em;
+    }
+
+    .page-intro p {
+      margin: 0;
+      opacity: 0.72;
+      font-size: 0.95rem;
+    }
+
+    .hint-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      margin-top: 14px;
+    }
+
+    .hint-chip {
+      font-size: 0.78rem;
+      padding: 5px 10px;
+      border-radius: 999px;
+      background: color-mix(in srgb, #fff 55%, transparent);
+      border: 1px solid color-mix(in srgb, var(--conx-steel) 35%, transparent);
+      box-shadow: inset 0 1px 0 var(--conx-bevel-light);
+    }
+
+    /* —— Card shell —— */
+    .conx-card {
+      position: relative;
+      overflow: hidden;
+      border-radius: 20px;
+      padding: 18px;
+      background:
+        linear-gradient(
+          155deg,
+          color-mix(in srgb, #fff 88%, #d7dee6) 0%,
+          #f7f9fb 48%,
+          color-mix(in srgb, #fff 90%, #c5d0da) 100%
+        );
+      border: 1px solid color-mix(in srgb, var(--conx-steel) 35%, transparent);
+      box-shadow:
+        inset 0 1px 0 var(--conx-bevel-light),
+        inset 0 -1px 0 var(--conx-bevel-dark),
+        0 16px 40px color-mix(in srgb, #0b1218 16%, transparent);
+    }
+
+    .conx-card.syncing-pulse .sync-btn,
+    .conx-card.syncing-pulse .badge.status-syncing {
+      animation: conx-pulse 700ms ease;
+    }
+
+    .atmosphere {
+      pointer-events: none;
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 12% 0%, color-mix(in srgb, #9eb6c8 28%, transparent), transparent 42%),
+        radial-gradient(circle at 88% 100%, color-mix(in srgb, #1f7a8c 12%, transparent), transparent 40%),
+        repeating-linear-gradient(
+          -18deg,
+          transparent,
+          transparent 10px,
+          color-mix(in srgb, #0b1218 2.5%, transparent) 10px,
+          color-mix(in srgb, #0b1218 2.5%, transparent) 11px
+        );
+      opacity: 0.55;
+    }
+
+    .header, .warn, .notice, .layout { position: relative; z-index: 1; }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+      margin-bottom: 14px;
+    }
+
+    .brand {
+      font-family: var(--conx-display);
+      font-size: 1.55rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      line-height: 1;
+      color: var(--conx-accent);
+      text-shadow: 0 1px 0 var(--conx-bevel-light);
+    }
+
+    .title {
+      font-family: var(--conx-display);
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin-top: 4px;
+    }
+
+    .subtitle {
+      opacity: 0.72;
+      margin-top: 2px;
+      font-size: 0.92rem;
+    }
+
+    .header-side {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
+    }
+
+    [dir="rtl"] .header-side { align-items: flex-start; }
+
+    .lang-flags { display: flex; gap: 6px; }
+
+    .lang-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 8px;
+      border-radius: 999px;
+      border: 1px solid color-mix(in srgb, var(--conx-steel) 45%, transparent);
+      background: linear-gradient(180deg, color-mix(in srgb, #fff 70%, transparent), color-mix(in srgb, #c9d3dc 40%, transparent));
+      box-shadow: inset 0 1px 0 var(--conx-bevel-light);
+      cursor: pointer;
+      color: inherit;
+      font: inherit;
+    }
+
+    .lang-btn.active {
+      border-color: color-mix(in srgb, var(--conx-accent) 55%, transparent);
+      background: var(--conx-accent-soft);
+      box-shadow:
+        inset 0 1px 0 var(--conx-bevel-light),
+        0 0 0 1px color-mix(in srgb, var(--conx-accent) 25%, transparent);
+    }
+
+    .lang-code {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+
+    .flag {
+      width: 18px;
+      height: 12px;
+      border-radius: 2px;
+      border: 1px solid color-mix(in srgb, #000 18%, transparent);
+      display: inline-block;
+      overflow: hidden;
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    .flag-il {
+      background: #fff;
+      display: grid;
+      grid-template-rows: 2px 1fr 2px;
+      place-items: center;
+    }
+    .flag-il-bar { width: 100%; height: 2px; background: #0038b8; }
+    .flag-il-star { color: #0038b8; font-size: 7px; line-height: 1; }
+
+    .flag-gb {
+      background:
+        linear-gradient(90deg, transparent 44%, #fff 44%, #fff 56%, transparent 56%),
+        linear-gradient(#fff 38%, transparent 38%, transparent 62%, #fff 62%),
+        linear-gradient(90deg, transparent 46%, #c8102e 46%, #c8102e 54%, transparent 54%),
+        linear-gradient(#c8102e 42%, transparent 42%, transparent 58%, #c8102e 58%),
+        #012169;
+    }
+
+    .flag-ru {
+      background: linear-gradient(to bottom, #fff 0 33%, #0039a6 33% 66%, #d52b1e 66% 100%);
+    }
+
+    .badge {
+      border-radius: 999px;
+      padding: 5px 11px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      border: 1px solid color-mix(in srgb, var(--conx-steel) 40%, transparent);
+      background: color-mix(in srgb, #fff 45%, transparent);
+      text-transform: lowercase;
+      box-shadow: inset 0 1px 0 var(--conx-bevel-light);
+    }
+
+    .status-synced { color: #2e7d32; }
+    .status-pending, .status-out_of_sync { color: #ed6c02; }
+    .status-syncing { color: var(--conx-accent); }
+    .status-error { color: var(--conx-danger); }
+
+    .warn, .notice {
+      padding: 9px 12px;
+      border-radius: 12px;
+      margin-bottom: 10px;
+      font-size: 0.9rem;
+      border: 1px solid transparent;
+    }
+
+    .warn {
+      display: none;
+      background: color-mix(in srgb, #ed6c02 14%, transparent);
+      border-color: color-mix(in srgb, #ed6c02 28%, transparent);
+    }
+
+    .warn.visible { display: block; }
+
+    .notice {
+      display: none;
+      background: color-mix(in srgb, var(--conx-accent) 12%, transparent);
+      border-color: color-mix(in srgb, var(--conx-accent) 28%, transparent);
+    }
+
+    .notice.visible { display: block; }
+
+    .layout {
+      display: grid;
+      gap: 14px;
+    }
+
+    @media (min-width: 920px) {
+      .layout { grid-template-columns: 1fr 1.15fr; }
+    }
+
+    .panel-section {
+      border-radius: 16px;
+      border: 1px solid color-mix(in srgb, var(--conx-steel) 32%, transparent);
+      background:
+        linear-gradient(
+          180deg,
+          color-mix(in srgb, #fff 55%, transparent),
+          color-mix(in srgb, #e8eef3 55%, transparent)
+        );
+      box-shadow:
+        inset 0 1px 0 var(--conx-bevel-light),
+        0 6px 16px color-mix(in srgb, #0b1218 8%, transparent);
+      overflow: hidden;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px 14px;
+      border-bottom: 1px solid color-mix(in srgb, var(--conx-steel) 22%, transparent);
+    }
+
+    .section-title {
+      font-family: var(--conx-display);
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+
+    .section-body {
+      display: grid;
+      grid-template-rows: 0fr;
+      transition: grid-template-rows 220ms ease;
+    }
+
+    .panel-section.open .section-body { grid-template-rows: 1fr; }
+
+    .section-body-inner {
+      overflow: hidden;
+      padding: 0 14px;
+    }
+
+    .panel-section.open .section-body-inner { padding: 12px 14px 14px; }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 42px;
+      height: 24px;
+      flex-shrink: 0;
+    }
+
+    .switch input { opacity: 0; width: 0; height: 0; }
+
+    .slider {
+      position: absolute;
+      inset: 0;
+      cursor: pointer;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--conx-steel) 45%, #d5dde5);
+      box-shadow: inset 0 1px 2px color-mix(in srgb, #0b1218 25%, transparent);
+      transition: background 180ms ease;
+    }
+
+    .slider::before {
+      content: "";
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      left: 3px;
+      top: 3px;
+      border-radius: 50%;
+      background: linear-gradient(180deg, #fff, #dce3ea);
+      box-shadow: 0 1px 3px color-mix(in srgb, #0b1218 30%, transparent);
+      transition: transform 180ms ease;
+    }
+
+    .switch input:checked + .slider {
+      background: color-mix(in srgb, var(--conx-accent) 75%, #89b4c0);
+    }
+
+    .switch input:checked + .slider::before { transform: translateX(18px); }
+
+    [dir="rtl"] .switch input:checked + .slider::before { transform: translateX(-18px); }
+
+    .profile-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .profile-chip {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 2px;
+      text-align: start;
+      border-radius: 12px;
+      border: 1px solid color-mix(in srgb, var(--conx-steel) 35%, transparent);
+      background: color-mix(in srgb, #fff 50%, transparent);
+      padding: 10px 12px;
+      cursor: pointer;
+      color: inherit;
+      font: inherit;
+      box-shadow: inset 0 1px 0 var(--conx-bevel-light);
+      transition: transform 140ms ease, border-color 140ms ease;
+      width: 100%;
+    }
+
+    .profile-chip:hover { transform: translateY(-1px); }
+
+    .profile-chip.active {
+      border-color: color-mix(in srgb, var(--conx-accent) 55%, transparent);
+      background: var(--conx-accent-soft);
+    }
+
+    .chip-name { font-weight: 600; }
+    .chip-id { font-size: 0.75rem; opacity: 0.65; }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      margin-bottom: 10px;
+      font-size: 0.9rem;
+    }
+
+    .field > span { font-weight: 500; opacity: 0.85; }
+
+    input[type="text"], select {
+      font: inherit;
+      color: inherit;
+      background: linear-gradient(180deg, color-mix(in srgb, #fff 80%, transparent), color-mix(in srgb, #e4ebf1 55%, transparent));
+      border: 1px solid color-mix(in srgb, var(--conx-steel) 40%, transparent);
+      border-radius: 11px;
+      padding: 9px 11px;
+      box-shadow:
+        inset 0 1px 0 var(--conx-bevel-light),
+        inset 0 -1px 0 color-mix(in srgb, #0b1218 6%, transparent);
+      width: 100%;
+    }
+
+    input[type="text"]:focus, select:focus {
+      outline: none;
+      border-color: color-mix(in srgb, var(--conx-accent) 55%, transparent);
+      box-shadow:
+        inset 0 1px 0 var(--conx-bevel-light),
+        0 0 0 2px var(--conx-accent-soft);
+    }
+
+    .color-select {
+      display: grid;
+      grid-template-columns: 18px 1fr;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .swatch {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 1px solid color-mix(in srgb, #000 20%, transparent);
+      box-shadow: inset 0 1px 2px color-mix(in srgb, #fff 40%, transparent);
+    }
+
+    .toggle-row { display: grid; gap: 10px; }
+
+    .switch-field {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 8px 10px;
+      border-radius: 12px;
+      border: 1px solid color-mix(in srgb, var(--conx-steel) 28%, transparent);
+      background: color-mix(in srgb, #fff 40%, transparent);
+    }
+
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 8px 0;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    @media (max-width: 520px) {
+      .grid-2 { grid-template-columns: 1fr; }
+      .header { flex-direction: column; }
+      .header-side, [dir="rtl"] .header-side { align-items: flex-start; }
+    }
+
+    .btn {
+      font: inherit;
+      color: inherit;
+      cursor: pointer;
+      border-radius: 11px;
+      border: 1px solid color-mix(in srgb, var(--conx-steel) 40%, transparent);
+      background: linear-gradient(180deg, color-mix(in srgb, #fff 75%, transparent), color-mix(in srgb, #cfd8e1 50%, transparent));
+      padding: 8px 12px;
+      box-shadow:
+        inset 0 1px 0 var(--conx-bevel-light),
+        0 2px 6px color-mix(in srgb, #0b1218 10%, transparent);
+      transition: transform 120ms ease, filter 120ms ease;
+    }
+
+    .btn:hover:not(:disabled) { transform: translateY(-1px); }
+    .btn:active:not(:disabled) { transform: translateY(1px); }
+
+    .btn.primary {
+      background: linear-gradient(180deg, #2a93a8, var(--conx-accent));
+      color: #fff;
+      border-color: color-mix(in srgb, var(--conx-accent) 70%, #0b1218);
+    }
+
+    .btn.danger { color: var(--conx-danger); }
+
+    .btn:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .button-edit {
+      border-top: 1px solid color-mix(in srgb, var(--conx-steel) 26%, transparent);
+      padding-top: 10px;
+      margin-top: 10px;
+    }
+
+    .button-edit:first-child {
+      border-top: 0;
+      padding-top: 0;
+      margin-top: 0;
+    }
+
+    .button-edit-title {
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    /* —— Faceplate —— */
+    .faceplate {
+      width: 100%;
+      overflow-x: auto;
+      padding: 4px 2px 8px;
+    }
+
+    .faceplate-bezel {
+      position: relative;
+      min-width: 320px;
+      width: min(100%, 560px);
+      margin: 0 auto;
+      aspect-ratio: 2.55 / 1;
+      border-radius: 18px;
+      padding: 5px;
+      background: linear-gradient(145deg, #f4f6f8 0%, #b7c0c8 38%, #eceff2 62%, #8e99a3 100%);
+      box-shadow:
+        inset 0 1px 1px #fff,
+        inset 0 -1px 2px color-mix(in srgb, #000 35%, transparent),
+        0 8px 18px color-mix(in srgb, #0b1218 18%, transparent);
+    }
+
+    .faceplate-glass {
+      position: relative;
+      z-index: 1;
+      height: 100%;
+      border-radius: 14px;
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: 26% 74%;
+      background: #fff;
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, #000 8%, transparent);
+    }
+
+    .faceplate-labels {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      align-items: center;
+      background: #0a0a0a;
+      color: #f5f5f5;
+      padding: 0 4px;
+    }
+
+    .faceplate-label {
+      text-align: center;
+      font-size: clamp(0.62rem, 2.1vw, 0.9rem);
+      font-weight: 500;
+      letter-spacing: 0.01em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      padding: 0 4px;
+    }
+
+    .faceplate-touch {
+      display: flex;
+      align-items: flex-end;
+      justify-content: stretch;
+      background: linear-gradient(180deg, #ffffff 0%, #f7f8fa 70%, #eef1f4 100%);
+      padding: 0 2% 10%;
+    }
+
+    .faceplate-rings {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      width: 100%;
+      place-items: center;
+    }
+
+    .ring {
+      width: clamp(18px, 5.2vw, 28px);
+      height: clamp(18px, 5.2vw, 28px);
+      border-radius: 50%;
+      border: 2.5px solid color-mix(in srgb, var(--ring-off) 70%, #9aa7b5);
+      background: transparent;
+      padding: 0;
+      cursor: pointer;
+      position: relative;
+      box-shadow:
+        0 0 5px color-mix(in srgb, var(--ring-off) 40%, transparent),
+        inset 0 0 0 1px color-mix(in srgb, #fff 40%, transparent);
+      transition:
+        border-color 160ms ease,
+        box-shadow 160ms ease,
+        transform 120ms ease;
+    }
+
+    .ring.on {
+      border-color: var(--ring-on);
+      box-shadow:
+        0 0 12px color-mix(in srgb, var(--ring-on) 75%, transparent),
+        0 0 4px color-mix(in srgb, var(--ring-on) 90%, transparent),
+        inset 0 0 5px color-mix(in srgb, var(--ring-on) 45%, transparent);
+    }
+
+    .ring.pressed { transform: scale(0.9); }
+
+    .ring-glow {
+      position: absolute;
+      inset: 4px;
+      border-radius: 50%;
+      background: color-mix(in srgb, var(--ring-off) 14%, transparent);
+      pointer-events: none;
+    }
+
+    .ring.on .ring-glow {
+      background: color-mix(in srgb, var(--ring-on) 28%, transparent);
+    }
+
+    .ref-photo {
+      margin-top: 22px;
+      text-align: center;
+    }
+
+    .ref-photo details {
+      border-radius: 14px;
+      border: 1px solid color-mix(in srgb, var(--conx-steel) 35%, transparent);
+      background: color-mix(in srgb, #fff 50%, transparent);
+      padding: 10px 14px;
+      text-align: start;
+    }
+
+    .ref-photo summary {
+      cursor: pointer;
+      font-weight: 600;
+      font-family: var(--conx-display);
+    }
+
+    .ref-photo img {
+      display: block;
+      width: min(100%, 520px);
+      margin: 12px auto 4px;
+      border-radius: 12px;
+      box-shadow: 0 8px 20px color-mix(in srgb, #0b1218 18%, transparent);
+    }
+
+    @keyframes conx-pulse {
+      0% {
+        filter: brightness(1);
+        box-shadow: 0 0 0 0 color-mix(in srgb, var(--conx-accent) 0%, transparent);
+      }
+      40% {
+        filter: brightness(1.12);
+        box-shadow: 0 0 0 6px color-mix(in srgb, var(--conx-accent) 22%, transparent);
+      }
+      100% {
+        filter: brightness(1);
+        box-shadow: 0 0 0 0 color-mix(in srgb, var(--conx-accent) 0%, transparent);
+      }
+    }
+
+    .col-span-2 { grid-column: 1 / -1; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="page-intro">
+      <h1>ConX Dynamic Panel</h1>
+      <p id="intro-sub">תצוגה אינטראקטיבית של עיצוב הכרטיס החדש</p>
+      <div class="hint-bar">
+        <span class="hint-chip" id="hint-lang">דגלי שפה HE / EN / RU</span>
+        <span class="hint-chip" id="hint-colors">צבעי טבעות LED משתנים</span>
+        <span class="hint-chip" id="hint-sections">מקטעים מתקפלים</span>
+      </div>
+    </div>
+
+    <article class="conx-card" id="card" dir="rtl">
+      <div class="atmosphere"></div>
+
+      <div class="header">
+        <div class="brand-block">
+          <div class="brand">ConX</div>
+          <div class="title" id="panel-name">Living Room Panel</div>
+          <div class="subtitle" id="profile-subtitle">Evening</div>
+        </div>
+        <div class="header-side">
+          <div class="lang-flags" role="group" aria-label="Language">
+            <button type="button" class="lang-btn active" data-lang="he" title="עברית">
+              <span class="flag flag-il" aria-hidden="true">
+                <span class="flag-il-bar"></span>
+                <span class="flag-il-star">✦</span>
+                <span class="flag-il-bar"></span>
+              </span>
+              <span class="lang-code">HE</span>
+            </button>
+            <button type="button" class="lang-btn" data-lang="en" title="English">
+              <span class="flag flag-gb" aria-hidden="true"></span>
+              <span class="lang-code">EN</span>
+            </button>
+            <button type="button" class="lang-btn" data-lang="ru" title="Русский">
+              <span class="flag flag-ru" aria-hidden="true"></span>
+              <span class="lang-code">RU</span>
+            </button>
+          </div>
+          <div class="badge status-synced" id="status-badge">Status: synced</div>
+        </div>
+      </div>
+
+      <div class="warn" id="dirty-warn"></div>
+      <div class="notice" id="notice"></div>
+
+      <div class="layout">
+        <!-- Profiles -->
+        <section class="panel-section open" data-section="profiles">
+          <header class="section-head">
+            <div class="section-title" data-i18n="card.profiles">Profiles</div>
+            <label class="switch" title="Show section">
+              <input type="checkbox" checked data-section-toggle="profiles" />
+              <span class="slider"></span>
+            </label>
+          </header>
+          <div class="section-body">
+            <div class="section-body-inner">
+              <div class="profile-list" id="profile-list"></div>
+              <label class="field">
+                <span data-i18n="card.profile_name">Profile name</span>
+                <input type="text" id="profile-name-input" />
+              </label>
+              <div class="row actions">
+                <button type="button" class="btn" data-action="create" data-i18n="card.create">Create</button>
+                <button type="button" class="btn" data-action="duplicate" data-i18n="card.duplicate">Duplicate</button>
+                <button type="button" class="btn" data-action="rename" data-i18n="card.rename">Rename</button>
+                <button type="button" class="btn danger" data-action="delete" data-i18n="card.delete">Delete</button>
+              </div>
+              <div class="row actions">
+                <button type="button" class="btn" data-action="export" data-i18n="card.export">Export</button>
+                <button type="button" class="btn" data-action="import-merge" data-i18n="card.import_merge">Import (merge)</button>
+                <button type="button" class="btn danger" data-action="import-replace" data-i18n="card.import_replace">Import (replace)</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Appearance -->
+        <section class="panel-section open" data-section="appearance">
+          <header class="section-head">
+            <div class="section-title" data-i18n="card.editor">Appearance</div>
+            <label class="switch">
+              <input type="checkbox" checked data-section-toggle="appearance" />
+              <span class="slider"></span>
+            </label>
+          </header>
+          <div class="section-body">
+            <div class="section-body-inner">
+              <label class="field">
+                <span data-i18n="card.mode">Mode</span>
+                <select id="mode-select">
+                  <option value="toggle" data-i18n-option="mode.toggle">Toggle</option>
+                  <option value="radio_mandatory" data-i18n-option="mode.radio_mandatory">Radio mandatory</option>
+                  <option value="radio_optional" data-i18n-option="mode.radio_optional">Radio optional</option>
+                </select>
+              </label>
+              <div class="grid-2">
+                <label class="field">
+                  <span data-i18n="card.color_on">Color ON</span>
+                  <div class="color-select">
+                    <span class="swatch" id="swatch-on"></span>
+                    <select id="color-on"></select>
+                  </div>
+                </label>
+                <label class="field">
+                  <span data-i18n="card.color_off">Color OFF</span>
+                  <div class="color-select">
+                    <span class="swatch" id="swatch-off"></span>
+                    <select id="color-off"></select>
+                  </div>
+                </label>
+              </div>
+              <label class="field">
+                <span data-i18n="card.radar">Radar</span>
+                <select id="radar-select">
+                  <option>off</option>
+                  <option selected>30s</option>
+                  <option>60s</option>
+                  <option>120s</option>
+                </select>
+              </label>
+              <div class="toggle-row">
+                <label class="switch-field">
+                  <span data-i18n="card.backlight">Backlight</span>
+                  <label class="switch">
+                    <input type="checkbox" id="backlight" checked />
+                    <span class="slider"></span>
+                  </label>
+                </label>
+                <label class="switch-field">
+                  <span data-i18n="card.child_lock">Child lock</span>
+                  <label class="switch">
+                    <input type="checkbox" id="child-lock" />
+                    <span class="slider"></span>
+                  </label>
+                </label>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Buttons -->
+        <section class="panel-section open" data-section="buttons">
+          <header class="section-head">
+            <div class="section-title" data-i18n="card.buttons">Buttons</div>
+            <label class="switch">
+              <input type="checkbox" checked data-section-toggle="buttons" />
+              <span class="slider"></span>
+            </label>
+          </header>
+          <div class="section-body">
+            <div class="section-body-inner" id="buttons-editor"></div>
+          </div>
+        </section>
+
+        <!-- Preview + Actions span right column on wide screens -->
+        <section class="panel-section open" data-section="preview">
+          <header class="section-head">
+            <div class="section-title" data-i18n="card.preview">Panel preview</div>
+            <label class="switch">
+              <input type="checkbox" checked data-section-toggle="preview" />
+              <span class="slider"></span>
+            </label>
+          </header>
+          <div class="section-body">
+            <div class="section-body-inner">
+              <!-- Faceplate stays LTR so gangs always read L→R like the physical panel -->
+              <div class="faceplate" id="faceplate" role="img" aria-label="Panel preview" dir="ltr">
+                <div class="faceplate-bezel">
+                  <div class="faceplate-glass">
+                    <div class="faceplate-labels" id="faceplate-labels"></div>
+                    <div class="faceplate-touch">
+                      <div class="faceplate-rings" id="faceplate-rings"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel-section open col-span-2" data-section="actions">
+          <header class="section-head">
+            <div class="section-title" data-i18n="card.actions">Actions</div>
+            <label class="switch">
+              <input type="checkbox" checked data-section-toggle="actions" />
+              <span class="slider"></span>
+            </label>
+          </header>
+          <div class="section-body">
+            <div class="section-body-inner">
+              <div class="row actions">
+                <button type="button" class="btn primary" id="btn-save" disabled data-i18n="card.save">Save Draft</button>
+                <button type="button" class="btn" id="btn-discard" disabled data-i18n="card.discard">Discard Changes</button>
+                <button type="button" class="btn primary sync-btn" id="btn-sync" data-i18n="card.sync">Sync to Panel</button>
+                <button type="button" class="btn" id="btn-pull" data-i18n="card.pull">Pull from Panel</button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </article>
+
+    <div class="ref-photo">
+      <details>
+        <summary id="ref-summary">תמונת ייחוס — לוחית Zemismart 4-gang</summary>
+        <img
+          src="../frontend-src/assets/zemismart-4gang-faceplate.png"
+          alt="Zemismart 4-gang faceplate reference"
+          onerror="this.style.display='none'; this.nextElementSibling.style.display='block'"
+        />
+        <p style="display:none;opacity:.7;font-size:.9rem;margin:10px 0 0">
+          Reference photo not found at <code>frontend-src/assets/zemismart-4gang-faceplate.png</code>
+        </p>
+      </details>
+    </div>
+  </div>
+
+  <script>
+    const COLOR_PREVIEW = {
+      red: "#ff1744",
+      blue: "#2979ff",
+      green: "#00e676",
+      white: "#f5f7fa",
+      yellow: "#ffea00",
+      magenta: "#f50057",
+      cyan: "#00e5ff",
+      warm_white: "#ffe0b2",
+      warm_yellow: "#ffc400",
+    };
+
+    const COLORS = Object.keys(COLOR_PREVIEW);
+
+    const I18N = {
+      en: {
+        "intro.sub": "Interactive preview of the redesigned Lovelace card",
+        "hint.lang": "Language flags HE / EN / RU",
+        "hint.colors": "LED rings change with color picks",
+        "hint.sections": "Collapsible sections",
+        "ref.summary": "Reference photo — Zemismart 4-gang faceplate",
+        "card.sync": "Sync to Panel",
+        "card.pull": "Pull from Panel",
+        "card.save": "Save Draft",
+        "card.discard": "Discard Changes",
+        "card.create": "Create",
+        "card.duplicate": "Duplicate",
+        "card.rename": "Rename",
+        "card.delete": "Delete",
+        "card.profiles": "Profiles",
+        "card.editor": "Appearance",
+        "card.buttons": "Buttons",
+        "card.preview": "Panel preview",
+        "card.actions": "Actions",
+        "card.status": "Status",
+        "card.mode": "Mode",
+        "card.color_on": "Color ON",
+        "card.color_off": "Color OFF",
+        "card.radar": "Radar",
+        "card.backlight": "Backlight",
+        "card.child_lock": "Child lock",
+        "card.button": "Button",
+        "card.label": "Label",
+        "card.action": "Action",
+        "card.entity_id": "Entity ID",
+        "card.unsaved": "You have unsaved draft changes.",
+        "card.export": "Export",
+        "card.import_merge": "Import (merge)",
+        "card.import_replace": "Import (replace)",
+        "card.export_ok": "Profiles exported (demo).",
+        "card.import_ok": "Import is UI-only in this preview.",
+        "card.profile_name": "Profile name",
+        "card.synced_demo": "Status: synced",
+        "card.syncing_demo": "Status: syncing",
+        "mode.toggle": "Toggle",
+        "mode.radio_mandatory": "Radio mandatory",
+        "mode.radio_optional": "Radio optional",
+      },
+      he: {
+        "intro.sub": "תצוגה אינטראקטיבית של עיצוב הכרטיס החדש",
+        "hint.lang": "דגלי שפה HE / EN / RU",
+        "hint.colors": "צבעי טבעות LED משתנים",
+        "hint.sections": "מקטעים מתקפלים",
+        "ref.summary": "תמונת ייחוס — לוחית Zemismart 4-gang",
+        "card.sync": "סנכרון לפאנל",
+        "card.pull": "משיכה מהפאנל",
+        "card.save": "שמור טיוטה",
+        "card.discard": "בטל שינויים",
+        "card.create": "צור",
+        "card.duplicate": "שכפל",
+        "card.rename": "שנה שם",
+        "card.delete": "מחק",
+        "card.profiles": "פרופילים",
+        "card.editor": "מראה",
+        "card.buttons": "כפתורים",
+        "card.preview": "תצוגת פאנל",
+        "card.actions": "פעולות",
+        "card.status": "סטטוס",
+        "card.mode": "מצב",
+        "card.color_on": "צבע דלוק",
+        "card.color_off": "צבע כבוי",
+        "card.radar": "רדאר",
+        "card.backlight": "תאורת רקע",
+        "card.child_lock": "נעילת ילדים",
+        "card.button": "כפתור",
+        "card.label": "תווית",
+        "card.action": "פעולה",
+        "card.entity_id": "מזהה ישות",
+        "card.unsaved": "יש שינויי טיוטה שלא נשמרו.",
+        "card.export": "ייצוא",
+        "card.import_merge": "ייבוא (מיזוג)",
+        "card.import_replace": "ייבוא (החלפה)",
+        "card.export_ok": "הפרופילים יוצאו (הדגמה).",
+        "card.import_ok": "ייבוא הוא הדגמת ממשק בלבד.",
+        "card.profile_name": "שם פרופיל",
+        "card.synced_demo": "סטטוס: מסונכרן",
+        "card.syncing_demo": "סטטוס: מסנכרן",
+        "mode.toggle": "החלפה",
+        "mode.radio_mandatory": "רדיו חובה",
+        "mode.radio_optional": "רדיו אופציונלי",
+      },
+      ru: {
+        "intro.sub": "Интерактивный превью обновлённой карточки",
+        "hint.lang": "Флаги языка HE / EN / RU",
+        "hint.colors": "Цвета LED-колец меняются",
+        "hint.sections": "Сворачиваемые разделы",
+        "ref.summary": "Эталонное фото — панель Zemismart 4-gang",
+        "card.sync": "Синхронизация",
+        "card.pull": "Считать с панели",
+        "card.save": "Сохранить черновик",
+        "card.discard": "Отменить изменения",
+        "card.create": "Создать",
+        "card.duplicate": "Дублировать",
+        "card.rename": "Переименовать",
+        "card.delete": "Удалить",
+        "card.profiles": "Профили",
+        "card.editor": "Внешний вид",
+        "card.buttons": "Кнопки",
+        "card.preview": "Превью панели",
+        "card.actions": "Действия",
+        "card.status": "Статус",
+        "card.mode": "Режим",
+        "card.color_on": "Цвет ВКЛ",
+        "card.color_off": "Цвет ВЫКЛ",
+        "card.radar": "Радар",
+        "card.backlight": "Подсветка",
+        "card.child_lock": "Блокировка",
+        "card.button": "Кнопка",
+        "card.label": "Название",
+        "card.action": "Действие",
+        "card.entity_id": "Entity ID",
+        "card.unsaved": "Есть несохранённые изменения черновика.",
+        "card.export": "Экспорт",
+        "card.import_merge": "Импорт (слияние)",
+        "card.import_replace": "Импорт (замена)",
+        "card.export_ok": "Профили экспортированы (демо).",
+        "card.import_ok": "Импорт — только UI в этом превью.",
+        "card.profile_name": "Имя профиля",
+        "card.synced_demo": "Статус: синхронизировано",
+        "card.syncing_demo": "Статус: синхронизация",
+        "mode.toggle": "Переключатель",
+        "mode.radio_mandatory": "Радио (обязательно)",
+        "mode.radio_optional": "Радио (опционально)",
+      },
+    };
+
+    function t(key) {
+      return (I18N[state.lang] && I18N[state.lang][key]) || I18N.en[key] || key;
+    }
+
+    function resolveColor(name, fallback) {
+      return COLOR_PREVIEW[name] || name || fallback;
+    }
+
+    function deepClone(obj) {
+      return JSON.parse(JSON.stringify(obj));
+    }
+
+    function makeProfile(id, name, overrides = {}) {
+      return {
+        id,
+        name,
+        mode: "toggle",
+        color_on: "cyan",
+        color_off: "blue",
+        radar: "30s",
+        backlight: true,
+        child_lock: false,
+        selected_button: null,
+        ringOn: { 1: true, 2: false, 3: true, 4: false },
+        buttons: [
+          { index: 1, name: "Ceiling", action: "light.toggle", entity: "light.ceiling" },
+          { index: 2, name: "Balcony", action: "light.toggle", entity: "light.balcony" },
+          { index: 3, name: "Dining", action: "light.toggle", entity: "light.dining" },
+          { index: 4, name: "Zemi", action: "light.toggle", entity: "light.zemi" },
+        ],
+        ...overrides,
+      };
+    }
+
+    const state = {
+      lang: "he",
+      dirty: false,
+      activeId: "evening",
+      profiles: {
+        evening: makeProfile("evening", "Evening"),
+        day: makeProfile("day", "Day", {
+          color_on: "warm_yellow",
+          color_off: "warm_white",
+          buttons: [
+            { index: 1, name: "Main", action: "light.toggle", entity: "light.main" },
+            { index: 2, name: "Spot", action: "light.toggle", entity: "light.spot" },
+            { index: 3, name: "Wall", action: "switch.toggle", entity: "switch.wall" },
+            { index: 4, name: "Scene", action: "scene.turn_on", entity: "scene.day" },
+          ],
+          ringOn: { 1: true, 2: true, 3: false, 4: false },
+        }),
+        guests: makeProfile("guests", "Guests", {
+          color_on: "magenta",
+          color_off: "blue",
+          mode: "radio_optional",
+          selected_button: 2,
+          buttons: [
+            { index: 1, name: "Lounge", action: "", entity: "" },
+            { index: 2, name: "Kitchen", action: "", entity: "" },
+            { index: 3, name: "Hall", action: "", entity: "" },
+            { index: 4, name: "All", action: "", entity: "" },
+          ],
+          ringOn: { 1: false, 2: true, 3: false, 4: false },
+        }),
+      },
+      draft: null,
+      saved: null,
+    };
+
+    state.draft = deepClone(state.profiles[state.activeId]);
+    state.saved = deepClone(state.profiles[state.activeId]);
+
+    const els = {
+      card: document.getElementById("card"),
+      introSub: document.getElementById("intro-sub"),
+      hintLang: document.getElementById("hint-lang"),
+      hintColors: document.getElementById("hint-colors"),
+      hintSections: document.getElementById("hint-sections"),
+      refSummary: document.getElementById("ref-summary"),
+      statusBadge: document.getElementById("status-badge"),
+      dirtyWarn: document.getElementById("dirty-warn"),
+      notice: document.getElementById("notice"),
+      profileList: document.getElementById("profile-list"),
+      profileName: document.getElementById("profile-name-input"),
+      profileSubtitle: document.getElementById("profile-subtitle"),
+      modeSelect: document.getElementById("mode-select"),
+      colorOn: document.getElementById("color-on"),
+      colorOff: document.getElementById("color-off"),
+      swatchOn: document.getElementById("swatch-on"),
+      swatchOff: document.getElementById("swatch-off"),
+      radar: document.getElementById("radar-select"),
+      backlight: document.getElementById("backlight"),
+      childLock: document.getElementById("child-lock"),
+      buttonsEditor: document.getElementById("buttons-editor"),
+      labels: document.getElementById("faceplate-labels"),
+      rings: document.getElementById("faceplate-rings"),
+      faceplate: document.getElementById("faceplate"),
+      btnSave: document.getElementById("btn-save"),
+      btnDiscard: document.getElementById("btn-discard"),
+      btnSync: document.getElementById("btn-sync"),
+      btnPull: document.getElementById("btn-pull"),
+    };
+
+    function markDirty(dirty) {
+      state.dirty = dirty;
+      els.dirtyWarn.classList.toggle("visible", dirty);
+      els.dirtyWarn.textContent = dirty ? t("card.unsaved") : "";
+      els.btnSave.disabled = !dirty;
+      els.btnDiscard.disabled = !dirty;
+      if (dirty) {
+        els.statusBadge.className = "badge status-pending";
+        els.statusBadge.textContent = t("card.status") + ": pending";
+      } else {
+        els.statusBadge.className = "badge status-synced";
+        els.statusBadge.textContent = t("card.synced_demo");
+      }
+    }
+
+    function showNotice(msg) {
+      els.notice.textContent = msg;
+      els.notice.classList.add("visible");
+      clearTimeout(showNotice._timer);
+      showNotice._timer = setTimeout(() => els.notice.classList.remove("visible"), 2200);
+    }
+
+    function fillColorSelects() {
+      for (const sel of [els.colorOn, els.colorOff]) {
+        sel.innerHTML = COLORS.map(
+          (c) => `<option value="${c}">${c}</option>`
+        ).join("");
+      }
+    }
+
+    function applyRingColors() {
+      const on = resolveColor(state.draft.color_on, "#00e5ff");
+      const off = resolveColor(state.draft.color_off, "#2979ff");
+      els.faceplate.style.setProperty("--ring-on", on);
+      els.faceplate.style.setProperty("--ring-off", off);
+      els.swatchOn.style.background = on;
+      els.swatchOff.style.background = off;
+    }
+
+    function isRingOn(index) {
+      const d = state.draft;
+      if (d.mode !== "toggle") {
+        return d.selected_button === index;
+      }
+      return Boolean(d.ringOn[index]);
+    }
+
+    function renderFaceplate() {
+      els.labels.innerHTML = state.draft.buttons
+        .map((b) => `<div class="faceplate-label">${b.name || "L" + b.index}</div>`)
+        .join("");
+
+      els.rings.innerHTML = state.draft.buttons
+        .map((b) => {
+          const on = isRingOn(b.index);
+          return `<button type="button" class="ring ${on ? "on" : "off"}" data-ring="${b.index}" aria-label="Button ${b.index}"><span class="ring-glow"></span></button>`;
+        })
+        .join("");
+
+      applyRingColors();
+
+      els.rings.querySelectorAll(".ring").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const index = Number(btn.dataset.ring);
+          btn.classList.add("pressed");
+          setTimeout(() => btn.classList.remove("pressed"), 180);
+
+          if (state.draft.mode === "toggle") {
+            state.draft.ringOn[index] = !state.draft.ringOn[index];
+          } else if (
+            state.draft.mode === "radio_optional" &&
+            state.draft.selected_button === index
+          ) {
+            state.draft.selected_button = null;
+          } else {
+            state.draft.selected_button = index;
+          }
+          markDirty(true);
+          renderFaceplate();
+        });
+      });
+    }
+
+    function renderProfiles() {
+      els.profileList.innerHTML = Object.values(state.profiles)
+        .map((p) => {
+          const active = p.id === state.activeId ? "active" : "";
+          return `<button type="button" class="profile-chip ${active}" data-profile="${p.id}">
+            <span class="chip-name">${p.name}</span>
+            <span class="chip-id">${p.id}</span>
+          </button>`;
+        })
+        .join("");
+
+      els.profileList.querySelectorAll(".profile-chip").forEach((chip) => {
+        chip.addEventListener("click", () => {
+          const id = chip.dataset.profile;
+          if (id === state.activeId) return;
+          if (state.dirty && !confirm(t("card.unsaved"))) return;
+          state.activeId = id;
+          state.draft = deepClone(state.profiles[id]);
+          state.saved = deepClone(state.profiles[id]);
+          markDirty(false);
+          syncFormFromDraft();
+        });
+      });
+    }
+
+    function renderButtonsEditor() {
+      els.buttonsEditor.innerHTML = state.draft.buttons
+        .map(
+          (b) => `
+        <div class="button-edit" data-button="${b.index}">
+          <div class="button-edit-title">${t("card.button")} ${b.index}</div>
+          <label class="field">
+            <span>${t("card.label")}</span>
+            <input type="text" data-field="name" value="${b.name}" />
+          </label>
+          <label class="field">
+            <span>${t("card.action")}</span>
+            <input type="text" data-field="action" value="${b.action || ""}" placeholder="light.toggle" />
+          </label>
+          <label class="field">
+            <span>${t("card.entity_id")}</span>
+            <input type="text" data-field="entity" value="${b.entity || ""}" placeholder="light.living_room" />
+          </label>
+        </div>`
+        )
+        .join("");
+
+      els.buttonsEditor.querySelectorAll(".button-edit").forEach((row) => {
+        const index = Number(row.dataset.button);
+        row.querySelectorAll("input").forEach((input) => {
+          input.addEventListener("input", () => {
+            const btn = state.draft.buttons.find((x) => x.index === index);
+            if (!btn) return;
+            btn[input.dataset.field] = input.value;
+            markDirty(true);
+            if (input.dataset.field === "name") {
+              renderFaceplate();
+              els.profileSubtitle.textContent = state.draft.name;
+            }
+          });
+        });
+      });
+    }
+
+    function applyI18n() {
+      document.documentElement.lang = state.lang;
+      const rtl = state.lang === "he";
+      document.documentElement.dir = rtl ? "rtl" : "ltr";
+      els.card.dir = rtl ? "rtl" : "ltr";
+
+      els.introSub.textContent = t("intro.sub");
+      els.hintLang.textContent = t("hint.lang");
+      els.hintColors.textContent = t("hint.colors");
+      els.hintSections.textContent = t("hint.sections");
+      els.refSummary.textContent = t("ref.summary");
+
+      document.querySelectorAll("[data-i18n]").forEach((node) => {
+        node.textContent = t(node.dataset.i18n);
+      });
+
+      document.querySelectorAll("[data-i18n-option]").forEach((opt) => {
+        opt.textContent = t(opt.dataset.i18nOption);
+      });
+
+      document.querySelectorAll(".lang-btn").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.lang === state.lang);
+      });
+
+      if (!state.dirty) {
+        els.statusBadge.textContent = t("card.synced_demo");
+      } else {
+        els.dirtyWarn.textContent = t("card.unsaved");
+        els.statusBadge.textContent = t("card.status") + ": pending";
+      }
+
+      renderButtonsEditor();
+    }
+
+    function syncFormFromDraft() {
+      const d = state.draft;
+      els.profileName.value = d.name;
+      els.profileSubtitle.textContent = d.name;
+      els.modeSelect.value = d.mode;
+      els.colorOn.value = d.color_on;
+      els.colorOff.value = d.color_off;
+      els.radar.value = d.radar;
+      els.backlight.checked = d.backlight;
+      els.childLock.checked = d.child_lock;
+      renderProfiles();
+      renderButtonsEditor();
+      renderFaceplate();
+    }
+
+    function bindControls() {
+      document.querySelectorAll(".lang-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          state.lang = btn.dataset.lang;
+          applyI18n();
+        });
+      });
+
+      document.querySelectorAll("[data-section-toggle]").forEach((input) => {
+        input.addEventListener("change", () => {
+          const id = input.dataset.sectionToggle;
+          const section = document.querySelector(`[data-section="${id}"]`);
+          section.classList.toggle("open", input.checked);
+        });
+      });
+
+      els.profileName.addEventListener("input", () => {
+        state.draft.name = els.profileName.value;
+        els.profileSubtitle.textContent = state.draft.name;
+        markDirty(true);
+        renderProfiles();
+      });
+
+      els.modeSelect.addEventListener("change", () => {
+        state.draft.mode = els.modeSelect.value;
+        if (state.draft.mode !== "toggle" && !state.draft.selected_button) {
+          state.draft.selected_button = 1;
+        }
+        markDirty(true);
+        renderFaceplate();
+      });
+
+      els.colorOn.addEventListener("change", () => {
+        state.draft.color_on = els.colorOn.value;
+        markDirty(true);
+        applyRingColors();
+      });
+
+      els.colorOff.addEventListener("change", () => {
+        state.draft.color_off = els.colorOff.value;
+        markDirty(true);
+        applyRingColors();
+      });
+
+      els.radar.addEventListener("change", () => {
+        state.draft.radar = els.radar.value;
+        markDirty(true);
+      });
+
+      els.backlight.addEventListener("change", () => {
+        state.draft.backlight = els.backlight.checked;
+        markDirty(true);
+      });
+
+      els.childLock.addEventListener("change", () => {
+        state.draft.child_lock = els.childLock.checked;
+        markDirty(true);
+      });
+
+      document.querySelectorAll("[data-action]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const action = btn.dataset.action;
+          if (action === "create") {
+            const id = "profile_" + Date.now();
+            const p = makeProfile(id, "Profile " + (Object.keys(state.profiles).length + 1));
+            state.profiles[id] = p;
+            state.activeId = id;
+            state.draft = deepClone(p);
+            state.saved = deepClone(p);
+            markDirty(false);
+            syncFormFromDraft();
+            showNotice(t("card.create") + " ✓");
+          } else if (action === "duplicate") {
+            const id = state.activeId + "_copy_" + Date.now();
+            const p = deepClone(state.draft);
+            p.id = id;
+            p.name = state.draft.name + " copy";
+            state.profiles[id] = p;
+            state.activeId = id;
+            state.draft = deepClone(p);
+            state.saved = deepClone(p);
+            markDirty(false);
+            syncFormFromDraft();
+            showNotice(t("card.duplicate") + " ✓");
+          } else if (action === "rename") {
+            const name = prompt(t("card.rename"), state.draft.name);
+            if (!name) return;
+            state.draft.name = name;
+            els.profileName.value = name;
+            els.profileSubtitle.textContent = name;
+            markDirty(true);
+            renderProfiles();
+          } else if (action === "delete") {
+            if (Object.keys(state.profiles).length <= 1) {
+              alert("At least one profile must remain");
+              return;
+            }
+            if (!confirm(t("card.delete") + " " + state.draft.name + "?")) return;
+            delete state.profiles[state.activeId];
+            state.activeId = Object.keys(state.profiles)[0];
+            state.draft = deepClone(state.profiles[state.activeId]);
+            state.saved = deepClone(state.profiles[state.activeId]);
+            markDirty(false);
+            syncFormFromDraft();
+          } else if (action === "export") {
+            const blob = new Blob(
+              [JSON.stringify({ schema_version: 1, active_profile_id: state.activeId, profiles: state.profiles }, null, 2)],
+              { type: "application/json" }
+            );
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = "conx-profiles-preview.json";
+            a.click();
+            URL.revokeObjectURL(a.href);
+            showNotice(t("card.export_ok"));
+          } else if (action === "import-merge" || action === "import-replace") {
+            showNotice(t("card.import_ok"));
+          }
+        });
+      });
+
+      els.btnSave.addEventListener("click", () => {
+        state.profiles[state.activeId] = deepClone(state.draft);
+        state.saved = deepClone(state.draft);
+        markDirty(false);
+        renderProfiles();
+        showNotice(t("card.save") + " ✓");
+      });
+
+      els.btnDiscard.addEventListener("click", () => {
+        state.draft = deepClone(state.saved);
+        markDirty(false);
+        syncFormFromDraft();
+      });
+
+      els.btnSync.addEventListener("click", () => {
+        if (state.dirty) {
+          state.profiles[state.activeId] = deepClone(state.draft);
+          state.saved = deepClone(state.draft);
+          markDirty(false);
+        }
+        els.card.classList.add("syncing-pulse");
+        els.statusBadge.className = "badge status-syncing";
+        els.statusBadge.textContent = t("card.syncing_demo");
+        setTimeout(() => {
+          els.card.classList.remove("syncing-pulse");
+          els.statusBadge.className = "badge status-synced";
+          els.statusBadge.textContent = t("card.synced_demo");
+          showNotice(t("card.sync") + " ✓");
+        }, 700);
+      });
+
+      els.btnPull.addEventListener("click", () => {
+        if (state.dirty && !confirm(t("card.unsaved"))) return;
+        state.draft = deepClone(state.saved);
+        markDirty(false);
+        syncFormFromDraft();
+        showNotice(t("card.pull") + " ✓");
+      });
+    }
+
+    fillColorSelects();
+    bindControls();
+    applyI18n();
+    syncFormFromDraft();
+    markDirty(false);
+  </script>
+</body>
+</html>
