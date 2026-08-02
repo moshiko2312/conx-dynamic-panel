@@ -39,13 +39,14 @@ const sampleProfile: Profile = {
   color_off: "blue",
   radar: "30s",
   backlight: true,
+  backlight_brightness: 100,
   child_lock: false,
   selected_button: null,
   buttons: [
-    { index: 1, name: "Living room", action: null },
-    { index: 2, name: "Kitchen", action: null },
-    { index: 3, name: "Outdoor", action: null },
-    { index: 4, name: "All off", action: null },
+    { index: 1, name: "Living room", action: null, radio_member: true },
+    { index: 2, name: "Kitchen", action: null, radio_member: true },
+    { index: 3, name: "Outdoor", action: null, radio_member: true },
+    { index: 4, name: "All off", action: null, radio_member: true },
   ],
 };
 
@@ -407,30 +408,36 @@ describe("custom elements", () => {
     expect(el.shadowRoot?.textContent).toMatch(/unsaved draft changes/i);
   });
 
-  it("exposes import and export controls in transfer wizard step", async () => {
+  it("opens export wizard from main editor and returns with back control", async () => {
     const callWS = vi.fn().mockResolvedValue(panelPayload({ sync_status: "synced" }));
     const el = await mountCard({ language: "en", callWS });
-    el._goToStep("transfer");
+    expect(el._view).toBe("editor");
+    expect(el.shadowRoot?.textContent).toMatch(/Export wizard|Profiles|Appearance/i);
+    el._openExportWizard();
     await el.updateComplete;
+    expect(el._view).toBe("export");
     expect(el.shadowRoot?.textContent).toContain("Download .json");
     expect(el.shadowRoot?.textContent).toContain("Import (merge)");
-    expect(el.shadowRoot?.textContent).toContain("Import (replace)");
+    expect(el.shadowRoot?.textContent).toContain("Back to editor");
     expect(el.shadowRoot?.textContent).toContain("schema_version");
     const yamlBox = el.shadowRoot?.querySelector("textarea.yaml-box") as HTMLTextAreaElement;
     expect(yamlBox?.value).toContain("conx_dynamic_panel.import_profiles");
+    el._backToEditor();
+    await el.updateComplete;
+    expect(el._view).toBe("editor");
+    expect(el.shadowRoot?.textContent).toMatch(/Export wizard/i);
   });
 
-  it("walks wizard steps with next/back controls", async () => {
+  it("defaults to single-page main editor with all key sections", async () => {
     const callWS = vi.fn().mockResolvedValue(panelPayload({ sync_status: "synced" }));
     const el = await mountCard({ language: "en", callWS });
-    expect(el._wizardStep).toBe("language");
-    el._wizardNext();
-    await el.updateComplete;
-    expect(el._wizardStep).toBe("profiles");
-    el._goToStep("transfer");
-    await el.updateComplete;
-    expect(el.shadowRoot?.querySelector(".wizard-steps")).toBeTruthy();
-    expect(el.shadowRoot?.querySelector('[data-step="transfer"]')).toBeTruthy();
+    expect(el._view).toBe("editor");
+    const text = el.shadowRoot?.textContent || "";
+    expect(text).toMatch(/Profiles/i);
+    expect(text).toMatch(/Appearance|Buttons/i);
+    expect(text).toMatch(/Panel preview|preview/i);
+    expect(text).toMatch(/Export wizard/i);
+    expect(el.shadowRoot?.querySelector(".wizard-steps")).toBeFalsy();
   });
 
   it("requests sync through websocket and shows errors", async () => {

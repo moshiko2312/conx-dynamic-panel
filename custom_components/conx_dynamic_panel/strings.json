@@ -37,6 +37,7 @@
           "color_on_entity": "Color ON",
           "radar_entity": "Radar",
           "backlight_entity": "Backlight",
+          "backlight_brightness_entity": "Backlight brightness (optional)",
           "child_lock_entity": "Child lock"
         }
       },

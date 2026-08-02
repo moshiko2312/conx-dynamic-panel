@@ -10,9 +10,22 @@ from typing import Any
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
-from ..const import BUTTON_COUNT, DEFAULT_COLORS, DEFAULT_RADAR
+from ..const import (
+    BACKLIGHT_BRIGHTNESS_MAX,
+    BACKLIGHT_BRIGHTNESS_MIN,
+    BUTTON_COUNT,
+    DEFAULT_BACKLIGHT_BRIGHTNESS,
+    DEFAULT_COLORS,
+    DEFAULT_RADAR,
+)
 from ..exceptions import HardwareWriteError, MappingValidationError
-from ..models import EntityMapping, HardwareState, Profile, SyncResult
+from ..models import (
+    EntityMapping,
+    HardwareState,
+    Profile,
+    SyncResult,
+    clamp_backlight_brightness,
+)
 from ..suppression import SuppressionTracker
 from .base import PanelAdapter
 
@@ -59,6 +72,10 @@ class Zemismart4GangAdapter(PanelAdapter):
         ):
             self._require_domain(entity_id, domain)
             self._require_exists(entity_id)
+
+        if self.mapping.backlight_brightness_entity:
+            self._require_domain(self.mapping.backlight_brightness_entity, "number")
+            self._require_exists(self.mapping.backlight_brightness_entity)
 
         for select_entity in (
             self.mapping.color_off_entity,
@@ -108,6 +125,7 @@ class Zemismart4GangAdapter(PanelAdapter):
             radar=self._state_str(self.mapping.radar_entity),
             backlight=self._state_bool(self.mapping.backlight_entity),
             child_lock=self._state_bool(self.mapping.child_lock_entity),
+            backlight_brightness=self._read_backlight_brightness(),
         )
 
     async def async_apply_profile(self, profile: Profile) -> SyncResult:
@@ -122,6 +140,9 @@ class Zemismart4GangAdapter(PanelAdapter):
             confirmed.append("radar")
             await self.async_set_backlight(profile.backlight)
             confirmed.append("backlight")
+            if self.mapping.backlight_brightness_entity:
+                await self.async_set_backlight_brightness(profile.backlight_brightness)
+                confirmed.append("backlight_brightness")
             await self.async_set_child_lock(profile.child_lock)
             confirmed.append("child_lock")
             await self._async_apply_relay_mode(profile)
@@ -181,6 +202,21 @@ class Zemismart4GangAdapter(PanelAdapter):
         """Set backlight switch."""
         await self._async_set_switch(self.mapping.backlight_entity, enabled)
 
+    async def async_set_backlight_brightness(self, brightness: int) -> None:
+        """Set optional backlight brightness number entity (profile 0–100)."""
+        entity_id = self.mapping.backlight_brightness_entity
+        if not entity_id:
+            return
+        brightness = clamp_backlight_brightness(brightness)
+        device_value = self._brightness_to_device_value(entity_id, brightness)
+        await self.hass.services.async_call(
+            "number",
+            "set_value",
+            {"entity_id": entity_id, "value": device_value},
+            blocking=True,
+        )
+        await self._async_wait_for_numeric_state(entity_id, device_value)
+
     async def async_set_child_lock(self, enabled: bool) -> None:
         """Set child lock switch."""
         await self._async_set_switch(self.mapping.child_lock_entity, enabled)
@@ -197,14 +233,19 @@ class Zemismart4GangAdapter(PanelAdapter):
         return self._options(self.mapping.radar_entity) or list(DEFAULT_RADAR)
 
     async def _async_apply_relay_mode(self, profile: Profile) -> None:
-        """Apply relay pattern required by the profile mode."""
+        """Apply relay pattern required by the profile mode for radio members only."""
         if profile.mode == "toggle":
             return
+        members = set(profile.radio_member_indexes())
         selected = profile.selected_button
-        if profile.mode == "radio_mandatory" and selected not in {1, 2, 3, 4}:
-            selected = 1
-            profile.selected_button = 1
-        for index in range(1, BUTTON_COUNT + 1):
+        if selected not in members:
+            selected = None
+        if profile.mode == "radio_mandatory" and selected is None:
+            selected = next(iter(sorted(members)), 1)
+            profile.selected_button = selected
+        elif selected is not None:
+            profile.selected_button = selected
+        for index in sorted(members):
             desired = selected == index
             await self.async_set_relay(index, desired, suppress_event=True)
 
@@ -276,3 +317,58 @@ class Zemismart4GangAdapter(PanelAdapter):
 
     def _state_bool(self, entity_id: str) -> bool:
         return self._state_str(entity_id) == "on"
+
+    def _number_range(self, entity_id: str) -> tuple[float, float]:
+        state = self.hass.states.get(entity_id)
+        if state is None:
+            return float(BACKLIGHT_BRIGHTNESS_MIN), float(BACKLIGHT_BRIGHTNESS_MAX)
+        try:
+            minimum = float(state.attributes.get("min", BACKLIGHT_BRIGHTNESS_MIN))
+            maximum = float(state.attributes.get("max", BACKLIGHT_BRIGHTNESS_MAX))
+        except (TypeError, ValueError):
+            return float(BACKLIGHT_BRIGHTNESS_MIN), float(BACKLIGHT_BRIGHTNESS_MAX)
+        if maximum <= minimum:
+            return float(BACKLIGHT_BRIGHTNESS_MIN), float(BACKLIGHT_BRIGHTNESS_MAX)
+        return minimum, maximum
+
+    def _brightness_to_device_value(self, entity_id: str, brightness: int) -> float:
+        minimum, maximum = self._number_range(entity_id)
+        ratio = brightness / float(BACKLIGHT_BRIGHTNESS_MAX)
+        return minimum + (maximum - minimum) * ratio
+
+    def _device_value_to_brightness(self, entity_id: str, device_value: float) -> int:
+        minimum, maximum = self._number_range(entity_id)
+        if maximum <= minimum:
+            return DEFAULT_BACKLIGHT_BRIGHTNESS
+        ratio = (device_value - minimum) / (maximum - minimum)
+        return clamp_backlight_brightness(round(ratio * BACKLIGHT_BRIGHTNESS_MAX))
+
+    def _read_backlight_brightness(self) -> int | None:
+        entity_id = self.mapping.backlight_brightness_entity
+        if not entity_id:
+            return None
+        state = self.hass.states.get(entity_id)
+        if state is None or state.state in {"unknown", "unavailable"}:
+            return None
+        try:
+            return self._device_value_to_brightness(entity_id, float(state.state))
+        except (TypeError, ValueError):
+            return None
+
+    async def _async_wait_for_numeric_state(self, entity_id: str, expected: float) -> None:
+        deadline = asyncio.get_running_loop().time() + self.confirm_timeout
+        while asyncio.get_running_loop().time() < deadline:
+            state = self.hass.states.get(entity_id)
+            if state is not None and state.state not in {"unknown", "unavailable"}:
+                try:
+                    if abs(float(state.state) - float(expected)) < 0.51:
+                        return
+                except (TypeError, ValueError):
+                    pass
+            await asyncio.sleep(0.1)
+        current = self.hass.states.get(entity_id)
+        current_state = current.state if current else "missing"
+        raise HardwareWriteError(
+            f"Timed out waiting for {entity_id} to become '{expected}' "
+            f"(current='{current_state}')"
+        )

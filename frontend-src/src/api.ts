@@ -122,8 +122,31 @@ export async function importProfiles(
   });
 }
 
+/** Normalize legacy/partial profiles so new fields always exist in the card draft. */
+export function normalizeProfile(profile: Profile): Profile {
+  const cloned = structuredClone(profile);
+  if (typeof cloned.backlight_brightness !== "number" || !Number.isFinite(cloned.backlight_brightness)) {
+    cloned.backlight_brightness = 100;
+  } else {
+    cloned.backlight_brightness = Math.max(
+      0,
+      Math.min(100, Math.round(cloned.backlight_brightness))
+    );
+  }
+  cloned.buttons = [1, 2, 3, 4].map((index) => {
+    const found = cloned.buttons?.find((button) => button.index === index);
+    return {
+      index,
+      name: found?.name ?? `Button ${index}`,
+      action: found?.action ?? null,
+      radio_member: found?.radio_member !== false,
+    };
+  });
+  return cloned;
+}
+
 export function cloneProfile(profile: Profile): Profile {
-  return structuredClone(profile);
+  return normalizeProfile(profile);
 }
 
 export function profilesEqual(a: Profile | null, b: Profile | null): boolean {

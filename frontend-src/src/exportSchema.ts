@@ -87,8 +87,18 @@ function parseProfile(
       index,
       name: String(found.name ?? `Button ${index}`),
       action,
+      radio_member: found.radio_member === undefined ? true : Boolean(found.radio_member),
     };
   });
+
+  let brightness = 100;
+  if (value.backlight_brightness !== undefined && value.backlight_brightness !== null) {
+    const raw = Number(value.backlight_brightness);
+    if (!Number.isFinite(raw)) {
+      return { ok: false, error: `invalid backlight_brightness for profile ${id}` };
+    }
+    brightness = Math.max(0, Math.min(100, Math.round(raw)));
+  }
 
   return {
     ok: true,
@@ -100,6 +110,7 @@ function parseProfile(
       color_off: String(value.color_off || "blue"),
       radar: String(value.radar || "30s"),
       backlight: Boolean(value.backlight ?? true),
+      backlight_brightness: brightness,
       child_lock: Boolean(value.child_lock ?? false),
       selected_button:
         value.selected_button === null || value.selected_button === undefined

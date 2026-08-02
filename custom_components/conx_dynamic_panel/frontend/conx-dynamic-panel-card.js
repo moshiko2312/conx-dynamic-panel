@@ -3,18 +3,18 @@
  * Copyright 2019 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const W = globalThis, et = W.ShadowRoot && (W.ShadyCSS === void 0 || W.ShadyCSS.nativeShadow) && "adoptedStyleSheets" in Document.prototype && "replace" in CSSStyleSheet.prototype, rt = Symbol(), ot = /* @__PURE__ */ new WeakMap();
-let vt = class {
+const F = globalThis, rt = F.ShadowRoot && (F.ShadyCSS === void 0 || F.ShadyCSS.nativeShadow) && "adoptedStyleSheets" in Document.prototype && "replace" in CSSStyleSheet.prototype, it = Symbol(), dt = /* @__PURE__ */ new WeakMap();
+let Et = class {
   constructor(t, r, i) {
-    if (this._$cssResult$ = !0, i !== rt) throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");
+    if (this._$cssResult$ = !0, i !== it) throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");
     this.cssText = t, this.t = r;
   }
   get styleSheet() {
     let t = this.o;
     const r = this.t;
-    if (et && t === void 0) {
+    if (rt && t === void 0) {
       const i = r !== void 0 && r.length === 1;
-      i && (t = ot.get(r)), t === void 0 && ((this.o = t = new CSSStyleSheet()).replaceSync(this.cssText), i && ot.set(r, t));
+      i && (t = dt.get(r)), t === void 0 && ((this.o = t = new CSSStyleSheet()).replaceSync(this.cssText), i && dt.set(r, t));
     }
     return t;
   }
@@ -22,33 +22,33 @@ let vt = class {
     return this.cssText;
   }
 };
-const Nt = (e) => new vt(typeof e == "string" ? e : e + "", void 0, rt), $t = (e, ...t) => {
+const Bt = (e) => new Et(typeof e == "string" ? e : e + "", void 0, it), At = (e, ...t) => {
   const r = e.length === 1 ? e[0] : t.reduce((i, a, s) => i + ((n) => {
     if (n._$cssResult$ === !0) return n.cssText;
     if (typeof n == "number") return n;
     throw Error("Value passed to 'css' function must be a 'css' function result: " + n + ". Use 'unsafeCSS' to pass non-literal values, but take care to ensure page security.");
   })(a) + e[s + 1], e[0]);
-  return new vt(r, e, rt);
-}, Dt = (e, t) => {
-  if (et) e.adoptedStyleSheets = t.map((r) => r instanceof CSSStyleSheet ? r : r.styleSheet);
+  return new Et(r, e, it);
+}, jt = (e, t) => {
+  if (rt) e.adoptedStyleSheets = t.map((r) => r instanceof CSSStyleSheet ? r : r.styleSheet);
   else for (const r of t) {
-    const i = document.createElement("style"), a = W.litNonce;
+    const i = document.createElement("style"), a = F.litNonce;
     a !== void 0 && i.setAttribute("nonce", a), i.textContent = r.cssText, e.appendChild(i);
   }
-}, ct = et ? (e) => e : (e) => e instanceof CSSStyleSheet ? ((t) => {
+}, pt = rt ? (e) => e : (e) => e instanceof CSSStyleSheet ? ((t) => {
   let r = "";
   for (const i of t.cssRules) r += i.cssText;
-  return Nt(r);
+  return Bt(r);
 })(e) : e;
 /**
  * @license
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const { is: Lt, defineProperty: It, getOwnPropertyDescriptor: Ut, getOwnPropertyNames: Tt, getOwnPropertySymbols: Mt, getPrototypeOf: jt } = Object, v = globalThis, lt = v.trustedTypes, Bt = lt ? lt.emptyScript : "", X = v.reactiveElementPolyfillSupport, D = (e, t) => e, J = { toAttribute(e, t) {
+const { is: Ht, defineProperty: Yt, getOwnPropertyDescriptor: Wt, getOwnPropertyNames: Ft, getOwnPropertySymbols: Jt, getPrototypeOf: Vt } = Object, y = globalThis, ht = y.trustedTypes, qt = ht ? ht.emptyScript : "", X = y.reactiveElementPolyfillSupport, M = (e, t) => e, J = { toAttribute(e, t) {
   switch (t) {
     case Boolean:
-      e = e ? Bt : null;
+      e = e ? qt : null;
       break;
     case Object:
     case Array:
@@ -73,44 +73,44 @@ const { is: Lt, defineProperty: It, getOwnPropertyDescriptor: Ut, getOwnProperty
       }
   }
   return r;
-} }, it = (e, t) => !Lt(e, t), dt = { attribute: !0, type: String, converter: J, reflect: !1, useDefault: !1, hasChanged: it };
-Symbol.metadata ?? (Symbol.metadata = Symbol("metadata")), v.litPropertyMetadata ?? (v.litPropertyMetadata = /* @__PURE__ */ new WeakMap());
-let E = class extends HTMLElement {
+} }, at = (e, t) => !Ht(e, t), ft = { attribute: !0, type: String, converter: J, reflect: !1, useDefault: !1, hasChanged: at };
+Symbol.metadata ?? (Symbol.metadata = Symbol("metadata")), y.litPropertyMetadata ?? (y.litPropertyMetadata = /* @__PURE__ */ new WeakMap());
+let P = class extends HTMLElement {
   static addInitializer(t) {
     this._$Ei(), (this.l ?? (this.l = [])).push(t);
   }
   static get observedAttributes() {
     return this.finalize(), this._$Eh && [...this._$Eh.keys()];
   }
-  static createProperty(t, r = dt) {
+  static createProperty(t, r = ft) {
     if (r.state && (r.attribute = !1), this._$Ei(), this.prototype.hasOwnProperty(t) && ((r = Object.create(r)).wrapped = !0), this.elementProperties.set(t, r), !r.noAccessor) {
       const i = Symbol(), a = this.getPropertyDescriptor(t, i, r);
-      a !== void 0 && It(this.prototype, t, a);
+      a !== void 0 && Yt(this.prototype, t, a);
     }
   }
   static getPropertyDescriptor(t, r, i) {
-    const { get: a, set: s } = Ut(this.prototype, t) ?? { get() {
+    const { get: a, set: s } = Wt(this.prototype, t) ?? { get() {
       return this[r];
     }, set(n) {
       this[r] = n;
     } };
     return { get: a, set(n) {
-      const o = a == null ? void 0 : a.call(this);
-      s == null || s.call(this, n), this.requestUpdate(t, o, i);
+      const c = a == null ? void 0 : a.call(this);
+      s == null || s.call(this, n), this.requestUpdate(t, c, i);
     }, configurable: !0, enumerable: !0 };
   }
   static getPropertyOptions(t) {
-    return this.elementProperties.get(t) ?? dt;
+    return this.elementProperties.get(t) ?? ft;
   }
   static _$Ei() {
-    if (this.hasOwnProperty(D("elementProperties"))) return;
-    const t = jt(this);
+    if (this.hasOwnProperty(M("elementProperties"))) return;
+    const t = Vt(this);
     t.finalize(), t.l !== void 0 && (this.l = [...t.l]), this.elementProperties = new Map(t.elementProperties);
   }
   static finalize() {
-    if (this.hasOwnProperty(D("finalized"))) return;
-    if (this.finalized = !0, this._$Ei(), this.hasOwnProperty(D("properties"))) {
-      const r = this.properties, i = [...Tt(r), ...Mt(r)];
+    if (this.hasOwnProperty(M("finalized"))) return;
+    if (this.finalized = !0, this._$Ei(), this.hasOwnProperty(M("properties"))) {
+      const r = this.properties, i = [...Ft(r), ...Jt(r)];
       for (const a of i) this.createProperty(a, r[a]);
     }
     const t = this[Symbol.metadata];
@@ -129,8 +129,8 @@ let E = class extends HTMLElement {
     const r = [];
     if (Array.isArray(t)) {
       const i = new Set(t.flat(1 / 0).reverse());
-      for (const a of i) r.unshift(ct(a));
-    } else t !== void 0 && r.push(ct(t));
+      for (const a of i) r.unshift(pt(a));
+    } else t !== void 0 && r.push(pt(t));
     return r;
   }
   static _$Eu(t, r) {
@@ -159,7 +159,7 @@ let E = class extends HTMLElement {
   }
   createRenderRoot() {
     const t = this.shadowRoot ?? this.attachShadow(this.constructor.shadowRootOptions);
-    return Dt(t, this.constructor.elementStyles), t;
+    return jt(t, this.constructor.elementStyles), t;
   }
   connectedCallback() {
     var t;
@@ -192,17 +192,17 @@ let E = class extends HTMLElement {
     var s, n;
     const i = this.constructor, a = i._$Eh.get(t);
     if (a !== void 0 && this._$Em !== a) {
-      const o = i.getPropertyOptions(a), c = typeof o.converter == "function" ? { fromAttribute: o.converter } : ((s = o.converter) == null ? void 0 : s.fromAttribute) !== void 0 ? o.converter : J;
+      const c = i.getPropertyOptions(a), o = typeof c.converter == "function" ? { fromAttribute: c.converter } : ((s = c.converter) == null ? void 0 : s.fromAttribute) !== void 0 ? c.converter : J;
       this._$Em = a;
-      const d = c.fromAttribute(r, o.type);
-      this[a] = d ?? ((n = this._$Ej) == null ? void 0 : n.get(a)) ?? d, this._$Em = null;
+      const p = o.fromAttribute(r, c.type);
+      this[a] = p ?? ((n = this._$Ej) == null ? void 0 : n.get(a)) ?? p, this._$Em = null;
     }
   }
   requestUpdate(t, r, i, a = !1, s) {
     var n;
     if (t !== void 0) {
-      const o = this.constructor;
-      if (a === !1 && (s = this[t]), i ?? (i = o.getPropertyOptions(t)), !((i.hasChanged ?? it)(s, r) || i.useDefault && i.reflect && s === ((n = this._$Ej) == null ? void 0 : n.get(t)) && !this.hasAttribute(o._$Eu(t, i)))) return;
+      const c = this.constructor;
+      if (a === !1 && (s = this[t]), i ?? (i = c.getPropertyOptions(t)), !((i.hasChanged ?? at)(s, r) || i.useDefault && i.reflect && s === ((n = this._$Ej) == null ? void 0 : n.get(t)) && !this.hasAttribute(c._$Eu(t, i)))) return;
       this.C(t, r, i);
     }
     this.isUpdatePending === !1 && (this._$ES = this._$EP());
@@ -233,8 +233,8 @@ let E = class extends HTMLElement {
       }
       const a = this.constructor.elementProperties;
       if (a.size > 0) for (const [s, n] of a) {
-        const { wrapped: o } = n, c = this[s];
-        o !== !0 || this._$AL.has(s) || c === void 0 || this.C(s, void 0, n, c);
+        const { wrapped: c } = n, o = this[s];
+        c !== !0 || this._$AL.has(s) || o === void 0 || this.C(s, void 0, n, o);
       }
     }
     let t = !1;
@@ -278,76 +278,76 @@ let E = class extends HTMLElement {
   firstUpdated(t) {
   }
 };
-E.elementStyles = [], E.shadowRootOptions = { mode: "open" }, E[D("elementProperties")] = /* @__PURE__ */ new Map(), E[D("finalized")] = /* @__PURE__ */ new Map(), X == null || X({ ReactiveElement: E }), (v.reactiveElementVersions ?? (v.reactiveElementVersions = [])).push("2.1.2");
+P.elementStyles = [], P.shadowRootOptions = { mode: "open" }, P[M("elementProperties")] = /* @__PURE__ */ new Map(), P[M("finalized")] = /* @__PURE__ */ new Map(), X == null || X({ ReactiveElement: P }), (y.reactiveElementVersions ?? (y.reactiveElementVersions = [])).push("2.1.2");
 /**
  * @license
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const L = globalThis, pt = (e) => e, q = L.trustedTypes, ht = q ? q.createPolicy("lit-html", { createHTML: (e) => e }) : void 0, wt = "$lit$", y = `lit$${Math.random().toFixed(9).slice(2)}$`, St = "?" + y, Ht = `<${St}>`, k = document, I = () => k.createComment(""), U = (e) => e === null || typeof e != "object" && typeof e != "function", at = Array.isArray, Yt = (e) => at(e) || typeof (e == null ? void 0 : e[Symbol.iterator]) == "function", Z = `[ 	
-\f\r]`, O = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, ft = /-->/g, ut = />/g, $ = RegExp(`>|${Z}(?:([^\\s"'>=/]+)(${Z}*=${Z}*(?:[^ 	
-\f\r"'\`<>=]|("|')|))|$)`, "g"), gt = /'/g, _t = /"/g, kt = /^(?:script|style|textarea|title)$/i, Wt = (e) => (t, ...r) => ({ _$litType$: e, strings: t, values: r }), l = Wt(1), C = Symbol.for("lit-noChange"), p = Symbol.for("lit-nothing"), bt = /* @__PURE__ */ new WeakMap(), w = k.createTreeWalker(k, 129);
-function At(e, t) {
-  if (!at(e) || !e.hasOwnProperty("raw")) throw Error("invalid template strings array");
-  return ht !== void 0 ? ht.createHTML(t) : t;
+const I = globalThis, gt = (e) => e, V = I.trustedTypes, ut = V ? V.createPolicy("lit-html", { createHTML: (e) => e }) : void 0, Pt = "$lit$", v = `lit$${Math.random().toFixed(9).slice(2)}$`, Ct = "?" + v, Gt = `<${Ct}>`, S = document, L = () => S.createComment(""), U = (e) => e === null || typeof e != "object" && typeof e != "function", st = Array.isArray, Xt = (e) => st(e) || typeof (e == null ? void 0 : e[Symbol.iterator]) == "function", Z = `[ 	
+\f\r]`, N = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, _t = /-->/g, bt = />/g, $ = RegExp(`>|${Z}(?:([^\\s"'>=/]+)(${Z}*=${Z}*(?:[^ 	
+\f\r"'\`<>=]|("|')|))|$)`, "g"), mt = /'/g, xt = /"/g, zt = /^(?:script|style|textarea|title)$/i, Zt = (e) => (t, ...r) => ({ _$litType$: e, strings: t, values: r }), l = Zt(1), O = Symbol.for("lit-noChange"), d = Symbol.for("lit-nothing"), vt = /* @__PURE__ */ new WeakMap(), w = S.createTreeWalker(S, 129);
+function Ot(e, t) {
+  if (!st(e) || !e.hasOwnProperty("raw")) throw Error("invalid template strings array");
+  return ut !== void 0 ? ut.createHTML(t) : t;
 }
-const Ft = (e, t) => {
+const Kt = (e, t) => {
   const r = e.length - 1, i = [];
-  let a, s = t === 2 ? "<svg>" : t === 3 ? "<math>" : "", n = O;
-  for (let o = 0; o < r; o++) {
-    const c = e[o];
-    let d, _, h = -1, b = 0;
-    for (; b < c.length && (n.lastIndex = b, _ = n.exec(c), _ !== null); ) b = n.lastIndex, n === O ? _[1] === "!--" ? n = ft : _[1] !== void 0 ? n = ut : _[2] !== void 0 ? (kt.test(_[2]) && (a = RegExp("</" + _[2], "g")), n = $) : _[3] !== void 0 && (n = $) : n === $ ? _[0] === ">" ? (n = a ?? O, h = -1) : _[1] === void 0 ? h = -2 : (h = n.lastIndex - _[2].length, d = _[1], n = _[3] === void 0 ? $ : _[3] === '"' ? _t : gt) : n === _t || n === gt ? n = $ : n === ft || n === ut ? n = O : (n = $, a = void 0);
-    const m = n === $ && e[o + 1].startsWith("/>") ? " " : "";
-    s += n === O ? c + Ht : h >= 0 ? (i.push(d), c.slice(0, h) + wt + c.slice(h) + y + m) : c + y + (h === -2 ? o : m);
+  let a, s = t === 2 ? "<svg>" : t === 3 ? "<math>" : "", n = N;
+  for (let c = 0; c < r; c++) {
+    const o = e[c];
+    let p, f, h = -1, m = 0;
+    for (; m < o.length && (n.lastIndex = m, f = n.exec(o), f !== null); ) m = n.lastIndex, n === N ? f[1] === "!--" ? n = _t : f[1] !== void 0 ? n = bt : f[2] !== void 0 ? (zt.test(f[2]) && (a = RegExp("</" + f[2], "g")), n = $) : f[3] !== void 0 && (n = $) : n === $ ? f[0] === ">" ? (n = a ?? N, h = -1) : f[1] === void 0 ? h = -2 : (h = n.lastIndex - f[2].length, p = f[1], n = f[3] === void 0 ? $ : f[3] === '"' ? xt : mt) : n === xt || n === mt ? n = $ : n === _t || n === bt ? n = N : (n = $, a = void 0);
+    const b = n === $ && e[c + 1].startsWith("/>") ? " " : "";
+    s += n === N ? o + Gt : h >= 0 ? (i.push(p), o.slice(0, h) + Pt + o.slice(h) + v + b) : o + v + (h === -2 ? c : b);
   }
-  return [At(e, s + (e[r] || "<?>") + (t === 2 ? "</svg>" : t === 3 ? "</math>" : "")), i];
+  return [Ot(e, s + (e[r] || "<?>") + (t === 2 ? "</svg>" : t === 3 ? "</math>" : "")), i];
 };
-class T {
+class B {
   constructor({ strings: t, _$litType$: r }, i) {
     let a;
     this.parts = [];
     let s = 0, n = 0;
-    const o = t.length - 1, c = this.parts, [d, _] = Ft(t, r);
-    if (this.el = T.createElement(d, i), w.currentNode = this.el.content, r === 2 || r === 3) {
+    const c = t.length - 1, o = this.parts, [p, f] = Kt(t, r);
+    if (this.el = B.createElement(p, i), w.currentNode = this.el.content, r === 2 || r === 3) {
       const h = this.el.content.firstChild;
       h.replaceWith(...h.childNodes);
     }
-    for (; (a = w.nextNode()) !== null && c.length < o; ) {
+    for (; (a = w.nextNode()) !== null && o.length < c; ) {
       if (a.nodeType === 1) {
-        if (a.hasAttributes()) for (const h of a.getAttributeNames()) if (h.endsWith(wt)) {
-          const b = _[n++], m = a.getAttribute(h).split(y), H = /([.?@])?(.*)/.exec(b);
-          c.push({ type: 1, index: s, name: H[2], strings: m, ctor: H[1] === "." ? qt : H[1] === "?" ? Vt : H[1] === "@" ? Xt : V }), a.removeAttribute(h);
-        } else h.startsWith(y) && (c.push({ type: 6, index: s }), a.removeAttribute(h));
-        if (kt.test(a.tagName)) {
-          const h = a.textContent.split(y), b = h.length - 1;
-          if (b > 0) {
-            a.textContent = q ? q.emptyScript : "";
-            for (let m = 0; m < b; m++) a.append(h[m], I()), w.nextNode(), c.push({ type: 2, index: ++s });
-            a.append(h[b], I());
+        if (a.hasAttributes()) for (const h of a.getAttributeNames()) if (h.endsWith(Pt)) {
+          const m = f[n++], b = a.getAttribute(h).split(v), E = /([.?@])?(.*)/.exec(m);
+          o.push({ type: 1, index: s, name: E[2], strings: b, ctor: E[1] === "." ? te : E[1] === "?" ? ee : E[1] === "@" ? re : q }), a.removeAttribute(h);
+        } else h.startsWith(v) && (o.push({ type: 6, index: s }), a.removeAttribute(h));
+        if (zt.test(a.tagName)) {
+          const h = a.textContent.split(v), m = h.length - 1;
+          if (m > 0) {
+            a.textContent = V ? V.emptyScript : "";
+            for (let b = 0; b < m; b++) a.append(h[b], L()), w.nextNode(), o.push({ type: 2, index: ++s });
+            a.append(h[m], L());
           }
         }
-      } else if (a.nodeType === 8) if (a.data === St) c.push({ type: 2, index: s });
+      } else if (a.nodeType === 8) if (a.data === Ct) o.push({ type: 2, index: s });
       else {
         let h = -1;
-        for (; (h = a.data.indexOf(y, h + 1)) !== -1; ) c.push({ type: 7, index: s }), h += y.length - 1;
+        for (; (h = a.data.indexOf(v, h + 1)) !== -1; ) o.push({ type: 7, index: s }), h += v.length - 1;
       }
       s++;
     }
   }
   static createElement(t, r) {
-    const i = k.createElement("template");
+    const i = S.createElement("template");
     return i.innerHTML = t, i;
   }
 }
-function z(e, t, r = e, i) {
-  var n, o;
-  if (t === C) return t;
+function R(e, t, r = e, i) {
+  var n, c;
+  if (t === O) return t;
   let a = i !== void 0 ? (n = r._$Co) == null ? void 0 : n[i] : r._$Cl;
   const s = U(t) ? void 0 : t._$litDirective$;
-  return (a == null ? void 0 : a.constructor) !== s && ((o = a == null ? void 0 : a._$AO) == null || o.call(a, !1), s === void 0 ? a = void 0 : (a = new s(e), a._$AT(e, r, i)), i !== void 0 ? (r._$Co ?? (r._$Co = []))[i] = a : r._$Cl = a), a !== void 0 && (t = z(e, a._$AS(e, t.values), a, i)), t;
+  return (a == null ? void 0 : a.constructor) !== s && ((c = a == null ? void 0 : a._$AO) == null || c.call(a, !1), s === void 0 ? a = void 0 : (a = new s(e), a._$AT(e, r, i)), i !== void 0 ? (r._$Co ?? (r._$Co = []))[i] = a : r._$Cl = a), a !== void 0 && (t = R(e, a._$AS(e, t.values), a, i)), t;
 }
-class Jt {
+class Qt {
   constructor(t, r) {
     this._$AV = [], this._$AN = void 0, this._$AD = t, this._$AM = r;
   }
@@ -358,30 +358,30 @@ class Jt {
     return this._$AM._$AU;
   }
   u(t) {
-    const { el: { content: r }, parts: i } = this._$AD, a = ((t == null ? void 0 : t.creationScope) ?? k).importNode(r, !0);
+    const { el: { content: r }, parts: i } = this._$AD, a = ((t == null ? void 0 : t.creationScope) ?? S).importNode(r, !0);
     w.currentNode = a;
-    let s = w.nextNode(), n = 0, o = 0, c = i[0];
-    for (; c !== void 0; ) {
-      if (n === c.index) {
-        let d;
-        c.type === 2 ? d = new B(s, s.nextSibling, this, t) : c.type === 1 ? d = new c.ctor(s, c.name, c.strings, this, t) : c.type === 6 && (d = new Zt(s, this, t)), this._$AV.push(d), c = i[++o];
+    let s = w.nextNode(), n = 0, c = 0, o = i[0];
+    for (; o !== void 0; ) {
+      if (n === o.index) {
+        let p;
+        o.type === 2 ? p = new Y(s, s.nextSibling, this, t) : o.type === 1 ? p = new o.ctor(s, o.name, o.strings, this, t) : o.type === 6 && (p = new ie(s, this, t)), this._$AV.push(p), o = i[++c];
       }
-      n !== (c == null ? void 0 : c.index) && (s = w.nextNode(), n++);
+      n !== (o == null ? void 0 : o.index) && (s = w.nextNode(), n++);
     }
-    return w.currentNode = k, a;
+    return w.currentNode = S, a;
   }
   p(t) {
     let r = 0;
     for (const i of this._$AV) i !== void 0 && (i.strings !== void 0 ? (i._$AI(t, i, r), r += i.strings.length - 2) : i._$AI(t[r])), r++;
   }
 }
-class B {
+class Y {
   get _$AU() {
     var t;
     return ((t = this._$AM) == null ? void 0 : t._$AU) ?? this._$Cv;
   }
   constructor(t, r, i, a) {
-    this.type = 2, this._$AH = p, this._$AN = void 0, this._$AA = t, this._$AB = r, this._$AM = i, this.options = a, this._$Cv = (a == null ? void 0 : a.isConnected) ?? !0;
+    this.type = 2, this._$AH = d, this._$AN = void 0, this._$AA = t, this._$AB = r, this._$AM = i, this.options = a, this._$Cv = (a == null ? void 0 : a.isConnected) ?? !0;
   }
   get parentNode() {
     let t = this._$AA.parentNode;
@@ -395,7 +395,7 @@ class B {
     return this._$AB;
   }
   _$AI(t, r = this) {
-    t = z(this, t, r), U(t) ? t === p || t == null || t === "" ? (this._$AH !== p && this._$AR(), this._$AH = p) : t !== this._$AH && t !== C && this._(t) : t._$litType$ !== void 0 ? this.$(t) : t.nodeType !== void 0 ? this.T(t) : Yt(t) ? this.k(t) : this._(t);
+    t = R(this, t, r), U(t) ? t === d || t == null || t === "" ? (this._$AH !== d && this._$AR(), this._$AH = d) : t !== this._$AH && t !== O && this._(t) : t._$litType$ !== void 0 ? this.$(t) : t.nodeType !== void 0 ? this.T(t) : Xt(t) ? this.k(t) : this._(t);
   }
   O(t) {
     return this._$AA.parentNode.insertBefore(t, this._$AB);
@@ -404,33 +404,33 @@ class B {
     this._$AH !== t && (this._$AR(), this._$AH = this.O(t));
   }
   _(t) {
-    this._$AH !== p && U(this._$AH) ? this._$AA.nextSibling.data = t : this.T(k.createTextNode(t)), this._$AH = t;
+    this._$AH !== d && U(this._$AH) ? this._$AA.nextSibling.data = t : this.T(S.createTextNode(t)), this._$AH = t;
   }
   $(t) {
     var s;
-    const { values: r, _$litType$: i } = t, a = typeof i == "number" ? this._$AC(t) : (i.el === void 0 && (i.el = T.createElement(At(i.h, i.h[0]), this.options)), i);
+    const { values: r, _$litType$: i } = t, a = typeof i == "number" ? this._$AC(t) : (i.el === void 0 && (i.el = B.createElement(Ot(i.h, i.h[0]), this.options)), i);
     if (((s = this._$AH) == null ? void 0 : s._$AD) === a) this._$AH.p(r);
     else {
-      const n = new Jt(a, this), o = n.u(this.options);
-      n.p(r), this.T(o), this._$AH = n;
+      const n = new Qt(a, this), c = n.u(this.options);
+      n.p(r), this.T(c), this._$AH = n;
     }
   }
   _$AC(t) {
-    let r = bt.get(t.strings);
-    return r === void 0 && bt.set(t.strings, r = new T(t)), r;
+    let r = vt.get(t.strings);
+    return r === void 0 && vt.set(t.strings, r = new B(t)), r;
   }
   k(t) {
-    at(this._$AH) || (this._$AH = [], this._$AR());
+    st(this._$AH) || (this._$AH = [], this._$AR());
     const r = this._$AH;
     let i, a = 0;
-    for (const s of t) a === r.length ? r.push(i = new B(this.O(I()), this.O(I()), this, this.options)) : i = r[a], i._$AI(s), a++;
+    for (const s of t) a === r.length ? r.push(i = new Y(this.O(L()), this.O(L()), this, this.options)) : i = r[a], i._$AI(s), a++;
     a < r.length && (this._$AR(i && i._$AB.nextSibling, a), r.length = a);
   }
   _$AR(t = this._$AA.nextSibling, r) {
     var i;
     for ((i = this._$AP) == null ? void 0 : i.call(this, !1, !0, r); t !== this._$AB; ) {
-      const a = pt(t).nextSibling;
-      pt(t).remove(), t = a;
+      const a = gt(t).nextSibling;
+      gt(t).remove(), t = a;
     }
   }
   setConnected(t) {
@@ -438,7 +438,7 @@ class B {
     this._$AM === void 0 && (this._$Cv = t, (r = this._$AP) == null || r.call(this, t));
   }
 }
-class V {
+class q {
   get tagName() {
     return this.element.tagName;
   }
@@ -446,46 +446,46 @@ class V {
     return this._$AM._$AU;
   }
   constructor(t, r, i, a, s) {
-    this.type = 1, this._$AH = p, this._$AN = void 0, this.element = t, this.name = r, this._$AM = a, this.options = s, i.length > 2 || i[0] !== "" || i[1] !== "" ? (this._$AH = Array(i.length - 1).fill(new String()), this.strings = i) : this._$AH = p;
+    this.type = 1, this._$AH = d, this._$AN = void 0, this.element = t, this.name = r, this._$AM = a, this.options = s, i.length > 2 || i[0] !== "" || i[1] !== "" ? (this._$AH = Array(i.length - 1).fill(new String()), this.strings = i) : this._$AH = d;
   }
   _$AI(t, r = this, i, a) {
     const s = this.strings;
     let n = !1;
-    if (s === void 0) t = z(this, t, r, 0), n = !U(t) || t !== this._$AH && t !== C, n && (this._$AH = t);
+    if (s === void 0) t = R(this, t, r, 0), n = !U(t) || t !== this._$AH && t !== O, n && (this._$AH = t);
     else {
-      const o = t;
-      let c, d;
-      for (t = s[0], c = 0; c < s.length - 1; c++) d = z(this, o[i + c], r, c), d === C && (d = this._$AH[c]), n || (n = !U(d) || d !== this._$AH[c]), d === p ? t = p : t !== p && (t += (d ?? "") + s[c + 1]), this._$AH[c] = d;
+      const c = t;
+      let o, p;
+      for (t = s[0], o = 0; o < s.length - 1; o++) p = R(this, c[i + o], r, o), p === O && (p = this._$AH[o]), n || (n = !U(p) || p !== this._$AH[o]), p === d ? t = d : t !== d && (t += (p ?? "") + s[o + 1]), this._$AH[o] = p;
     }
     n && !a && this.j(t);
   }
   j(t) {
-    t === p ? this.element.removeAttribute(this.name) : this.element.setAttribute(this.name, t ?? "");
+    t === d ? this.element.removeAttribute(this.name) : this.element.setAttribute(this.name, t ?? "");
   }
 }
-class qt extends V {
+class te extends q {
   constructor() {
     super(...arguments), this.type = 3;
   }
   j(t) {
-    this.element[this.name] = t === p ? void 0 : t;
+    this.element[this.name] = t === d ? void 0 : t;
   }
 }
-class Vt extends V {
+class ee extends q {
   constructor() {
     super(...arguments), this.type = 4;
   }
   j(t) {
-    this.element.toggleAttribute(this.name, !!t && t !== p);
+    this.element.toggleAttribute(this.name, !!t && t !== d);
   }
 }
-class Xt extends V {
+class re extends q {
   constructor(t, r, i, a, s) {
     super(t, r, i, a, s), this.type = 5;
   }
   _$AI(t, r = this) {
-    if ((t = z(this, t, r, 0) ?? p) === C) return;
-    const i = this._$AH, a = t === p && i !== p || t.capture !== i.capture || t.once !== i.once || t.passive !== i.passive, s = t !== p && (i === p || a);
+    if ((t = R(this, t, r, 0) ?? d) === O) return;
+    const i = this._$AH, a = t === d && i !== d || t.capture !== i.capture || t.once !== i.once || t.passive !== i.passive, s = t !== d && (i === d || a);
     a && this.element.removeEventListener(this.name, this, i), s && this.element.addEventListener(this.name, this, t), this._$AH = t;
   }
   handleEvent(t) {
@@ -493,7 +493,7 @@ class Xt extends V {
     typeof this._$AH == "function" ? this._$AH.call(((r = this.options) == null ? void 0 : r.host) ?? this.element, t) : this._$AH.handleEvent(t);
   }
 }
-class Zt {
+class ie {
   constructor(t, r, i) {
     this.element = t, this.type = 6, this._$AN = void 0, this._$AM = r, this.options = i;
   }
@@ -501,17 +501,17 @@ class Zt {
     return this._$AM._$AU;
   }
   _$AI(t) {
-    z(this, t);
+    R(this, t);
   }
 }
-const G = L.litHtmlPolyfillSupport;
-G == null || G(T, B), (L.litHtmlVersions ?? (L.litHtmlVersions = [])).push("3.3.3");
-const Gt = (e, t, r) => {
+const K = I.litHtmlPolyfillSupport;
+K == null || K(B, Y), (I.litHtmlVersions ?? (I.litHtmlVersions = [])).push("3.3.3");
+const ae = (e, t, r) => {
   const i = (r == null ? void 0 : r.renderBefore) ?? t;
   let a = i._$litPart$;
   if (a === void 0) {
     const s = (r == null ? void 0 : r.renderBefore) ?? null;
-    i._$litPart$ = a = new B(t.insertBefore(I(), s), s, void 0, r ?? {});
+    i._$litPart$ = a = new Y(t.insertBefore(L(), s), s, void 0, r ?? {});
   }
   return a._$AI(e), a;
 };
@@ -520,8 +520,8 @@ const Gt = (e, t, r) => {
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const S = globalThis;
-class P extends E {
+const k = globalThis;
+class z extends P {
   constructor() {
     super(...arguments), this.renderOptions = { host: this }, this._$Do = void 0;
   }
@@ -532,7 +532,7 @@ class P extends E {
   }
   update(t) {
     const r = this.render();
-    this.hasUpdated || (this.renderOptions.isConnected = this.isConnected), super.update(t), this._$Do = Gt(r, this.renderRoot, this.renderOptions);
+    this.hasUpdated || (this.renderOptions.isConnected = this.isConnected), super.update(t), this._$Do = ae(r, this.renderRoot, this.renderOptions);
   }
   connectedCallback() {
     var t;
@@ -543,20 +543,20 @@ class P extends E {
     super.disconnectedCallback(), (t = this._$Do) == null || t.setConnected(!1);
   }
   render() {
-    return C;
+    return O;
   }
 }
-var yt;
-P._$litElement$ = !0, P.finalized = !0, (yt = S.litElementHydrateSupport) == null || yt.call(S, { LitElement: P });
-const K = S.litElementPolyfillSupport;
-K == null || K({ LitElement: P });
-(S.litElementVersions ?? (S.litElementVersions = [])).push("4.2.2");
+var St;
+z._$litElement$ = !0, z.finalized = !0, (St = k.litElementHydrateSupport) == null || St.call(k, { LitElement: z });
+const Q = k.litElementPolyfillSupport;
+Q == null || Q({ LitElement: z });
+(k.litElementVersions ?? (k.litElementVersions = [])).push("4.2.2");
 /**
  * @license
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const Et = (e) => (t, r) => {
+const Rt = (e) => (t, r) => {
   r !== void 0 ? r.addInitializer(() => {
     customElements.define(e, t);
   }) : customElements.define(e, t);
@@ -566,29 +566,29 @@ const Et = (e) => (t, r) => {
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const Kt = { attribute: !0, type: String, converter: J, reflect: !1, hasChanged: it }, Qt = (e = Kt, t, r) => {
+const se = { attribute: !0, type: String, converter: J, reflect: !1, hasChanged: at }, ne = (e = se, t, r) => {
   const { kind: i, metadata: a } = r;
   let s = globalThis.litPropertyMetadata.get(a);
   if (s === void 0 && globalThis.litPropertyMetadata.set(a, s = /* @__PURE__ */ new Map()), i === "setter" && ((e = Object.create(e)).wrapped = !0), s.set(r.name, e), i === "accessor") {
     const { name: n } = r;
-    return { set(o) {
-      const c = t.get.call(this);
-      t.set.call(this, o), this.requestUpdate(n, c, e, !0, o);
-    }, init(o) {
-      return o !== void 0 && this.C(n, void 0, e, o), o;
+    return { set(c) {
+      const o = t.get.call(this);
+      t.set.call(this, c), this.requestUpdate(n, o, e, !0, c);
+    }, init(c) {
+      return c !== void 0 && this.C(n, void 0, e, c), c;
     } };
   }
   if (i === "setter") {
     const { name: n } = r;
-    return function(o) {
-      const c = this[n];
-      t.call(this, o), this.requestUpdate(n, c, e, !0, o);
+    return function(c) {
+      const o = this[n];
+      t.call(this, c), this.requestUpdate(n, o, e, !0, c);
     };
   }
   throw Error("Unsupported decorator location: " + i);
 };
-function st(e) {
-  return (t, r) => typeof r == "object" ? Qt(e, t, r) : ((i, a, s) => {
+function nt(e) {
+  return (t, r) => typeof r == "object" ? ne(e, t, r) : ((i, a, s) => {
     const n = a.hasOwnProperty(s);
     return a.constructor.createProperty(s, i), n ? Object.getOwnPropertyDescriptor(a, s) : void 0;
   })(e, t, r);
@@ -598,16 +598,16 @@ function st(e) {
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-function g(e) {
-  return st({ ...e, state: !0, attribute: !1 });
+function _(e) {
+  return nt({ ...e, state: !0, attribute: !1 });
 }
-async function mt(e, t) {
+async function yt(e, t) {
   return e.callWS({
     type: "conx_dynamic_panel/get_config",
     entry_id: t
   });
 }
-async function te(e, t, r, i) {
+async function oe(e, t, r, i) {
   return e.callWS({
     type: "conx_dynamic_panel/update_profile",
     entry_id: t,
@@ -615,21 +615,21 @@ async function te(e, t, r, i) {
     profile: i
   });
 }
-async function ee(e, t, r) {
+async function ce(e, t, r) {
   return e.callWS({
     type: "conx_dynamic_panel/create_profile",
     entry_id: t,
     profile: r
   });
 }
-async function re(e, t, r) {
+async function le(e, t, r) {
   await e.callWS({
     type: "conx_dynamic_panel/delete_profile",
     entry_id: t,
     profile_id: r
   });
 }
-async function ie(e, t, r, i, a) {
+async function de(e, t, r, i, a) {
   return e.callWS({
     type: "conx_dynamic_panel/duplicate_profile",
     entry_id: t,
@@ -638,7 +638,7 @@ async function ie(e, t, r, i, a) {
     new_name: a
   });
 }
-async function Q(e, t, r, i = !1) {
+async function tt(e, t, r, i = !1) {
   return e.callWS({
     type: "conx_dynamic_panel/set_active_profile",
     entry_id: t,
@@ -646,25 +646,25 @@ async function Q(e, t, r, i = !1) {
     sync: i
   });
 }
-async function ae(e, t) {
+async function pe(e, t) {
   return e.callWS({
     type: "conx_dynamic_panel/sync",
     entry_id: t
   });
 }
-async function se(e, t) {
+async function he(e, t) {
   return e.callWS({
     type: "conx_dynamic_panel/pull",
     entry_id: t
   });
 }
-async function ne(e, t) {
+async function fe(e, t) {
   return e.callWS({
     type: "conx_dynamic_panel/export_profiles",
     entry_id: t
   });
 }
-async function oe(e, t, r, i = "merge") {
+async function ge(e, t, r, i = "merge") {
   return e.callWS({
     type: "conx_dynamic_panel/import_profiles",
     entry_id: t,
@@ -672,30 +672,46 @@ async function oe(e, t, r, i = "merge") {
     mode: i
   });
 }
-function R(e) {
-  return structuredClone(e);
+function ue(e) {
+  const t = structuredClone(e);
+  return typeof t.backlight_brightness != "number" || !Number.isFinite(t.backlight_brightness) ? t.backlight_brightness = 100 : t.backlight_brightness = Math.max(
+    0,
+    Math.min(100, Math.round(t.backlight_brightness))
+  ), t.buttons = [1, 2, 3, 4].map((r) => {
+    var a;
+    const i = (a = t.buttons) == null ? void 0 : a.find((s) => s.index === r);
+    return {
+      index: r,
+      name: (i == null ? void 0 : i.name) ?? `Button ${r}`,
+      action: (i == null ? void 0 : i.action) ?? null,
+      radio_member: (i == null ? void 0 : i.radio_member) !== !1
+    };
+  }), t;
 }
-function ce(e, t) {
+function T(e) {
+  return ue(e);
+}
+function _e(e, t) {
   return !e || !t ? e === t : JSON.stringify(e) === JSON.stringify(t);
 }
-function le(e, t) {
+function be(e, t) {
   const r = new Blob([JSON.stringify(t, null, 2)], {
     type: "application/json"
   }), i = URL.createObjectURL(r), a = document.createElement("a");
   a.href = i, a.download = e, a.click(), URL.revokeObjectURL(i);
 }
-const N = 1, de = /* @__PURE__ */ new Set(["toggle", "radio_mandatory", "radio_optional"]);
+const D = 1, me = /* @__PURE__ */ new Set(["toggle", "radio_mandatory", "radio_optional"]);
 function x(e) {
   return typeof e == "object" && e !== null && !Array.isArray(e);
 }
-function pe(e) {
+function xe(e) {
   if (x(e)) {
     const t = Object.entries(e);
     if (!t.length)
       return { ok: !1, error: "profiles must be a non-empty object or array" };
     const r = {};
     for (const [i, a] of t) {
-      const s = xt(a, i);
+      const s = $t(a, i);
       if (!s.ok)
         return s;
       r[s.profile.id] = s.profile;
@@ -707,7 +723,7 @@ function pe(e) {
       return { ok: !1, error: "profiles must be a non-empty object or array" };
     const t = {};
     for (let r = 0; r < e.length; r += 1) {
-      const i = xt(e[r], void 0);
+      const i = $t(e[r], void 0);
       if (!i.ok)
         return { ok: !1, error: `${i.error} (index ${r})` };
       t[i.profile.id] = i.profile;
@@ -716,32 +732,40 @@ function pe(e) {
   }
   return { ok: !1, error: "profiles must be a non-empty object or array" };
 }
-function xt(e, t) {
+function $t(e, t) {
   if (!x(e))
     return { ok: !1, error: "each profile must be an object" };
   const r = String(e.id || t || "").trim();
   if (!r)
     return { ok: !1, error: "profile is missing id" };
   const i = String(e.mode || "toggle");
-  if (!de.has(i))
+  if (!me.has(i))
     return { ok: !1, error: `unsupported mode for profile ${r}: ${i}` };
-  const a = Array.isArray(e.buttons) ? e.buttons : [], s = [1, 2, 3, 4].map((n) => {
+  const a = Array.isArray(e.buttons) ? e.buttons : [], s = [1, 2, 3, 4].map((c) => {
     const o = a.find(
-      (d) => x(d) && Number(d.index) === n
+      (f) => x(f) && Number(f.index) === c
     );
     if (!x(o))
-      return { index: n, name: `Button ${n}`, action: null };
-    let c = null;
-    return x(o.action) && typeof o.action.action == "string" && (c = {
+      return { index: c, name: `Button ${c}`, action: null };
+    let p = null;
+    return x(o.action) && typeof o.action.action == "string" && (p = {
       action: o.action.action,
       target: x(o.action.target) ? o.action.target : {},
       data: x(o.action.data) ? o.action.data : {}
     }), {
-      index: n,
-      name: String(o.name ?? `Button ${n}`),
-      action: c
+      index: c,
+      name: String(o.name ?? `Button ${c}`),
+      action: p,
+      radio_member: o.radio_member === void 0 ? !0 : !!o.radio_member
     };
   });
+  let n = 100;
+  if (e.backlight_brightness !== void 0 && e.backlight_brightness !== null) {
+    const c = Number(e.backlight_brightness);
+    if (!Number.isFinite(c))
+      return { ok: !1, error: `invalid backlight_brightness for profile ${r}` };
+    n = Math.max(0, Math.min(100, Math.round(c)));
+  }
   return {
     ok: !0,
     profile: {
@@ -752,24 +776,25 @@ function xt(e, t) {
       color_off: String(e.color_off || "blue"),
       radar: String(e.radar || "30s"),
       backlight: !!(e.backlight ?? !0),
+      backlight_brightness: n,
       child_lock: !!(e.child_lock ?? !1),
       selected_button: e.selected_button === null || e.selected_button === void 0 ? null : Number(e.selected_button),
       buttons: s
     }
   };
 }
-function he(e) {
+function ve(e) {
   if (!x(e))
     return { ok: !1, error: "Root must be a JSON object" };
-  const t = e.schema_version ?? N, r = Number(t);
+  const t = e.schema_version ?? D, r = Number(t);
   if (!Number.isInteger(r) || r < 1)
     return { ok: !1, error: "schema_version must be a positive integer" };
-  if (r > N)
+  if (r > D)
     return {
       ok: !1,
-      error: `Unsupported schema_version ${r}; current is ${N}`
+      error: `Unsupported schema_version ${r}; current is ${D}`
     };
-  const i = pe(e.profiles);
+  const i = xe(e.profiles);
   if (!i.ok)
     return i;
   let a = null;
@@ -779,20 +804,20 @@ function he(e) {
   } : {
     ok: !0,
     payload: {
-      schema_version: N,
+      schema_version: D,
       active_profile_id: a,
       profiles: i.profiles
     }
   };
 }
-function fe(e, t) {
+function ye(e, t) {
   return {
-    schema_version: N,
+    schema_version: D,
     active_profile_id: t,
     profiles: structuredClone(e)
   };
 }
-function ue(e, t, r = "YOUR_CONFIG_ENTRY_ID") {
+function $e(e, t, r = "YOUR_CONFIG_ENTRY_ID") {
   const i = JSON.stringify(e, null, 2).split(`
 `).map((a, s) => s === 0 ? a : `    ${a}`).join(`
 `);
@@ -805,7 +830,7 @@ function ue(e, t, r = "YOUR_CONFIG_ENTRY_ID") {
   ].join(`
 `);
 }
-const Pt = "conx-dynamic-panel-lang", Ct = {}, zt = {
+const Nt = "conx-dynamic-panel-lang", Tt = {}, Dt = {
   "card.title": "ConX Dynamic Panel",
   "card.sync": "Sync to Panel",
   "card.pull": "Pull from Panel",
@@ -827,13 +852,25 @@ const Pt = "conx-dynamic-panel-lang", Ct = {}, zt = {
   "card.color_off": "Color OFF",
   "card.radar": "Radar",
   "card.backlight": "Backlight",
+  "card.backlight_brightness": "Backlight brightness",
   "card.child_lock": "Child lock",
+  "card.theme": "Interface theme",
+  "card.open_export_wizard": "Export wizard",
+  "card.back_to_editor": "Back to editor",
   "card.button": "Button",
   "card.button_expand": "Expand button settings",
   "card.button_collapse": "Collapse button settings",
   "card.label": "Label",
   "card.action": "Action",
   "card.entity_id": "Entity ID",
+  "card.radio_participation": "Button behavior",
+  "card.radio_member": "Radio group",
+  "card.radio_toggle": "Independent toggle",
+  "theme.industrial": "Glass light",
+  "theme.black_orange": "Obsidian orange",
+  "theme.graphite": "Graphite steel",
+  "theme.midnight_teal": "Midnight teal",
+  "theme.light_soft": "Soft light",
   "card.unsaved": "You have unsaved draft changes.",
   "card.loading": "Loading panel…",
   "card.missing_entry": "Configure an entry_id for this card.",
@@ -875,7 +912,7 @@ const Pt = "conx-dynamic-panel-lang", Ct = {}, zt = {
   "mode.toggle": "Toggle",
   "mode.radio_mandatory": "Radio mandatory",
   "mode.radio_optional": "Radio optional"
-}, ge = {
+}, we = {
   "card.title": "ConX Dynamic Panel",
   "card.sync": "סנכרון לפאנל",
   "card.pull": "משיכה מהפאנל",
@@ -897,13 +934,25 @@ const Pt = "conx-dynamic-panel-lang", Ct = {}, zt = {
   "card.color_off": "צבע כבוי",
   "card.radar": "רדאר",
   "card.backlight": "תאורת רקע",
+  "card.backlight_brightness": "עוצמת תאורת רקע",
   "card.child_lock": "נעילת ילדים",
+  "card.theme": "ערכת נושא",
+  "card.open_export_wizard": "אשף ייצוא",
+  "card.back_to_editor": "חזרה לעריכה",
   "card.button": "כפתור",
   "card.button_expand": "הרחב הגדרות כפתור",
   "card.button_collapse": "כווץ הגדרות כפתור",
   "card.label": "תווית",
   "card.action": "פעולה",
   "card.entity_id": "מזהה ישות",
+  "card.radio_participation": "התנהגות כפתור",
+  "card.radio_member": "משתתף ברדיו",
+  "card.radio_toggle": "טוגל עצמאי",
+  "theme.industrial": "זכוכית בהירה",
+  "theme.black_orange": "אובסידיאן כתום",
+  "theme.graphite": "גרפיט פלדה",
+  "theme.midnight_teal": "טורקיז חצות",
+  "theme.light_soft": "בהיר רך",
   "card.unsaved": "יש שינויי טיוטה שלא נשמרו.",
   "card.loading": "טוען פאנל…",
   "card.missing_entry": "יש להגדיר entry_id לכרטיס.",
@@ -945,7 +994,7 @@ const Pt = "conx-dynamic-panel-lang", Ct = {}, zt = {
   "mode.toggle": "החלפה",
   "mode.radio_mandatory": "רדיו חובה",
   "mode.radio_optional": "רדיו אופציונלי"
-}, _e = {
+}, ke = {
   "card.title": "ConX Dynamic Panel",
   "card.sync": "Синхронизация",
   "card.pull": "Считать с панели",
@@ -967,13 +1016,25 @@ const Pt = "conx-dynamic-panel-lang", Ct = {}, zt = {
   "card.color_off": "Цвет ВЫКЛ",
   "card.radar": "Радар",
   "card.backlight": "Подсветка",
+  "card.backlight_brightness": "Яркость подсветки",
   "card.child_lock": "Блокировка",
+  "card.theme": "Тема интерфейса",
+  "card.open_export_wizard": "Мастер экспорта",
+  "card.back_to_editor": "Назад к редактору",
   "card.button": "Кнопка",
   "card.button_expand": "Развернуть настройки кнопки",
   "card.button_collapse": "Свернуть настройки кнопки",
   "card.label": "Название",
   "card.action": "Действие",
   "card.entity_id": "Entity ID",
+  "card.radio_participation": "Поведение кнопки",
+  "card.radio_member": "В радиогруппе",
+  "card.radio_toggle": "Независимый тоггл",
+  "theme.industrial": "Светлое стекло",
+  "theme.black_orange": "Обсидиан / оранжевый",
+  "theme.graphite": "Графит / сталь",
+  "theme.midnight_teal": "Полночный бирюзовый",
+  "theme.light_soft": "Мягкий светлый",
   "card.unsaved": "Есть несохранённые изменения черновика.",
   "card.loading": "Загрузка панели…",
   "card.missing_entry": "Укажите entry_id для карточки.",
@@ -1015,48 +1076,102 @@ const Pt = "conx-dynamic-panel-lang", Ct = {}, zt = {
   "mode.toggle": "Переключатель",
   "mode.radio_mandatory": "Радио (обязательно)",
   "mode.radio_optional": "Радио (опционально)"
-}, be = {
-  en: zt,
-  he: ge,
-  ru: _e
-}, tt = [
+}, Se = {
+  en: Dt,
+  he: we,
+  ru: ke
+}, et = [
   { id: "he", label: "עברית", flag: "IL" },
   { id: "en", label: "English", flag: "GB" },
   { id: "ru", label: "Русский", flag: "RU" }
 ];
-function M(e) {
+function j(e) {
   const t = (e || "en").toLowerCase();
   return t.startsWith("he") || t.startsWith("iw") ? "he" : t.startsWith("ru") ? "ru" : "en";
 }
-function me() {
+function Ee() {
   var e, t;
   try {
-    const r = (t = (e = globalThis.localStorage) == null ? void 0 : e.getItem) == null ? void 0 : t.call(e, Pt);
+    const r = (t = (e = globalThis.localStorage) == null ? void 0 : e.getItem) == null ? void 0 : t.call(e, Nt);
     if (r === "en" || r === "he" || r === "ru")
       return r;
   } catch {
   }
-  return Ct.language || null;
+  return Tt.language || null;
 }
-function xe(e) {
+function Ae(e) {
   var t, r;
-  Ct.language = e;
+  Tt.language = e;
   try {
-    (r = (t = globalThis.localStorage) == null ? void 0 : t.setItem) == null || r.call(t, Pt, e);
+    (r = (t = globalThis.localStorage) == null ? void 0 : t.setItem) == null || r.call(t, Nt, e);
   } catch {
   }
 }
-function F(e, t) {
-  const r = M(e);
-  return be[r][t] || zt[t] || t;
+function C(e, t) {
+  const r = j(e);
+  return Se[r][t] || Dt[t] || t;
 }
-function Ot(e) {
-  return M(e) === "he";
+function Mt(e) {
+  return j(e) === "he";
 }
-var ye = Object.defineProperty, ve = Object.getOwnPropertyDescriptor, u = (e, t, r, i) => {
-  for (var a = i > 1 ? void 0 : i ? ve(t, r) : t, s = e.length - 1, n; s >= 0; s--)
+const It = "conx-dynamic-panel-theme", Pe = {
+  glass: "industrial",
+  glass_light: "industrial",
+  obsidian: "black_orange",
+  obsidian_orange: "black_orange"
+}, ot = [
+  {
+    id: "industrial",
+    swatch: "linear-gradient(145deg, #f4f7fa 0%, #d7e1ea 52%, #9eb0bf 100%)",
+    accent: "#1f7a8c"
+  },
+  {
+    id: "black_orange",
+    swatch: "linear-gradient(145deg, #0b0d10 0%, #1a120e 48%, #ff7a1a 100%)",
+    accent: "#ff7a1a"
+  },
+  {
+    id: "graphite",
+    swatch: "linear-gradient(145deg, #0e1216 0%, #232a32 50%, #7dd3fc 100%)",
+    accent: "#7dd3fc"
+  },
+  {
+    id: "midnight_teal",
+    swatch: "linear-gradient(145deg, #061218 0%, #0d2a32 50%, #2dd4bf 100%)",
+    accent: "#2dd4bf"
+  },
+  {
+    id: "light_soft",
+    swatch: "linear-gradient(145deg, #ffffff 0%, #f3f6f9 55%, #d5e0ea 100%)",
+    accent: "#3d7ea6"
+  }
+], Ce = new Set(ot.map((e) => e.id));
+function G(e) {
+  return e ? Ce.has(e) ? e : Pe[e] || "industrial" : "industrial";
+}
+function wt() {
+  var e, t;
+  try {
+    const r = (t = (e = globalThis.localStorage) == null ? void 0 : e.getItem) == null ? void 0 : t.call(e, It);
+    return r ? G(r) : null;
+  } catch {
+  }
+  return null;
+}
+function ze(e) {
+  var t, r;
+  try {
+    (r = (t = globalThis.localStorage) == null ? void 0 : t.setItem) == null || r.call(t, It, e);
+  } catch {
+  }
+}
+function kt(e, t) {
+  return e ? G(e) : t || "industrial";
+}
+var Oe = Object.defineProperty, Re = Object.getOwnPropertyDescriptor, u = (e, t, r, i) => {
+  for (var a = i > 1 ? void 0 : i ? Re(t, r) : t, s = e.length - 1, n; s >= 0; s--)
     (n = e[s]) && (a = (i ? n(t, r, a) : n(a)) || a);
-  return i && a && ye(t, r, a), a;
+  return i && a && Oe(t, r, a), a;
 };
 const A = [
   "language",
@@ -1065,7 +1180,7 @@ const A = [
   "preview",
   "review",
   "transfer"
-], $e = {
+], Ne = {
   red: "#ff1744",
   blue: "#2979ff",
   green: "#00e676",
@@ -1075,15 +1190,20 @@ const A = [
   cyan: "#00e5ff",
   warm_white: "#ffe0b2",
   warm_yellow: "#ffc400"
-}, Rt = "#00e5ff", we = "#2979ff";
-function Y(e, t = Rt) {
-  return e && ($e[e] || e) || t;
+}, Lt = "#00e5ff", Te = "#2979ff";
+function W(e, t = Lt) {
+  return e && (Ne[e] || e) || t;
 }
-let f = class extends P {
+let g = class extends z {
   constructor() {
-    super(...arguments), this._loading = !1, this._busy = !1, this._syncPulse = !1, this._pressedRing = null, this._wizardStep = "language", this._importMode = "merge", this._serviceYaml = "", this._sections = {
+    super(...arguments), this._loading = !1, this._busy = !1, this._syncPulse = !1, this._pressedRing = null, this._theme = "industrial", this._view = "editor", this._wizardStep = "transfer", this._importMode = "merge", this._serviceYaml = "", this._sections = {
+      profiles: !0,
       appearance: !0,
-      buttons: !0
+      buttons: !0,
+      theme: !1,
+      preview: !0,
+      actions: !0,
+      transfer: !0
     }, this._expandedButtons = {};
   }
   static getConfigElement() {
@@ -1099,10 +1219,11 @@ let f = class extends P {
   setConfig(e) {
     if (!e.entry_id)
       throw new Error("entry_id is required");
-    this._config = e, e.language && (this._uiLang = M(e.language));
+    this._config = e, e.language && (this._uiLang = j(e.language)), this._theme = kt(e.theme, wt());
   }
   connectedCallback() {
-    super.connectedCallback(), this._uiLang || (this._uiLang = me() || void 0), this._uiLang && (this._wizardStep = "profiles"), this._ensureFonts();
+    var e;
+    super.connectedCallback(), this._uiLang || (this._uiLang = Ee() || void 0), this._theme = kt((e = this._config) == null ? void 0 : e.theme, wt()), this._ensureFonts();
   }
   _stepLabel(e) {
     return this.t(`card.step_${e}`);
@@ -1124,8 +1245,8 @@ let f = class extends P {
   _buildServiceYaml(e) {
     if (!this._panel || !this._config)
       return "";
-    const t = e || fe(this._panel.profiles, this._panel.active_profile_id);
-    return ue(
+    const t = e || ye(this._panel.profiles, this._panel.active_profile_id);
+    return $e(
       t,
       this._importMode,
       this._config.entry_id
@@ -1156,18 +1277,38 @@ let f = class extends P {
   }
   get _language() {
     var e, t, r;
-    return this._uiLang ? this._uiLang : M(
+    return this._uiLang ? this._uiLang : j(
       ((t = (e = this.hass) == null ? void 0 : e.locale) == null ? void 0 : t.language) || ((r = this.hass) == null ? void 0 : r.language) || "en"
     );
   }
   t(e) {
-    return F(this._language, e);
+    return C(this._language, e);
   }
   get _dirty() {
-    return !ce(this._draft || null, this._saved || null);
+    return !_e(this._draft || null, this._saved || null);
   }
   _setLanguage(e) {
-    this._uiLang = e, xe(e), this._wizardStep === "language" && (this._wizardStep = "profiles");
+    this._uiLang = e, Ae(e);
+  }
+  _setTheme(e) {
+    this._theme = G(e), ze(this._theme), this._config && (this._config = { ...this._config, theme: this._theme }, this.dispatchEvent(
+      new CustomEvent("config-changed", {
+        detail: { config: this._config },
+        bubbles: !0,
+        composed: !0
+      })
+    ));
+  }
+  _openExportWizard() {
+    this._view = "export", this._notice = void 0, this._refreshServiceYaml();
+  }
+  _backToEditor() {
+    this._view = "editor", this._notice = void 0;
+  }
+  _isRadioMember(e) {
+    var r;
+    const t = (r = this._draft) == null ? void 0 : r.buttons.find((i) => i.index === e);
+    return (t == null ? void 0 : t.radio_member) !== !1;
   }
   _toggleSection(e) {
     this._sections = { ...this._sections, [e]: !this._sections[e] };
@@ -1183,7 +1324,7 @@ let f = class extends P {
     if (!(!this.hass || !((e = this._config) != null && e.entry_id))) {
       this._loading = !0, this._error = void 0;
       try {
-        const t = await mt(this.hass, this._config.entry_id);
+        const t = await yt(this.hass, this._config.entry_id);
         this._applyPanel(t);
       } catch (t) {
         this._error = t instanceof Error ? t.message : String(t);
@@ -1195,7 +1336,7 @@ let f = class extends P {
   _applyPanel(e) {
     this._panel = e;
     const t = e.active_profile_id, r = t ? e.profiles[t] : void 0;
-    this._saved = r ? R(r) : void 0, this._draft = r ? R(r) : void 0;
+    this._saved = r ? T(r) : void 0, this._draft = r ? T(r) : void 0;
   }
   async _guardDirty() {
     return this._dirty ? window.confirm(this.t("card.unsaved")) : !0;
@@ -1204,7 +1345,7 @@ let f = class extends P {
     if (!(!await this._guardDirty() || !this.hass || !this._config)) {
       this._busy = !0;
       try {
-        const t = await Q(
+        const t = await tt(
           this.hass,
           this._config.entry_id,
           e,
@@ -1222,13 +1363,13 @@ let f = class extends P {
     if (!(!this.hass || !this._config || !this._draft)) {
       this._busy = !0, this._error = void 0;
       try {
-        const e = await te(
+        const e = await oe(
           this.hass,
           this._config.entry_id,
           this._draft.id,
           this._draft
-        ), t = await mt(this.hass, this._config.entry_id);
-        this._applyPanel(t), this._saved = R(e), this._draft = R(e);
+        ), t = await yt(this.hass, this._config.entry_id);
+        this._applyPanel(t), this._saved = T(e), this._draft = T(e);
       } catch (e) {
         this._error = e instanceof Error ? e.message : String(e);
       } finally {
@@ -1237,13 +1378,13 @@ let f = class extends P {
     }
   }
   _discard() {
-    this._saved && (this._draft = R(this._saved));
+    this._saved && (this._draft = T(this._saved));
   }
   async _sync() {
     if (!(!this.hass || !this._config)) {
       this._dirty && await this._saveDraft(), this._busy = !0, this._error = void 0, this._syncPulse = !0;
       try {
-        const e = await ae(this.hass, this._config.entry_id);
+        const e = await pe(this.hass, this._config.entry_id);
         this._applyPanel(e);
       } catch (e) {
         this._error = e instanceof Error ? e.message : String(e), this._config && await this._load();
@@ -1258,7 +1399,7 @@ let f = class extends P {
     if (!(!this.hass || !this._config) && await this._guardDirty()) {
       this._busy = !0, this._error = void 0;
       try {
-        const e = await se(this.hass, this._config.entry_id);
+        const e = await he(this.hass, this._config.entry_id);
         this._applyPanel(e);
       } catch (e) {
         this._error = e instanceof Error ? e.message : String(e);
@@ -1278,18 +1419,20 @@ let f = class extends P {
       color_off: "blue",
       radar: "30s",
       backlight: !0,
+      backlight_brightness: 100,
       child_lock: !1,
       selected_button: null,
       buttons: [1, 2, 3, 4].map((r) => ({
         index: r,
         name: `Button ${r}`,
-        action: null
+        action: null,
+        radio_member: !0
       }))
     };
     this._busy = !0;
     try {
-      await ee(this.hass, this._config.entry_id, t);
-      const r = await Q(
+      await ce(this.hass, this._config.entry_id, t);
+      const r = await tt(
         this.hass,
         this._config.entry_id,
         e,
@@ -1308,14 +1451,14 @@ let f = class extends P {
     const e = `${this._draft.id}_copy_${Date.now()}`;
     this._busy = !0;
     try {
-      await ie(
+      await de(
         this.hass,
         this._config.entry_id,
         this._draft.id,
         e,
         `${this._draft.name} copy`
       );
-      const t = await Q(
+      const t = await tt(
         this.hass,
         this._config.entry_id,
         e,
@@ -1343,7 +1486,7 @@ let f = class extends P {
       if (window.confirm(`${this.t("card.delete")} ${this._draft.name}?`)) {
         this._busy = !0;
         try {
-          await re(this.hass, this._config.entry_id, this._draft.id), await this._load();
+          await le(this.hass, this._config.entry_id, this._draft.id), await this._load();
         } catch (e) {
           this._error = e instanceof Error ? e.message : String(e);
         } finally {
@@ -1356,8 +1499,8 @@ let f = class extends P {
     if (!(!this.hass || !this._config || !this._panel)) {
       this._busy = !0, this._error = void 0;
       try {
-        const e = await ne(this.hass, this._config.entry_id), t = this._panel.panel_name.replace(/[^\w.-]+/g, "_");
-        le(`conx-profiles-${t}.json`, e), this._refreshServiceYaml(e), this._notice = this.t("card.export_ok");
+        const e = await fe(this.hass, this._config.entry_id), t = this._panel.panel_name.replace(/[^\w.-]+/g, "_");
+        be(`conx-profiles-${t}.json`, e), this._refreshServiceYaml(e), this._notice = this.t("card.export_ok");
       } catch (e) {
         this._error = e instanceof Error ? e.message : String(e);
       } finally {
@@ -1376,10 +1519,10 @@ let f = class extends P {
     if (!(!this.hass || !this._config) && await this._guardDirty()) {
       this._busy = !0, this._error = void 0;
       try {
-        const r = await e.text(), i = he(JSON.parse(r));
+        const r = await e.text(), i = ve(JSON.parse(r));
         if (!i.ok)
           throw new Error(i.error || this.t("card.import_invalid"));
-        const a = await oe(
+        const a = await ge(
           this.hass,
           this._config.entry_id,
           i.payload,
@@ -1414,7 +1557,7 @@ let f = class extends P {
     const r = t.target.value.trim();
     this._patchDraft((i) => {
       var s, n;
-      const a = i.buttons.find((o) => o.index === e);
+      const a = i.buttons.find((c) => c.index === e);
       if (a) {
         if (!r) {
           a.action = null;
@@ -1431,8 +1574,8 @@ let f = class extends P {
   _onButtonEntityInput(e, t) {
     const r = t.target.value.trim();
     this._patchDraft((i) => {
-      var n, o;
-      const a = i.buttons.find((c) => c.index === e);
+      var n, c;
+      const a = i.buttons.find((o) => o.index === e);
       if (!a)
         return;
       const s = ((n = a.action) == null ? void 0 : n.action) || "";
@@ -1443,7 +1586,7 @@ let f = class extends P {
       a.action = {
         action: s,
         target: r ? { entity_id: r } : {},
-        data: ((o = a.action) == null ? void 0 : o.data) || {}
+        data: ((c = a.action) == null ? void 0 : c.data) || {}
       };
     });
   }
@@ -1463,30 +1606,30 @@ let f = class extends P {
   _isRingOn(e) {
     if (!this._draft)
       return !1;
-    if (this._draft.mode !== "toggle")
+    if (this._draft.mode !== "toggle" && this._isRadioMember(e))
       return this._draft.selected_button === e;
-    const t = this._buttonEntityId(e);
-    if (t) {
-      const r = this._entityIsOn(t);
-      if (r !== null)
-        return r;
+    const r = this._buttonEntityId(e);
+    if (r) {
+      const i = this._entityIsOn(r);
+      if (i !== null)
+        return i;
     }
     return e % 2 === 1;
   }
   _onRingPress(e) {
     this._pressedRing = e, window.setTimeout(() => {
       this._pressedRing === e && (this._pressedRing = null);
-    }, 180), !(!this._draft || this._draft.mode === "toggle") && this._patchDraft((t) => {
+    }, 180), !(!this._draft || this._draft.mode === "toggle") && this._isRadioMember(e) && this._patchDraft((t) => {
       t.mode === "radio_optional" && t.selected_button === e ? t.selected_button = null : t.selected_button = e;
     });
   }
   _ringOnColor() {
     var e;
-    return Y((e = this._draft) == null ? void 0 : e.color_on, Rt);
+    return W((e = this._draft) == null ? void 0 : e.color_on, Lt);
   }
   _ringOffColor() {
     var e;
-    return Y((e = this._draft) == null ? void 0 : e.color_off, we);
+    return W((e = this._draft) == null ? void 0 : e.color_off, Te);
   }
   _renderFlag(e) {
     return e === "IL" ? l`
@@ -1513,14 +1656,14 @@ let f = class extends P {
           </label>
         </header>
         <div class="section-body">
-          <div class="section-body-inner">${i ? r : p}</div>
+          <div class="section-body-inner">${i ? r : d}</div>
         </div>
       </section>
     `;
   }
   _renderFaceplate() {
     if (!this._draft)
-      return p;
+      return d;
     const e = this._ringOnColor(), t = this._ringOffColor();
     return l`
       <!--
@@ -1616,10 +1759,34 @@ let f = class extends P {
       </div>
     `;
   }
+  _renderThemePicker() {
+    return l`
+      <div class="theme-picker" role="group" aria-label=${this.t("card.theme")}>
+        <div class="theme-picker-label">${this.t("card.theme")}</div>
+        <div class="theme-swatches">
+          ${ot.map(
+      (e) => l`
+              <button
+                type="button"
+                class="theme-swatch ${this._theme === e.id ? "active" : ""}"
+                style="--swatch:${e.swatch};--swatch-accent:${e.accent}"
+                title=${this.t(`theme.${e.id}`)}
+                ?disabled=${this._busy}
+                @click=${() => this._setTheme(e.id)}
+              >
+                <span class="theme-swatch-face" aria-hidden="true"></span>
+                <span class="theme-swatch-name">${this.t(`theme.${e.id}`)}</span>
+              </button>
+            `
+    )}
+        </div>
+      </div>
+    `;
+  }
   _renderStepLanguage() {
     return l`
       <div class="lang-hero" role="group" aria-label=${this.t("card.language")}>
-        ${tt.map(
+        ${et.map(
       (e) => l`
             <button
               type="button"
@@ -1637,7 +1804,7 @@ let f = class extends P {
     `;
   }
   _renderStepProfiles() {
-    return !this._panel || !this._draft ? p : l`
+    return !this._panel || !this._draft ? d : l`
       <div class="profile-list">
         ${Object.values(this._panel.profiles).map(
       (e) => {
@@ -1682,7 +1849,7 @@ let f = class extends P {
     `;
   }
   _renderStepEdit() {
-    return !this._panel || !this._draft ? p : l`
+    return !this._panel || !this._draft ? d : l`
       ${this._renderSection(
       "appearance",
       this.t("card.editor"),
@@ -1709,7 +1876,7 @@ let f = class extends P {
               <div class="select-wrap color-select">
                 <span
                   class="swatch"
-                  style="background:${Y(this._draft.color_on)}"
+                  style="background:${W(this._draft.color_on)}"
                 ></span>
                 <select
                   .value=${this._draft.color_on}
@@ -1729,7 +1896,7 @@ let f = class extends P {
               <div class="select-wrap color-select">
                 <span
                   class="swatch"
-                  style="background:${Y(this._draft.color_off)}"
+                  style="background:${W(this._draft.color_off)}"
                 ></span>
                 <select
                   .value=${this._draft.color_off}
@@ -1791,7 +1958,31 @@ let f = class extends P {
               </label>
             </label>
           </div>
+          <label class="field dimmer-field ${this._draft.backlight ? "" : "dimmed"}">
+            <span
+              >${this.t("card.backlight_brightness")}
+              <strong>${this._draft.backlight_brightness ?? 100}%</strong></span
+            >
+            <input
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              .value=${String(this._draft.backlight_brightness ?? 100)}
+              ?disabled=${this._busy || !this._draft.backlight}
+              @input=${(e) => this._patchDraft((t) => {
+        t.backlight_brightness = Number(
+          e.target.value
+        );
+      })}
+            />
+          </label>
         `
+    )}
+      ${this._renderSection(
+      "theme",
+      this.t("card.theme"),
+      this._renderThemePicker()
     )}
       ${this._renderSection(
       "buttons",
@@ -1799,10 +1990,10 @@ let f = class extends P {
       l`
           <div class="buttons-accordion">
             ${this._draft.buttons.map((e) => {
-        var n, o, c;
+        var p, f, h, m;
         const t = !!this._expandedButtons[e.index], r = String(
-          ((o = (n = e.action) == null ? void 0 : n.target) == null ? void 0 : o.entity_id) || ""
-        ), i = (e.name || "").trim() || "—", a = ((c = e.action) == null ? void 0 : c.action) || "", s = [a, r].filter(Boolean).join(" · ") || "—";
+          ((f = (p = e.action) == null ? void 0 : p.target) == null ? void 0 : f.entity_id) || ""
+        ), i = (e.name || "").trim() || "—", a = ((h = e.action) == null ? void 0 : h.action) || "", s = ((m = this._draft) == null ? void 0 : m.mode) !== "toggle", n = e.radio_member !== !1, c = s ? n ? this.t("card.radio_member") : this.t("card.radio_toggle") : "", o = [a, r, c].filter(Boolean).join(" · ") || "—";
         return l`
                 <div
                   class="button-edit ${t ? "open" : ""}"
@@ -1821,7 +2012,7 @@ let f = class extends P {
                       <span class="button-edit-title">
                         ${this.t("card.button")} ${e.index} · ${i}
                       </span>
-                      <span class="button-edit-meta">${s}</span>
+                      <span class="button-edit-meta">${o}</span>
                     </span>
                   </button>
                   <div class="button-edit-body">
@@ -1833,7 +2024,7 @@ let f = class extends P {
                                 type="text"
                                 .value=${e.name}
                                 ?disabled=${this._busy}
-                                @input=${(d) => this._onButtonNameInput(e.index, d)}
+                                @input=${(b) => this._onButtonNameInput(e.index, b)}
                               />
                             </label>
                             <label class="field">
@@ -1843,7 +2034,7 @@ let f = class extends P {
                                 .value=${a}
                                 placeholder="light.toggle"
                                 ?disabled=${this._busy}
-                                @input=${(d) => this._onButtonActionInput(e.index, d)}
+                                @input=${(b) => this._onButtonActionInput(e.index, b)}
                               />
                             </label>
                             <label class="field">
@@ -1853,10 +2044,34 @@ let f = class extends P {
                                 .value=${r}
                                 placeholder="light.living_room"
                                 ?disabled=${this._busy}
-                                @input=${(d) => this._onButtonEntityInput(e.index, d)}
+                                @input=${(b) => this._onButtonEntityInput(e.index, b)}
                               />
                             </label>
-                          ` : p}
+                            ${s ? l`
+                                  <label class="field">
+                                    <span>${this.t("card.radio_participation")}</span>
+                                    <div class="select-wrap">
+                                      <select
+                                        .value=${n ? "radio" : "toggle"}
+                                        ?disabled=${this._busy}
+                                        @change=${(b) => this._patchDraft((E) => {
+          const lt = E.buttons.find(
+            (Ut) => Ut.index === e.index
+          );
+          lt && (lt.radio_member = b.target.value === "radio");
+        })}
+                                      >
+                                        <option value="radio">
+                                          ${this.t("card.radio_member")}
+                                        </option>
+                                        <option value="toggle">
+                                          ${this.t("card.radio_toggle")}
+                                        </option>
+                                      </select>
+                                    </div>
+                                  </label>
+                                ` : d}
+                          ` : d}
                     </div>
                   </div>
                 </div>
@@ -1868,7 +2083,7 @@ let f = class extends P {
     `;
   }
   _renderStepReview() {
-    return !this._draft || !this._panel ? p : l`
+    return !this._draft || !this._panel ? d : l`
       <div class="review-grid">
         <div><strong>${this.t("card.profile_name")}</strong> ${this._draft.name}</div>
         <div><strong>${this.t("card.mode")}</strong> ${this.t(`mode.${this._draft.mode}`)}</div>
@@ -1914,7 +2129,7 @@ let f = class extends P {
   }
   _renderStepTransfer() {
     if (!this._panel || !this._config)
-      return p;
+      return d;
     const e = this._serviceYaml || this._buildServiceYaml();
     return l`
       <div class="schema-box">
@@ -1932,10 +2147,11 @@ let f = class extends P {
       "color_off": "blue",
       "radar": "30s",
       "backlight": true,
+      "backlight_brightness": 100,
       "child_lock": false,
       "selected_button": null,
       "buttons": [
-        {"index": 1, "name": "L1", "action": null}
+        {"index": 1, "name": "L1", "action": null, "radio_member": true}
       ]
     }
   }
@@ -1990,12 +2206,12 @@ let f = class extends P {
       case "transfer":
         return this._renderStepTransfer();
       default:
-        return p;
+        return d;
     }
   }
   render() {
     var r;
-    const e = Ot(this._language);
+    const e = Mt(this._language);
     if (!((r = this._config) != null && r.entry_id))
       return l`<ha-card class="conx-card"><div class="pad">${this.t("card.missing_entry")}</div></ha-card>`;
     if (this._loading && !this._panel)
@@ -2006,7 +2222,8 @@ let f = class extends P {
     return l`
       <ha-card
         dir=${e ? "rtl" : "ltr"}
-        class="conx-card wizard ${t ? "compact" : ""} ${this._syncPulse ? "syncing-pulse" : ""}"
+        data-theme=${this._theme}
+        class="conx-card theme-${this._theme} ${this._view === "export" ? "export-open" : "editor-open"} ${t ? "compact" : ""} ${this._syncPulse ? "syncing-pulse" : ""}"
       >
         <div class="atmosphere"></div>
         <div class="header">
@@ -2017,7 +2234,7 @@ let f = class extends P {
           </div>
           <div class="header-side">
             <div class="lang-flags" role="group" aria-label=${this.t("card.language")}>
-              ${tt.map(
+              ${et.map(
       (i) => l`
                   <button
                     type="button"
@@ -2038,22 +2255,105 @@ let f = class extends P {
           </div>
         </div>
 
-        ${this._dirty ? l`<div class="warn">${this.t("card.unsaved")}</div>` : p}
-        ${this._notice ? l`<div class="notice">${this._notice}</div>` : p}
-        ${this._error || this._panel.last_error ? l`<div class="error">${this._error || this._panel.last_error}</div>` : p}
+        ${this._dirty ? l`<div class="warn">${this.t("card.unsaved")}</div>` : d}
+        ${this._notice ? l`<div class="notice">${this._notice}</div>` : d}
+        ${this._error || this._panel.last_error ? l`<div class="error">${this._error || this._panel.last_error}</div>` : d}
 
-        <div class="layout wizard-layout">
-          ${this._renderWizardNav()}
-          <div class="wizard-body" data-step=${this._wizardStep}>
-            ${this._renderWizardBody()}
-          </div>
-          ${this._renderWizardFooter()}
-        </div>
+        ${this._view === "export" ? this._renderExportView() : this._renderMainEditor()}
       </ha-card>
     `;
   }
+  _renderMainEditor() {
+    return !this._draft || !this._panel ? d : l`
+      <div class="layout single-layout">
+        ${this._renderSection(
+      "profiles",
+      this.t("card.profiles"),
+      this._renderStepProfiles()
+    )}
+        ${this._renderStepEdit()}
+        ${this._renderSection(
+      "preview",
+      this.t("card.preview"),
+      this._renderFaceplate()
+    )}
+        ${this._renderSection(
+      "actions",
+      this.t("card.actions"),
+      l`
+            <div class="row actions">
+              <button
+                type="button"
+                class="btn primary"
+                ?disabled=${this._busy || !this._dirty}
+                @click=${this._saveDraft}
+              >
+                ${this.t("card.save")}
+              </button>
+              <button
+                type="button"
+                class="btn"
+                ?disabled=${this._busy || !this._dirty}
+                @click=${this._discard}
+              >
+                ${this.t("card.discard")}
+              </button>
+              <button
+                type="button"
+                class="btn primary sync-btn"
+                ?disabled=${this._busy}
+                @click=${this._sync}
+              >
+                ${this.t("card.sync")}
+              </button>
+              <button type="button" class="btn" ?disabled=${this._busy} @click=${this._pull}>
+                ${this.t("card.pull")}
+              </button>
+              <button
+                type="button"
+                class="btn"
+                ?disabled=${this._busy}
+                @click=${this._openExportWizard}
+              >
+                ${this.t("card.open_export_wizard")}
+              </button>
+            </div>
+          `
+    )}
+      </div>
+    `;
+  }
+  _renderExportView() {
+    return l`
+      <div class="export-view">
+        <div class="export-toolbar">
+          <button
+            type="button"
+            class="btn primary back-to-editor"
+            ?disabled=${this._busy}
+            @click=${this._backToEditor}
+          >
+            ← ${this.t("card.back_to_editor")}
+          </button>
+          <div class="export-title">${this.t("card.step_transfer")}</div>
+        </div>
+        <p class="wizard-hint">${this.t("card.step_transfer_hint")}</p>
+        ${this._renderStepTransfer()}
+        <div class="row actions" style="margin-top:14px">
+          <button
+            type="button"
+            class="btn primary back-to-editor"
+            ?disabled=${this._busy}
+            @click=${this._backToEditor}
+          >
+            ← ${this.t("card.back_to_editor")}
+          </button>
+        </div>
+      </div>
+    `;
+  }
 };
-f.styles = $t`
+g.styles = At`
     :host {
       display: block;
       --conx-font: "Outfit", "Sora", ui-sans-serif, sans-serif;
@@ -2073,24 +2373,172 @@ f.styles = $t`
       --conx-gap: 12px;
     }
 
+
     ha-card.conx-card {
       position: relative;
       overflow: hidden;
       font-family: var(--conx-font);
-      color: var(--primary-text-color, var(--conx-ink));
-      background:
-        linear-gradient(
-          155deg,
-          color-mix(in srgb, var(--ha-card-background, #fff) 88%, #d7dee6) 0%,
-          var(--ha-card-background, var(--card-background-color, #f7f9fb)) 48%,
-          color-mix(in srgb, var(--ha-card-background, #fff) 90%, #c5d0da) 100%
-        );
-      border: 1px solid color-mix(in srgb, var(--conx-steel) 35%, transparent);
-      box-shadow:
-        inset 0 1px 0 var(--conx-bevel-light),
-        inset 0 -1px 0 var(--conx-bevel-dark),
-        0 10px 28px color-mix(in srgb, #0b1218 14%, transparent);
+      color: var(--text);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      box-shadow: var(--card-shadow);
       padding: 18px;
+
+      /* Glass light (default) */
+      --bg: linear-gradient(155deg, #eef3f7 0%, #f7fafc 48%, #dce6ef 100%);
+      --surface: #ffffff;
+      --surface-2: #f1f5f8;
+      --border: #c5d0db;
+      --text: #1a222c;
+      --text-muted: #5b6b78;
+      --accent: #1f7a8c;
+      --accent-soft: rgba(31, 122, 140, 0.14);
+      --accent-text: #ffffff;
+      --danger: #b42318;
+      --btn-bg: linear-gradient(180deg, #ffffff 0%, #e7eef4 100%);
+      --btn-text: #1a222c;
+      --btn-primary-bg: linear-gradient(180deg, #2a93a8 0%, #1f7a8c 100%);
+      --btn-primary-text: #ffffff;
+      --input-bg: #ffffff;
+      --input-text: #1a222c;
+      --bevel-light: rgba(255, 255, 255, 0.85);
+      --bevel-dark: rgba(11, 18, 24, 0.12);
+      --atm-1: rgba(158, 182, 200, 0.28);
+      --atm-2: rgba(31, 122, 140, 0.12);
+      --faceplate-well: linear-gradient(180deg, #d8e2ea, #c5d3de);
+      --card-shadow:
+        inset 0 1px 0 var(--bevel-light),
+        inset 0 -1px 0 var(--bevel-dark),
+        0 12px 28px rgba(11, 18, 24, 0.12);
+
+      /* Compat aliases used elsewhere */
+      --conx-ink: var(--text);
+      --conx-steel: #8b949e;
+      --conx-accent: var(--accent);
+      --conx-accent-soft: var(--accent-soft);
+      --conx-bevel-light: var(--bevel-light);
+      --conx-bevel-dark: var(--bevel-dark);
+      --conx-danger: var(--danger);
+      --conx-panel-bg: var(--surface);
+      --conx-field-bg: var(--input-bg);
+      --conx-text-muted: var(--text-muted);
+      --conx-atm-1: var(--atm-1);
+      --conx-atm-2: var(--atm-2);
+      --conx-card-bg: var(--bg);
+      --conx-card-border: var(--border);
+      --conx-card-shadow: var(--card-shadow);
+    }
+
+    ha-card.conx-card[data-theme="black_orange"] {
+      --bg: linear-gradient(160deg, #12151a 0%, #0b0d10 42%, #16120f 100%);
+      --surface: #161a20;
+      --surface-2: #1e242c;
+      --border: #3a2a1f;
+      --text: #f4ebe3;
+      --text-muted: #c4a88c;
+      --accent: #ff7a1a;
+      --accent-soft: rgba(255, 122, 26, 0.18);
+      --accent-text: #1a0e06;
+      --danger: #ff8a80;
+      --btn-bg: linear-gradient(180deg, #232933 0%, #171b22 100%);
+      --btn-text: #f4ebe3;
+      --btn-primary-bg: linear-gradient(180deg, #ff9a3d 0%, #ff7a1a 100%);
+      --btn-primary-text: #1a0e06;
+      --input-bg: #12161c;
+      --input-text: #f4ebe3;
+      --bevel-light: rgba(255, 176, 116, 0.14);
+      --bevel-dark: rgba(0, 0, 0, 0.55);
+      --atm-1: rgba(255, 122, 26, 0.14);
+      --atm-2: rgba(255, 145, 0, 0.08);
+      --faceplate-well: radial-gradient(circle at 50% 30%, #2a211a, #0f1115 70%);
+      --card-shadow:
+        inset 0 1px 0 rgba(255, 176, 116, 0.12),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.55),
+        0 18px 42px rgba(0, 0, 0, 0.55);
+    }
+
+    ha-card.conx-card[data-theme="graphite"] {
+      --bg: linear-gradient(155deg, #1a1f26 0%, #101418 48%, #0c1014 100%);
+      --surface: #1b2128;
+      --surface-2: #242b34;
+      --border: #3a4450;
+      --text: #e8edf2;
+      --text-muted: #9aa7b4;
+      --accent: #7dd3fc;
+      --accent-soft: rgba(125, 211, 252, 0.16);
+      --accent-text: #0b1220;
+      --danger: #fca5a5;
+      --btn-bg: linear-gradient(180deg, #2a313a 0%, #1a2027 100%);
+      --btn-text: #e8edf2;
+      --btn-primary-bg: linear-gradient(180deg, #9adafc 0%, #38bdf8 100%);
+      --btn-primary-text: #0b1220;
+      --input-bg: #141920;
+      --input-text: #e8edf2;
+      --bevel-light: rgba(255, 255, 255, 0.12);
+      --bevel-dark: rgba(0, 0, 0, 0.5);
+      --atm-1: rgba(197, 206, 216, 0.1);
+      --atm-2: rgba(125, 211, 252, 0.1);
+      --faceplate-well: radial-gradient(circle at 50% 30%, #2a323c, #0e1216 72%);
+      --card-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.45),
+        0 16px 36px rgba(0, 0, 0, 0.48);
+    }
+
+    ha-card.conx-card[data-theme="midnight_teal"] {
+      --bg: linear-gradient(155deg, #0a1c22 0%, #061318 46%, #082028 100%);
+      --surface: #0f262c;
+      --surface-2: #14343b;
+      --border: #1f4d55;
+      --text: #e6f7f5;
+      --text-muted: #8fb8b3;
+      --accent: #2dd4bf;
+      --accent-soft: rgba(45, 212, 191, 0.16);
+      --accent-text: #04201c;
+      --danger: #fca5a5;
+      --btn-bg: linear-gradient(180deg, #16353c 0%, #0d242a 100%);
+      --btn-text: #e6f7f5;
+      --btn-primary-bg: linear-gradient(180deg, #5eead4 0%, #14b8a6 100%);
+      --btn-primary-text: #04201c;
+      --input-bg: #0a1c22;
+      --input-text: #e6f7f5;
+      --bevel-light: rgba(94, 234, 212, 0.14);
+      --bevel-dark: rgba(0, 0, 0, 0.5);
+      --atm-1: rgba(45, 212, 191, 0.14);
+      --atm-2: rgba(14, 165, 233, 0.08);
+      --faceplate-well: radial-gradient(circle at 50% 30%, #164048, #061318 72%);
+      --card-shadow:
+        inset 0 1px 0 rgba(94, 234, 212, 0.12),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.5),
+        0 16px 40px rgba(0, 20, 24, 0.55);
+    }
+
+    ha-card.conx-card[data-theme="light_soft"] {
+      --bg: linear-gradient(160deg, #ffffff 0%, #f5f8fb 48%, #e8eef4 100%);
+      --surface: #ffffff;
+      --surface-2: #f3f6f9;
+      --border: #c9d4de;
+      --text: #243039;
+      --text-muted: #667887;
+      --accent: #3d7ea6;
+      --accent-soft: rgba(61, 126, 166, 0.14);
+      --accent-text: #ffffff;
+      --danger: #b42318;
+      --btn-bg: linear-gradient(180deg, #ffffff 0%, #eef3f7 100%);
+      --btn-text: #243039;
+      --btn-primary-bg: linear-gradient(180deg, #5a9ec4 0%, #3d7ea6 100%);
+      --btn-primary-text: #ffffff;
+      --input-bg: #ffffff;
+      --input-text: #243039;
+      --bevel-light: rgba(255, 255, 255, 0.9);
+      --bevel-dark: rgba(11, 18, 24, 0.08);
+      --atm-1: rgba(185, 201, 214, 0.22);
+      --atm-2: rgba(61, 126, 166, 0.1);
+      --faceplate-well: linear-gradient(180deg, #e8eef4, #d5e0ea);
+      --card-shadow:
+        inset 0 1px 0 #fff,
+        inset 0 -1px 0 rgba(15, 23, 32, 0.06),
+        0 12px 30px rgba(36, 48, 57, 0.1);
     }
 
     .atmosphere {
@@ -2098,8 +2546,8 @@ f.styles = $t`
       position: absolute;
       inset: 0;
       background:
-        radial-gradient(circle at 12% 0%, color-mix(in srgb, #9eb6c8 28%, transparent), transparent 42%),
-        radial-gradient(circle at 88% 100%, color-mix(in srgb, #1f7a8c 12%, transparent), transparent 40%),
+        radial-gradient(circle at 12% 0%, var(--conx-atm-1), transparent 42%),
+        radial-gradient(circle at 88% 100%, var(--conx-atm-2), transparent 40%),
         repeating-linear-gradient(
           -18deg,
           transparent,
@@ -2110,6 +2558,72 @@ f.styles = $t`
       opacity: 0.55;
     }
 
+    .theme-picker {
+      display: grid;
+      gap: 8px;
+      margin-top: 4px;
+    }
+    .theme-picker-label {
+      display: none;
+    }
+    .theme-swatches {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+      gap: 8px;
+    }
+    .theme-swatch {
+      display: grid;
+      gap: 6px;
+      padding: 8px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text);
+      cursor: pointer;
+      box-shadow:
+        inset 0 1px 0 var(--conx-bevel-light),
+        0 4px 12px color-mix(in srgb, #0b1218 10%, transparent);
+      transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+    }
+    .theme-swatch:hover {
+      transform: translateY(-1px);
+    }
+    .theme-swatch.active {
+      border-color: var(--swatch-accent, var(--conx-accent));
+      box-shadow:
+        inset 0 1px 0 var(--conx-bevel-light),
+        0 0 0 2px color-mix(in srgb, var(--swatch-accent, var(--conx-accent)) 45%, transparent),
+        0 8px 18px color-mix(in srgb, #0b1218 16%, transparent);
+    }
+    .theme-swatch-face {
+      display: block;
+      height: 38px;
+      border-radius: 8px;
+      background: var(--swatch);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.35),
+        inset 0 -2px 4px rgba(0, 0, 0, 0.28),
+        0 2px 6px rgba(0, 0, 0, 0.18);
+    }
+    .theme-swatch-name {
+      font-size: 0.72rem;
+      font-weight: 600;
+      line-height: 1.25;
+      text-align: start;
+    }
+    .dimmer-field input[type="range"] {
+      width: 100%;
+      accent-color: var(--conx-accent);
+    }
+    .dimmer-field.dimmed {
+      opacity: 0.45;
+    }
+    .dimmer-field span {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
     .header,
     .warn,
     .error,
@@ -2117,6 +2631,46 @@ f.styles = $t`
     .layout {
       position: relative;
       z-index: 1;
+    }
+
+
+    .single-layout {
+      display: grid;
+      gap: var(--conx-gap);
+      grid-template-columns: 1fr;
+    }
+    @media (min-width: 860px) {
+      .single-layout {
+        grid-template-columns: 1fr 1.1fr;
+      }
+      .single-layout > .panel-section:nth-child(1),
+      .single-layout > .panel-section:nth-child(4) {
+        grid-column: 1 / -1;
+      }
+    }
+    .export-view {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      gap: 12px;
+    }
+    .export-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px solid color-mix(in srgb, var(--conx-accent) 40%, transparent);
+      background: var(--conx-accent-soft);
+      box-shadow: inset 0 1px 0 var(--conx-bevel-light);
+    }
+    .export-title {
+      font-family: var(--conx-display);
+      font-weight: 700;
+    }
+    .back-to-editor {
+      font-weight: 700;
     }
 
     .wizard-layout {
@@ -2136,7 +2690,8 @@ f.styles = $t`
       align-items: center;
       gap: 6px;
       border: 1px solid color-mix(in srgb, var(--conx-steel) 40%, transparent);
-      background: color-mix(in srgb, #fff 70%, transparent);
+      background: var(--btn-bg);
+      color: var(--btn-text);
       border-radius: 999px;
       padding: 6px 10px;
       font: inherit;
@@ -2217,7 +2772,8 @@ f.styles = $t`
       padding: 16px 10px;
       border-radius: 16px;
       border: 1px solid color-mix(in srgb, var(--conx-steel) 35%, transparent);
-      background: color-mix(in srgb, #fff 74%, transparent);
+      background: var(--btn-bg);
+      color: var(--btn-text);
       cursor: pointer;
       font: inherit;
       transition: transform 160ms ease, border-color 160ms ease;
@@ -2485,12 +3041,7 @@ f.styles = $t`
     .panel-section {
       border-radius: 16px;
       border: 1px solid color-mix(in srgb, var(--conx-steel) 32%, transparent);
-      background:
-        linear-gradient(
-          180deg,
-          color-mix(in srgb, #fff 55%, transparent),
-          color-mix(in srgb, var(--secondary-background-color, #e8eef3) 55%, transparent)
-        );
+      background: var(--conx-panel-bg);
       box-shadow:
         inset 0 1px 0 var(--conx-bevel-light),
         0 6px 16px color-mix(in srgb, #0b1218 8%, transparent);
@@ -2652,12 +3203,12 @@ f.styles = $t`
     }
 
     input[type="text"],
-    select {
+    select,
+    textarea.yaml-box {
       font: inherit;
-      color: inherit;
-      background:
-        linear-gradient(180deg, color-mix(in srgb, #fff 80%, transparent), color-mix(in srgb, #e4ebf1 55%, transparent));
-      border: 1px solid color-mix(in srgb, var(--conx-steel) 40%, transparent);
+      color: var(--input-text);
+      background: var(--input-bg);
+      border: 1px solid var(--border);
       border-radius: 11px;
       padding: 9px 11px;
       box-shadow:
@@ -2736,21 +3287,21 @@ f.styles = $t`
 
     .btn {
       font: inherit;
-      color: inherit;
+      color: var(--btn-text);
       cursor: pointer;
       border-radius: 11px;
-      border: 1px solid color-mix(in srgb, var(--conx-steel) 40%, transparent);
-      background:
-        linear-gradient(180deg, color-mix(in srgb, #fff 75%, transparent), color-mix(in srgb, #cfd8e1 50%, transparent));
+      border: 1px solid var(--border);
+      background: var(--btn-bg);
       padding: 8px 12px;
       box-shadow:
-        inset 0 1px 0 var(--conx-bevel-light),
-        0 2px 6px color-mix(in srgb, #0b1218 10%, transparent);
+        inset 0 1px 0 var(--bevel-light),
+        0 2px 6px rgba(0, 0, 0, 0.18);
       transition: transform 120ms ease, filter 120ms ease;
     }
 
     .btn:hover:not(:disabled) {
       transform: translateY(-1px);
+      filter: brightness(1.04);
     }
 
     .btn:active:not(:disabled) {
@@ -2758,13 +3309,15 @@ f.styles = $t`
     }
 
     .btn.primary {
-      background: linear-gradient(180deg, #2a93a8, var(--conx-accent));
-      color: #fff;
-      border-color: color-mix(in srgb, var(--conx-accent) 70%, #0b1218);
+      background: var(--btn-primary-bg);
+      color: var(--btn-primary-text);
+      border-color: color-mix(in srgb, var(--accent) 55%, #000);
+      font-weight: 700;
     }
 
     .btn.danger {
-      color: var(--conx-danger);
+      color: var(--danger);
+      background: var(--btn-bg);
     }
 
     .btn:disabled {
@@ -2781,8 +3334,9 @@ f.styles = $t`
 
     .button-edit {
       border-radius: 12px;
-      border: 1px solid color-mix(in srgb, var(--conx-steel) 30%, transparent);
-      background: color-mix(in srgb, #fff 42%, transparent);
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text);
       overflow: hidden;
     }
 
@@ -2794,7 +3348,7 @@ f.styles = $t`
       padding: 10px 12px;
       border: 0;
       background: transparent;
-      color: inherit;
+      color: var(--text);
       font: inherit;
       cursor: pointer;
       text-align: start;
@@ -2885,6 +3439,12 @@ f.styles = $t`
 
     /* Zemismart 4-gang faceplate recreation (labels top / rings bottom, 1×4). */
     .faceplate {
+      padding: 14px;
+      border-radius: 16px;
+      background: var(--faceplate-well);
+      box-shadow:
+        inset 0 2px 8px rgba(0, 0, 0, 0.28),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
       --conx-faceplate-skin: none; /* future: url(...) photo overlay */
       width: 100%;
       overflow-x: auto;
@@ -3040,65 +3600,71 @@ f.styles = $t`
     }
   `;
 u([
-  st({ attribute: !1 })
-], f.prototype, "hass", 2);
+  nt({ attribute: !1 })
+], g.prototype, "hass", 2);
 u([
-  g()
-], f.prototype, "_config", 2);
+  _()
+], g.prototype, "_config", 2);
 u([
-  g()
-], f.prototype, "_panel", 2);
+  _()
+], g.prototype, "_panel", 2);
 u([
-  g()
-], f.prototype, "_draft", 2);
+  _()
+], g.prototype, "_draft", 2);
 u([
-  g()
-], f.prototype, "_saved", 2);
+  _()
+], g.prototype, "_saved", 2);
 u([
-  g()
-], f.prototype, "_error", 2);
+  _()
+], g.prototype, "_error", 2);
 u([
-  g()
-], f.prototype, "_notice", 2);
+  _()
+], g.prototype, "_notice", 2);
 u([
-  g()
-], f.prototype, "_loading", 2);
+  _()
+], g.prototype, "_loading", 2);
 u([
-  g()
-], f.prototype, "_busy", 2);
+  _()
+], g.prototype, "_busy", 2);
 u([
-  g()
-], f.prototype, "_syncPulse", 2);
+  _()
+], g.prototype, "_syncPulse", 2);
 u([
-  g()
-], f.prototype, "_pressedRing", 2);
+  _()
+], g.prototype, "_pressedRing", 2);
 u([
-  g()
-], f.prototype, "_uiLang", 2);
+  _()
+], g.prototype, "_uiLang", 2);
 u([
-  g()
-], f.prototype, "_wizardStep", 2);
+  _()
+], g.prototype, "_theme", 2);
 u([
-  g()
-], f.prototype, "_importMode", 2);
+  _()
+], g.prototype, "_view", 2);
 u([
-  g()
-], f.prototype, "_serviceYaml", 2);
+  _()
+], g.prototype, "_wizardStep", 2);
 u([
-  g()
-], f.prototype, "_sections", 2);
+  _()
+], g.prototype, "_importMode", 2);
 u([
-  g()
-], f.prototype, "_expandedButtons", 2);
-f = u([
-  Et("conx-dynamic-panel-card")
-], f);
-var Se = Object.defineProperty, ke = Object.getOwnPropertyDescriptor, nt = (e, t, r, i) => {
-  for (var a = i > 1 ? void 0 : i ? ke(t, r) : t, s = e.length - 1, n; s >= 0; s--)
+  _()
+], g.prototype, "_serviceYaml", 2);
+u([
+  _()
+], g.prototype, "_sections", 2);
+u([
+  _()
+], g.prototype, "_expandedButtons", 2);
+g = u([
+  Rt("conx-dynamic-panel-card")
+], g);
+var De = Object.defineProperty, Me = Object.getOwnPropertyDescriptor, ct = (e, t, r, i) => {
+  for (var a = i > 1 ? void 0 : i ? Me(t, r) : t, s = e.length - 1, n; s >= 0; s--)
     (n = e[s]) && (a = (i ? n(t, r, a) : n(a)) || a);
-  return i && a && Se(t, r, a), a;
+  return i && a && De(t, r, a), a;
 };
-let j = class extends P {
+let H = class extends z {
   setConfig(e) {
     this._config = e;
   }
@@ -3121,11 +3687,11 @@ let j = class extends P {
   render() {
     if (!this._config)
       return l``;
-    const e = Ot(this._language);
+    const e = Mt(this._language);
     return l`
       <div class="editor" dir=${e ? "rtl" : "ltr"}>
         <label>
-          ${F(this._language, "editor.entry_id")}
+          ${C(this._language, "editor.entry_id")}
           <input
             .value=${this._config.entry_id || ""}
             @input=${(t) => this._valueChanged({
@@ -3134,15 +3700,30 @@ let j = class extends P {
           />
         </label>
         <label>
-          ${F(this._language, "card.language")}
+          ${C(this._language, "card.language")}
           <select
-            .value=${M(this._config.language || this._language)}
+            .value=${j(this._config.language || this._language)}
             @change=${(t) => this._valueChanged({
       language: t.target.value
     })}
           >
-            ${tt.map(
+            ${et.map(
       (t) => l`<option value=${t.id}>${t.label}</option>`
+    )}
+          </select>
+        </label>
+        <label>
+          ${C(this._language, "card.theme")}
+          <select
+            .value=${G(this._config.theme)}
+            @change=${(t) => this._valueChanged({
+      theme: t.target.value
+    })}
+          >
+            ${ot.map(
+      (t) => l`<option value=${t.id}>
+                ${C(this._language, `theme.${t.id}`)}
+              </option>`
     )}
           </select>
         </label>
@@ -3154,13 +3735,13 @@ let j = class extends P {
       compact: t.target.checked
     })}
           />
-          ${F(this._language, "card.compact")}
+          ${C(this._language, "card.compact")}
         </label>
       </div>
     `;
   }
 };
-j.styles = $t`
+H.styles = At`
     .editor {
       display: flex;
       flex-direction: column;
@@ -3188,15 +3769,15 @@ j.styles = $t`
       color: inherit;
     }
   `;
-nt([
-  st({ attribute: !1 })
-], j.prototype, "hass", 2);
-nt([
-  g()
-], j.prototype, "_config", 2);
-j = nt([
-  Et("conx-dynamic-panel-card-editor")
-], j);
+ct([
+  nt({ attribute: !1 })
+], H.prototype, "hass", 2);
+ct([
+  _()
+], H.prototype, "_config", 2);
+H = ct([
+  Rt("conx-dynamic-panel-card-editor")
+], H);
 window.customCards = window.customCards || [];
 window.customCards.push({
   type: "conx-dynamic-panel-card",

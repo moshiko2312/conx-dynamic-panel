@@ -107,6 +107,10 @@ class PanelCoordinator:
         if profile.mode == MODE_TOGGLE:
             await self._async_execute_button_action(profile, index, turned_on)
             return
+        # Independent toggles inside a radio profile skip exclusivity.
+        if not profile.is_radio_member(index):
+            await self._async_execute_button_action(profile, index, turned_on)
+            return
         if profile.mode == MODE_RADIO_MANDATORY:
             await self._async_radio_mandatory(profile, index, turned_on)
             return
@@ -114,15 +118,17 @@ class PanelCoordinator:
             await self._async_radio_optional(profile, index, turned_on)
 
     async def _async_radio_mandatory(self, profile: Profile, index: int, turned_on: bool) -> None:
+        members = profile.radio_member_indexes()
         if turned_on:
             await self._async_execute_button_action(profile, index, True)
             profile.selected_button = index
-            for other in range(1, BUTTON_COUNT + 1):
+            for other in members:
                 if other != index:
                     await self.runtime.adapter.async_set_relay(other, False, suppress_event=True)
             await self.runtime.store.async_save()
             self.runtime.async_notify()
             return
+        # Keep at least one radio member ON.
         if profile.selected_button == index or profile.selected_button is None:
             profile.selected_button = index
             await self.runtime.adapter.async_set_relay(index, True, suppress_event=True)
@@ -130,10 +136,11 @@ class PanelCoordinator:
             self.runtime.async_notify()
 
     async def _async_radio_optional(self, profile: Profile, index: int, turned_on: bool) -> None:
+        members = profile.radio_member_indexes()
         if turned_on:
             await self._async_execute_button_action(profile, index, True)
             profile.selected_button = index
-            for other in range(1, BUTTON_COUNT + 1):
+            for other in members:
                 if other != index:
                     await self.runtime.adapter.async_set_relay(other, False, suppress_event=True)
             await self.runtime.store.async_save()
@@ -236,9 +243,16 @@ class PanelCoordinator:
         profile.color_off = hardware.color_off or profile.color_off
         profile.radar = hardware.radar or profile.radar
         profile.backlight = hardware.backlight
+        if hardware.backlight_brightness is not None:
+            profile.backlight_brightness = hardware.backlight_brightness
         profile.child_lock = hardware.child_lock
         if profile.mode in {MODE_RADIO_MANDATORY, MODE_RADIO_OPTIONAL}:
-            on_indexes = [index + 1 for index, value in enumerate(hardware.relays) if value]
+            members = set(profile.radio_member_indexes())
+            on_indexes = [
+                index + 1
+                for index, value in enumerate(hardware.relays)
+                if value and (index + 1) in members
+            ]
             profile.selected_button = on_indexes[0] if on_indexes else None
         if drifted:
             self.data.sync_status = SYNC_OUT_OF_SYNC  # type: ignore[assignment]
@@ -256,12 +270,18 @@ class PanelCoordinator:
         snapshot_names = tuple(str(button.get("name") or "") for button in buttons)
         if len(snapshot_names) != BUTTON_COUNT:
             snapshot_names = (snapshot_names + ("", "", "", ""))[:BUTTON_COUNT]
+        brightness_differs = False
+        if hardware.backlight_brightness is not None and "backlight_brightness" in snapshot:
+            brightness_differs = int(hardware.backlight_brightness) != int(
+                snapshot.get("backlight_brightness") or 0
+            )
         return (
             hardware.names != snapshot_names
             or hardware.color_on != snapshot.get("color_on")
             or hardware.color_off != snapshot.get("color_off")
             or hardware.radar != snapshot.get("radar")
             or bool(hardware.backlight) != bool(snapshot.get("backlight"))
+            or brightness_differs
             or bool(hardware.child_lock) != bool(snapshot.get("child_lock"))
         )
 

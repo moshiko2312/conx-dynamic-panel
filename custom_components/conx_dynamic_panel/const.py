@@ -19,7 +19,12 @@ CONF_COLOR_OFF_ENTITY: Final = "color_off_entity"
 CONF_COLOR_ON_ENTITY: Final = "color_on_entity"
 CONF_RADAR_ENTITY: Final = "radar_entity"
 CONF_BACKLIGHT_ENTITY: Final = "backlight_entity"
+CONF_BACKLIGHT_BRIGHTNESS_ENTITY: Final = "backlight_brightness_entity"
 CONF_CHILD_LOCK_ENTITY: Final = "child_lock_entity"
+
+DEFAULT_BACKLIGHT_BRIGHTNESS: Final = 100
+BACKLIGHT_BRIGHTNESS_MIN: Final = 0
+BACKLIGHT_BRIGHTNESS_MAX: Final = 100
 
 CONF_SYNC_TIMEOUT: Final = "sync_timeout"
 CONF_CONFIRM_TIMEOUT: Final = "confirm_timeout"

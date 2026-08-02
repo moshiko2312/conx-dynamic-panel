@@ -44,6 +44,10 @@ class PanelAdapter(ABC):
     async def async_set_backlight(self, enabled: bool) -> None:
         """Set backlight switch."""
 
+    async def async_set_backlight_brightness(self, brightness: int) -> None:
+        """Set optional backlight brightness (0–100). Default: no-op."""
+        return None
+
     @abstractmethod
     async def async_set_child_lock(self, enabled: bool) -> None:
         """Set child lock switch."""

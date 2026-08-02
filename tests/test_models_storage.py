@@ -35,6 +35,30 @@ def test_profile_clone() -> None:
     assert clone.buttons[0].index == 1
 
 
+def test_profile_defaults_brightness_and_radio_member() -> None:
+    profile = Profile.from_dict(
+        {
+            "id": "x",
+            "name": "X",
+            "buttons": [{"index": 1, "name": "A", "radio_member": False}],
+        }
+    )
+    assert profile.backlight_brightness == 100
+    assert profile.buttons[0].radio_member is False
+    assert profile.is_radio_member(1) is False
+    assert profile.radio_member_indexes() == [2, 3, 4]
+    payload = profile.to_dict()
+    assert payload["backlight_brightness"] == 100
+    assert payload["buttons"][0]["radio_member"] is False
+
+
+def test_backlight_brightness_clamped() -> None:
+    profile = Profile.from_dict({"id": "x", "name": "X", "backlight_brightness": 250})
+    assert profile.backlight_brightness == 100
+    profile2 = Profile.from_dict({"id": "y", "name": "Y", "backlight_brightness": -5})
+    assert profile2.backlight_brightness == 0
+
+
 def test_storage_migration_sets_current_version() -> None:
     migrated = _migrate({"schema_version": 1, "profiles": {}})
     assert migrated["schema_version"] == 1

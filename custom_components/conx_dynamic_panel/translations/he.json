@@ -37,6 +37,7 @@
           "color_on_entity": "צבע דלוק",
           "radar_entity": "רדאר",
           "backlight_entity": "תאורת רקע",
+          "backlight_brightness_entity": "עוצמת תאורת רקע (אופציונלי)",
           "child_lock_entity": "נעילת ילדים"
         }
       },

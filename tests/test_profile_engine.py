@@ -162,6 +162,41 @@ async def test_radio_optional_allows_all_off() -> None:
 
 
 @pytest.mark.asyncio
+async def test_radio_optional_mixed_membership_skips_non_members() -> None:
+    store = FakeStore()
+    adapter = FakeAdapter()
+    runtime = _runtime(adapter, store)
+    coordinator = PanelCoordinator(runtime)  # type: ignore[arg-type]
+    profile = store.data.active_profile()
+    assert profile is not None
+    profile.mode = MODE_RADIO_OPTIONAL  # type: ignore[assignment]
+    profile.buttons[2].radio_member = False  # button 3 is independent toggle
+    profile.buttons[2].action = ButtonAction(action="light.toggle", target={})
+    profile.selected_button = 1
+    await coordinator._async_handle_physical_press(3, True)
+    assert profile.selected_button == 1
+    assert adapter.relay_calls == []
+    runtime.hass.services.async_call.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_radio_mandatory_exclusivity_only_among_members() -> None:
+    store = FakeStore()
+    adapter = FakeAdapter()
+    runtime = _runtime(adapter, store)
+    coordinator = PanelCoordinator(runtime)  # type: ignore[arg-type]
+    profile = store.data.active_profile()
+    assert profile is not None
+    profile.mode = MODE_RADIO_MANDATORY  # type: ignore[assignment]
+    profile.buttons[3].radio_member = False  # button 4 independent
+    await coordinator._async_handle_physical_press(2, True)
+    assert profile.selected_button == 2
+    assert (1, False) in adapter.relay_calls
+    assert (3, False) in adapter.relay_calls
+    assert (4, False) not in adapter.relay_calls
+
+
+@pytest.mark.asyncio
 async def test_suppressed_transition_skips_action() -> None:
     store = FakeStore()
     adapter = FakeAdapter()

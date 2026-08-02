@@ -33,6 +33,37 @@
         linear-gradient(160deg, var(--page-bg-1), var(--page-bg-2) 45%, var(--page-bg-3));
       padding: 28px 16px 48px;
     }
+
+    .theme-picker { display:grid; gap:8px; margin:12px 0; }
+    .theme-picker-label { font-size:.82rem; font-weight:600; opacity:.75; }
+    .theme-swatches { display:grid; grid-template-columns:repeat(auto-fit,minmax(104px,1fr)); gap:8px; }
+    .theme-swatch { display:grid; gap:6px; padding:8px; border-radius:12px; font:inherit; cursor:pointer; color:inherit;
+      border:1px solid color-mix(in srgb, var(--conx-steel) 35%, transparent); background:#fff8; }
+    .theme-swatch.active { border-color: var(--swatch-accent, var(--conx-accent)); box-shadow:0 0 0 2px color-mix(in srgb,var(--swatch-accent,var(--conx-accent)) 45%,transparent); }
+    .theme-swatch-face { display:block; height:38px; border-radius:8px; background:var(--swatch);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.35), inset 0 -2px 4px rgba(0,0,0,.28); }
+    .theme-swatch-name { font-size:.72rem; font-weight:600; text-align:start; }
+    .dimmer-field span { display:flex; justify-content:space-between; }
+    .dimmer-field input[type=range] { width:100%; accent-color:var(--conx-accent); }
+    body[data-theme="black_orange"] { --conx-ink:#f4ebe3; --conx-steel:#8a7464; --conx-accent:#ff6d00; --conx-accent-soft:color-mix(in srgb,#ff6d00 22%,transparent); --page-bg-1:#120e0c; --page-bg-2:#0a0908; --page-bg-3:#1c120c; color:var(--conx-ink); }
+    body[data-theme="black_orange"] .card { background:linear-gradient(160deg,#14110f,#0a0908 42%,#1c120c 78%,#24160e); border-color:color-mix(in srgb,#ff6d00 28%,#2a1a12); color:var(--conx-ink); }
+    body[data-theme="graphite"] { --conx-ink:#e8edf2; --conx-steel:#7a8490; --conx-accent:#9aa3ad; --page-bg-1:#121417; --page-bg-2:#1a1f25; --page-bg-3:#0f1216; color:var(--conx-ink); }
+    body[data-theme="graphite"] .card { background:linear-gradient(155deg,#2a3038,#171b20 48%,#0f1216); color:var(--conx-ink); }
+    body[data-theme="midnight_teal"] { --conx-ink:#e6f7f5; --conx-steel:#5f8f8a; --conx-accent:#2dd4bf; --page-bg-1:#061218; --page-bg-2:#0a1c22; --page-bg-3:#082028; color:var(--conx-ink); }
+    body[data-theme="midnight_teal"] .card { background:linear-gradient(155deg,#0a1c22,#061318 46%,#082028); color:var(--conx-ink); }
+    body[data-theme="light_soft"] { --conx-ink:#243039; --conx-steel:#9aa7b3; --conx-accent:#3d7ea6; --page-bg-1:#eef3f7; --page-bg-2:#f7fafc; --page-bg-3:#e2e9f0; }
+    body[data-theme="light_soft"] .card { background:linear-gradient(160deg,#fff,#f5f8fb 48%,#e8eef4); }
+
+
+    .back-editor-bar { display:flex; justify-content:center; margin-bottom:14px; }
+    .back-editor-bar a {
+      display:inline-flex; align-items:center; gap:8px; font:inherit; font-weight:700; text-decoration:none;
+      border-radius:12px; padding:10px 16px; color:#fff;
+      background: linear-gradient(180deg, color-mix(in srgb, var(--conx-accent) 88%, #fff), var(--conx-accent));
+      border: 1px solid color-mix(in srgb, var(--conx-accent) 70%, #000);
+      box-shadow: 0 8px 18px color-mix(in srgb, var(--conx-accent) 22%, transparent);
+    }
+
     .page { max-width: 920px; margin: 0 auto; }
     .page-intro { text-align: center; margin-bottom: 18px; }
     .page-intro h1 { font-family: var(--conx-display); font-size: clamp(1.4rem, 3vw, 1.9rem); margin: 0 0 6px; }
@@ -190,6 +221,9 @@
 <body>
   <div class="page">
     <div class="page-intro">
+      <div class="back-editor-bar">
+        <a href="conx-card-preview.html" id="backToEditor">← חזרה לעריכה הראשית</a>
+      </div>
       <h1 id="pageTitle">אשף ConX Dynamic Panel</h1>
       <p id="pageSub">הגדרת פרופילים וייצוא/ייבוא JSON תואם Home Assistant</p>
     </div>
@@ -210,6 +244,7 @@
         <p class="hint" id="hint"></p>
         <div class="wizard-body" id="body"></div>
         <div class="footer">
+          <a class="btn primary" id="btnBackEditor" href="conx-card-preview.html">← חזרה לעריכה</a>
           <button class="btn" id="btnBack" type="button">חזרה</button>
           <button class="btn primary" id="btnNext" type="button">הבא</button>
         </div>
@@ -227,6 +262,7 @@ const I18N = {
   he: {
     pageTitle: "אשף ConX Dynamic Panel",
     pageSub: "הגדרת פרופילים וייצוא/ייבוא JSON תואם Home Assistant",
+    backToEditor: "← חזרה לעריכה הראשית",
     back: "חזרה", next: "הבא",
     language: "שפה", profiles: "פאנל / פרופיל", edit: "עריכת הגדרות", preview: "תצוגת פאנל", review: "סקירה", transfer: "ייצוא / ייבוא",
     hints: {
@@ -239,7 +275,9 @@ const I18N = {
     },
     create: "צור", duplicate: "שכפל", rename: "שנה שם", remove: "מחק",
     mode: "מצב", colorOn: "צבע דלוק", colorOff: "צבע כבוי", radar: "רדאר",
-    backlight: "תאורת רקע", childLock: "נעילת ילדים", buttons: "כפתורים", label: "תווית",
+    backlight: "תאורת רקע", backlightBrightness: "עוצמת תאורת רקע", theme: "ערכת נושא", radioParticipation: "התנהגות כפתור", radioMember: "משתתף ברדיו", radioToggle: "טוגל עצמאי",
+    themeIndustrial: "זכוכית תעשייתית", themeBlackOrange: "שחור–כתום תלת־ממד", themeGraphite: "גרפיט פלדה", themeMidnightTeal: "טורקיז חצות", themeLightSoft: "בהיר רך",
+    childLock: "נעילת ילדים", buttons: "כפתורים", label: "תווית",
     download: "הורדת .json", chooseFile: "בחרו קובץ JSON", importMode: "מצב ייבוא",
     merge: "מיזוג (merge)", replace: "החלפה (replace)", copyYaml: "העתק YAML",
     exportOk: "הקובץ יוצא בהצלחה.", importOk: "הקובץ יובא לתוך האשף.",
@@ -258,6 +296,7 @@ const I18N = {
   en: {
     pageTitle: "ConX Dynamic Panel Wizard",
     pageSub: "Configure profiles and export/import HA-compatible JSON",
+    backToEditor: "← Back to main editor",
     back: "Back", next: "Next",
     language: "Language", profiles: "Panel / profile", edit: "Edit settings", preview: "Faceplate preview", review: "Review", transfer: "Export / Import",
     hints: {
@@ -270,7 +309,9 @@ const I18N = {
     },
     create: "Create", duplicate: "Duplicate", rename: "Rename", remove: "Delete",
     mode: "Mode", colorOn: "Color ON", colorOff: "Color OFF", radar: "Radar",
-    backlight: "Backlight", childLock: "Child lock", buttons: "Buttons", label: "Label",
+    backlight: "Backlight", backlightBrightness: "Backlight brightness", theme: "Interface theme", radioParticipation: "Button behavior", radioMember: "Radio group", radioToggle: "Independent toggle",
+    themeIndustrial: "Industrial glass", themeBlackOrange: "Black–orange 3D", themeGraphite: "Graphite steel", themeMidnightTeal: "Midnight teal", themeLightSoft: "Light soft",
+    childLock: "Child lock", buttons: "Buttons", label: "Label",
     download: "Download .json", chooseFile: "Choose JSON file", importMode: "Import mode",
     merge: "Merge", replace: "Replace", copyYaml: "Copy YAML",
     exportOk: "JSON exported.", importOk: "JSON imported into the wizard.",
@@ -289,6 +330,7 @@ const I18N = {
   ru: {
     pageTitle: "Мастер ConX Dynamic Panel",
     pageSub: "Настройка профилей и экспорт/импорт JSON для Home Assistant",
+    backToEditor: "← Назад к главному редактору",
     back: "Назад", next: "Далее",
     language: "Язык", profiles: "Панель / профиль", edit: "Настройки", preview: "Превью", review: "Обзор", transfer: "Экспорт / импорт",
     hints: {
@@ -301,7 +343,9 @@ const I18N = {
     },
     create: "Создать", duplicate: "Дублировать", rename: "Переименовать", remove: "Удалить",
     mode: "Режим", colorOn: "Цвет ВКЛ", colorOff: "Цвет ВЫКЛ", radar: "Радар",
-    backlight: "Подсветка", childLock: "Блокировка", buttons: "Кнопки", label: "Название",
+    backlight: "Подсветка", backlightBrightness: "Яркость подсветки", theme: "Тема интерфейса", radioParticipation: "Поведение кнопки", radioMember: "В радиогруппе", radioToggle: "Независимый тоггл",
+    themeIndustrial: "Индустриальное стекло", themeBlackOrange: "Чёрно–оранжевый 3D", themeGraphite: "Графит / сталь", themeMidnightTeal: "Полночный бирюзовый", themeLightSoft: "Мягкий светлый",
+    childLock: "Блокировка", buttons: "Кнопки", label: "Название",
     download: "Скачать .json", chooseFile: "Выбрать JSON", importMode: "Режим импорта",
     merge: "Слияние", replace: "Замена", copyYaml: "Копировать YAML",
     exportOk: "JSON экспортирован.", importOk: "JSON импортирован в мастер.",
@@ -320,31 +364,39 @@ const I18N = {
 };
 
 function deepClone(v){ return JSON.parse(JSON.stringify(v)); }
+const THEMES = [
+  {id:"industrial", swatch:"linear-gradient(145deg,#eef2f5 0%,#c5d0da 55%,#8b949e 100%)", accent:"#1f7a8c", labelKey:"themeIndustrial"},
+  {id:"black_orange", swatch:"linear-gradient(145deg,#0a0a0c 0%,#1a120e 45%,#e65100 100%)", accent:"#ff6d00", labelKey:"themeBlackOrange"},
+  {id:"graphite", swatch:"linear-gradient(145deg,#121417 0%,#2a2f36 50%,#6b7280 100%)", accent:"#9aa3ad", labelKey:"themeGraphite"},
+  {id:"midnight_teal", swatch:"linear-gradient(145deg,#061218 0%,#0d2a32 50%,#14b8a6 100%)", accent:"#2dd4bf", labelKey:"themeMidnightTeal"},
+  {id:"light_soft", swatch:"linear-gradient(145deg,#ffffff 0%,#f3f6f9 55%,#dce4ec 100%)", accent:"#3d7ea6", labelKey:"themeLightSoft"},
+];
 function makeProfile(id, name){
   return {
     id, name, mode:"toggle", color_on:"cyan", color_off:"blue", radar:"30s",
-    backlight:true, child_lock:false, selected_button:null,
-    buttons:[1,2,3,4].map(i=>({index:i, name:`Button ${i}`, action:null}))
+    backlight:true, backlight_brightness:100, child_lock:false, selected_button:null,
+    buttons:[1,2,3,4].map(i=>({index:i, name:`Button ${i}`, action:null, radio_member:true}))
   };
 }
 
-const STORAGE_KEY = "conx-panel-wizard-state-v1";
+const STORAGE_KEY = "conx-panel-wizard-state-v2";
 
 function createDefaultState(){
   const profiles = {
     lighting: {
       id:"lighting", name:"Lighting", mode:"radio_optional", color_on:"cyan", color_off:"blue",
-      radar:"30s", backlight:true, child_lock:false, selected_button:1,
+      radar:"30s", backlight:true, backlight_brightness:80, child_lock:false, selected_button:1,
       buttons:[
-        {index:1,name:"סלון",action:null},
-        {index:2,name:"מטבח",action:null},
-        {index:3,name:"חוץ",action:null},
-        {index:4,name:"הכל כבוי",action:null}
+        {index:1,name:"סלון",action:null,radio_member:true},
+        {index:2,name:"מטבח",action:null,radio_member:true},
+        {index:3,name:"חוץ",action:null,radio_member:false},
+        {index:4,name:"הכל כבוי",action:null,radio_member:true}
       ]
     }
   };
   return {
     lang: "he",
+    theme: "industrial",
     step: "language",
     activeId: "lighting",
     importMode: "merge",
@@ -361,6 +413,7 @@ function persistState(){
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
       lang: state.lang,
+      theme: state.theme || "industrial",
       step: state.step,
       activeId: state.activeId,
       importMode: state.importMode,
@@ -445,11 +498,17 @@ function validateExport(raw){
       color_off: String(value.color_off || "blue"),
       radar: String(value.radar || "30s"),
       backlight: Boolean(value.backlight ?? true),
+      backlight_brightness: Math.max(0, Math.min(100, Math.round(Number(value.backlight_brightness ?? 100) || 100))),
       child_lock: Boolean(value.child_lock ?? false),
       selected_button: value.selected_button == null ? null : Number(value.selected_button),
       buttons: [1,2,3,4].map(i => {
         const found = (value.buttons || []).find(b => Number(b.index) === i) || {};
-        return { index:i, name:String(found.name || `Button ${i}`), action: found.action || null };
+        return {
+          index:i,
+          name:String(found.name || `Button ${i}`),
+          action: found.action || null,
+          radio_member: found.radio_member !== false,
+        };
       })
     };
   }
@@ -489,8 +548,13 @@ function renderFaceplate(){
   const off = resolveColor(state.draft.color_off, "#2979ff");
   const labels = state.draft.buttons.map(b => `<div class="faceplate-label">${b.name || ("L"+b.index)}</div>`).join("");
   const rings = state.draft.buttons.map(b => {
-    const isOn = state.draft.mode === "toggle" ? (b.index % 2 === 1) : (state.draft.selected_button === b.index || state.selectedRing === b.index && state.draft.mode.startsWith("radio"));
-    const selected = state.draft.mode.startsWith("radio") ? (Number(state.draft.selected_button) === b.index) : isOn;
+    const member = b.radio_member !== false;
+    let selected;
+    if (state.draft.mode === "toggle" || !member) {
+      selected = b.index % 2 === 1;
+    } else {
+      selected = Number(state.draft.selected_button) === b.index;
+    }
     return `<button type="button" class="ring ${selected?"on":"off"}" data-ring="${b.index}"></button>`;
   }).join("");
   return `<div class="faceplate" style="--ring-on:${on};--ring-off:${off}"><div class="faceplate-bezel"><div class="faceplate-glass"><div class="faceplate-labels">${labels}</div><div class="faceplate-touch"><div class="faceplate-rings">${rings}</div></div></div></div></div>`;
@@ -532,6 +596,12 @@ function renderBody(){
         </button>
         ${open ? `<div class="button-edit-fields">
           <label class="field"><span>${i.label}</span><input data-btn-name="${b.index}" value="${b.name}" /></label>
+          ${state.draft.mode !== "toggle" ? `<label class="field"><span>${i.radioParticipation}</span>
+            <select data-btn-radio="${b.index}">
+              <option value="true" ${b.radio_member!==false?"selected":""}>${i.radioMember}</option>
+              <option value="false" ${b.radio_member===false?"selected":""}>${i.radioToggle}</option>
+            </select>
+          </label>` : ""}
         </div>` : ""}
       </div>`;
     }).join("");
@@ -557,6 +627,18 @@ function renderBody(){
           <div class="row">
             <label><input type="checkbox" id="backlight" ${state.draft.backlight?"checked":""}/> ${i.backlight}</label>
             <label><input type="checkbox" id="childLock" ${state.draft.child_lock?"checked":""}/> ${i.childLock}</label>
+          </div>
+          <label class="field dimmer-field">
+            <span>${i.backlightBrightness} <strong>${state.draft.backlight_brightness ?? 100}%</strong></span>
+            <input type="range" id="backlightBrightness" min="0" max="100" value="${state.draft.backlight_brightness ?? 100}" ${state.draft.backlight?"":"disabled"}/>
+          </label>
+          <div class="theme-picker">
+            <div class="theme-picker-label">${i.theme}</div>
+            <div class="theme-swatches">
+              ${THEMES.map(opt => `<button type="button" class="theme-swatch ${state.theme===opt.id?"active":""}" style="--swatch:${opt.swatch};--swatch-accent:${opt.accent}" data-theme="${opt.id}">
+                <span class="theme-swatch-face"></span><span class="theme-swatch-name">${i[opt.labelKey]}</span>
+              </button>`).join("")}
+            </div>
           </div>
         </div>
       </section>
@@ -593,13 +675,14 @@ function renderBody(){
       "color_off": "blue",
       "radar": "30s",
       "backlight": true,
+      "backlight_brightness": 100,
       "child_lock": false,
       "selected_button": null,
       "buttons": [
-        {"index": 1, "name": "L1", "action": null},
-        {"index": 2, "name": "L2", "action": null},
-        {"index": 3, "name": "L3", "action": null},
-        {"index": 4, "name": "L4", "action": null}
+        {"index": 1, "name": "L1", "action": null, "radio_member": true},
+        {"index": 2, "name": "L2", "action": null, "radio_member": true},
+        {"index": 3, "name": "L3", "action": null, "radio_member": true},
+        {"index": 4, "name": "L4", "action": null, "radio_member": true}
       ]
     }
   }
@@ -608,9 +691,11 @@ function renderBody(){
     <div class="schema-box"><h3>${i.schemaTitle}</h3><pre>${sample}</pre></div>
     <div class="howto"><h3>${i.howtoTitle}</h3><ol>${i.howto.map(x=>`<li>${x}</li>`).join("")}</ol></div>
     <div class="row">
-      <button class="btn primary" data-act="export">${i.download}</button>
-      <button class="btn" data-act="import">${i.chooseFile}</button>
-      <button class="btn" data-act="copy">${i.copyYaml}</button>
+      <button type="button" class="btn primary" data-act="export">${i.download}</button>
+      <button type="button" class="btn" data-act="import-merge">${i.merge}</button>
+      <button type="button" class="btn danger" data-act="import-replace">${i.replace}</button>
+      <button type="button" class="btn" data-act="import">${i.chooseFile}</button>
+      <button type="button" class="btn" data-act="copy">${i.copyYaml}</button>
     </div>
     <label class="field"><span>${i.importMode}</span>
       <select id="importMode"><option value="merge">${i.merge}</option><option value="replace">${i.replace}</option></select>
@@ -655,8 +740,11 @@ function bindBody(){
       a.href = URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)], {type:"application/json"}));
       a.download = "conx-profiles.json"; a.click(); URL.revokeObjectURL(a.href);
       showNotice(t().exportOk);
-    } else if (act === "import") {
-      document.getElementById("fileInput").click();
+    } else if (act === "import" || act === "import-merge" || act === "import-replace") {
+      if (act === "import-merge") state.importMode = "merge";
+      if (act === "import-replace") state.importMode = "replace";
+      const input = document.getElementById("fileInput");
+      if (input) { input.value = ""; input.click(); }
     } else if (act === "copy") {
       navigator.clipboard.writeText(buildYaml(buildExport())).then(()=>showNotice(t().copyYaml+" ✓"));
     }
@@ -678,17 +766,35 @@ function bindBody(){
   const colorOn = body.querySelector("#colorOn"); if (colorOn) { colorOn.value = state.draft.color_on; colorOn.addEventListener("change", e => { state.draft.color_on = e.target.value; persistState(); render(); }); }
   const colorOff = body.querySelector("#colorOff"); if (colorOff) { colorOff.value = state.draft.color_off; colorOff.addEventListener("change", e => { state.draft.color_off = e.target.value; persistState(); render(); }); }
   const radar = body.querySelector("#radar"); if (radar) { radar.value = state.draft.radar; radar.addEventListener("change", e => { state.draft.radar = e.target.value; persistState(); }); }
-  const backlight = body.querySelector("#backlight"); if (backlight) backlight.addEventListener("change", e => { state.draft.backlight = e.target.checked; persistState(); });
+  const backlight = body.querySelector("#backlight"); if (backlight) backlight.addEventListener("change", e => { state.draft.backlight = e.target.checked; persistState(); render(); });
+  const brightness = body.querySelector("#backlightBrightness");
+  if (brightness) brightness.addEventListener("input", e => {
+    state.draft.backlight_brightness = Number(e.target.value);
+    persistState();
+    const label = brightness.closest("label")?.querySelector("strong");
+    if (label) label.textContent = state.draft.backlight_brightness + "%";
+  });
   const childLock = body.querySelector("#childLock"); if (childLock) childLock.addEventListener("change", e => { state.draft.child_lock = e.target.checked; persistState(); });
+  body.querySelectorAll("[data-theme]").forEach(btn => btn.addEventListener("click", () => {
+    state.theme = btn.dataset.theme;
+    persistState();
+    render();
+  }));
   body.querySelectorAll("[data-btn-name]").forEach(inp => inp.addEventListener("input", e => {
     const idx = Number(inp.dataset.btnName);
     const button = state.draft.buttons.find(b => b.index === idx);
     if (button) { button.name = e.target.value; persistState(); }
   }));
+  body.querySelectorAll("[data-btn-radio]").forEach(sel => sel.addEventListener("change", e => {
+    const idx = Number(sel.dataset.btnRadio);
+    const button = state.draft.buttons.find(b => b.index === idx);
+    if (button) { button.radio_member = e.target.value === "true"; persistState(); }
+  }));
   body.querySelectorAll("[data-ring]").forEach(btn => btn.addEventListener("click", () => {
     const idx = Number(btn.dataset.ring);
     state.selectedRing = idx;
-    if (state.draft.mode.startsWith("radio")) {
+    const member = (state.draft.buttons.find(b => b.index === idx)?.radio_member) !== false;
+    if (state.draft.mode.startsWith("radio") && member) {
       if (state.draft.mode === "radio_optional" && state.draft.selected_button === idx) state.draft.selected_button = null;
       else state.draft.selected_button = idx;
     }
@@ -703,12 +809,17 @@ function bindBody(){
 }
 
 function render(){
+  document.body.dataset.theme = state.theme || "industrial";
   const i = t();
   document.getElementById("pageTitle").textContent = i.pageTitle;
   document.getElementById("pageSub").textContent = i.pageSub;
+  const back = document.getElementById("backToEditor");
+  if (back) back.textContent = i.backToEditor || "← Back to editor";
   document.getElementById("profileSubtitle").textContent = state.draft.name;
   document.getElementById("btnBack").textContent = i.back;
   document.getElementById("btnNext").textContent = i.next;
+  const btnBackEditor = document.getElementById("btnBackEditor");
+  if (btnBackEditor) btnBackEditor.textContent = i.backToEditor || "← Back to editor";
   document.getElementById("btnReset").textContent = i.reset;
   document.getElementById("hint").textContent = i.hints[state.step];
   const idx = stepIndex();

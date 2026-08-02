@@ -7,7 +7,10 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Literal
 
 from .const import (
+    BACKLIGHT_BRIGHTNESS_MAX,
+    BACKLIGHT_BRIGHTNESS_MIN,
     BUTTON_COUNT,
+    DEFAULT_BACKLIGHT_BRIGHTNESS,
     DEFAULT_COLORS,
     DEFAULT_RADAR,
     MODE_TOGGLE,
@@ -15,6 +18,15 @@ from .const import (
     SYNC_PENDING,
     SYNC_SYNCED,
 )
+
+
+def clamp_backlight_brightness(value: Any) -> int:
+    """Clamp backlight brightness to the supported 0–100 range."""
+    try:
+        brightness = int(round(float(value)))
+    except (TypeError, ValueError):
+        return DEFAULT_BACKLIGHT_BRIGHTNESS
+    return max(BACKLIGHT_BRIGHTNESS_MIN, min(BACKLIGHT_BRIGHTNESS_MAX, brightness))
 
 ButtonMode = Literal["toggle", "radio_mandatory", "radio_optional"]
 SyncStatus = Literal["synced", "pending", "syncing", "error", "out_of_sync"]
@@ -54,6 +66,7 @@ class ButtonConfig:
     index: int
     name: str = ""
     action: ButtonAction | None = None
+    radio_member: bool = True
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize button."""
@@ -61,6 +74,7 @@ class ButtonConfig:
             "index": self.index,
             "name": self.name,
             "action": self.action.to_dict() if self.action else None,
+            "radio_member": bool(self.radio_member),
         }
 
     @classmethod
@@ -70,6 +84,7 @@ class ButtonConfig:
             index=int(data["index"]),
             name=str(data.get("name") or ""),
             action=ButtonAction.from_dict(data.get("action")),
+            radio_member=bool(data.get("radio_member", True)),
         )
 
 
@@ -84,21 +99,39 @@ class Profile:
     color_off: str = "blue"
     radar: str = "30s"
     backlight: bool = True
+    backlight_brightness: int = DEFAULT_BACKLIGHT_BRIGHTNESS
     child_lock: bool = False
     selected_button: int | None = None
     buttons: list[ButtonConfig] = field(default_factory=list)
 
     def __post_init__(self) -> None:
-        if not self.buttons:
-            self.buttons = [
-                ButtonConfig(index=i, name=f"Button {i}") for i in range(1, BUTTON_COUNT + 1)
-            ]
-        self.buttons = sorted(self.buttons, key=lambda button: button.index)
+        by_index = {button.index: button for button in self.buttons}
+        self.buttons = [
+            by_index.get(i) or ButtonConfig(index=i, name=f"Button {i}")
+            for i in range(1, BUTTON_COUNT + 1)
+        ]
+        self.backlight_brightness = clamp_backlight_brightness(self.backlight_brightness)
 
     def button_names(self) -> tuple[str, str, str, str]:
         """Return ordered button names."""
         by_index = {button.index: button.name for button in self.buttons}
         return tuple(by_index.get(i, f"Button {i}") for i in range(1, BUTTON_COUNT + 1))  # type: ignore[return-value]
+
+    def button_by_index(self, index: int) -> ButtonConfig | None:
+        """Return button config for a 1-based index."""
+        return next((button for button in self.buttons if button.index == index), None)
+
+    def is_radio_member(self, index: int) -> bool:
+        """Return whether a button participates in radio exclusivity."""
+        button = self.button_by_index(index)
+        if button is None:
+            return True
+        return bool(button.radio_member)
+
+    def radio_member_indexes(self) -> list[int]:
+        """Return 1-based indexes of buttons that participate in radio mode."""
+        members = [button.index for button in self.buttons if button.radio_member]
+        return members or list(range(1, BUTTON_COUNT + 1))
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize profile."""
@@ -110,6 +143,7 @@ class Profile:
             "color_off": self.color_off,
             "radar": self.radar,
             "backlight": self.backlight,
+            "backlight_brightness": self.backlight_brightness,
             "child_lock": self.child_lock,
             "selected_button": self.selected_button,
             "buttons": [button.to_dict() for button in self.buttons],
@@ -127,6 +161,9 @@ class Profile:
             color_off=str(data.get("color_off") or "blue"),
             radar=str(data.get("radar") or "30s"),
             backlight=bool(data.get("backlight", True)),
+            backlight_brightness=clamp_backlight_brightness(
+                data.get("backlight_brightness", DEFAULT_BACKLIGHT_BRIGHTNESS)
+            ),
             child_lock=bool(data.get("child_lock", False)),
             selected_button=data.get("selected_button"),
             buttons=buttons,
@@ -151,6 +188,7 @@ class HardwareState:
     radar: str
     backlight: bool
     child_lock: bool
+    backlight_brightness: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize hardware state."""
@@ -159,6 +197,7 @@ class HardwareState:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> HardwareState:
         """Deserialize hardware state."""
+        brightness_raw = data.get("backlight_brightness")
         return cls(
             names=tuple(data["names"]),  # type: ignore[arg-type]
             relays=tuple(bool(value) for value in data["relays"]),  # type: ignore[arg-type]
@@ -167,6 +206,9 @@ class HardwareState:
             radar=str(data["radar"]),
             backlight=bool(data["backlight"]),
             child_lock=bool(data["child_lock"]),
+            backlight_brightness=(
+                None if brightness_raw is None else clamp_backlight_brightness(brightness_raw)
+            ),
         )
 
 
@@ -288,10 +330,11 @@ class EntityMapping:
     radar_entity: str
     backlight_entity: str
     child_lock_entity: str
+    backlight_brightness_entity: str | None = None
 
     def all_entities(self) -> list[str]:
         """Return every mapped entity ID."""
-        return [
+        entities = [
             *self.relay_entities,
             *self.name_entities,
             self.color_off_entity,
@@ -300,10 +343,13 @@ class EntityMapping:
             self.backlight_entity,
             self.child_lock_entity,
         ]
+        if self.backlight_brightness_entity:
+            entities.append(self.backlight_brightness_entity)
+        return entities
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize mapping for config entry data."""
-        return {
+        payload: dict[str, Any] = {
             "panel_name": self.panel_name,
             "adapter_type": self.adapter_type,
             "relay_entities": list(self.relay_entities),
@@ -314,6 +360,9 @@ class EntityMapping:
             "backlight_entity": self.backlight_entity,
             "child_lock_entity": self.child_lock_entity,
         }
+        if self.backlight_brightness_entity:
+            payload["backlight_brightness_entity"] = self.backlight_brightness_entity
+        return payload
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> EntityMapping:
@@ -322,6 +371,9 @@ class EntityMapping:
         names = tuple(data["name_entities"])
         if len(relays) != BUTTON_COUNT or len(names) != BUTTON_COUNT:
             raise ValueError("Mapping must include exactly four relays and four names")
+        brightness_entity = data.get("backlight_brightness_entity") or None
+        if brightness_entity is not None:
+            brightness_entity = str(brightness_entity).strip() or None
         return cls(
             panel_name=str(data["panel_name"]),
             adapter_type=str(data["adapter_type"]),
@@ -332,6 +384,7 @@ class EntityMapping:
             radar_entity=str(data["radar_entity"]),
             backlight_entity=str(data["backlight_entity"]),
             child_lock_entity=str(data["child_lock_entity"]),
+            backlight_brightness_entity=brightness_entity,
         )
 
 

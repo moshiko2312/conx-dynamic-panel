@@ -1,6 +1,7 @@
 import { LitElement, css, html } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { LANGUAGE_OPTIONS, isRtl, localize, normalizeLanguage } from "./localize";
+import { THEME_OPTIONS, normalizeTheme } from "./themes";
 import type { CardConfig, HomeAssistant } from "./types";
 
 @customElement("conx-dynamic-panel-card-editor")
@@ -65,6 +66,22 @@ export class ConXDynamicPanelCardEditor extends LitElement {
           >
             ${LANGUAGE_OPTIONS.map(
               (opt) => html`<option value=${opt.id}>${opt.label}</option>`
+            )}
+          </select>
+        </label>
+        <label>
+          ${localize(this._language, "card.theme")}
+          <select
+            .value=${normalizeTheme(this._config.theme)}
+            @change=${(e: Event) =>
+              this._valueChanged({
+                theme: (e.target as HTMLSelectElement).value,
+              })}
+          >
+            ${THEME_OPTIONS.map(
+              (opt) => html`<option value=${opt.id}>
+                ${localize(this._language, `theme.${opt.id}`)}
+              </option>`
             )}
           </select>
         </label>

@@ -15,6 +15,7 @@ from .const import (
     ADAPTER_ZEMISMART_4GANG,
     CONF_ADAPTER_TYPE,
     CONF_AUTO_SYNC,
+    CONF_BACKLIGHT_BRIGHTNESS_ENTITY,
     CONF_BACKLIGHT_ENTITY,
     CONF_CHILD_LOCK_ENTITY,
     CONF_COLOR_OFF_ENTITY,
@@ -180,7 +181,12 @@ class ConXDynamicPanelConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     ) -> FlowResult:
         """Collect shared setting entities."""
         if user_input is not None:
+            brightness = user_input.pop(CONF_BACKLIGHT_BRIGHTNESS_ENTITY, None)
             self._data.update(user_input)
+            if brightness:
+                self._data[CONF_BACKLIGHT_BRIGHTNESS_ENTITY] = brightness
+            else:
+                self._data.pop(CONF_BACKLIGHT_BRIGHTNESS_ENTITY, None)
             return await self.async_step_summary()
         schema_dict: dict[Any, Any] = {}
         schema_dict.update(
@@ -200,6 +206,15 @@ class ConXDynamicPanelConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             _required_entity(
                 CONF_BACKLIGHT_ENTITY, "switch", self._data.get(CONF_BACKLIGHT_ENTITY)
             )
+        )
+        brightness_default = self._data.get(CONF_BACKLIGHT_BRIGHTNESS_ENTITY)
+        brightness_key: Any = (
+            vol.Optional(CONF_BACKLIGHT_BRIGHTNESS_ENTITY, default=brightness_default)
+            if brightness_default
+            else vol.Optional(CONF_BACKLIGHT_BRIGHTNESS_ENTITY)
+        )
+        schema_dict[brightness_key] = selector.EntitySelector(
+            selector.EntitySelectorConfig(domain="number", multiple=False)
         )
         schema_dict.update(
             _required_entity(

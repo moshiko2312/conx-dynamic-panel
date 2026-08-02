@@ -8,6 +8,8 @@ export interface ButtonConfig {
   index: number;
   name: string;
   action: ButtonAction | null;
+  /** When profile mode is radio_*, participate in exclusivity (default true). */
+  radio_member?: boolean;
 }
 
 export interface Profile {
@@ -18,6 +20,8 @@ export interface Profile {
   color_off: string;
   radar: string;
   backlight: boolean;
+  /** Backlight dimmer level 0–100 (stored even when no HA number entity is mapped). */
+  backlight_brightness: number;
   child_lock: boolean;
   selected_button: number | null;
   buttons: ButtonConfig[];
@@ -53,6 +57,8 @@ export interface CardConfig {
   entry_id: string;
   compact?: boolean;
   language?: string;
+  /** Visual UI theme id (industrial, black_orange, graphite, midnight_teal, light_soft). */
+  theme?: string;
 }
 
 export interface HassEntity {

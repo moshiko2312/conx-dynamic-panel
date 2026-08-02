@@ -9,10 +9,13 @@ All notable changes to this private project will be documented here.
 - Premium Lovelace card redesign with industrial glass/steel depth, collapsible settings sections, and intentional motion (section expand, sync pulse, ring press).
 - On-card language flag selectors for Hebrew, English, and Russian (RTL for Hebrew); preference persisted in `localStorage`, with optional card `language` config.
 - Zemismart-accurate horizontal faceplate preview: black label bar on top, white glass face, four LED rings left→right; CSS skin extension point `--conx-faceplate-skin`.
-- Step-by-step setup wizard in the Lovelace card: Language → Profile → Edit → Faceplate preview → Review/Sync → Export/Import.
-- Standalone wizard at `previews/conx-panel-wizard.html` with the same portable JSON schema, HE/EN/RU, live LED preview, file export/import, and ready-to-paste `conx_dynamic_panel.import_profiles` YAML.
-- Profile import/export via WebSocket (`export_profiles`, `import_profiles` with merge/replace), HA services `export_profiles` / `import_profiles`, and card file download/upload UI.
+- Single-page main editor by default; Export/Import opens a dedicated view with prominent **Back to editor** / **חזרה לעריכה**.
+- Standalone wizard at `previews/conx-panel-wizard.html` with HA-compatible JSON, HE/EN/RU, and a clear link back to the main card preview editor.
+- Profile import/export via WebSocket (`export_profiles`, `import_profiles` with merge/replace), HA services, and card/preview file download/upload UI with real file-picker import (merge/replace).
 - Shared frontend export schema validator (`frontend-src/src/exportSchema.ts`) matching backend `STORAGE_VERSION`.
+- Backlight brightness (`0–100`) in profiles + dimmer UI; optional `number` backlight brightness entity in Config Flow / Zemismart adapter.
+- Per-button `radio_member` for mixed radio/toggle participation in `radio_optional` / `radio_mandatory`.
+- Theme system with design tokens and five polished themes (Glass light, Obsidian orange, Graphite steel, Midnight teal, Light soft); collapsible **Theme** section with the same section toggle as Appearance/Buttons.
 - Reference photo at `frontend-src/assets/zemismart-4gang-faceplate.png` for topography (preview itself is a CSS recreation for HA reliability).
 
 ### Changed
@@ -24,6 +27,7 @@ All notable changes to this private project will be documented here.
 - Toggle switches redesigned with balanced track/thumb proportions and physical LTR thumb travel (fixes RTL misalignment).
 - HTML previews (`conx-card-preview.html`, `conx-panel-wizard.html`) persist editable state in `localStorage` across refresh, with a Reset control.
 - Import accepts profiles as an object or array, validates `schema_version`, and rejects future schema versions.
+- Dark themes use cohesive surface/button tokens so secondary buttons and accordion rows stay readable (no light-on-light text).
 
 ## [0.1.0] - 2026-08-02
 
