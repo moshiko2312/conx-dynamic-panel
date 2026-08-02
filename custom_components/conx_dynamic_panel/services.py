@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import voluptuous as vol
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
@@ -12,11 +14,17 @@ from .const import (
     ATTR_BUTTON,
     ATTR_DEVICE_ID,
     ATTR_ENTRY_ID,
+    ATTR_MODE,
+    ATTR_PAYLOAD,
     ATTR_PROFILE_ID,
     ATTR_SYNC,
     DOMAIN,
+    IMPORT_MODE_MERGE,
+    IMPORT_MODES,
     SERVICE_ACTIVATE_PROFILE,
     SERVICE_EXECUTE_BUTTON,
+    SERVICE_EXPORT_PROFILES,
+    SERVICE_IMPORT_PROFILES,
     SERVICE_PULL_FROM_PANEL,
     SERVICE_RELOAD,
     SERVICE_SYNC,
@@ -80,6 +88,21 @@ async def async_register_services(hass: HomeAssistant) -> None:
         for item in list(hass.data.get(DOMAIN, {})):
             await hass.config_entries.async_reload(item)
 
+    async def handle_export(call: ServiceCall) -> dict[str, Any]:
+        coordinator = _get_coordinator(hass, call)
+        return coordinator.export_profiles()
+
+    async def handle_import(call: ServiceCall) -> dict[str, Any]:
+        coordinator = _get_coordinator(hass, call)
+        payload = call.data[ATTR_PAYLOAD]
+        if not isinstance(payload, dict):
+            raise HomeAssistantError("payload must be an object")
+        mode = str(call.data.get(ATTR_MODE, IMPORT_MODE_MERGE))
+        try:
+            return await coordinator.async_import_profiles(payload, mode=mode)
+        except ValueError as err:
+            raise HomeAssistantError(str(err)) from err
+
     hass.services.async_register(
         DOMAIN,
         SERVICE_SYNC,
@@ -117,6 +140,25 @@ async def async_register_services(hass: HomeAssistant) -> None:
         handle_reload,
         schema=vol.Schema({vol.Optional(ATTR_ENTRY_ID): cv.string}),
     )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_EXPORT_PROFILES,
+        handle_export,
+        schema=ENTRY_SCHEMA,
+        supports_response=SupportsResponse.ONLY,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_IMPORT_PROFILES,
+        handle_import,
+        schema=ENTRY_SCHEMA.extend(
+            {
+                vol.Required(ATTR_PAYLOAD): dict,
+                vol.Optional(ATTR_MODE, default=IMPORT_MODE_MERGE): vol.In(IMPORT_MODES),
+            }
+        ),
+        supports_response=SupportsResponse.OPTIONAL,
+    )
 
 
 def async_unregister_services(hass: HomeAssistant) -> None:
@@ -127,6 +169,8 @@ def async_unregister_services(hass: HomeAssistant) -> None:
         SERVICE_PULL_FROM_PANEL,
         SERVICE_EXECUTE_BUTTON,
         SERVICE_RELOAD,
+        SERVICE_EXPORT_PROFILES,
+        SERVICE_IMPORT_PROFILES,
     ):
         if hass.services.has_service(DOMAIN, service):
             hass.services.async_remove(DOMAIN, service)

@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ConX Dynamic Panel — אשף ייצוא/ייבוא</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Sora:wght@500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --conx-font: "Outfit", "Sora", ui-sans-serif, sans-serif;
+      --conx-display: "Sora", "Outfit", ui-sans-serif, sans-serif;
+      --conx-steel: #8b949e;
+      --conx-ink: #1a222c;
+      --conx-accent: #1f7a8c;
+      --conx-accent-soft: color-mix(in srgb, #1f7a8c 18%, transparent);
+      --conx-danger: #c62828;
+      --conx-bevel-light: color-mix(in srgb, #ffffff 55%, transparent);
+      --conx-bevel-dark: color-mix(in srgb, #0b1218 22%, transparent);
+      --ring-on: #00e5ff;
+      --ring-off: #2979ff;
+      --page-bg-1: #d8e2ea;
+      --page-bg-2: #eef3f7;
+      --page-bg-3: #c5d3de;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; font-family: var(--conx-font); color: var(--conx-ink);
+      background:
+        radial-gradient(ellipse at 20% 0%, #b8c9d6 0%, transparent 50%),
+        radial-gradient(ellipse at 90% 100%, color-mix(in srgb, var(--conx-accent) 22%, transparent), transparent 45%),
+        linear-gradient(160deg, var(--page-bg-1), var(--page-bg-2) 45%, var(--page-bg-3));
+      padding: 28px 16px 48px;
+    }
+    .page { max-width: 920px; margin: 0 auto; }
+    .page-intro { text-align: center; margin-bottom: 18px; }
+    .page-intro h1 { font-family: var(--conx-display); font-size: clamp(1.4rem, 3vw, 1.9rem); margin: 0 0 6px; }
+    .page-intro p { margin: 0; opacity: .72; }
+    .card {
+      position: relative; overflow: hidden; border-radius: 20px; padding: 18px;
+      background: linear-gradient(155deg, color-mix(in srgb, #fff 88%, #d7dee6), #f7f9fb 48%, color-mix(in srgb, #fff 90%, #c5d0da));
+      border: 1px solid color-mix(in srgb, var(--conx-steel) 35%, transparent);
+      box-shadow: inset 0 1px 0 var(--conx-bevel-light), inset 0 -1px 0 var(--conx-bevel-dark), 0 16px 40px color-mix(in srgb, #0b1218 16%, transparent);
+    }
+    .atmosphere {
+      pointer-events: none; position: absolute; inset: 0;
+      background:
+        radial-gradient(circle at 12% 0%, color-mix(in srgb, #9eb6c8 28%, transparent), transparent 42%),
+        radial-gradient(circle at 88% 100%, color-mix(in srgb, #1f7a8c 12%, transparent), transparent 40%),
+        repeating-linear-gradient(-18deg, transparent, transparent 10px, color-mix(in srgb, #0b1218 2.5%, transparent) 10px, color-mix(in srgb, #0b1218 2.5%, transparent) 11px);
+      opacity: .55;
+    }
+    .content { position: relative; z-index: 1; }
+    .brand { font-family: var(--conx-display); font-size: 1.55rem; font-weight: 700; color: var(--conx-accent); letter-spacing: .04em; }
+    .title { font-family: var(--conx-display); font-size: 1.15rem; font-weight: 600; margin-top: 4px; }
+    .subtitle { opacity: .72; margin-top: 2px; font-size: .92rem; }
+    .header { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+    .wizard-steps { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+    .wizard-step {
+      display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 6px 10px; font: inherit; cursor: pointer;
+      border: 1px solid color-mix(in srgb, var(--conx-steel) 40%, transparent); background: color-mix(in srgb, #fff 70%, transparent);
+    }
+    .wizard-step.active { border-color: var(--conx-accent); background: var(--conx-accent-soft); }
+    .wizard-step.done .idx { background: var(--conx-accent); color: #fff; }
+    .idx { width: 1.35rem; height: 1.35rem; border-radius: 50%; display: inline-grid; place-items: center; font-size: .72rem; font-weight: 700; background: color-mix(in srgb, var(--conx-steel) 22%, transparent); }
+    .hint { margin: 0 0 12px; opacity: .75; font-size: .92rem; }
+    .wizard-body { animation: fadein .22s ease; min-height: 220px; }
+    @keyframes fadein { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+    .footer { display: flex; justify-content: space-between; gap: 8px; margin-top: 16px; }
+    .btn {
+      border-radius: 12px; border: 1px solid color-mix(in srgb, var(--conx-steel) 40%, transparent);
+      background: linear-gradient(180deg, #fff, #e8eef3); padding: 9px 14px; font: inherit; cursor: pointer; font-weight: 600;
+    }
+    .btn.primary { background: linear-gradient(180deg, color-mix(in srgb, var(--conx-accent) 88%, #fff), var(--conx-accent)); color: #fff; border-color: color-mix(in srgb, var(--conx-accent) 70%, #000); }
+    .btn.danger { color: var(--conx-danger); }
+    .btn:disabled { opacity: .45; cursor: not-allowed; }
+    .lang-hero { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .lang-hero-btn {
+      display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 18px 10px; border-radius: 16px; font: inherit; cursor: pointer;
+      border: 1px solid color-mix(in srgb, var(--conx-steel) 35%, transparent); background: color-mix(in srgb, #fff 74%, transparent);
+    }
+    .lang-hero-btn.active { border-color: var(--conx-accent); box-shadow: 0 8px 18px color-mix(in srgb, var(--conx-accent) 18%, transparent); }
+    .flag { width: 28px; height: 18px; border-radius: 3px; border: 1px solid #0003; overflow: hidden; display: inline-block; position: relative; }
+    .flag-il { background: #fff; display: grid; grid-template-rows: 3px 1fr 3px; place-items: center; }
+    .flag-il-bar { width: 100%; height: 3px; background: #0038b8; }
+    .flag-il-star { color: #0038b8; font-size: 10px; }
+    .flag-gb { background: linear-gradient(90deg, transparent 44%, #fff 44%, #fff 56%, transparent 56%), linear-gradient(#fff 38%, transparent 38%, transparent 62%, #fff 62%), linear-gradient(90deg, transparent 46%, #c8102e 46%, #c8102e 54%, transparent 54%), linear-gradient(#c8102e 42%, transparent 42%, transparent 58%, #c8102e 58%), #012169; }
+    .flag-ru { background: linear-gradient(to bottom, #fff 0 33%, #0039a6 33% 66%, #d52b1e 66% 100%); }
+    .profile-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .profile-chip { border-radius: 12px; padding: 8px 12px; border: 1px solid color-mix(in srgb, var(--conx-steel) 40%, transparent); background: #fff9; cursor: pointer; font: inherit; text-align: start; }
+    .profile-chip.active { border-color: var(--conx-accent); background: var(--conx-accent-soft); }
+    .chip-id { display: block; font-size: .72rem; opacity: .65; }
+    .field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; font-size: .9rem; }
+    .field input, .field select, .field textarea {
+      border-radius: 10px; border: 1px solid color-mix(in srgb, var(--conx-steel) 40%, transparent);
+      padding: 9px 11px; font: inherit; background: #fffc;
+    }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .section { border-radius: 14px; border: 1px solid color-mix(in srgb, var(--conx-steel) 32%, transparent); background: #fff8; margin-bottom: 10px; overflow: hidden; }
+    .section-head { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; font-weight: 700; gap: 10px; }
+    .section-body { padding: 0 12px 12px; }
+    .section.closed .section-body { display: none; }
+    /* Shared toggle pattern (matches conx-card-preview.html) */
+    .switch {
+      --switch-w: 44px; --switch-h: 26px; --switch-thumb: 22px; --switch-pad: 2px;
+      position: relative; display: inline-block; width: var(--switch-w); height: var(--switch-h); flex-shrink: 0; vertical-align: middle;
+    }
+    .switch input { position: absolute; opacity: 0; inset: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; z-index: 1; }
+    .slider {
+      position: absolute; inset: 0; border-radius: 999px; pointer-events: none;
+      background: color-mix(in srgb, var(--conx-steel) 42%, #d5dde5);
+      box-shadow: inset 0 1px 2px color-mix(in srgb, #0b1218 22%, transparent);
+      transition: background 180ms ease;
+    }
+    .slider::before {
+      content: ""; position: absolute; width: var(--switch-thumb); height: var(--switch-thumb);
+      top: 50%; left: var(--switch-pad); border-radius: 50%;
+      background: linear-gradient(180deg, #fff 0%, #e8eef3 100%);
+      box-shadow: 0 1px 3px color-mix(in srgb, #0b1218 28%, transparent), inset 0 1px 0 #fff;
+      transform: translateY(-50%); transition: left 180ms ease;
+    }
+    .switch input:checked + .slider { background: color-mix(in srgb, var(--conx-accent) 82%, #6aa8b6); }
+    .switch input:checked + .slider::before { left: calc(100% - var(--switch-thumb) - var(--switch-pad)); }
+    .buttons-accordion { display: flex; flex-direction: column; gap: 8px; }
+    .button-edit {
+      border-radius: 12px; border: 1px solid color-mix(in srgb, var(--conx-steel) 30%, transparent);
+      background: color-mix(in srgb, #fff 42%, transparent); overflow: hidden;
+    }
+    .button-edit-toggle {
+      display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px;
+      border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; text-align: start;
+    }
+    .button-edit-toggle:hover { background: color-mix(in srgb, var(--conx-accent) 6%, transparent); }
+    .button-edit-chevron {
+      width: 8px; height: 8px; flex-shrink: 0; margin-inline-start: 2px;
+      border-inline-end: 2px solid color-mix(in srgb, var(--conx-ink) 45%, transparent);
+      border-bottom: 2px solid color-mix(in srgb, var(--conx-ink) 45%, transparent);
+      transform: rotate(-45deg); transition: transform 180ms ease;
+    }
+    [dir="rtl"] .button-edit-chevron { transform: rotate(45deg); }
+    .button-edit.open .button-edit-chevron { transform: rotate(45deg); }
+    [dir="rtl"] .button-edit.open .button-edit-chevron { transform: rotate(-45deg); }
+    .button-edit-summary { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+    .button-edit-title { font-weight: 600; line-height: 1.2; }
+    .button-edit-meta { font-size: .78rem; opacity: .62; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .button-edit-fields { padding: 0 12px 12px; border-top: 1px solid color-mix(in srgb, var(--conx-steel) 22%, transparent); }
+    .button-edit-fields .field:first-child { margin-top: 10px; }
+    .button-edit-fields .field:last-child { margin-bottom: 0; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+    .faceplate { max-width: 360px; margin: 8px auto; --ring-on: #00e5ff; --ring-off: #2979ff; }
+    .faceplate-bezel { border-radius: 18px; padding: 10px; background: linear-gradient(160deg, #2a3138, #12171c); box-shadow: 0 12px 28px #0005; }
+    .faceplate-glass { border-radius: 12px; overflow: hidden; background: #f4f7fa; }
+    .faceplate-labels { display: grid; grid-template-columns: repeat(4, 1fr); background: #111; color: #fff; min-height: 42px; }
+    .faceplate-label { display: grid; place-items: center; font-size: .72rem; padding: 6px 4px; text-align: center; border-inline-end: 1px solid #ffffff22; }
+    .faceplate-label:last-child { border: 0; }
+    .faceplate-touch { padding: 18px 10px 16px; }
+    .faceplate-rings { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .ring {
+      width: 48px; height: 48px; margin: 0 auto; border-radius: 50%; border: 3px solid var(--ring-off);
+      background: radial-gradient(circle at 35% 30%, #fff, #dfe7ee 55%, #c5d0da); cursor: pointer;
+      box-shadow: 0 0 10px color-mix(in srgb, var(--ring-off) 45%, transparent);
+    }
+    .ring.on { border-color: var(--ring-on); box-shadow: 0 0 16px color-mix(in srgb, var(--ring-on) 65%, transparent); }
+    .notice, .error, .warn {
+      display: none; padding: 9px 12px; border-radius: 12px; margin-bottom: 10px; font-size: .9rem;
+    }
+    .notice.visible { display: block; background: color-mix(in srgb, var(--conx-accent) 12%, transparent); border: 1px solid color-mix(in srgb, var(--conx-accent) 28%, transparent); }
+    .error.visible { display: block; background: color-mix(in srgb, var(--conx-danger) 12%, transparent); border: 1px solid color-mix(in srgb, var(--conx-danger) 28%, transparent); color: var(--conx-danger); }
+    .schema-box, .howto {
+      border-radius: 14px; border: 1px solid color-mix(in srgb, var(--conx-steel) 32%, transparent);
+      background: #fff9; padding: 12px; margin-bottom: 12px;
+    }
+    .schema-box h3, .howto h3 { margin: 0 0 6px; font-size: 1rem; }
+    .schema-box pre, #yamlBox {
+      width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .72rem;
+      background: color-mix(in srgb, #0b1218 4%, #fff); border: 1px solid color-mix(in srgb, var(--conx-steel) 35%, transparent);
+      border-radius: 10px; padding: 10px; overflow: auto; white-space: pre; min-height: 140px;
+    }
+    .howto ol { margin: 8px 0 0; padding-inline-start: 1.2rem; }
+    .howto li { margin-bottom: 6px; }
+    .review-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; font-size: .92rem; }
+    .swatch { width: 14px; height: 14px; border-radius: 50%; display: inline-block; border: 1px solid #0002; vertical-align: middle; margin-inline-end: 6px; }
+    @media (max-width: 640px) {
+      .lang-hero, .grid-2, .review-grid { grid-template-columns: 1fr; }
+      .wizard-step .lbl { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="page-intro">
+      <h1 id="pageTitle">אשף ConX Dynamic Panel</h1>
+      <p id="pageSub">הגדרת פרופילים וייצוא/ייבוא JSON תואם Home Assistant</p>
+    </div>
+    <div class="card" id="card">
+      <div class="atmosphere"></div>
+      <div class="content">
+        <div class="header">
+          <div>
+            <div class="brand">ConX</div>
+            <div class="title" id="panelTitle">Kitchen Panel</div>
+            <div class="subtitle" id="profileSubtitle">Lighting</div>
+          </div>
+          <button type="button" class="btn danger" id="btnReset">איפוס</button>
+        </div>
+        <div class="notice" id="notice"></div>
+        <div class="error" id="error"></div>
+        <nav class="wizard-steps" id="steps"></nav>
+        <p class="hint" id="hint"></p>
+        <div class="wizard-body" id="body"></div>
+        <div class="footer">
+          <button class="btn" id="btnBack" type="button">חזרה</button>
+          <button class="btn primary" id="btnNext" type="button">הבא</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <input type="file" id="fileInput" accept="application/json,.json" hidden />
+<script>
+const SCHEMA_VERSION = 1;
+const COLORS = ["red","blue","green","white","yellow","magenta","cyan","warm_white","warm_yellow"];
+const RADAR = ["none","10s","20s","30s","45s","60s"];
+const COLOR_PREVIEW = { red:"#ff1744", blue:"#2979ff", green:"#00e676", white:"#f5f7fa", yellow:"#ffea00", magenta:"#f50057", cyan:"#00e5ff", warm_white:"#ffe0b2", warm_yellow:"#ffc400" };
+const STEPS = ["language","profiles","edit","preview","review","transfer"];
+const I18N = {
+  he: {
+    pageTitle: "אשף ConX Dynamic Panel",
+    pageSub: "הגדרת פרופילים וייצוא/ייבוא JSON תואם Home Assistant",
+    back: "חזרה", next: "הבא",
+    language: "שפה", profiles: "פאנל / פרופיל", edit: "עריכת הגדרות", preview: "תצוגת פאנל", review: "סקירה", transfer: "ייצוא / ייבוא",
+    hints: {
+      language: "בחרו שפת ממשק. עברית = RTL.",
+      profiles: "בחרו או צרו פרופיל פעיל.",
+      edit: "ערכו מראה ותוויות. הטיוטה מקומית עד ייצוא/ייבוא ל-HA.",
+      preview: "תוויות למעלה, טבעות LED משמאל לימין לפי color_on / color_off.",
+      review: "בדקו את הפרופיל לפני ייצוא.",
+      transfer: "הורידו JSON תואם לאינטגרציה, או ייבאו קובץ קיים."
+    },
+    create: "צור", duplicate: "שכפל", rename: "שנה שם", remove: "מחק",
+    mode: "מצב", colorOn: "צבע דלוק", colorOff: "צבע כבוי", radar: "רדאר",
+    backlight: "תאורת רקע", childLock: "נעילת ילדים", buttons: "כפתורים", label: "תווית",
+    download: "הורדת .json", chooseFile: "בחרו קובץ JSON", importMode: "מצב ייבוא",
+    merge: "מיזוג (merge)", replace: "החלפה (replace)", copyYaml: "העתק YAML",
+    exportOk: "הקובץ יוצא בהצלחה.", importOk: "הקובץ יובא לתוך האשף.",
+    invalid: "קובץ JSON לא תקין לפי סכמת האינטגרציה.",
+    schemaTitle: "סכמת JSON נתמכת (זהה ל-export_profiles)",
+    howtoTitle: "איך לייבא ל-Home Assistant",
+    howto: [
+      "הורידו את קובץ ה-JSON מהשלב הזה.",
+      "בכרטיס Lovelace של ConX: שלב ייצוא/ייבוא → בחרו מצב מיזוג/החלפה → בחרו את הקובץ.",
+      "או Developer Tools → Services → conx_dynamic_panel.import_profiles עם ה-YAML למטה.",
+      "לאחר ייבוא ב-HA לחצו Sync כדי לדחוף לפאנל הפיזי (אם auto-sync כבוי)."
+    ],
+    serviceYaml: "YAML מוכן להדבקה",
+    reset: "איפוס", resetOk: "האשף אופס לברירת מחדל.", resetConfirm: "לנקות נתונים שמורים ולהחזיר לברירת מחדל?"
+  },
+  en: {
+    pageTitle: "ConX Dynamic Panel Wizard",
+    pageSub: "Configure profiles and export/import HA-compatible JSON",
+    back: "Back", next: "Next",
+    language: "Language", profiles: "Panel / profile", edit: "Edit settings", preview: "Faceplate preview", review: "Review", transfer: "Export / Import",
+    hints: {
+      language: "Choose UI language. Hebrew uses RTL.",
+      profiles: "Select or create the active profile.",
+      edit: "Edit appearance and labels. Draft stays local until HA import.",
+      preview: "Labels on top, LED rings L→R from color_on / color_off.",
+      review: "Review the profile before export.",
+      transfer: "Download integration-compatible JSON, or import an existing file."
+    },
+    create: "Create", duplicate: "Duplicate", rename: "Rename", remove: "Delete",
+    mode: "Mode", colorOn: "Color ON", colorOff: "Color OFF", radar: "Radar",
+    backlight: "Backlight", childLock: "Child lock", buttons: "Buttons", label: "Label",
+    download: "Download .json", chooseFile: "Choose JSON file", importMode: "Import mode",
+    merge: "Merge", replace: "Replace", copyYaml: "Copy YAML",
+    exportOk: "JSON exported.", importOk: "JSON imported into the wizard.",
+    invalid: "Invalid JSON for the integration schema.",
+    schemaTitle: "Supported JSON schema (same as export_profiles)",
+    howtoTitle: "How to import into Home Assistant",
+    howto: [
+      "Download the JSON file from this step.",
+      "In the ConX Lovelace card: Export/Import step → choose merge/replace → pick the file.",
+      "Or Developer Tools → Services → conx_dynamic_panel.import_profiles with the YAML below.",
+      "After HA import, press Sync to push to the physical panel (unless auto-sync is on)."
+    ],
+    serviceYaml: "Ready-to-paste service YAML",
+    reset: "Reset", resetOk: "Wizard reset to defaults.", resetConfirm: "Clear saved wizard data and restore defaults?"
+  },
+  ru: {
+    pageTitle: "Мастер ConX Dynamic Panel",
+    pageSub: "Настройка профилей и экспорт/импорт JSON для Home Assistant",
+    back: "Назад", next: "Далее",
+    language: "Язык", profiles: "Панель / профиль", edit: "Настройки", preview: "Превью", review: "Обзор", transfer: "Экспорт / импорт",
+    hints: {
+      language: "Выберите язык. Иврит = RTL.",
+      profiles: "Выберите или создайте активный профиль.",
+      edit: "Редактируйте вид и подписи. Черновик локальный до импорта в HA.",
+      preview: "Подписи сверху, LED слева направо по color_on / color_off.",
+      review: "Проверьте профиль перед экспортом.",
+      transfer: "Скачайте совместимый JSON или импортируйте файл."
+    },
+    create: "Создать", duplicate: "Дублировать", rename: "Переименовать", remove: "Удалить",
+    mode: "Режим", colorOn: "Цвет ВКЛ", colorOff: "Цвет ВЫКЛ", radar: "Радар",
+    backlight: "Подсветка", childLock: "Блокировка", buttons: "Кнопки", label: "Название",
+    download: "Скачать .json", chooseFile: "Выбрать JSON", importMode: "Режим импорта",
+    merge: "Слияние", replace: "Замена", copyYaml: "Копировать YAML",
+    exportOk: "JSON экспортирован.", importOk: "JSON импортирован в мастер.",
+    invalid: "Некорректный JSON для схемы интеграции.",
+    schemaTitle: "Поддерживаемая схема JSON (как export_profiles)",
+    howtoTitle: "Как импортировать в Home Assistant",
+    howto: [
+      "Скачайте JSON на этом шаге.",
+      "В карточке ConX Lovelace: шаг Export/Import → merge/replace → выберите файл.",
+      "Или Developer Tools → Services → conx_dynamic_panel.import_profiles с YAML ниже.",
+      "После импорта в HA нажмите Sync, чтобы отправить на панель."
+    ],
+    serviceYaml: "YAML для сервиса",
+    reset: "Сброс", resetOk: "Мастер сброшен к значениям по умолчанию.", resetConfirm: "Очистить сохранённые данные и вернуть значения по умолчанию?"
+  }
+};
+
+function deepClone(v){ return JSON.parse(JSON.stringify(v)); }
+function makeProfile(id, name){
+  return {
+    id, name, mode:"toggle", color_on:"cyan", color_off:"blue", radar:"30s",
+    backlight:true, child_lock:false, selected_button:null,
+    buttons:[1,2,3,4].map(i=>({index:i, name:`Button ${i}`, action:null}))
+  };
+}
+
+const STORAGE_KEY = "conx-panel-wizard-state-v1";
+
+function createDefaultState(){
+  const profiles = {
+    lighting: {
+      id:"lighting", name:"Lighting", mode:"radio_optional", color_on:"cyan", color_off:"blue",
+      radar:"30s", backlight:true, child_lock:false, selected_button:1,
+      buttons:[
+        {index:1,name:"סלון",action:null},
+        {index:2,name:"מטבח",action:null},
+        {index:3,name:"חוץ",action:null},
+        {index:4,name:"הכל כבוי",action:null}
+      ]
+    }
+  };
+  return {
+    lang: "he",
+    step: "language",
+    activeId: "lighting",
+    importMode: "merge",
+    selectedRing: 1,
+    openAppearance: true,
+    openButtons: true,
+    expandedButtons: [],
+    profiles,
+    draft: deepClone(profiles.lighting),
+  };
+}
+
+function persistState(){
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      lang: state.lang,
+      step: state.step,
+      activeId: state.activeId,
+      importMode: state.importMode,
+      selectedRing: state.selectedRing,
+      openAppearance: state.openAppearance,
+      openButtons: state.openButtons,
+      expandedButtons: Array.from(state.expandedButtons || []),
+      profiles: state.profiles,
+      draft: state.draft,
+    }));
+  } catch (_e) { /* ignore */ }
+}
+
+function loadPersistedState(){
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (!data || !data.profiles) return null;
+    const defaults = createDefaultState();
+    const activeId = data.activeId && data.profiles[data.activeId] ? data.activeId : Object.keys(data.profiles)[0];
+    return {
+      ...defaults,
+      ...data,
+      activeId,
+      expandedButtons: new Set(Array.isArray(data.expandedButtons) ? data.expandedButtons.map(Number) : []),
+      draft: data.draft ? deepClone(data.draft) : deepClone(data.profiles[activeId]),
+      profiles: data.profiles,
+    };
+  } catch (_e) { return null; }
+}
+
+function resetToDefaults(){
+  if (!confirm(t().resetConfirm)) return;
+  try { localStorage.removeItem(STORAGE_KEY); } catch (_e) { /* ignore */ }
+  const fresh = createDefaultState();
+  Object.keys(state).forEach(k => delete state[k]);
+  Object.assign(state, fresh);
+  state.expandedButtons = new Set();
+  document.documentElement.lang = state.lang;
+  document.documentElement.dir = state.lang === "he" ? "rtl" : "ltr";
+  persistState();
+  showNotice(t().resetOk);
+  render();
+}
+
+const state = loadPersistedState() || createDefaultState();
+if (!(state.expandedButtons instanceof Set)) {
+  state.expandedButtons = new Set(state.expandedButtons || []);
+}
+document.documentElement.lang = state.lang;
+document.documentElement.dir = state.lang === "he" ? "rtl" : "ltr";
+
+function t(){ return I18N[state.lang] || I18N.en; }
+function resolveColor(name, fb){ return COLOR_PREVIEW[name] || name || fb; }
+
+function validateExport(raw){
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {ok:false, error:"Root must be object"};
+  const ver = Number(raw.schema_version ?? SCHEMA_VERSION);
+  if (!Number.isInteger(ver) || ver < 1) return {ok:false, error:"bad schema_version"};
+  if (ver > SCHEMA_VERSION) return {ok:false, error:`Unsupported schema_version ${ver}`};
+  let profiles = raw.profiles;
+  if (Array.isArray(profiles)) {
+    const obj = {};
+    for (const item of profiles) {
+      if (!item || typeof item !== "object" || !item.id) return {ok:false, error:"profile missing id"};
+      obj[item.id] = item;
+    }
+    profiles = obj;
+  }
+  if (!profiles || typeof profiles !== "object" || !Object.keys(profiles).length) {
+    return {ok:false, error:"profiles required"};
+  }
+  const normalized = {};
+  for (const [key, value] of Object.entries(profiles)) {
+    if (!value || typeof value !== "object") return {ok:false, error:`bad profile ${key}`};
+    const id = String(value.id || key);
+    normalized[id] = {
+      id, name: String(value.name || id),
+      mode: ["toggle","radio_mandatory","radio_optional"].includes(value.mode) ? value.mode : "toggle",
+      color_on: String(value.color_on || "cyan"),
+      color_off: String(value.color_off || "blue"),
+      radar: String(value.radar || "30s"),
+      backlight: Boolean(value.backlight ?? true),
+      child_lock: Boolean(value.child_lock ?? false),
+      selected_button: value.selected_button == null ? null : Number(value.selected_button),
+      buttons: [1,2,3,4].map(i => {
+        const found = (value.buttons || []).find(b => Number(b.index) === i) || {};
+        return { index:i, name:String(found.name || `Button ${i}`), action: found.action || null };
+      })
+    };
+  }
+  let active = typeof raw.active_profile_id === "string" ? raw.active_profile_id : null;
+  if (active && !(active in normalized)) return {ok:false, error:"active_profile_id missing"};
+  return { ok:true, payload:{ schema_version: SCHEMA_VERSION, active_profile_id: active, profiles: normalized } };
+}
+
+function buildExport(){
+  state.profiles[state.activeId] = deepClone(state.draft);
+  return { schema_version: SCHEMA_VERSION, active_profile_id: state.activeId, profiles: deepClone(state.profiles) };
+}
+
+function buildYaml(payload){
+  const indented = JSON.stringify(payload, null, 2).split("\n").map((l,i)=> i?`    ${l}`:l).join("\n");
+  return `service: conx_dynamic_panel.import_profiles\ndata:\n  entry_id: YOUR_CONFIG_ENTRY_ID\n  mode: ${state.importMode}\n  payload: ${indented}`;
+}
+
+function showNotice(msg){ const n=document.getElementById("notice"); n.textContent=msg; n.classList.add("visible"); setTimeout(()=>n.classList.remove("visible"), 2500); }
+function showError(msg){ const n=document.getElementById("error"); n.textContent=msg; n.classList.add("visible"); }
+function clearError(){ document.getElementById("error").classList.remove("visible"); }
+
+function setLang(lang){
+  state.lang = lang;
+  document.documentElement.lang = lang;
+  document.documentElement.dir = lang === "he" ? "rtl" : "ltr";
+  if (state.step === "language") state.step = "profiles";
+  persistState();
+  render();
+}
+
+function goStep(step){ state.step = step; clearError(); persistState(); render(); }
+function stepIndex(){ return STEPS.indexOf(state.step); }
+
+function renderFaceplate(){
+  const on = resolveColor(state.draft.color_on, "#00e5ff");
+  const off = resolveColor(state.draft.color_off, "#2979ff");
+  const labels = state.draft.buttons.map(b => `<div class="faceplate-label">${b.name || ("L"+b.index)}</div>`).join("");
+  const rings = state.draft.buttons.map(b => {
+    const isOn = state.draft.mode === "toggle" ? (b.index % 2 === 1) : (state.draft.selected_button === b.index || state.selectedRing === b.index && state.draft.mode.startsWith("radio"));
+    const selected = state.draft.mode.startsWith("radio") ? (Number(state.draft.selected_button) === b.index) : isOn;
+    return `<button type="button" class="ring ${selected?"on":"off"}" data-ring="${b.index}"></button>`;
+  }).join("");
+  return `<div class="faceplate" style="--ring-on:${on};--ring-off:${off}"><div class="faceplate-bezel"><div class="faceplate-glass"><div class="faceplate-labels">${labels}</div><div class="faceplate-touch"><div class="faceplate-rings">${rings}</div></div></div></div></div>`;
+}
+
+function renderBody(){
+  const i = t();
+  if (state.step === "language") {
+    return `<div class="lang-hero">
+      <button class="lang-hero-btn ${state.lang==="he"?"active":""}" data-lang="he"><span class="flag flag-il"><span class="flag-il-bar"></span><span class="flag-il-star">✦</span><span class="flag-il-bar"></span></span><strong>HE</strong><span>עברית</span></button>
+      <button class="lang-hero-btn ${state.lang==="en"?"active":""}" data-lang="en"><span class="flag flag-gb"></span><strong>EN</strong><span>English</span></button>
+      <button class="lang-hero-btn ${state.lang==="ru"?"active":""}" data-lang="ru"><span class="flag flag-ru"></span><strong>RU</strong><span>Русский</span></button>
+    </div>`;
+  }
+  if (state.step === "profiles") {
+    const chips = Object.values(state.profiles).map(p => `<button class="profile-chip ${p.id===state.activeId?"active":""}" data-profile="${p.id}"><span>${p.name}</span><span class="chip-id">${p.id}</span></button>`).join("");
+    return `<div class="profile-list">${chips}</div>
+      <label class="field"><span>${i.profiles}</span><input id="profileName" value="${state.draft.name}" /></label>
+      <div class="row">
+        <button class="btn" data-act="create">${i.create}</button>
+        <button class="btn" data-act="duplicate">${i.duplicate}</button>
+        <button class="btn" data-act="rename">${i.rename}</button>
+        <button class="btn danger" data-act="delete">${i.remove}</button>
+      </div>`;
+  }
+  if (state.step === "edit") {
+    const colorOpts = COLORS.map(c => `<option value="${c}">${c}</option>`).join("");
+    const radarOpts = RADAR.map(c => `<option value="${c}">${c}</option>`).join("");
+    const buttons = state.draft.buttons.map(b => {
+      const open = state.expandedButtons.has(b.index);
+      const label = (b.name || "").trim() || "—";
+      return `<div class="button-edit ${open?"open":""}" data-button="${b.index}">
+        <button type="button" class="button-edit-toggle" data-btn-toggle="${b.index}" aria-expanded="${open}">
+          <span class="button-edit-chevron" aria-hidden="true"></span>
+          <span class="button-edit-summary">
+            <span class="button-edit-title">${i.label} ${b.index} · ${label}</span>
+            <span class="button-edit-meta">${b.action || "—"}</span>
+          </span>
+        </button>
+        ${open ? `<div class="button-edit-fields">
+          <label class="field"><span>${i.label}</span><input data-btn-name="${b.index}" value="${b.name}" /></label>
+        </div>` : ""}
+      </div>`;
+    }).join("");
+    return `
+      <section class="section ${state.openAppearance?"":"closed"}">
+        <div class="section-head">
+          <span>${i.mode} / ${i.colorOn}</span>
+          <label class="switch"><input type="checkbox" data-toggle="appearance" ${state.openAppearance?"checked":""}/><span class="slider"></span></label>
+        </div>
+        <div class="section-body">
+          <label class="field"><span>${i.mode}</span>
+            <select id="mode">
+              <option value="toggle">toggle</option>
+              <option value="radio_mandatory">radio_mandatory</option>
+              <option value="radio_optional">radio_optional</option>
+            </select>
+          </label>
+          <div class="grid-2">
+            <label class="field"><span><span class="swatch" style="background:${resolveColor(state.draft.color_on)}"></span>${i.colorOn}</span><select id="colorOn">${colorOpts}</select></label>
+            <label class="field"><span><span class="swatch" style="background:${resolveColor(state.draft.color_off)}"></span>${i.colorOff}</span><select id="colorOff">${colorOpts}</select></label>
+          </div>
+          <label class="field"><span>${i.radar}</span><select id="radar">${radarOpts}</select></label>
+          <div class="row">
+            <label><input type="checkbox" id="backlight" ${state.draft.backlight?"checked":""}/> ${i.backlight}</label>
+            <label><input type="checkbox" id="childLock" ${state.draft.child_lock?"checked":""}/> ${i.childLock}</label>
+          </div>
+        </div>
+      </section>
+      <section class="section ${state.openButtons?"":"closed"}">
+        <div class="section-head">
+          <span>${i.buttons}</span>
+          <label class="switch"><input type="checkbox" data-toggle="buttons" ${state.openButtons?"checked":""}/><span class="slider"></span></label>
+        </div>
+        <div class="section-body"><div class="buttons-accordion">${buttons}</div></div>
+      </section>`;
+  }
+  if (state.step === "preview") return renderFaceplate();
+  if (state.step === "review") {
+    return `<div class="review-grid">
+      <div><strong>${i.profiles}</strong> ${state.draft.name}</div>
+      <div><strong>${i.mode}</strong> ${state.draft.mode}</div>
+      <div><strong>${i.colorOn}</strong> ${state.draft.color_on}</div>
+      <div><strong>${i.colorOff}</strong> ${state.draft.color_off}</div>
+      <div><strong>${i.radar}</strong> ${state.draft.radar}</div>
+      <div><strong>${i.buttons}</strong> ${state.draft.buttons.map(b=>b.name).join(" · ")}</div>
+    </div>${renderFaceplate()}`;
+  }
+  // transfer
+  const payload = buildExport();
+  const sample = `{
+  "schema_version": 1,
+  "active_profile_id": "lighting",
+  "profiles": {
+    "lighting": {
+      "id": "lighting",
+      "name": "Lighting",
+      "mode": "toggle",
+      "color_on": "cyan",
+      "color_off": "blue",
+      "radar": "30s",
+      "backlight": true,
+      "child_lock": false,
+      "selected_button": null,
+      "buttons": [
+        {"index": 1, "name": "L1", "action": null},
+        {"index": 2, "name": "L2", "action": null},
+        {"index": 3, "name": "L3", "action": null},
+        {"index": 4, "name": "L4", "action": null}
+      ]
+    }
+  }
+}`;
+  return `
+    <div class="schema-box"><h3>${i.schemaTitle}</h3><pre>${sample}</pre></div>
+    <div class="howto"><h3>${i.howtoTitle}</h3><ol>${i.howto.map(x=>`<li>${x}</li>`).join("")}</ol></div>
+    <div class="row">
+      <button class="btn primary" data-act="export">${i.download}</button>
+      <button class="btn" data-act="import">${i.chooseFile}</button>
+      <button class="btn" data-act="copy">${i.copyYaml}</button>
+    </div>
+    <label class="field"><span>${i.importMode}</span>
+      <select id="importMode"><option value="merge">${i.merge}</option><option value="replace">${i.replace}</option></select>
+    </label>
+    <label class="field"><span>${i.serviceYaml}</span><textarea id="yamlBox" readonly>${buildYaml(payload)}</textarea></label>`;
+}
+
+function bindBody(){
+  const body = document.getElementById("body");
+  body.querySelectorAll("[data-lang]").forEach(btn => btn.addEventListener("click", () => setLang(btn.dataset.lang)));
+  body.querySelectorAll("[data-profile]").forEach(btn => btn.addEventListener("click", () => {
+    state.profiles[state.activeId] = deepClone(state.draft);
+    state.activeId = btn.dataset.profile;
+    state.draft = deepClone(state.profiles[state.activeId]);
+    persistState();
+    render();
+  }));
+  const name = body.querySelector("#profileName");
+  if (name) name.addEventListener("input", e => { state.draft.name = e.target.value; document.getElementById("profileSubtitle").textContent = e.target.value; persistState(); });
+  body.querySelectorAll("[data-act]").forEach(btn => btn.addEventListener("click", () => {
+    const act = btn.dataset.act;
+    if (act === "create") {
+      const id = "profile_" + Date.now();
+      const p = makeProfile(id, "Profile " + (Object.keys(state.profiles).length+1));
+      state.profiles[id]=p; state.activeId=id; state.draft=deepClone(p); persistState(); render();
+    } else if (act === "duplicate") {
+      const id = state.activeId + "_copy_" + Date.now();
+      const p = deepClone(state.draft); p.id=id; p.name=state.draft.name+" copy";
+      state.profiles[id]=p; state.activeId=id; state.draft=deepClone(p); persistState(); render();
+    } else if (act === "rename") {
+      const n = prompt(t().rename, state.draft.name); if (!n) return; state.draft.name=n; persistState(); render();
+    } else if (act === "delete") {
+      if (Object.keys(state.profiles).length<=1) return;
+      delete state.profiles[state.activeId];
+      state.activeId = Object.keys(state.profiles)[0];
+      state.draft = deepClone(state.profiles[state.activeId]);
+      persistState();
+      render();
+    } else if (act === "export") {
+      const payload = buildExport();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)], {type:"application/json"}));
+      a.download = "conx-profiles.json"; a.click(); URL.revokeObjectURL(a.href);
+      showNotice(t().exportOk);
+    } else if (act === "import") {
+      document.getElementById("fileInput").click();
+    } else if (act === "copy") {
+      navigator.clipboard.writeText(buildYaml(buildExport())).then(()=>showNotice(t().copyYaml+" ✓"));
+    }
+  }));
+  body.querySelectorAll("[data-toggle]").forEach(input => input.addEventListener("change", () => {
+    if (input.dataset.toggle === "appearance") state.openAppearance = input.checked;
+    if (input.dataset.toggle === "buttons") state.openButtons = input.checked;
+    persistState();
+    render();
+  }));
+  body.querySelectorAll("[data-btn-toggle]").forEach(btn => btn.addEventListener("click", () => {
+    const idx = Number(btn.dataset.btnToggle);
+    if (state.expandedButtons.has(idx)) state.expandedButtons.delete(idx);
+    else state.expandedButtons.add(idx);
+    persistState();
+    render();
+  }));
+  const mode = body.querySelector("#mode"); if (mode) { mode.value = state.draft.mode; mode.addEventListener("change", e => { state.draft.mode = e.target.value; persistState(); }); }
+  const colorOn = body.querySelector("#colorOn"); if (colorOn) { colorOn.value = state.draft.color_on; colorOn.addEventListener("change", e => { state.draft.color_on = e.target.value; persistState(); render(); }); }
+  const colorOff = body.querySelector("#colorOff"); if (colorOff) { colorOff.value = state.draft.color_off; colorOff.addEventListener("change", e => { state.draft.color_off = e.target.value; persistState(); render(); }); }
+  const radar = body.querySelector("#radar"); if (radar) { radar.value = state.draft.radar; radar.addEventListener("change", e => { state.draft.radar = e.target.value; persistState(); }); }
+  const backlight = body.querySelector("#backlight"); if (backlight) backlight.addEventListener("change", e => { state.draft.backlight = e.target.checked; persistState(); });
+  const childLock = body.querySelector("#childLock"); if (childLock) childLock.addEventListener("change", e => { state.draft.child_lock = e.target.checked; persistState(); });
+  body.querySelectorAll("[data-btn-name]").forEach(inp => inp.addEventListener("input", e => {
+    const idx = Number(inp.dataset.btnName);
+    const button = state.draft.buttons.find(b => b.index === idx);
+    if (button) { button.name = e.target.value; persistState(); }
+  }));
+  body.querySelectorAll("[data-ring]").forEach(btn => btn.addEventListener("click", () => {
+    const idx = Number(btn.dataset.ring);
+    state.selectedRing = idx;
+    if (state.draft.mode.startsWith("radio")) {
+      if (state.draft.mode === "radio_optional" && state.draft.selected_button === idx) state.draft.selected_button = null;
+      else state.draft.selected_button = idx;
+    }
+    persistState();
+    render();
+  }));
+  const importMode = body.querySelector("#importMode");
+  if (importMode) {
+    importMode.value = state.importMode;
+    importMode.addEventListener("change", e => { state.importMode = e.target.value; persistState(); document.getElementById("yamlBox").value = buildYaml(buildExport()); });
+  }
+}
+
+function render(){
+  const i = t();
+  document.getElementById("pageTitle").textContent = i.pageTitle;
+  document.getElementById("pageSub").textContent = i.pageSub;
+  document.getElementById("profileSubtitle").textContent = state.draft.name;
+  document.getElementById("btnBack").textContent = i.back;
+  document.getElementById("btnNext").textContent = i.next;
+  document.getElementById("btnReset").textContent = i.reset;
+  document.getElementById("hint").textContent = i.hints[state.step];
+  const idx = stepIndex();
+  document.getElementById("btnBack").disabled = idx <= 0;
+  document.getElementById("btnNext").disabled = idx >= STEPS.length - 1;
+  const labels = {language:i.language, profiles:i.profiles, edit:i.edit, preview:i.preview, review:i.review, transfer:i.transfer};
+  document.getElementById("steps").innerHTML = STEPS.map((s, n) =>
+    `<button type="button" class="wizard-step ${s===state.step?"active":""} ${n<idx?"done":""}" data-step="${s}"><span class="idx">${n+1}</span><span class="lbl">${labels[s]}</span></button>`
+  ).join("");
+  document.getElementById("steps").querySelectorAll("[data-step]").forEach(btn => btn.addEventListener("click", () => goStep(btn.dataset.step)));
+  document.getElementById("body").innerHTML = renderBody();
+  bindBody();
+  persistState();
+}
+
+document.getElementById("btnBack").addEventListener("click", () => { const i=stepIndex(); if(i>0) goStep(STEPS[i-1]); });
+document.getElementById("btnNext").addEventListener("click", () => { const i=stepIndex(); if(i<STEPS.length-1) goStep(STEPS[i+1]); });
+document.getElementById("btnReset").addEventListener("click", () => resetToDefaults());
+document.getElementById("fileInput").addEventListener("change", async (e) => {
+  const file = e.target.files && e.target.files[0]; e.target.value = "";
+  if (!file) return;
+  try {
+    const parsed = validateExport(JSON.parse(await file.text()));
+    if (!parsed.ok) throw new Error(parsed.error);
+    if (state.importMode === "replace") state.profiles = parsed.payload.profiles;
+    else Object.assign(state.profiles, parsed.payload.profiles);
+    state.activeId = parsed.payload.active_profile_id && state.profiles[parsed.payload.active_profile_id]
+      ? parsed.payload.active_profile_id : Object.keys(state.profiles)[0];
+    state.draft = deepClone(state.profiles[state.activeId]);
+    persistState();
+    showNotice(t().importOk); render();
+  } catch (err) {
+    showError(err.message || t().invalid);
+  }
+});
+
+render();
+</script>
+</body>
+</html>

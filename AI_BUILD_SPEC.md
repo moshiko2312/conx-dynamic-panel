@@ -260,7 +260,38 @@ conx_dynamic_panel.activate_profile
 conx_dynamic_panel.pull_from_panel
 conx_dynamic_panel.execute_button
 conx_dynamic_panel.reload
+conx_dynamic_panel.export_profiles
+conx_dynamic_panel.import_profiles
 ```
+
+Portable profiles JSON (card download, WebSocket `export_profiles`, and service
+`export_profiles`) uses:
+
+```json
+{
+  "schema_version": 1,
+  "active_profile_id": "lighting",
+  "profiles": {
+    "lighting": {
+      "id": "lighting",
+      "name": "Lighting",
+      "mode": "toggle",
+      "color_on": "cyan",
+      "color_off": "blue",
+      "radar": "30s",
+      "backlight": true,
+      "child_lock": false,
+      "selected_button": null,
+      "buttons": [
+        {"index": 1, "name": "L1", "action": null}
+      ]
+    }
+  }
+}
+```
+
+`import_profiles` accepts the same object (profiles may also be an array of
+profile objects). `mode` is `merge` or `replace`.
 
 Validate service payloads. Services must target a specific config entry or device.
 

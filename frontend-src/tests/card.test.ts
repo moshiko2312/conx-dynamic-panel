@@ -10,6 +10,12 @@ import {
 } from "../src/localize";
 import type { Profile } from "../src/types";
 import { COLOR_PREVIEW, resolveLedPreviewColor } from "../src/card";
+import {
+  PROFILES_EXPORT_SCHEMA_VERSION,
+  buildImportServiceYaml,
+  buildProfilesExport,
+  validateProfilesExport,
+} from "../src/exportSchema";
 import "../src/card";
 import "../src/editor";
 
@@ -148,6 +154,8 @@ describe("custom elements", () => {
       entry_id: "abc",
     });
     expect(el.shadowRoot?.textContent).toContain("Kitchen");
+    el._goToStep("preview");
+    await el.updateComplete;
     expect(el.shadowRoot?.textContent).toContain("Living room");
   });
 
@@ -174,6 +182,8 @@ describe("custom elements", () => {
     ruBtn.click();
     await el.updateComplete;
     expect(el._language).toBe("ru");
+    el._goToStep("review");
+    await el.updateComplete;
     expect(el.shadowRoot?.textContent).toContain("Синхронизация");
     expect(loadStoredLanguage()).toBe("ru");
   });
@@ -181,6 +191,8 @@ describe("custom elements", () => {
   it("renders horizontal faceplate with labels and rings", async () => {
     const callWS = vi.fn().mockResolvedValue(panelPayload({ sync_status: "synced" }));
     const el = await mountCard({ language: "en", callWS });
+    el._goToStep("preview");
+    await el.updateComplete;
     const faceplate = el.shadowRoot?.querySelector(".faceplate");
     const labels = el.shadowRoot?.querySelectorAll(".faceplate-label");
     const rings = el.shadowRoot?.querySelectorAll(".ring");
@@ -218,6 +230,8 @@ describe("custom elements", () => {
       })
     );
     const el = await mountCard({ language: "en", callWS });
+    el._goToStep("preview");
+    await el.updateComplete;
     const faceplate = el.shadowRoot?.querySelector(".faceplate") as HTMLElement;
     expect(faceplate.style.getPropertyValue("--ring-on").trim()).toBe(
       resolveLedPreviewColor("cyan")
@@ -263,6 +277,8 @@ describe("custom elements", () => {
       })
     );
     const el = await mountCard({ language: "en", callWS });
+    el._goToStep("preview");
+    await el.updateComplete;
     const faceplate = el.shadowRoot?.querySelector(".faceplate") as HTMLElement;
     expect(faceplate.style.getPropertyValue("--ring-on").trim()).toBe(
       COLOR_PREVIEW.magenta
@@ -321,6 +337,8 @@ describe("custom elements", () => {
         "switch.kitchen": { state: "off" },
       },
     });
+    el._goToStep("preview");
+    await el.updateComplete;
     const rings = [...(el.shadowRoot?.querySelectorAll(".ring") || [])];
     expect(rings[0]?.classList.contains("on")).toBe(true);
     expect(rings[1]?.classList.contains("on")).toBe(false);
@@ -329,6 +347,14 @@ describe("custom elements", () => {
   it("keeps text input focus across continuous typing updates", async () => {
     const callWS = vi.fn().mockResolvedValue(panelPayload());
     const el = await mountCard({ language: "en", callWS });
+    el._goToStep("edit");
+    await el.updateComplete;
+    const toggle = el.shadowRoot?.querySelector(
+      '.button-edit[data-button="1"] .button-edit-toggle'
+    ) as HTMLButtonElement;
+    expect(toggle).toBeTruthy();
+    toggle.click();
+    await el.updateComplete;
     const input = el.shadowRoot?.querySelector(
       '.button-edit[data-button="1"] input[type="text"]'
     ) as HTMLInputElement;
@@ -347,6 +373,27 @@ describe("custom elements", () => {
     );
   });
 
+  it("collapses button editors by default and expands on header click", async () => {
+    const callWS = vi.fn().mockResolvedValue(panelPayload());
+    const el = await mountCard({ language: "en", callWS });
+    el._goToStep("edit");
+    await el.updateComplete;
+    const row = el.shadowRoot?.querySelector(
+      '.button-edit[data-button="1"]'
+    ) as HTMLElement;
+    expect(row).toBeTruthy();
+    expect(row.classList.contains("open")).toBe(false);
+    expect(row.querySelector("input")).toBeFalsy();
+    expect(row.textContent).toMatch(/Button 1/);
+    (row.querySelector(".button-edit-toggle") as HTMLButtonElement).click();
+    await el.updateComplete;
+    const opened = el.shadowRoot?.querySelector(
+      '.button-edit[data-button="1"]'
+    ) as HTMLElement;
+    expect(opened.classList.contains("open")).toBe(true);
+    expect(opened.querySelector("input")).toBeTruthy();
+  });
+
   it("edits draft locally without websocket writes until save", async () => {
     const callWS = vi.fn().mockResolvedValue(panelPayload());
     const el = await mountCard({ language: "en", callWS });
@@ -360,12 +407,30 @@ describe("custom elements", () => {
     expect(el.shadowRoot?.textContent).toMatch(/unsaved draft changes/i);
   });
 
-  it("exposes import and export controls", async () => {
+  it("exposes import and export controls in transfer wizard step", async () => {
     const callWS = vi.fn().mockResolvedValue(panelPayload({ sync_status: "synced" }));
     const el = await mountCard({ language: "en", callWS });
-    expect(el.shadowRoot?.textContent).toContain("Export");
+    el._goToStep("transfer");
+    await el.updateComplete;
+    expect(el.shadowRoot?.textContent).toContain("Download .json");
     expect(el.shadowRoot?.textContent).toContain("Import (merge)");
     expect(el.shadowRoot?.textContent).toContain("Import (replace)");
+    expect(el.shadowRoot?.textContent).toContain("schema_version");
+    const yamlBox = el.shadowRoot?.querySelector("textarea.yaml-box") as HTMLTextAreaElement;
+    expect(yamlBox?.value).toContain("conx_dynamic_panel.import_profiles");
+  });
+
+  it("walks wizard steps with next/back controls", async () => {
+    const callWS = vi.fn().mockResolvedValue(panelPayload({ sync_status: "synced" }));
+    const el = await mountCard({ language: "en", callWS });
+    expect(el._wizardStep).toBe("language");
+    el._wizardNext();
+    await el.updateComplete;
+    expect(el._wizardStep).toBe("profiles");
+    el._goToStep("transfer");
+    await el.updateComplete;
+    expect(el.shadowRoot?.querySelector(".wizard-steps")).toBeTruthy();
+    expect(el.shadowRoot?.querySelector('[data-step="transfer"]')).toBeTruthy();
   });
 
   it("requests sync through websocket and shows errors", async () => {
@@ -400,13 +465,41 @@ describe("custom elements", () => {
     );
   });
 
-  it("toggles settings sections with switches", async () => {
+  it("toggles edit settings sections with switches", async () => {
     const callWS = vi.fn().mockResolvedValue(panelPayload({ sync_status: "synced" }));
     const el = await mountCard({ language: "en", callWS });
-    expect(el.shadowRoot?.querySelector(".faceplate")).toBeTruthy();
-    el._toggleSection("preview");
+    el._goToStep("edit");
     await el.updateComplete;
-    expect(el._sections.preview).toBe(false);
-    expect(el.shadowRoot?.querySelector(".faceplate")).toBeFalsy();
+    expect(el.shadowRoot?.querySelector(".button-edit")).toBeTruthy();
+    el._toggleSection("buttons");
+    await el.updateComplete;
+    expect(el._sections.buttons).toBe(false);
+    expect(el.shadowRoot?.querySelector(".button-edit")).toBeFalsy();
+  });
+});
+
+describe("export schema", () => {
+  it("validates portable export payloads", () => {
+    const payload = buildProfilesExport({ lighting: sampleProfile }, "lighting");
+    expect(payload.schema_version).toBe(PROFILES_EXPORT_SCHEMA_VERSION);
+    const ok = validateProfilesExport(payload);
+    expect(ok.ok).toBe(true);
+    const yaml = buildImportServiceYaml(payload, "merge", "abc");
+    expect(yaml).toContain("service: conx_dynamic_panel.import_profiles");
+    expect(yaml).toContain("mode: merge");
+  });
+
+  it("accepts profiles arrays and rejects future schema versions", () => {
+    const asArray = validateProfilesExport({
+      schema_version: 1,
+      profiles: [sampleProfile],
+      active_profile_id: "lighting",
+    });
+    expect(asArray.ok).toBe(true);
+    const future = validateProfilesExport({
+      schema_version: 99,
+      profiles: { lighting: sampleProfile },
+    });
+    expect(future.ok).toBe(false);
   });
 });

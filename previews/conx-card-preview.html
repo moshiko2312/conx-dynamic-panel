@@ -322,46 +322,71 @@
 
     .panel-section.open .section-body-inner { padding: 12px 14px 14px; }
 
+    /* Shared toggle pattern (also used by wizard preview when present):
+       physical LTR thumb travel, vertically centered, balanced track/thumb. */
     .switch {
+      --switch-w: 44px;
+      --switch-h: 26px;
+      --switch-thumb: 22px;
+      --switch-pad: 2px;
       position: relative;
       display: inline-block;
-      width: 42px;
-      height: 24px;
+      width: var(--switch-w);
+      height: var(--switch-h);
       flex-shrink: 0;
+      vertical-align: middle;
     }
 
-    .switch input { opacity: 0; width: 0; height: 0; }
+    .switch input {
+      position: absolute;
+      opacity: 0;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      cursor: pointer;
+      z-index: 1;
+    }
 
     .slider {
       position: absolute;
       inset: 0;
-      cursor: pointer;
       border-radius: 999px;
-      background: color-mix(in srgb, var(--conx-steel) 45%, #d5dde5);
-      box-shadow: inset 0 1px 2px color-mix(in srgb, #0b1218 25%, transparent);
-      transition: background 180ms ease;
+      background: color-mix(in srgb, var(--conx-steel) 42%, #d5dde5);
+      box-shadow: inset 0 1px 2px color-mix(in srgb, #0b1218 22%, transparent);
+      transition: background 180ms ease, box-shadow 180ms ease;
+      pointer-events: none;
     }
 
     .slider::before {
       content: "";
       position: absolute;
-      width: 18px;
-      height: 18px;
-      left: 3px;
-      top: 3px;
+      width: var(--switch-thumb);
+      height: var(--switch-thumb);
+      top: 50%;
+      left: var(--switch-pad);
       border-radius: 50%;
-      background: linear-gradient(180deg, #fff, #dce3ea);
-      box-shadow: 0 1px 3px color-mix(in srgb, #0b1218 30%, transparent);
-      transition: transform 180ms ease;
+      background: linear-gradient(180deg, #fff 0%, #e8eef3 100%);
+      box-shadow:
+        0 1px 3px color-mix(in srgb, #0b1218 28%, transparent),
+        inset 0 1px 0 #fff;
+      transform: translateY(-50%);
+      transition: left 180ms ease, background 180ms ease;
     }
 
     .switch input:checked + .slider {
-      background: color-mix(in srgb, var(--conx-accent) 75%, #89b4c0);
+      background: color-mix(in srgb, var(--conx-accent) 82%, #6aa8b6);
+      box-shadow: inset 0 1px 2px color-mix(in srgb, #0b1218 18%, transparent);
     }
 
-    .switch input:checked + .slider::before { transform: translateX(18px); }
+    .switch input:checked + .slider::before {
+      left: calc(100% - var(--switch-thumb) - var(--switch-pad));
+    }
 
-    [dir="rtl"] .switch input:checked + .slider::before { transform: translateX(-18px); }
+    .switch input:focus-visible + .slider {
+      outline: 2px solid color-mix(in srgb, var(--conx-accent) 55%, transparent);
+      outline-offset: 2px;
+    }
 
     .profile-list {
       display: flex;
@@ -507,21 +532,108 @@
       transform: none;
     }
 
-    .button-edit {
-      border-top: 1px solid color-mix(in srgb, var(--conx-steel) 26%, transparent);
-      padding-top: 10px;
-      margin-top: 10px;
+    /* Button accordion: compact headers, expand to edit */
+    .buttons-accordion {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
     }
 
-    .button-edit:first-child {
-      border-top: 0;
-      padding-top: 0;
-      margin-top: 0;
+    .button-edit {
+      border-radius: 12px;
+      border: 1px solid color-mix(in srgb, var(--conx-steel) 30%, transparent);
+      background: color-mix(in srgb, #fff 42%, transparent);
+      overflow: hidden;
+    }
+
+    .button-edit-toggle {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 10px 12px;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      cursor: pointer;
+      text-align: start;
+    }
+
+    .button-edit-toggle:hover {
+      background: color-mix(in srgb, var(--conx-accent) 6%, transparent);
+    }
+
+    .button-edit-chevron {
+      width: 8px;
+      height: 8px;
+      border-inline-end: 2px solid color-mix(in srgb, var(--conx-ink) 45%, transparent);
+      border-bottom: 2px solid color-mix(in srgb, var(--conx-ink) 45%, transparent);
+      transform: rotate(-45deg);
+      transition: transform 180ms ease;
+      flex-shrink: 0;
+      margin-inline-start: 2px;
+    }
+
+    [dir="rtl"] .button-edit-chevron {
+      transform: rotate(45deg);
+    }
+
+    .button-edit.open .button-edit-chevron {
+      transform: rotate(45deg);
+    }
+
+    [dir="rtl"] .button-edit.open .button-edit-chevron {
+      transform: rotate(-45deg);
+    }
+
+    .button-edit-summary {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+      flex: 1;
     }
 
     .button-edit-title {
       font-weight: 600;
-      margin-bottom: 8px;
+      line-height: 1.2;
+    }
+
+    .button-edit-meta {
+      font-size: 0.78rem;
+      opacity: 0.62;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .button-edit-body {
+      display: grid;
+      grid-template-rows: 0fr;
+      transition: grid-template-rows 200ms ease;
+    }
+
+    .button-edit.open .button-edit-body {
+      grid-template-rows: 1fr;
+    }
+
+    .button-edit-fields {
+      overflow: hidden;
+      padding: 0 12px;
+    }
+
+    .button-edit.open .button-edit-fields {
+      padding: 0 12px 12px;
+      border-top: 1px solid color-mix(in srgb, var(--conx-steel) 22%, transparent);
+    }
+
+    .button-edit.open .button-edit-fields .field:first-child {
+      margin-top: 10px;
+    }
+
+    .button-edit .field:last-child {
+      margin-bottom: 0;
     }
 
     /* —— Faceplate —— */
@@ -683,6 +795,11 @@
     <div class="page-intro">
       <h1>ConX Dynamic Panel</h1>
       <p id="intro-sub">תצוגה אינטראקטיבית של עיצוב הכרטיס החדש</p>
+      <p style="margin-top:10px">
+        <a href="conx-panel-wizard.html" style="color:#1f7a8c;font-weight:700">
+          ← לאשף ייצוא/ייבוא JSON ל־Home Assistant
+        </a>
+      </p>
       <div class="hint-bar">
         <span class="hint-chip" id="hint-lang">דגלי שפה HE / EN / RU</span>
         <span class="hint-chip" id="hint-colors">צבעי טבעות LED משתנים</span>
@@ -719,6 +836,9 @@
             </button>
           </div>
           <div class="badge status-synced" id="status-badge">Status: synced</div>
+          <button type="button" class="btn danger" id="btn-reset" data-i18n="card.reset" title="Reset saved preview data">
+            Reset
+          </button>
         </div>
       </div>
 
@@ -941,6 +1061,8 @@
         "card.backlight": "Backlight",
         "card.child_lock": "Child lock",
         "card.button": "Button",
+        "card.button_expand": "Expand button settings",
+        "card.button_collapse": "Collapse button settings",
         "card.label": "Label",
         "card.action": "Action",
         "card.entity_id": "Entity ID",
@@ -953,6 +1075,9 @@
         "card.profile_name": "Profile name",
         "card.synced_demo": "Status: synced",
         "card.syncing_demo": "Status: syncing",
+        "card.reset": "Reset",
+        "card.reset_ok": "Preview reset to defaults.",
+        "card.reset_confirm": "Clear saved preview data and restore defaults?",
         "mode.toggle": "Toggle",
         "mode.radio_mandatory": "Radio mandatory",
         "mode.radio_optional": "Radio optional",
@@ -984,6 +1109,8 @@
         "card.backlight": "תאורת רקע",
         "card.child_lock": "נעילת ילדים",
         "card.button": "כפתור",
+        "card.button_expand": "הרחב הגדרות כפתור",
+        "card.button_collapse": "כווץ הגדרות כפתור",
         "card.label": "תווית",
         "card.action": "פעולה",
         "card.entity_id": "מזהה ישות",
@@ -996,6 +1123,9 @@
         "card.profile_name": "שם פרופיל",
         "card.synced_demo": "סטטוס: מסונכרן",
         "card.syncing_demo": "סטטוס: מסנכרן",
+        "card.reset": "איפוס",
+        "card.reset_ok": "התצוגה אופסה לברירת מחדל.",
+        "card.reset_confirm": "לנקות נתונים שמורים ולהחזיר לברירת מחדל?",
         "mode.toggle": "החלפה",
         "mode.radio_mandatory": "רדיו חובה",
         "mode.radio_optional": "רדיו אופציונלי",
@@ -1027,6 +1157,8 @@
         "card.backlight": "Подсветка",
         "card.child_lock": "Блокировка",
         "card.button": "Кнопка",
+        "card.button_expand": "Развернуть настройки кнопки",
+        "card.button_collapse": "Свернуть настройки кнопки",
         "card.label": "Название",
         "card.action": "Действие",
         "card.entity_id": "Entity ID",
@@ -1039,6 +1171,9 @@
         "card.profile_name": "Имя профиля",
         "card.synced_demo": "Статус: синхронизировано",
         "card.syncing_demo": "Статус: синхронизация",
+        "card.reset": "Сброс",
+        "card.reset_ok": "Превью сброшено к значениям по умолчанию.",
+        "card.reset_confirm": "Очистить сохранённые данные и вернуть значения по умолчанию?",
         "mode.toggle": "Переключатель",
         "mode.radio_mandatory": "Радио (обязательно)",
         "mode.radio_optional": "Радио (опционально)",
@@ -1056,6 +1191,8 @@
     function deepClone(obj) {
       return JSON.parse(JSON.stringify(obj));
     }
+
+    const STORAGE_KEY = "conx-card-preview-state-v1";
 
     function makeProfile(id, name, overrides = {}) {
       return {
@@ -1079,11 +1216,8 @@
       };
     }
 
-    const state = {
-      lang: "he",
-      dirty: false,
-      activeId: "evening",
-      profiles: {
+    function createDefaultProfiles() {
+      return {
         evening: makeProfile("evening", "Evening"),
         day: makeProfile("day", "Day", {
           color_on: "warm_yellow",
@@ -1109,13 +1243,115 @@
           ],
           ringOn: { 1: false, 2: true, 3: false, 4: false },
         }),
-      },
-      draft: null,
-      saved: null,
-    };
+      };
+    }
 
-    state.draft = deepClone(state.profiles[state.activeId]);
-    state.saved = deepClone(state.profiles[state.activeId]);
+    function createDefaultState() {
+      const profiles = createDefaultProfiles();
+      const activeId = "evening";
+      return {
+        lang: "he",
+        dirty: false,
+        activeId,
+        expandedButtons: [],
+        sections: {
+          profiles: true,
+          appearance: true,
+          buttons: true,
+          preview: true,
+          actions: true,
+        },
+        profiles,
+        draft: deepClone(profiles[activeId]),
+        saved: deepClone(profiles[activeId]),
+      };
+    }
+
+    function persistState() {
+      try {
+        const payload = {
+          lang: state.lang,
+          dirty: state.dirty,
+          activeId: state.activeId,
+          expandedButtons: Array.from(state.expandedButtons),
+          sections: { ...state.sections },
+          profiles: state.profiles,
+          draft: state.draft,
+          saved: state.saved,
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      } catch (_err) {
+        /* private mode / quota — ignore */
+      }
+    }
+
+    function loadPersistedState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return null;
+        const data = JSON.parse(raw);
+        if (!data || typeof data !== "object" || !data.profiles) return null;
+        const defaults = createDefaultState();
+        const profiles = data.profiles;
+        const activeId =
+          typeof data.activeId === "string" && profiles[data.activeId]
+            ? data.activeId
+            : Object.keys(profiles)[0] || defaults.activeId;
+        return {
+          lang: ["he", "en", "ru"].includes(data.lang) ? data.lang : defaults.lang,
+          dirty: Boolean(data.dirty),
+          activeId,
+          expandedButtons: new Set(
+            Array.isArray(data.expandedButtons)
+              ? data.expandedButtons.map(Number).filter((n) => n >= 1 && n <= 4)
+              : []
+          ),
+          sections: {
+            ...defaults.sections,
+            ...(data.sections && typeof data.sections === "object" ? data.sections : {}),
+          },
+          profiles,
+          draft: data.draft ? deepClone(data.draft) : deepClone(profiles[activeId]),
+          saved: data.saved ? deepClone(data.saved) : deepClone(profiles[activeId]),
+        };
+      } catch (_err) {
+        return null;
+      }
+    }
+
+    function applySectionToggles() {
+      document.querySelectorAll("[data-section-toggle]").forEach((input) => {
+        const id = input.dataset.sectionToggle;
+        const open = state.sections[id] !== false;
+        input.checked = open;
+        const section = document.querySelector(`[data-section="${id}"]`);
+        if (section) section.classList.toggle("open", open);
+      });
+    }
+
+    function resetToDefaults() {
+      if (!confirm(t("card.reset_confirm"))) return;
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch (_err) {
+        /* ignore */
+      }
+      const fresh = createDefaultState();
+      Object.keys(state).forEach((k) => delete state[k]);
+      Object.assign(state, fresh);
+      state.expandedButtons = new Set();
+      applySectionToggles();
+      applyI18n();
+      syncFormFromDraft();
+      markDirty(false);
+      persistState();
+      showNotice(t("card.reset_ok"));
+    }
+
+    const state = loadPersistedState() || createDefaultState();
+    if (!(state.expandedButtons instanceof Set)) {
+      state.expandedButtons = new Set(state.expandedButtons || []);
+    }
 
     const els = {
       card: document.getElementById("card"),
@@ -1146,6 +1382,7 @@
       btnDiscard: document.getElementById("btn-discard"),
       btnSync: document.getElementById("btn-sync"),
       btnPull: document.getElementById("btn-pull"),
+      btnReset: document.getElementById("btn-reset"),
     };
 
     function markDirty(dirty) {
@@ -1161,6 +1398,7 @@
         els.statusBadge.className = "badge status-synced";
         els.statusBadge.textContent = t("card.synced_demo");
       }
+      persistState();
     }
 
     function showNotice(msg) {
@@ -1257,35 +1495,74 @@
     }
 
     function renderButtonsEditor() {
-      els.buttonsEditor.innerHTML = state.draft.buttons
-        .map(
-          (b) => `
-        <div class="button-edit" data-button="${b.index}">
-          <div class="button-edit-title">${t("card.button")} ${b.index}</div>
-          <label class="field">
-            <span>${t("card.label")}</span>
-            <input type="text" data-field="name" value="${b.name}" />
-          </label>
-          <label class="field">
-            <span>${t("card.action")}</span>
-            <input type="text" data-field="action" value="${b.action || ""}" placeholder="light.toggle" />
-          </label>
-          <label class="field">
-            <span>${t("card.entity_id")}</span>
-            <input type="text" data-field="entity" value="${b.entity || ""}" placeholder="light.living_room" />
-          </label>
-        </div>`
-        )
-        .join("");
+      const openSet = state.expandedButtons;
+      els.buttonsEditor.innerHTML = `<div class="buttons-accordion">${state.draft.buttons
+        .map((b) => {
+          const open = openSet.has(b.index);
+          const label = (b.name || "").trim() || "—";
+          const meta = [b.action, b.entity].filter(Boolean).join(" · ") || "—";
+          return `
+        <div class="button-edit ${open ? "open" : ""}" data-button="${b.index}">
+          <button
+            type="button"
+            class="button-edit-toggle"
+            aria-expanded="${open ? "true" : "false"}"
+            title="${open ? t("card.button_collapse") : t("card.button_expand")}"
+          >
+            <span class="button-edit-chevron" aria-hidden="true"></span>
+            <span class="button-edit-summary">
+              <span class="button-edit-title">${t("card.button")} ${b.index} · ${label}</span>
+              <span class="button-edit-meta">${meta}</span>
+            </span>
+          </button>
+          <div class="button-edit-body">
+            <div class="button-edit-fields">
+              <label class="field">
+                <span>${t("card.label")}</span>
+                <input type="text" data-field="name" value="${b.name}" />
+              </label>
+              <label class="field">
+                <span>${t("card.action")}</span>
+                <input type="text" data-field="action" value="${b.action || ""}" placeholder="light.toggle" />
+              </label>
+              <label class="field">
+                <span>${t("card.entity_id")}</span>
+                <input type="text" data-field="entity" value="${b.entity || ""}" placeholder="light.living_room" />
+              </label>
+            </div>
+          </div>
+        </div>`;
+        })
+        .join("")}</div>`;
 
       els.buttonsEditor.querySelectorAll(".button-edit").forEach((row) => {
         const index = Number(row.dataset.button);
+        const toggle = row.querySelector(".button-edit-toggle");
+        toggle.addEventListener("click", () => {
+          if (state.expandedButtons.has(index)) {
+            state.expandedButtons.delete(index);
+          } else {
+            state.expandedButtons.add(index);
+          }
+          persistState();
+          renderButtonsEditor();
+        });
         row.querySelectorAll("input").forEach((input) => {
           input.addEventListener("input", () => {
             const btn = state.draft.buttons.find((x) => x.index === index);
             if (!btn) return;
             btn[input.dataset.field] = input.value;
             markDirty(true);
+            const summaryTitle = row.querySelector(".button-edit-title");
+            const summaryMeta = row.querySelector(".button-edit-meta");
+            if (summaryTitle) {
+              const label = (btn.name || "").trim() || "—";
+              summaryTitle.textContent = `${t("card.button")} ${btn.index} · ${label}`;
+            }
+            if (summaryMeta) {
+              summaryMeta.textContent =
+                [btn.action, btn.entity].filter(Boolean).join(" · ") || "—";
+            }
             if (input.dataset.field === "name") {
               renderFaceplate();
               els.profileSubtitle.textContent = state.draft.name;
@@ -1349,6 +1626,7 @@
         btn.addEventListener("click", () => {
           state.lang = btn.dataset.lang;
           applyI18n();
+          persistState();
         });
       });
 
@@ -1357,8 +1635,12 @@
           const id = input.dataset.sectionToggle;
           const section = document.querySelector(`[data-section="${id}"]`);
           section.classList.toggle("open", input.checked);
+          state.sections[id] = input.checked;
+          persistState();
         });
       });
+
+      els.btnReset.addEventListener("click", () => resetToDefaults());
 
       els.profileName.addEventListener("input", () => {
         state.draft.name = els.profileName.value;
@@ -1507,9 +1789,10 @@
 
     fillColorSelects();
     bindControls();
+    applySectionToggles();
     applyI18n();
     syncFormFromDraft();
-    markDirty(false);
+    markDirty(Boolean(state.dirty));
   </script>
 </body>
 </html>

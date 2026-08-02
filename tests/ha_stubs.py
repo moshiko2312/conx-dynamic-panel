@@ -89,10 +89,16 @@ def install() -> None:
     def callback(func):  # noqa: ANN001, ANN201
         return func
 
+    class SupportsResponse:  # noqa: D101
+        NONE = "none"
+        OPTIONAL = "optional"
+        ONLY = "only"
+
     core.HomeAssistant = HomeAssistant
     core.Event = Event
     core.callback = callback
     core.ServiceCall = type("ServiceCall", (), {})
+    core.SupportsResponse = SupportsResponse
 
     config_entries = module("homeassistant.config_entries")
 

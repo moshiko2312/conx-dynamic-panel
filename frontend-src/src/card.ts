@@ -16,6 +16,11 @@ import {
   updateProfile,
 } from "./api";
 import {
+  buildImportServiceYaml,
+  buildProfilesExport,
+  validateProfilesExport,
+} from "./exportSchema";
+import {
   LANGUAGE_OPTIONS,
   type CardLanguage,
   isRtl,
@@ -26,7 +31,23 @@ import {
 } from "./localize";
 import type { CardConfig, HomeAssistant, PanelConfig, Profile } from "./types";
 
-type SectionId = "profiles" | "appearance" | "buttons" | "preview" | "actions";
+type SectionId = "appearance" | "buttons";
+type WizardStep =
+  | "language"
+  | "profiles"
+  | "edit"
+  | "preview"
+  | "review"
+  | "transfer";
+
+const WIZARD_STEPS: WizardStep[] = [
+  "language",
+  "profiles",
+  "edit",
+  "preview",
+  "review",
+  "transfer",
+];
 
 /** CSS colors for Zemismart LED name options (adapter select values). */
 export const COLOR_PREVIEW: Record<string, string> = {
@@ -70,13 +91,15 @@ export class ConXDynamicPanelCard extends LitElement {
   @state() private _syncPulse = false;
   @state() private _pressedRing: number | null = null;
   @state() private _uiLang?: CardLanguage;
+  @state() private _wizardStep: WizardStep = "language";
+  @state() private _importMode: "merge" | "replace" = "merge";
+  @state() private _serviceYaml = "";
   @state() private _sections: Record<SectionId, boolean> = {
-    profiles: true,
     appearance: true,
     buttons: true,
-    preview: true,
-    actions: true,
   };
+  /** Expanded button editors (collapsed by default). */
+  @state() private _expandedButtons: Record<number, boolean> = {};
 
   private _importInput?: HTMLInputElement;
 
@@ -107,7 +130,68 @@ export class ConXDynamicPanelCard extends LitElement {
     if (!this._uiLang) {
       this._uiLang = loadStoredLanguage() || undefined;
     }
+    if (this._uiLang) {
+      this._wizardStep = "profiles";
+    }
     this._ensureFonts();
+  }
+
+  private _stepLabel(step: WizardStep): string {
+    return this.t(`card.step_${step}`);
+  }
+
+  private _goToStep(step: WizardStep): void {
+    this._wizardStep = step;
+    this._notice = undefined;
+  }
+
+  private _wizardIndex(): number {
+    return WIZARD_STEPS.indexOf(this._wizardStep);
+  }
+
+  private _wizardNext(): void {
+    const index = this._wizardIndex();
+    if (index < WIZARD_STEPS.length - 1) {
+      this._goToStep(WIZARD_STEPS[index + 1]);
+    }
+  }
+
+  private _wizardBack(): void {
+    const index = this._wizardIndex();
+    if (index > 0) {
+      this._goToStep(WIZARD_STEPS[index - 1]);
+    }
+  }
+
+  private _buildServiceYaml(
+    payload?: ReturnType<typeof buildProfilesExport>
+  ): string {
+    if (!this._panel || !this._config) {
+      return "";
+    }
+    const exportPayload =
+      payload ||
+      buildProfilesExport(this._panel.profiles, this._panel.active_profile_id);
+    return buildImportServiceYaml(
+      exportPayload,
+      this._importMode,
+      this._config.entry_id
+    );
+  }
+
+  private _refreshServiceYaml(payload?: ReturnType<typeof buildProfilesExport>): void {
+    this._serviceYaml = this._buildServiceYaml(payload);
+  }
+
+  private async _copyServiceYaml(): Promise<void> {
+    const yaml = this._buildServiceYaml();
+    this._serviceYaml = yaml;
+    try {
+      await navigator.clipboard.writeText(yaml);
+      this._notice = this.t("card.copy_yaml") + " ✓";
+    } catch {
+      this._error = "Clipboard unavailable";
+    }
   }
 
   private _ensureFonts(): void {
@@ -155,10 +239,20 @@ export class ConXDynamicPanelCard extends LitElement {
   private _setLanguage(lang: CardLanguage): void {
     this._uiLang = lang;
     persistLanguage(lang);
+    if (this._wizardStep === "language") {
+      this._wizardStep = "profiles";
+    }
   }
 
   private _toggleSection(id: SectionId): void {
     this._sections = { ...this._sections, [id]: !this._sections[id] };
+  }
+
+  private _toggleButtonEditor(index: number): void {
+    this._expandedButtons = {
+      ...this._expandedButtons,
+      [index]: !this._expandedButtons[index],
+    };
   }
 
   private async _load(): Promise<void> {
@@ -403,6 +497,7 @@ export class ConXDynamicPanelCard extends LitElement {
       const payload = await exportProfiles(this.hass, this._config.entry_id);
       const safeName = this._panel.panel_name.replace(/[^\w.-]+/g, "_");
       downloadJson(`conx-profiles-${safeName}.json`, payload);
+      this._refreshServiceYaml(payload);
       this._notice = this.t("card.export_ok");
     } catch (err) {
       this._error = err instanceof Error ? err.message : String(err);
@@ -411,7 +506,7 @@ export class ConXDynamicPanelCard extends LitElement {
     }
   }
 
-  private _openImport(mode: "merge" | "replace"): void {
+  private _openImport(): void {
     if (!this._importInput) {
       this._importInput = document.createElement("input");
       this._importInput.type = "file";
@@ -423,7 +518,7 @@ export class ConXDynamicPanelCard extends LitElement {
       const file = this._importInput?.files?.[0];
       this._importInput!.value = "";
       if (file) {
-        void this._importFile(file, mode);
+        void this._importFile(file, this._importMode);
       }
     };
     this._importInput.click();
@@ -443,25 +538,18 @@ export class ConXDynamicPanelCard extends LitElement {
     this._error = undefined;
     try {
       const text = await file.text();
-      const payload = JSON.parse(text) as {
-        profiles?: Record<string, Profile>;
-        active_profile_id?: string | null;
-        schema_version?: number;
-      };
-      if (!payload?.profiles || typeof payload.profiles !== "object") {
-        throw new Error(this.t("card.import_invalid"));
+      const parsed = validateProfilesExport(JSON.parse(text));
+      if (!parsed.ok) {
+        throw new Error(parsed.error || this.t("card.import_invalid"));
       }
       const panel = await importProfiles(
         this.hass,
         this._config.entry_id,
-        {
-          schema_version: payload.schema_version || 1,
-          active_profile_id: payload.active_profile_id ?? null,
-          profiles: payload.profiles,
-        },
+        parsed.payload,
         mode
       );
       this._applyPanel(panel);
+      this._refreshServiceYaml(parsed.payload);
       this._notice = this.t("card.import_ok");
     } catch (err) {
       this._error = err instanceof Error ? err.message : String(err);
@@ -699,6 +787,465 @@ export class ConXDynamicPanelCard extends LitElement {
     `;
   }
 
+  private _renderWizardNav() {
+    const index = this._wizardIndex();
+    return html`
+      <nav class="wizard-steps" aria-label=${this.t("card.wizard")}>
+        ${WIZARD_STEPS.map((step, stepIndex) => {
+          const active = step === this._wizardStep;
+          const done = stepIndex < index;
+          return html`
+            <button
+              type="button"
+              class="wizard-step ${active ? "active" : ""} ${done ? "done" : ""}"
+              ?disabled=${this._busy}
+              @click=${() => this._goToStep(step)}
+            >
+              <span class="wizard-index">${stepIndex + 1}</span>
+              <span class="wizard-label">${this._stepLabel(step)}</span>
+            </button>
+          `;
+        })}
+      </nav>
+      <p class="wizard-hint">${this.t(`card.step_${this._wizardStep}_hint`)}</p>
+    `;
+  }
+
+  private _renderWizardFooter() {
+    const index = this._wizardIndex();
+    return html`
+      <div class="wizard-footer">
+        <button
+          type="button"
+          class="btn"
+          ?disabled=${this._busy || index <= 0}
+          @click=${this._wizardBack}
+        >
+          ${this.t("card.wizard_back")}
+        </button>
+        <button
+          type="button"
+          class="btn primary"
+          ?disabled=${this._busy || index >= WIZARD_STEPS.length - 1}
+          @click=${this._wizardNext}
+        >
+          ${this.t("card.wizard_next")}
+        </button>
+      </div>
+    `;
+  }
+
+  private _renderStepLanguage() {
+    return html`
+      <div class="lang-hero" role="group" aria-label=${this.t("card.language")}>
+        ${LANGUAGE_OPTIONS.map(
+          (opt) => html`
+            <button
+              type="button"
+              class="lang-hero-btn ${this._language === opt.id ? "active" : ""}"
+              ?disabled=${this._busy}
+              @click=${() => this._setLanguage(opt.id)}
+            >
+              ${this._renderFlag(opt.flag)}
+              <span class="lang-hero-code">${opt.id.toUpperCase()}</span>
+              <span class="lang-hero-name">${opt.label}</span>
+            </button>
+          `
+        )}
+      </div>
+    `;
+  }
+
+  private _renderStepProfiles() {
+    if (!this._panel || !this._draft) {
+      return nothing;
+    }
+    return html`
+      <div class="profile-list">
+        ${Object.values(this._panel.profiles).map(
+          (profile) => html`
+            <button
+              type="button"
+              class="profile-chip ${profile.id === this._draft?.id ? "active" : ""}"
+              ?disabled=${this._busy}
+              @click=${() => this._selectProfile(profile.id)}
+            >
+              <span class="chip-name">${profile.name}</span>
+              <span class="chip-id">${profile.id}</span>
+            </button>
+          `
+        )}
+      </div>
+      <label class="field">
+        <span>${this.t("card.profile_name")}</span>
+        <input
+          type="text"
+          .value=${this._draft.name}
+          ?disabled=${this._busy}
+          @input=${this._onProfileNameInput}
+        />
+      </label>
+      <div class="row actions">
+        <button type="button" class="btn" ?disabled=${this._busy} @click=${this._createProfile}>
+          ${this.t("card.create")}
+        </button>
+        <button type="button" class="btn" ?disabled=${this._busy} @click=${this._duplicateProfile}>
+          ${this.t("card.duplicate")}
+        </button>
+        <button type="button" class="btn" ?disabled=${this._busy} @click=${this._renameProfile}>
+          ${this.t("card.rename")}
+        </button>
+        <button type="button" class="btn danger" ?disabled=${this._busy} @click=${this._deleteProfile}>
+          ${this.t("card.delete")}
+        </button>
+      </div>
+    `;
+  }
+
+  private _renderStepEdit() {
+    if (!this._panel || !this._draft) {
+      return nothing;
+    }
+    return html`
+      ${this._renderSection(
+        "appearance",
+        this.t("card.editor"),
+        html`
+          <label class="field">
+            <span>${this.t("card.mode")}</span>
+            <div class="select-wrap">
+              <select
+                .value=${this._draft.mode}
+                ?disabled=${this._busy}
+                @change=${(e: Event) =>
+                  this._patchDraft((draft) => {
+                    draft.mode = (e.target as HTMLSelectElement).value as Profile["mode"];
+                  })}
+              >
+                ${this._panel.capabilities.modes.map(
+                  (mode) => html`<option value=${mode}>${this.t(`mode.${mode}`)}</option>`
+                )}
+              </select>
+            </div>
+          </label>
+          <div class="grid-2">
+            <label class="field">
+              <span>${this.t("card.color_on")}</span>
+              <div class="select-wrap color-select">
+                <span
+                  class="swatch"
+                  style="background:${resolveLedPreviewColor(this._draft.color_on)}"
+                ></span>
+                <select
+                  .value=${this._draft.color_on}
+                  ?disabled=${this._busy}
+                  @change=${(e: Event) =>
+                    this._patchDraft((draft) => {
+                      draft.color_on = (e.target as HTMLSelectElement).value;
+                    })}
+                >
+                  ${this._panel.capabilities.colors.map(
+                    (color) => html`<option value=${color}>${color}</option>`
+                  )}
+                </select>
+              </div>
+            </label>
+            <label class="field">
+              <span>${this.t("card.color_off")}</span>
+              <div class="select-wrap color-select">
+                <span
+                  class="swatch"
+                  style="background:${resolveLedPreviewColor(this._draft.color_off)}"
+                ></span>
+                <select
+                  .value=${this._draft.color_off}
+                  ?disabled=${this._busy}
+                  @change=${(e: Event) =>
+                    this._patchDraft((draft) => {
+                      draft.color_off = (e.target as HTMLSelectElement).value;
+                    })}
+                >
+                  ${this._panel.capabilities.colors.map(
+                    (color) => html`<option value=${color}>${color}</option>`
+                  )}
+                </select>
+              </div>
+            </label>
+          </div>
+          <label class="field">
+            <span>${this.t("card.radar")}</span>
+            <div class="select-wrap">
+              <select
+                .value=${this._draft.radar}
+                ?disabled=${this._busy}
+                @change=${(e: Event) =>
+                  this._patchDraft((draft) => {
+                    draft.radar = (e.target as HTMLSelectElement).value;
+                  })}
+              >
+                ${this._panel.capabilities.radar.map(
+                  (value) => html`<option value=${value}>${value}</option>`
+                )}
+              </select>
+            </div>
+          </label>
+          <div class="toggle-row">
+            <label class="switch-field">
+              <span>${this.t("card.backlight")}</span>
+              <label class="switch">
+                <input
+                  type="checkbox"
+                  .checked=${this._draft.backlight}
+                  ?disabled=${this._busy}
+                  @change=${(e: Event) =>
+                    this._patchDraft((draft) => {
+                      draft.backlight = (e.target as HTMLInputElement).checked;
+                    })}
+                />
+                <span class="slider"></span>
+              </label>
+            </label>
+            <label class="switch-field">
+              <span>${this.t("card.child_lock")}</span>
+              <label class="switch">
+                <input
+                  type="checkbox"
+                  .checked=${this._draft.child_lock}
+                  ?disabled=${this._busy}
+                  @change=${(e: Event) =>
+                    this._patchDraft((draft) => {
+                      draft.child_lock = (e.target as HTMLInputElement).checked;
+                    })}
+                />
+                <span class="slider"></span>
+              </label>
+            </label>
+          </div>
+        `
+      )}
+      ${this._renderSection(
+        "buttons",
+        this.t("card.buttons"),
+        html`
+          <div class="buttons-accordion">
+            ${this._draft.buttons.map((button) => {
+              const open = Boolean(this._expandedButtons[button.index]);
+              const entityId = String(
+                (
+                  button.action?.target as { entity_id?: string } | undefined
+                )?.entity_id || ""
+              );
+              const label = (button.name || "").trim() || "—";
+              const action = button.action?.action || "";
+              const meta = [action, entityId].filter(Boolean).join(" · ") || "—";
+              return html`
+                <div
+                  class="button-edit ${open ? "open" : ""}"
+                  data-button=${button.index}
+                >
+                  <button
+                    type="button"
+                    class="button-edit-toggle"
+                    aria-expanded=${open ? "true" : "false"}
+                    title=${open
+                      ? this.t("card.button_collapse")
+                      : this.t("card.button_expand")}
+                    ?disabled=${this._busy}
+                    @click=${() => this._toggleButtonEditor(button.index)}
+                  >
+                    <span class="button-edit-chevron" aria-hidden="true"></span>
+                    <span class="button-edit-summary">
+                      <span class="button-edit-title">
+                        ${this.t("card.button")} ${button.index} · ${label}
+                      </span>
+                      <span class="button-edit-meta">${meta}</span>
+                    </span>
+                  </button>
+                  <div class="button-edit-body">
+                    <div class="button-edit-fields">
+                      ${open
+                        ? html`
+                            <label class="field">
+                              <span>${this.t("card.label")}</span>
+                              <input
+                                type="text"
+                                .value=${button.name}
+                                ?disabled=${this._busy}
+                                @input=${(e: Event) =>
+                                  this._onButtonNameInput(button.index, e)}
+                              />
+                            </label>
+                            <label class="field">
+                              <span>${this.t("card.action")}</span>
+                              <input
+                                type="text"
+                                .value=${action}
+                                placeholder="light.toggle"
+                                ?disabled=${this._busy}
+                                @input=${(e: Event) =>
+                                  this._onButtonActionInput(button.index, e)}
+                              />
+                            </label>
+                            <label class="field">
+                              <span>${this.t("card.entity_id")}</span>
+                              <input
+                                type="text"
+                                .value=${entityId}
+                                placeholder="light.living_room"
+                                ?disabled=${this._busy}
+                                @input=${(e: Event) =>
+                                  this._onButtonEntityInput(button.index, e)}
+                              />
+                            </label>
+                          `
+                        : nothing}
+                    </div>
+                  </div>
+                </div>
+              `;
+            })}
+          </div>
+        `
+      )}
+    `;
+  }
+
+  private _renderStepReview() {
+    if (!this._draft || !this._panel) {
+      return nothing;
+    }
+    return html`
+      <div class="review-grid">
+        <div><strong>${this.t("card.profile_name")}</strong> ${this._draft.name}</div>
+        <div><strong>${this.t("card.mode")}</strong> ${this.t(`mode.${this._draft.mode}`)}</div>
+        <div><strong>${this.t("card.color_on")}</strong> ${this._draft.color_on}</div>
+        <div><strong>${this.t("card.color_off")}</strong> ${this._draft.color_off}</div>
+        <div><strong>${this.t("card.radar")}</strong> ${this._draft.radar}</div>
+        <div>
+          <strong>${this.t("card.buttons")}</strong>
+          ${this._draft.buttons.map((b) => b.name).join(" · ")}
+        </div>
+      </div>
+      ${this._renderFaceplate()}
+      <div class="row actions">
+        <button
+          type="button"
+          class="btn primary"
+          ?disabled=${this._busy || !this._dirty}
+          @click=${this._saveDraft}
+        >
+          ${this.t("card.save")}
+        </button>
+        <button
+          type="button"
+          class="btn"
+          ?disabled=${this._busy || !this._dirty}
+          @click=${this._discard}
+        >
+          ${this.t("card.discard")}
+        </button>
+        <button
+          type="button"
+          class="btn primary sync-btn"
+          ?disabled=${this._busy}
+          @click=${this._sync}
+        >
+          ${this.t("card.sync")}
+        </button>
+        <button type="button" class="btn" ?disabled=${this._busy} @click=${this._pull}>
+          ${this.t("card.pull")}
+        </button>
+      </div>
+    `;
+  }
+
+  private _renderStepTransfer() {
+    if (!this._panel || !this._config) {
+      return nothing;
+    }
+    const yaml = this._serviceYaml || this._buildServiceYaml();
+    return html`
+      <div class="schema-box">
+        <div class="schema-title">${this.t("card.schema_title")}</div>
+        <p>${this.t("card.schema_body")}</p>
+        <pre class="schema-pre">{
+  "schema_version": 1,
+  "active_profile_id": "lighting",
+  "profiles": {
+    "lighting": {
+      "id": "lighting",
+      "name": "Lighting",
+      "mode": "toggle",
+      "color_on": "cyan",
+      "color_off": "blue",
+      "radar": "30s",
+      "backlight": true,
+      "child_lock": false,
+      "selected_button": null,
+      "buttons": [
+        {"index": 1, "name": "L1", "action": null}
+      ]
+    }
+  }
+}</pre>
+      </div>
+      <div class="row actions">
+        <button type="button" class="btn primary" ?disabled=${this._busy} @click=${this._export}>
+          ${this.t("card.download_export")}
+        </button>
+      </div>
+      <label class="field">
+        <span>${this.t("card.import_mode")}</span>
+        <div class="select-wrap">
+          <select
+            .value=${this._importMode}
+            ?disabled=${this._busy}
+            @change=${(e: Event) => {
+              this._importMode = (e.target as HTMLSelectElement).value as
+                | "merge"
+                | "replace";
+              this._refreshServiceYaml();
+            }}
+          >
+            <option value="merge">${this.t("card.import_merge")}</option>
+            <option value="replace">${this.t("card.import_replace")}</option>
+          </select>
+        </div>
+      </label>
+      <div class="row actions">
+        <button type="button" class="btn" ?disabled=${this._busy} @click=${this._openImport}>
+          ${this.t("card.choose_file")}
+        </button>
+        <button type="button" class="btn" ?disabled=${this._busy} @click=${this._copyServiceYaml}>
+          ${this.t("card.copy_yaml")}
+        </button>
+      </div>
+      <label class="field">
+        <span>${this.t("card.service_yaml")}</span>
+        <textarea class="yaml-box" readonly rows="12" .value=${yaml}></textarea>
+      </label>
+    `;
+  }
+
+  private _renderWizardBody() {
+    switch (this._wizardStep) {
+      case "language":
+        return this._renderStepLanguage();
+      case "profiles":
+        return this._renderStepProfiles();
+      case "edit":
+        return this._renderStepEdit();
+      case "preview":
+        return this._renderFaceplate();
+      case "review":
+        return this._renderStepReview();
+      case "transfer":
+        return this._renderStepTransfer();
+      default:
+        return nothing;
+    }
+  }
+
   protected render() {
     const rtl = isRtl(this._language);
     if (!this._config?.entry_id) {
@@ -715,7 +1262,7 @@ export class ConXDynamicPanelCard extends LitElement {
     return html`
       <ha-card
         dir=${rtl ? "rtl" : "ltr"}
-        class="conx-card ${compact ? "compact" : ""} ${this._syncPulse ? "syncing-pulse" : ""}"
+        class="conx-card wizard ${compact ? "compact" : ""} ${this._syncPulse ? "syncing-pulse" : ""}"
       >
         <div class="atmosphere"></div>
         <div class="header">
@@ -757,284 +1304,12 @@ export class ConXDynamicPanelCard extends LitElement {
           ? html`<div class="error">${this._error || this._panel.last_error}</div>`
           : nothing}
 
-        <div class="layout">
-          ${this._renderSection(
-            "profiles",
-            this.t("card.profiles"),
-            html`
-              <div class="profile-list">
-                ${Object.values(this._panel.profiles).map(
-                  (profile) => html`
-                    <button
-                      type="button"
-                      class="profile-chip ${profile.id === this._draft?.id ? "active" : ""}"
-                      ?disabled=${this._busy}
-                      @click=${() => this._selectProfile(profile.id)}
-                    >
-                      <span class="chip-name">${profile.name}</span>
-                      <span class="chip-id">${profile.id}</span>
-                    </button>
-                  `
-                )}
-              </div>
-              <label class="field">
-                <span>${this.t("card.profile_name")}</span>
-                <input
-                  type="text"
-                  .value=${this._draft.name}
-                  ?disabled=${this._busy}
-                  @input=${this._onProfileNameInput}
-                />
-              </label>
-              <div class="row actions">
-                <button type="button" class="btn" ?disabled=${this._busy} @click=${this._createProfile}>
-                  ${this.t("card.create")}
-                </button>
-                <button type="button" class="btn" ?disabled=${this._busy} @click=${this._duplicateProfile}>
-                  ${this.t("card.duplicate")}
-                </button>
-                <button type="button" class="btn" ?disabled=${this._busy} @click=${this._renameProfile}>
-                  ${this.t("card.rename")}
-                </button>
-                <button type="button" class="btn danger" ?disabled=${this._busy} @click=${this._deleteProfile}>
-                  ${this.t("card.delete")}
-                </button>
-              </div>
-              <div class="row actions">
-                <button type="button" class="btn" ?disabled=${this._busy} @click=${this._export}>
-                  ${this.t("card.export")}
-                </button>
-                <button
-                  type="button"
-                  class="btn"
-                  ?disabled=${this._busy}
-                  @click=${() => this._openImport("merge")}
-                >
-                  ${this.t("card.import_merge")}
-                </button>
-                <button
-                  type="button"
-                  class="btn danger"
-                  ?disabled=${this._busy}
-                  @click=${() => this._openImport("replace")}
-                >
-                  ${this.t("card.import_replace")}
-                </button>
-              </div>
-            `
-          )}
-
-          ${this._renderSection(
-            "appearance",
-            this.t("card.editor"),
-            html`
-              <label class="field">
-                <span>${this.t("card.mode")}</span>
-                <div class="select-wrap">
-                  <select
-                    .value=${this._draft.mode}
-                    ?disabled=${this._busy}
-                    @change=${(e: Event) =>
-                      this._patchDraft((draft) => {
-                        draft.mode = (e.target as HTMLSelectElement)
-                          .value as Profile["mode"];
-                      })}
-                  >
-                    ${this._panel.capabilities.modes.map(
-                      (mode) =>
-                        html`<option value=${mode}>${this.t(`mode.${mode}`)}</option>`
-                    )}
-                  </select>
-                </div>
-              </label>
-              <div class="grid-2">
-                <label class="field">
-                  <span>${this.t("card.color_on")}</span>
-                  <div class="select-wrap color-select">
-                    <span
-                      class="swatch"
-                      style="background:${resolveLedPreviewColor(this._draft.color_on)}"
-                    ></span>
-                    <select
-                      .value=${this._draft.color_on}
-                      ?disabled=${this._busy}
-                      @change=${(e: Event) =>
-                        this._patchDraft((draft) => {
-                          draft.color_on = (e.target as HTMLSelectElement).value;
-                        })}
-                    >
-                      ${this._panel.capabilities.colors.map(
-                        (color) => html`<option value=${color}>${color}</option>`
-                      )}
-                    </select>
-                  </div>
-                </label>
-                <label class="field">
-                  <span>${this.t("card.color_off")}</span>
-                  <div class="select-wrap color-select">
-                    <span
-                      class="swatch"
-                      style="background:${resolveLedPreviewColor(this._draft.color_off)}"
-                    ></span>
-                    <select
-                      .value=${this._draft.color_off}
-                      ?disabled=${this._busy}
-                      @change=${(e: Event) =>
-                        this._patchDraft((draft) => {
-                          draft.color_off = (e.target as HTMLSelectElement).value;
-                        })}
-                    >
-                      ${this._panel.capabilities.colors.map(
-                        (color) => html`<option value=${color}>${color}</option>`
-                      )}
-                    </select>
-                  </div>
-                </label>
-              </div>
-              <label class="field">
-                <span>${this.t("card.radar")}</span>
-                <div class="select-wrap">
-                  <select
-                    .value=${this._draft.radar}
-                    ?disabled=${this._busy}
-                    @change=${(e: Event) =>
-                      this._patchDraft((draft) => {
-                        draft.radar = (e.target as HTMLSelectElement).value;
-                      })}
-                  >
-                    ${this._panel.capabilities.radar.map(
-                      (value) => html`<option value=${value}>${value}</option>`
-                    )}
-                  </select>
-                </div>
-              </label>
-              <div class="toggle-row">
-                <label class="switch-field">
-                  <span>${this.t("card.backlight")}</span>
-                  <label class="switch">
-                    <input
-                      type="checkbox"
-                      .checked=${this._draft.backlight}
-                      ?disabled=${this._busy}
-                      @change=${(e: Event) =>
-                        this._patchDraft((draft) => {
-                          draft.backlight = (e.target as HTMLInputElement).checked;
-                        })}
-                    />
-                    <span class="slider"></span>
-                  </label>
-                </label>
-                <label class="switch-field">
-                  <span>${this.t("card.child_lock")}</span>
-                  <label class="switch">
-                    <input
-                      type="checkbox"
-                      .checked=${this._draft.child_lock}
-                      ?disabled=${this._busy}
-                      @change=${(e: Event) =>
-                        this._patchDraft((draft) => {
-                          draft.child_lock = (e.target as HTMLInputElement).checked;
-                        })}
-                    />
-                    <span class="slider"></span>
-                  </label>
-                </label>
-              </div>
-            `
-          )}
-
-          ${this._renderSection(
-            "buttons",
-            this.t("card.buttons"),
-            html`
-              ${this._draft.buttons.map(
-                (button) => html`
-                  <div class="button-edit" data-button=${button.index}>
-                    <div class="button-edit-title">
-                      ${this.t("card.button")} ${button.index}
-                    </div>
-                    <label class="field">
-                      <span>${this.t("card.label")}</span>
-                      <input
-                        type="text"
-                        .value=${button.name}
-                        ?disabled=${this._busy}
-                        @input=${(e: Event) => this._onButtonNameInput(button.index, e)}
-                      />
-                    </label>
-                    <label class="field">
-                      <span>${this.t("card.action")}</span>
-                      <input
-                        type="text"
-                        .value=${button.action?.action || ""}
-                        placeholder="light.toggle"
-                        ?disabled=${this._busy}
-                        @input=${(e: Event) => this._onButtonActionInput(button.index, e)}
-                      />
-                    </label>
-                    <label class="field">
-                      <span>${this.t("card.entity_id")}</span>
-                      <input
-                        type="text"
-                        .value=${String(
-                          (
-                            button.action?.target as
-                              | { entity_id?: string }
-                              | undefined
-                          )?.entity_id || ""
-                        )}
-                        placeholder="light.living_room"
-                        ?disabled=${this._busy}
-                        @input=${(e: Event) => this._onButtonEntityInput(button.index, e)}
-                      />
-                    </label>
-                  </div>
-                `
-              )}
-            `
-          )}
-
-          ${this._renderSection(
-            "preview",
-            this.t("card.preview"),
-            html`${this._renderFaceplate()}`
-          )}
-
-          ${this._renderSection(
-            "actions",
-            this.t("card.actions"),
-            html`
-              <div class="row actions">
-                <button
-                  type="button"
-                  class="btn primary"
-                  ?disabled=${this._busy || !this._dirty}
-                  @click=${this._saveDraft}
-                >
-                  ${this.t("card.save")}
-                </button>
-                <button
-                  type="button"
-                  class="btn"
-                  ?disabled=${this._busy || !this._dirty}
-                  @click=${this._discard}
-                >
-                  ${this.t("card.discard")}
-                </button>
-                <button
-                  type="button"
-                  class="btn primary sync-btn"
-                  ?disabled=${this._busy}
-                  @click=${this._sync}
-                >
-                  ${this.t("card.sync")}
-                </button>
-                <button type="button" class="btn" ?disabled=${this._busy} @click=${this._pull}>
-                  ${this.t("card.pull")}
-                </button>
-              </div>
-            `
-          )}
+        <div class="layout wizard-layout">
+          ${this._renderWizardNav()}
+          <div class="wizard-body" data-step=${this._wizardStep}>
+            ${this._renderWizardBody()}
+          </div>
+          ${this._renderWizardFooter()}
         </div>
       </ha-card>
     `;
@@ -1104,6 +1379,184 @@ export class ConXDynamicPanelCard extends LitElement {
     .layout {
       position: relative;
       z-index: 1;
+    }
+
+    .wizard-layout {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .wizard-steps {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .wizard-step {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid color-mix(in srgb, var(--conx-steel) 40%, transparent);
+      background: color-mix(in srgb, #fff 70%, transparent);
+      border-radius: 999px;
+      padding: 6px 10px;
+      font: inherit;
+      cursor: pointer;
+      transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
+    }
+
+    .wizard-step:hover {
+      transform: translateY(-1px);
+    }
+
+    .wizard-step.active {
+      border-color: var(--conx-accent);
+      background: var(--conx-accent-soft);
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--conx-accent) 35%, transparent);
+    }
+
+    .wizard-step.done .wizard-index {
+      background: var(--conx-accent);
+      color: #fff;
+    }
+
+    .wizard-index {
+      width: 1.4rem;
+      height: 1.4rem;
+      border-radius: 50%;
+      display: inline-grid;
+      place-items: center;
+      font-size: 0.75rem;
+      font-weight: 700;
+      background: color-mix(in srgb, var(--conx-steel) 22%, transparent);
+    }
+
+    .wizard-label {
+      font-size: 0.78rem;
+      font-weight: 600;
+    }
+
+    .wizard-hint {
+      margin: 0;
+      opacity: 0.75;
+      font-size: 0.9rem;
+    }
+
+    .wizard-body {
+      animation: wizard-in 220ms ease;
+    }
+
+    @keyframes wizard-in {
+      from {
+        opacity: 0;
+        transform: translateY(6px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .wizard-footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .lang-hero {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .lang-hero-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      padding: 16px 10px;
+      border-radius: 16px;
+      border: 1px solid color-mix(in srgb, var(--conx-steel) 35%, transparent);
+      background: color-mix(in srgb, #fff 74%, transparent);
+      cursor: pointer;
+      font: inherit;
+      transition: transform 160ms ease, border-color 160ms ease;
+    }
+
+    .lang-hero-btn:hover {
+      transform: translateY(-2px);
+    }
+
+    .lang-hero-btn.active {
+      border-color: var(--conx-accent);
+      box-shadow: 0 8px 18px color-mix(in srgb, var(--conx-accent) 18%, transparent);
+    }
+
+    .lang-hero-code {
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+
+    .lang-hero-name {
+      font-size: 0.85rem;
+      opacity: 0.8;
+    }
+
+    .review-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px 12px;
+      margin-bottom: 12px;
+      font-size: 0.92rem;
+    }
+
+    .schema-box {
+      border: 1px solid color-mix(in srgb, var(--conx-steel) 35%, transparent);
+      border-radius: 14px;
+      padding: 12px;
+      background: color-mix(in srgb, #fff 66%, transparent);
+      margin-bottom: 12px;
+    }
+
+    .schema-title {
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .schema-pre,
+    .yaml-box {
+      width: 100%;
+      box-sizing: border-box;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.72rem;
+      line-height: 1.35;
+      border-radius: 10px;
+      border: 1px solid color-mix(in srgb, var(--conx-steel) 35%, transparent);
+      background: color-mix(in srgb, #0b1218 4%, #fff);
+      padding: 10px;
+      overflow: auto;
+      white-space: pre;
+    }
+
+    .yaml-box {
+      resize: vertical;
+      min-height: 160px;
+    }
+
+    @media (max-width: 640px) {
+      .lang-hero {
+        grid-template-columns: 1fr;
+      }
+
+      .review-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .wizard-label {
+        display: none;
+      }
     }
 
     .header {
@@ -1340,54 +1793,69 @@ export class ConXDynamicPanelCard extends LitElement {
       padding: 12px 14px 14px;
     }
 
+    /* Shared toggle pattern: physical LTR thumb travel, balanced proportions. */
     .switch {
+      --switch-w: 44px;
+      --switch-h: 26px;
+      --switch-thumb: 22px;
+      --switch-pad: 2px;
       position: relative;
       display: inline-block;
-      width: 42px;
-      height: 24px;
+      width: var(--switch-w);
+      height: var(--switch-h);
       flex-shrink: 0;
+      vertical-align: middle;
     }
 
     .switch input {
+      position: absolute;
       opacity: 0;
-      width: 0;
-      height: 0;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      cursor: pointer;
+      z-index: 1;
     }
 
     .slider {
       position: absolute;
       inset: 0;
-      cursor: pointer;
       border-radius: 999px;
-      background: color-mix(in srgb, var(--conx-steel) 45%, #d5dde5);
-      box-shadow: inset 0 1px 2px color-mix(in srgb, #0b1218 25%, transparent);
-      transition: background 180ms ease;
+      background: color-mix(in srgb, var(--conx-steel) 42%, #d5dde5);
+      box-shadow: inset 0 1px 2px color-mix(in srgb, #0b1218 22%, transparent);
+      transition: background 180ms ease, box-shadow 180ms ease;
+      pointer-events: none;
     }
 
     .slider::before {
       content: "";
       position: absolute;
-      width: 18px;
-      height: 18px;
-      left: 3px;
-      top: 3px;
+      width: var(--switch-thumb);
+      height: var(--switch-thumb);
+      top: 50%;
+      left: var(--switch-pad);
       border-radius: 50%;
-      background: linear-gradient(180deg, #fff, #dce3ea);
-      box-shadow: 0 1px 3px color-mix(in srgb, #0b1218 30%, transparent);
-      transition: transform 180ms ease;
+      background: linear-gradient(180deg, #fff 0%, #e8eef3 100%);
+      box-shadow:
+        0 1px 3px color-mix(in srgb, #0b1218 28%, transparent),
+        inset 0 1px 0 #fff;
+      transform: translateY(-50%);
+      transition: left 180ms ease, background 180ms ease;
     }
 
     .switch input:checked + .slider {
-      background: color-mix(in srgb, var(--conx-accent) 75%, #89b4c0);
+      background: color-mix(in srgb, var(--conx-accent) 82%, #6aa8b6);
+      box-shadow: inset 0 1px 2px color-mix(in srgb, #0b1218 18%, transparent);
     }
 
     .switch input:checked + .slider::before {
-      transform: translateX(18px);
+      left: calc(100% - var(--switch-thumb) - var(--switch-pad));
     }
 
-    :host([dir="rtl"]) .switch input:checked + .slider::before,
-    ha-card[dir="rtl"] .switch input:checked + .slider::before {
-      transform: translateX(-18px);
+    .switch input:focus-visible + .slider {
+      outline: 2px solid color-mix(in srgb, var(--conx-accent) 55%, transparent);
+      outline-offset: 2px;
     }
 
     .profile-list {
@@ -1567,21 +2035,114 @@ export class ConXDynamicPanelCard extends LitElement {
       transform: none;
     }
 
-    .button-edit {
-      border-top: 1px solid color-mix(in srgb, var(--conx-steel) 26%, transparent);
-      padding-top: 10px;
-      margin-top: 10px;
+    .buttons-accordion {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
     }
 
-    .button-edit:first-child {
-      border-top: 0;
-      padding-top: 0;
-      margin-top: 0;
+    .button-edit {
+      border-radius: 12px;
+      border: 1px solid color-mix(in srgb, var(--conx-steel) 30%, transparent);
+      background: color-mix(in srgb, #fff 42%, transparent);
+      overflow: hidden;
+    }
+
+    .button-edit-toggle {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 10px 12px;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      cursor: pointer;
+      text-align: start;
+    }
+
+    .button-edit-toggle:hover:not(:disabled) {
+      background: color-mix(in srgb, var(--conx-accent) 6%, transparent);
+    }
+
+    .button-edit-toggle:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .button-edit-chevron {
+      width: 8px;
+      height: 8px;
+      border-inline-end: 2px solid color-mix(in srgb, var(--conx-ink) 45%, transparent);
+      border-bottom: 2px solid color-mix(in srgb, var(--conx-ink) 45%, transparent);
+      transform: rotate(-45deg);
+      transition: transform 180ms ease;
+      flex-shrink: 0;
+      margin-inline-start: 2px;
+    }
+
+    :host([dir="rtl"]) .button-edit-chevron,
+    ha-card[dir="rtl"] .button-edit-chevron {
+      transform: rotate(45deg);
+    }
+
+    .button-edit.open .button-edit-chevron {
+      transform: rotate(45deg);
+    }
+
+    :host([dir="rtl"]) .button-edit.open .button-edit-chevron,
+    ha-card[dir="rtl"] .button-edit.open .button-edit-chevron {
+      transform: rotate(-45deg);
+    }
+
+    .button-edit-summary {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+      flex: 1;
     }
 
     .button-edit-title {
       font-weight: 600;
-      margin-bottom: 8px;
+      line-height: 1.2;
+    }
+
+    .button-edit-meta {
+      font-size: 0.78rem;
+      opacity: 0.62;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .button-edit-body {
+      display: grid;
+      grid-template-rows: 0fr;
+      transition: grid-template-rows 200ms ease;
+    }
+
+    .button-edit.open .button-edit-body {
+      grid-template-rows: 1fr;
+    }
+
+    .button-edit-fields {
+      overflow: hidden;
+      padding: 0 12px;
+    }
+
+    .button-edit.open .button-edit-fields {
+      padding: 0 12px 12px;
+      border-top: 1px solid color-mix(in srgb, var(--conx-steel) 22%, transparent);
+    }
+
+    .button-edit.open .button-edit-fields .field:first-child {
+      margin-top: 10px;
+    }
+
+    .button-edit .field:last-child {
+      margin-bottom: 0;
     }
 
     /* Zemismart 4-gang faceplate recreation (labels top / rings bottom, 1×4). */

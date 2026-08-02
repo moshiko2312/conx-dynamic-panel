@@ -123,9 +123,7 @@ async def test_import_profiles_merge() -> None:
                     "backlight": True,
                     "child_lock": False,
                     "selected_button": None,
-                    "buttons": [
-                        {"index": i, "name": f"G{i}", "action": None} for i in range(1, 5)
-                    ],
+                    "buttons": [{"index": i, "name": f"G{i}", "action": None} for i in range(1, 5)],
                 }
             }
         },
@@ -154,9 +152,7 @@ async def test_import_profiles_replace() -> None:
                     "backlight": False,
                     "child_lock": True,
                     "selected_button": 1,
-                    "buttons": [
-                        {"index": i, "name": f"B{i}", "action": None} for i in range(1, 5)
-                    ],
+                    "buttons": [{"index": i, "name": f"B{i}", "action": None} for i in range(1, 5)],
                 }
             },
         },
@@ -172,3 +168,88 @@ async def test_import_rejects_empty_profiles() -> None:
     coordinator = PanelCoordinator(_runtime(FakeAdapter(), store))  # type: ignore[arg-type]
     with pytest.raises(ValueError, match="non-empty"):
         await coordinator.async_import_profiles({"profiles": {}}, mode="merge")
+
+
+@pytest.mark.asyncio
+async def test_export_import_roundtrip() -> None:
+    store = FakeStore()
+    coordinator = PanelCoordinator(_runtime(FakeAdapter(), store))  # type: ignore[arg-type]
+    exported = coordinator.export_profiles()
+    assert exported["schema_version"] == 1
+    await coordinator.async_import_profiles(
+        {
+            "profiles": {
+                "temp": {
+                    "id": "temp",
+                    "name": "Temp",
+                    "mode": "toggle",
+                    "color_on": "red",
+                    "color_off": "blue",
+                    "radar": "30s",
+                    "backlight": True,
+                    "child_lock": False,
+                    "selected_button": None,
+                    "buttons": [{"index": i, "name": f"T{i}", "action": None} for i in range(1, 5)],
+                }
+            }
+        },
+        mode="replace",
+    )
+    await coordinator.async_import_profiles(exported, mode="replace")
+    again = coordinator.export_profiles()
+    assert again["schema_version"] == exported["schema_version"]
+    assert set(again["profiles"]) == set(exported["profiles"])
+    assert again["profiles"]["lighting"]["name"] == exported["profiles"]["lighting"]["name"]
+    assert again["active_profile_id"] == exported["active_profile_id"]
+
+
+@pytest.mark.asyncio
+async def test_import_accepts_profiles_array_and_schema_version() -> None:
+    store = FakeStore()
+    coordinator = PanelCoordinator(_runtime(FakeAdapter(), store))  # type: ignore[arg-type]
+    await coordinator.async_import_profiles(
+        {
+            "schema_version": 1,
+            "active_profile_id": "array_one",
+            "profiles": [
+                {
+                    "id": "array_one",
+                    "name": "Array One",
+                    "mode": "toggle",
+                    "color_on": "green",
+                    "color_off": "blue",
+                    "radar": "30s",
+                    "backlight": True,
+                    "child_lock": False,
+                    "selected_button": None,
+                    "buttons": [{"index": i, "name": f"A{i}", "action": None} for i in range(1, 5)],
+                }
+            ],
+        },
+        mode="replace",
+    )
+    assert set(coordinator.data.profiles) == {"array_one"}
+    assert coordinator.data.active_profile_id == "array_one"
+
+
+@pytest.mark.asyncio
+async def test_import_rejects_future_schema_version() -> None:
+    store = FakeStore()
+    coordinator = PanelCoordinator(_runtime(FakeAdapter(), store))  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="Unsupported export schema_version"):
+        await coordinator.async_import_profiles(
+            {
+                "schema_version": 99,
+                "profiles": {
+                    "x": {
+                        "id": "x",
+                        "name": "X",
+                        "mode": "toggle",
+                        "buttons": [
+                            {"index": i, "name": f"B{i}", "action": None} for i in range(1, 5)
+                        ],
+                    }
+                },
+            },
+            mode="merge",
+        )

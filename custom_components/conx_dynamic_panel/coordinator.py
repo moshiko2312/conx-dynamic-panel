@@ -113,17 +113,13 @@ class PanelCoordinator:
         if profile.mode == MODE_RADIO_OPTIONAL:
             await self._async_radio_optional(profile, index, turned_on)
 
-    async def _async_radio_mandatory(
-        self, profile: Profile, index: int, turned_on: bool
-    ) -> None:
+    async def _async_radio_mandatory(self, profile: Profile, index: int, turned_on: bool) -> None:
         if turned_on:
             await self._async_execute_button_action(profile, index, True)
             profile.selected_button = index
             for other in range(1, BUTTON_COUNT + 1):
                 if other != index:
-                    await self.runtime.adapter.async_set_relay(
-                        other, False, suppress_event=True
-                    )
+                    await self.runtime.adapter.async_set_relay(other, False, suppress_event=True)
             await self.runtime.store.async_save()
             self.runtime.async_notify()
             return
@@ -133,17 +129,13 @@ class PanelCoordinator:
             await self.runtime.store.async_save()
             self.runtime.async_notify()
 
-    async def _async_radio_optional(
-        self, profile: Profile, index: int, turned_on: bool
-    ) -> None:
+    async def _async_radio_optional(self, profile: Profile, index: int, turned_on: bool) -> None:
         if turned_on:
             await self._async_execute_button_action(profile, index, True)
             profile.selected_button = index
             for other in range(1, BUTTON_COUNT + 1):
                 if other != index:
-                    await self.runtime.adapter.async_set_relay(
-                        other, False, suppress_event=True
-                    )
+                    await self.runtime.adapter.async_set_relay(other, False, suppress_event=True)
             await self.runtime.store.async_save()
             self.runtime.async_notify()
             return
@@ -246,9 +238,7 @@ class PanelCoordinator:
         profile.backlight = hardware.backlight
         profile.child_lock = hardware.child_lock
         if profile.mode in {MODE_RADIO_MANDATORY, MODE_RADIO_OPTIONAL}:
-            on_indexes = [
-                index + 1 for index, value in enumerate(hardware.relays) if value
-            ]
+            on_indexes = [index + 1 for index, value in enumerate(hardware.relays) if value]
             profile.selected_button = on_indexes[0] if on_indexes else None
         if drifted:
             self.data.sync_status = SYNC_OUT_OF_SYNC  # type: ignore[assignment]
@@ -360,10 +350,29 @@ class PanelCoordinator:
         return {
             "schema_version": STORAGE_VERSION,
             "active_profile_id": self.data.active_profile_id,
-            "profiles": {
-                key: profile.to_dict() for key, profile in self.data.profiles.items()
-            },
+            "profiles": {key: profile.to_dict() for key, profile in self.data.profiles.items()},
         }
+
+    @staticmethod
+    def normalize_import_profiles(raw_profiles: Any) -> dict[str, Any]:
+        """Normalize profiles object/list into an id→profile mapping."""
+        if isinstance(raw_profiles, dict):
+            if not raw_profiles:
+                raise ValueError("Import payload must include a non-empty profiles object")
+            return raw_profiles
+        if isinstance(raw_profiles, list):
+            if not raw_profiles:
+                raise ValueError("Import payload must include a non-empty profiles object")
+            normalized: dict[str, Any] = {}
+            for index, item in enumerate(raw_profiles):
+                if not isinstance(item, dict):
+                    raise ValueError(f"Invalid profile payload at index {index}")
+                profile_id = str(item.get("id") or "").strip()
+                if not profile_id:
+                    raise ValueError(f"Profile at index {index} is missing id")
+                normalized[profile_id] = item
+            return normalized
+        raise ValueError("Import payload must include a non-empty profiles object")
 
     async def async_import_profiles(
         self, payload: dict[str, Any], *, mode: str = "merge"
@@ -372,12 +381,34 @@ class PanelCoordinator:
 
         mode=merge updates/adds by profile id.
         mode=replace replaces the full profile set (at least one profile required).
+
+        Expected portable file shape (same as export_profiles / card download)::
+
+            {
+              "schema_version": 1,
+              "active_profile_id": "lighting",
+              "profiles": {
+                "lighting": { "id": "lighting", "name": "...", ... }
+              }
+            }
         """
         if mode not in {"merge", "replace"}:
             raise ValueError(f"Unsupported import mode: {mode}")
-        raw_profiles = payload.get("profiles")
-        if not isinstance(raw_profiles, dict) or not raw_profiles:
-            raise ValueError("Import payload must include a non-empty profiles object")
+        if not isinstance(payload, dict):
+            raise ValueError("Import payload must be an object")
+
+        schema_version = payload.get("schema_version", STORAGE_VERSION)
+        try:
+            schema_version_int = int(schema_version)
+        except (TypeError, ValueError) as err:
+            raise ValueError("schema_version must be an integer") from err
+        if schema_version_int > STORAGE_VERSION:
+            raise ValueError(
+                f"Unsupported export schema_version {schema_version_int}; "
+                f"current is {STORAGE_VERSION}"
+            )
+
+        raw_profiles = self.normalize_import_profiles(payload.get("profiles"))
 
         imported: dict[str, Profile] = {}
         for profile_id, raw in raw_profiles.items():
@@ -440,8 +471,6 @@ class PanelCoordinator:
             "last_error": self.data.last_error,
             "auto_sync": self.runtime.auto_sync,
             "capabilities": defaults,
-            "profiles": {
-                key: profile.to_dict() for key, profile in self.data.profiles.items()
-            },
+            "profiles": {key: profile.to_dict() for key, profile in self.data.profiles.items()},
             "applied_snapshot": self.data.applied_snapshot,
         }

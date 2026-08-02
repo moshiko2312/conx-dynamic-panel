@@ -77,12 +77,20 @@ ATTR_DEVICE_ID: Final = "device_id"
 ATTR_PROFILE_ID: Final = "profile_id"
 ATTR_BUTTON: Final = "button"
 ATTR_SYNC: Final = "sync"
+ATTR_PAYLOAD: Final = "payload"
+ATTR_MODE: Final = "mode"
 
 SERVICE_SYNC: Final = "sync"
 SERVICE_ACTIVATE_PROFILE: Final = "activate_profile"
 SERVICE_PULL_FROM_PANEL: Final = "pull_from_panel"
 SERVICE_EXECUTE_BUTTON: Final = "execute_button"
 SERVICE_RELOAD: Final = "reload"
+SERVICE_EXPORT_PROFILES: Final = "export_profiles"
+SERVICE_IMPORT_PROFILES: Final = "import_profiles"
+
+IMPORT_MODE_MERGE: Final = "merge"
+IMPORT_MODE_REPLACE: Final = "replace"
+IMPORT_MODES: Final = (IMPORT_MODE_MERGE, IMPORT_MODE_REPLACE)
 
 FRONTEND_SCRIPT_URL: Final = f"/{DOMAIN}/frontend/conx-dynamic-panel-card.js"
 FRONTEND_RESOURCE_URL: Final = f"{FRONTEND_SCRIPT_URL}?v=0.1.0"
