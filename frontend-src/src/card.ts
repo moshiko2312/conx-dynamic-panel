@@ -82,6 +82,31 @@ export const COLOR_PREVIEW: Record<string, string> = {
 const DEFAULT_RING_ON = "#00e5ff";
 const DEFAULT_RING_OFF = "#2979ff";
 
+const RADIO_GROUPS_OPEN_KEY = "conx-dynamic-panel-radio-groups-open";
+
+function loadStoredRadioGroupsOpen(): boolean | null {
+  try {
+    const value = globalThis.localStorage?.getItem?.(RADIO_GROUPS_OPEN_KEY);
+    if (value === "0") {
+      return false;
+    }
+    if (value === "1") {
+      return true;
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+function storeRadioGroupsOpen(open: boolean): void {
+  try {
+    globalThis.localStorage?.setItem?.(RADIO_GROUPS_OPEN_KEY, open ? "1" : "0");
+  } catch {
+    /* ignore */
+  }
+}
+
 /** Map a profile LED color name to a CSS color for the faceplate rings. */
 export function resolveLedPreviewColor(
   name: string | undefined,
@@ -131,12 +156,8 @@ export class ConXDynamicPanelCard extends LitElement {
   @state() private _automationOpen = false;
   @state() private _previewOpen = true;
   @state() private _panelNameDraft = "";
-  /** Open/collapsed state for radio_split group cards (g0/g1/ungrouped). */
-  @state() private _radioGroupOpen: Record<string, boolean> = {
-    g0: true,
-    g1: true,
-    ungrouped: true,
-  };
+  /** Single open/collapsed state for the whole radio_split groups block. */
+  @state() private _radioGroupsOpen = true;
 
   private _importInput?: HTMLInputElement;
 
@@ -453,49 +474,43 @@ export class ConXDynamicPanelCard extends LitElement {
       return nothing;
     }
     const ungrouped = this._ungroupedButtons();
-    const ungroupedList = [1, 2, 3, 4].filter((n) => ungrouped.has(n));
-    const renderHead = (title: string, key: string, summary: string) => {
-      const open = this._radioGroupOpen[key] !== false;
-      return html`
-        <div class="radio-group-head">
-          <div class="radio-group-head-main">
-            <div class="radio-group-title">${title}</div>
+    const open = this._radioGroupsOpen;
+    return html`
+      <div class="radio-groups-section ${open ? "open" : ""}">
+        <div class="radio-groups-head">
+          <div class="radio-groups-head-main">
+            <span class="menu-label">${this.t("card.radio_groups")}</span>
             ${open
               ? nothing
-              : html`<div class="radio-group-summary">${summary}</div>`}
+              : html`<div class="radio-groups-summary">
+                  ${this._radioGroupsSummary()}
+                </div>`}
           </div>
-          <label class="switch" title=${this.t("card.section_toggle")}>
+          <label class="switch" title=${this.t("card.radio_groups_toggle")}>
             <input
               type="checkbox"
+              data-radio-groups-open
               .checked=${open}
               ?disabled=${this._busy}
               @change=${(e: Event) =>
-                this._toggleRadioGroupOpen(
-                  key,
+                this._setRadioGroupsOpen(
                   (e.target as HTMLInputElement).checked
                 )}
             />
             <span class="slider"></span>
           </label>
         </div>
-      `;
-    };
-    return html`
-      <div class="radio-groups-section">
-        <span class="menu-label">${this.t("card.radio_groups")}</span>
-        <p class="radio-groups-hint">${this.t("card.radio_groups_hint")}</p>
-        ${(this._draft.radio_groups || []).map((group, gIndex) => {
-          const key = `g${gIndex}`;
-          const open = this._radioGroupOpen[key] !== false;
-          return html`
-            <div class="radio-group-card ${open ? "open" : ""}">
-              ${renderHead(
-                `${this.t("card.radio_group")} ${gIndex + 1}`,
-                key,
-                this._groupSummary(group.buttons)
-              )}
-              ${open
-                ? html`
+        ${open
+          ? html`
+              <p class="radio-groups-hint">
+                ${this.t("card.radio_groups_hint")}
+              </p>
+              ${(this._draft.radio_groups || []).map(
+                (group, gIndex) => html`
+                  <div class="radio-group-card">
+                    <div class="radio-group-title">
+                      ${this.t("card.radio_group")} ${gIndex + 1}
+                    </div>
                     <div class="radio-group-members">
                       ${[1, 2, 3, 4].map((buttonIndex) =>
                         this._renderRadioMemberCell(
@@ -505,23 +520,13 @@ export class ConXDynamicPanelCard extends LitElement {
                         )
                       )}
                     </div>
-                  `
-                : nothing}
-            </div>
-          `;
-        })}
-        <div
-          class="radio-group-card is-summary ${
-            this._radioGroupOpen.ungrouped !== false ? "open" : ""
-          }"
-        >
-          ${renderHead(
-            this.t("card.radio_toggle"),
-            "ungrouped",
-            this._groupSummary(ungroupedList)
-          )}
-          ${this._radioGroupOpen.ungrouped !== false
-            ? html`
+                  </div>
+                `
+              )}
+              <div class="radio-group-card is-summary">
+                <div class="radio-group-title">
+                  ${this.t("card.radio_toggle")}
+                </div>
                 <div class="radio-group-members">
                   ${[1, 2, 3, 4].map((buttonIndex) =>
                     this._renderRadioMemberCell(
@@ -531,9 +536,9 @@ export class ConXDynamicPanelCard extends LitElement {
                     )
                   )}
                 </div>
-              `
-            : nothing}
-        </div>
+              </div>
+            `
+          : nothing}
         ${this._radioGroupsOverlap()
           ? html`<div class="radio-groups-error">
               ${this.t("card.radio_groups_overlap")}
@@ -578,27 +583,35 @@ export class ConXDynamicPanelCard extends LitElement {
     this._saved = profile ? cloneProfile(profile) : undefined;
     this._draft = profile ? cloneProfile(profile) : undefined;
     if (this._draft?.mode === "radio_split") {
-      this._ensureRadioGroupOpenDefaults(false);
+      this._radioGroupsOpen = loadStoredRadioGroupsOpen() ?? true;
     }
   }
 
-  private _ensureRadioGroupOpenDefaults(forceExpand: boolean): void {
-    const next = { ...this._radioGroupOpen };
-    for (const key of ["g0", "g1", "ungrouped"]) {
-      if (forceExpand || next[key] === undefined) {
-        next[key] = true;
-      }
-    }
-    this._radioGroupOpen = next;
-  }
-
-  private _toggleRadioGroupOpen(key: string, open: boolean): void {
-    this._radioGroupOpen = { ...this._radioGroupOpen, [key]: open };
+  private _setRadioGroupsOpen(open: boolean): void {
+    this._radioGroupsOpen = open;
+    storeRadioGroupsOpen(open);
   }
 
   private _groupSummary(buttons: number[]): string {
     const list = [...buttons].sort((a, b) => a - b).map((n) => `L${n}`);
     return list.length ? list.join(", ") : "—";
+  }
+
+  /** One-line assignment recap shown while the radio groups block is collapsed. */
+  private _radioGroupsSummary(): string {
+    const ungrouped = this._ungroupedButtons();
+    const parts = (this._draft?.radio_groups || []).map(
+      (group, gIndex) =>
+        `${this.t("card.radio_group")} ${gIndex + 1}: ${this._groupSummary(
+          group.buttons
+        )}`
+    );
+    parts.push(
+      `${this.t("card.radio_toggle")}: ${this._groupSummary(
+        [1, 2, 3, 4].filter((n) => ungrouped.has(n))
+      )}`
+    );
+    return parts.join(" · ");
   }
 
   private async _guardDirty(): Promise<boolean> {
@@ -1335,7 +1348,7 @@ export class ConXDynamicPanelCard extends LitElement {
                     draft.mode = (e.target as HTMLSelectElement).value as Profile["mode"];
                     if (draft.mode === "radio_split") {
                       this._ensureRadioGroups(draft);
-                      this._ensureRadioGroupOpenDefaults(true);
+                      this._setRadioGroupsOpen(true);
                     } else if (
                       draft.mode !== "toggle" &&
                       (draft.selected_button == null ||
@@ -3030,10 +3043,38 @@ export class ConXDynamicPanelCard extends LitElement {
       letter-spacing: 0.06em;
       text-transform: uppercase;
       color: var(--text-muted);
-      margin-bottom: 6px;
+      margin-bottom: 0;
+    }
+    .radio-groups-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-height: 34px;
+    }
+    .radio-groups-head-main {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 2px;
+      min-width: 0;
+      flex: 1;
+    }
+    .radio-groups-summary {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 100%;
+    }
+    .radio-groups-section:not(.open) {
+      padding-top: 8px;
+      padding-bottom: 8px;
     }
     .radio-groups-hint {
-      margin: 0 0 10px;
+      margin: 8px 0 10px;
       font-size: 0.85rem;
       color: var(--text-muted);
       line-height: 1.45;
@@ -3552,8 +3593,7 @@ export class ConXDynamicPanelCard extends LitElement {
       line-height: 1;
     }
     .menu-section { margin-bottom: 14px; }
-    .menu-section .menu-label,
-    .radio-groups-section .menu-label {
+    .menu-section .menu-label {
       display: block;
       font-size: 0.72rem;
       font-weight: 800;
@@ -3688,36 +3728,6 @@ export class ConXDynamicPanelCard extends LitElement {
       margin-bottom: 12px;
     }
     .export-footer { margin-top: 12px; }
-    .radio-group-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      min-height: 34px;
-    }
-    .radio-group-head-main {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 2px;
-      min-width: 0;
-      flex: 1;
-    }
-    .radio-group-title {
-      margin-bottom: 0 !important;
-      line-height: 1.2;
-    }
-    .radio-group-summary {
-      font-size: 0.72rem;
-      font-weight: 600;
-      color: var(--text-muted);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      max-width: 100%;
-    }
-    .radio-group-card.open .radio-group-members { margin-top: 8px; }
-    .radio-group-card:not(.open) { padding-top: 8px; padding-bottom: 8px; }
     .dimmer-label-row {
       display: flex;
       align-items: center;

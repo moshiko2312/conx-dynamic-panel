@@ -22,6 +22,7 @@ MVP `0.1.1` is implemented in this repository:
 - Backend package under `custom_components/conx_dynamic_panel/`
 - Bundled card source under `frontend-src/`
 - Built card artifact under `custom_components/conx_dynamic_panel/frontend/`
+- Brand icon and logo under `custom_components/conx_dynamic_panel/brand/`
 - Tests under `tests/` and `frontend-src/tests/`
 - Private scripts under `scripts/`
 
@@ -114,6 +115,8 @@ none
 - Card languages: English, Hebrew (RTL), and Russian, with on-card flag selectors.
 - Profile import/export (JSON merge or replace) from the card and WebSocket API.
 - Zemismart-style horizontal faceplate preview (labels on top black bar, LED rings below).
+- Copy-ready automation example generated from the panel's own profiles.
+- Bundled ConX brand icon and logo for the Home Assistant integrations UI.
 - Adapter architecture for additional panel models.
 
 ## Button modes
@@ -227,7 +230,11 @@ panel's own `entry_id` and profile ids. The same example lives in
 conx-dynamic-panel/
 ├── custom_components/
 │   └── conx_dynamic_panel/
+│       ├── brand/          # icons served by Home Assistant 2026.3+
+│       └── frontend/       # built Lovelace card artifact
 ├── frontend-src/
+├── brands/                 # master artwork + brands-repo layout mirror
+├── previews/
 ├── docs/
 ├── examples/
 ├── tests/
@@ -270,6 +277,39 @@ entry_id: YOUR_CONFIG_ENTRY_ID
 # optional: language: he   # en | he | ru (also choosable on the card; persisted in localStorage)
 ```
 
+### Brand icons
+
+The integration ships its own icon and logo in
+`custom_components/conx_dynamic_panel/brand/`:
+
+| File | Size | Used for |
+|---|---|---|
+| `icon.png` | 256x256 | Integration tile in Settings → Devices & services |
+| `icon@2x.png` | 512x512 | hDPI displays |
+| `logo.png` | 664x256 | Wider brand lockup (config flow header, device pages) |
+| `logo@2x.png` | 1329x512 | hDPI displays |
+
+**Home Assistant 2026.3 and later** pick these up with no extra work. Home
+Assistant serves them through `/api/brands/integration/conx_dynamic_panel/...`
+and local files take priority over the public brands CDN. Because
+`scripts/install_local.sh` and `scripts/update_local.sh` copy the whole
+integration directory, the icons install automatically — restart Home Assistant
+and hard-refresh the browser, since brand images are cached in the browser.
+
+**On Home Assistant older than 2026.3** there is no supported local override:
+the frontend fetches integration icons straight from `brands.home-assistant.io`,
+so a generic puzzle-piece icon is shown until the domain exists in the public
+brands repository. ConX does not publish to that repository, so upgrade to
+2026.3+ to get the branded icon.
+
+`brands/master/` holds the master artwork and `brands/custom_integrations/conx_dynamic_panel/`
+mirrors the public brands-repo layout for marketing use and for a possible
+future submission. Regenerate every derived file (never resize by hand) with:
+
+```bash
+python3 scripts/build_brand_images.py   # requires Pillow
+```
+
 ### Card UX notes
 
 - Draft edits never write hardware until **Sync to Panel** (unless auto-sync is enabled).
@@ -277,7 +317,7 @@ entry_id: YOUR_CONFIG_ENTRY_ID
 - **Hero faceplate** sits above three tabs: **Profiles** · **Appearance** · **Buttons**. The active profile name is centered in the preview header; panel name is editable on Profiles.
 - Profiles: 3-column chips, Create / Duplicate / Delete (no rename / no drag layout).
 - Appearance: mode, colors, radar, backlight + large brightness dimmer, child lock.
-- Buttons: collapsible per-button editors; when mode is **Radio split**, Group 1 / Group 2 / Independent toggle sections each have a collapse switch (collapsed header can show e.g. `L1, L4`).
+- Buttons: collapsible per-button editors; when mode is **Radio split**, the whole **Radio groups** block has a single collapse switch in its header. Group 1 / Group 2 / Independent toggle have no switches of their own — membership is set by tapping the L1–L4 chips. Collapsing shows a one-line recap such as `Group 1: L1, L4 · Group 2: L2, L3 · Independent toggle: —`, and the open/closed choice is remembered in `localStorage`.
 - Faceplate is 1×4 L→R (not 2×2). LED rings follow draft `color_on` / `color_off`. CSS extension point: `--conx-faceplate-skin`.
 - **Export** downloads profiles JSON; **Import (merge)** / **Import (replace)** use the authenticated WebSocket API.
 
@@ -335,7 +375,9 @@ Update an existing install without touching Home Assistant storage:
 
 - Premium Lit card aligned with HTML preview (tabs, menu modal, themes, radio split)
 - Profile import/export + panel rename WebSocket APIs
-- Collapsible radio-group category editors
+- Chip-based radio-group membership behind one master collapse toggle
+- Copy-ready automation example modal
+- Bundled brand icon and logo for Home Assistant 2026.3+
 
 ### Later
 
@@ -358,6 +400,8 @@ Update an existing install without touching Home Assistant storage:
 | Actions do not run on press | Wrong mode, suppressed transition, or invalid service | Confirm the profile mode, that the press is physical (not sync-driven), and that the action service exists |
 | Hebrew UI not RTL | Language not set to Hebrew | Use the on-card IL flag, set card `language: he`, or set HA language to Hebrew |
 | Import fails | Invalid JSON or missing profiles object | Export first for the expected schema; import requires a non-empty `profiles` map |
+| Automation switches the profile but the panel does not change | `activate_profile` called without `sync` | Pass `sync: true`; activation alone only updates the draft |
+| Generic puzzle-piece integration icon | Home Assistant older than 2026.3, or cached brand image | On 2026.3+ restart Home Assistant and hard-refresh; older versions cannot load local brand images |
 
 See also `docs/PRIVATE_DEPLOYMENT.md` for install/update rules.
 

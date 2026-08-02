@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "conx-dynamic-panel"
-version = "0.1.0"
+version = "0.1.1"
 description = "Private ConX Home Assistant integration for dynamic smart-panel profiles"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -40,6 +40,9 @@ disable_error_code = ["call-arg", "no-any-return"]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 filterwarnings = ["ignore::DeprecationWarning"]
+# iCloud Drive leaves stale "<name> 2.py" conflict copies next to the real
+# files. They are gitignored, so skip them here too and keep local runs green.
+addopts = ["--ignore-glob=* 2.py"]
 
 [tool.setuptools.packages.find]
 where = ["custom_components"]

@@ -825,8 +825,38 @@
       background: color-mix(in srgb, var(--surface-2) 88%, transparent);
     }
     .radio-groups-section[hidden] { display: none !important; }
+    .radio-groups-section:not(.open) { padding-top: 8px; padding-bottom: 8px; }
+    .radio-groups-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-height: 34px;
+    }
+    .radio-groups-head-main {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 2px;
+      min-width: 0;
+      flex: 1;
+    }
+    .radio-groups-head-main .menu-label { margin-bottom: 0; }
+    .radio-groups-summary {
+      font-size: .72rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: .02em;
+      line-height: 1.2;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 100%;
+    }
+    .radio-groups-section.open .radio-groups-summary { display: none; }
+    .radio-groups-section:not(.open) .radio-groups-body { display: none; }
     .radio-groups-hint {
-      margin: 0 0 10px;
+      margin: 8px 0 10px;
       font-size: .85rem;
       color: var(--text-muted);
       line-height: 1.45;
@@ -843,46 +873,15 @@
       border-style: dashed;
       background: color-mix(in srgb, var(--surface-2) 70%, transparent);
     }
-    .radio-group-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      min-height: 34px;
-      margin-bottom: 0;
-    }
-    .radio-group-head-main {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 2px;
-      min-width: 0;
-      flex: 1;
-    }
     .radio-group-title {
       font-size: .8rem;
       font-weight: 800;
       letter-spacing: .04em;
       text-transform: uppercase;
       color: var(--label);
-      margin-bottom: 0;
+      margin-bottom: 8px;
       line-height: 1.2;
     }
-    .radio-group-summary {
-      font-size: .72rem;
-      font-weight: 600;
-      color: var(--text-muted);
-      letter-spacing: .02em;
-      line-height: 1.2;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      max-width: 100%;
-    }
-    .radio-group-card.open .radio-group-summary { display: none; }
-    .radio-group-card:not(.open) .radio-group-members { display: none; }
-    .radio-group-card.open .radio-group-members { margin-top: 8px; }
-    .radio-group-card:not(.open) { padding-top: 8px; padding-bottom: 8px; }
     .radio-group-members {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1157,10 +1156,21 @@
 
           <section class="tab-panel" role="tabpanel" id="panel-buttons" data-section="buttons" aria-labelledby="tab-buttons" hidden>
             <div class="section-body-inner">
-              <div class="radio-groups-section" id="radio-groups-section-buttons" hidden>
-                <span class="menu-label" data-i18n="card.radio_groups">Radio groups</span>
-                <p class="radio-groups-hint" data-i18n="card.radio_groups_hint">Tap L1–L4 to add or remove a button.</p>
-                <div id="radio-groups-editor-buttons"></div>
+              <div class="radio-groups-section open" id="radio-groups-section-buttons" hidden>
+                <div class="radio-groups-head">
+                  <div class="radio-groups-head-main">
+                    <span class="menu-label" data-i18n="card.radio_groups">Radio groups</span>
+                    <div class="radio-groups-summary" id="radio-groups-summary-buttons"></div>
+                  </div>
+                  <label class="switch" id="radio-groups-toggle-buttons">
+                    <input type="checkbox" data-radio-groups-open checked />
+                    <span class="slider"></span>
+                  </label>
+                </div>
+                <div class="radio-groups-body">
+                  <p class="radio-groups-hint" data-i18n="card.radio_groups_hint">Tap L1–L4 to add or remove a button.</p>
+                  <div id="radio-groups-editor-buttons"></div>
+                </div>
                 <div class="radio-groups-error" id="radio-groups-error-buttons" hidden></div>
               </div>
               <div id="buttons-editor"></div>
@@ -1225,6 +1235,7 @@
         "card.radio_member": "Radio group", "card.radio_toggle": "Independent toggle",
         "card.radio_groups": "Radio groups",
         "card.radio_groups_hint": "Tap L1–L4 to add or remove a button. Buttons in a group act as classic radio: exactly one stays on. Ungrouped buttons stay independent toggles.",
+        "card.radio_groups_toggle": "Show radio groups",
         "card.radio_group": "Group",
         "card.radio_groups_overlap": "Each button can belong to only one radio group.",
         "card.dialog_ok": "OK", "card.dialog_cancel": "Cancel", "card.dialog_confirm": "Confirm",
@@ -1291,6 +1302,7 @@
         "card.radio_member": "משתתף ברדיו", "card.radio_toggle": "טוגל עצמאי",
         "card.radio_groups": "קבוצות רדיו",
         "card.radio_groups_hint": "הקישו על L1–L4 כדי לצרף או להסיר כפתור. כפתורים בקבוצה מתנהגים כרדיו קלאסי: תמיד אחד דלוק. כפתורים מחוץ לקבוצה נשארים טוגלים עצמאיים.",
+        "card.radio_groups_toggle": "הצג קבוצות רדיו",
         "card.radio_group": "קבוצה",
         "card.radio_groups_overlap": "כל כפתור יכול להשתייך לקבוצת רדיו אחת בלבד.",
         "card.dialog_ok": "אישור", "card.dialog_cancel": "ביטול", "card.dialog_confirm": "אישור",
@@ -1357,6 +1369,7 @@
         "card.radio_member": "В радиогруппе", "card.radio_toggle": "Независимый тоггл",
         "card.radio_groups": "Радиогруппы",
         "card.radio_groups_hint": "Нажмите L1–L4, чтобы добавить или убрать кнопку. Кнопки в группе работают как классическое радио: ровно одна включена. Кнопки вне групп остаются независимыми тогглами.",
+        "card.radio_groups_toggle": "Показать радиогруппы",
         "card.radio_group": "Группа",
         "card.radio_groups_overlap": "Каждая кнопка может входить только в одну радиогруппу.",
         "card.dialog_ok": "ОК", "card.dialog_cancel": "Отмена", "card.dialog_confirm": "Подтвердить",
@@ -1517,7 +1530,7 @@
         previewOpen: true,
         panelName: DEFAULT_PANEL_NAME,
         expandedButtons: [],
-        radioGroupOpen: defaultRadioGroupOpen(),
+        radioGroupsOpen: defaultRadioGroupsOpen(),
         profiles, draft: deepClone(profiles[activeId]), saved: deepClone(profiles[activeId]),
       };
     }
@@ -1527,17 +1540,11 @@
     }
 
 
-    function defaultRadioGroupOpen() {
-      return { g0: true, g1: true, ungrouped: true };
+    function defaultRadioGroupsOpen() {
+      return true;
     }
-    function normalizeRadioGroupOpen(value) {
-      const base = defaultRadioGroupOpen();
-      if (!value || typeof value !== "object") return base;
-      return {
-        g0: value.g0 !== false,
-        g1: value.g1 !== false,
-        ungrouped: value.ungrouped !== false,
-      };
+    function normalizeRadioGroupsOpen(value) {
+      return value !== false;
     }
     function persistState() {
       try {
@@ -1548,7 +1555,7 @@
           previewOpen: state.previewOpen !== false,
           panelName: typeof state.panelName === "string" ? state.panelName : DEFAULT_PANEL_NAME,
           expandedButtons: Array.from(state.expandedButtons),
-          radioGroupOpen: normalizeRadioGroupOpen(state.radioGroupOpen),
+          radioGroupsOpen: normalizeRadioGroupsOpen(state.radioGroupsOpen),
           profiles: state.profiles, draft: state.draft, saved: state.saved,
         };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -1583,7 +1590,7 @@
           panelName: typeof data.panelName === "string" && data.panelName.trim()
             ? data.panelName : defaults.panelName,
           expandedButtons: new Set(Array.isArray(data.expandedButtons) ? data.expandedButtons.map(Number).filter((n)=>n>=1&&n<=4) : []),
-          radioGroupOpen: normalizeRadioGroupOpen(data.radioGroupOpen),
+          radioGroupsOpen: normalizeRadioGroupsOpen(data.radioGroupsOpen),
           profiles,
           draft: data.draft && typeof data.draft === "object" ? normalizeStoredProfile(activeId, data.draft) : deepClone(profiles[activeId]),
           saved: data.saved && typeof data.saved === "object" ? normalizeStoredProfile(activeId, data.saved) : deepClone(profiles[activeId]),
@@ -1601,13 +1608,13 @@
       state.activeTab = normalizeTabId(state.activeTab);
       if (typeof state.previewOpen !== "boolean") state.previewOpen = true;
       if (typeof state.panelName !== "string" || !state.panelName.trim()) state.panelName = DEFAULT_PANEL_NAME;
-      state.radioGroupOpen = normalizeRadioGroupOpen(state.radioGroupOpen);
+      state.radioGroupsOpen = normalizeRadioGroupsOpen(state.radioGroupsOpen);
       if (!state.profiles || !state.profiles[state.activeId] || !state.draft || !state.saved) throw new Error("bad state");
     } catch (_e) {
       try { localStorage.removeItem(STORAGE_KEY); } catch (_x) {}
       state = createDefaultState();
       state.expandedButtons = new Set();
-      state.radioGroupOpen = defaultRadioGroupOpen();
+      state.radioGroupsOpen = defaultRadioGroupsOpen();
     }
 
     const els = {
@@ -1666,6 +1673,8 @@
           section: document.getElementById("radio-groups-section-buttons"),
           editor: document.getElementById("radio-groups-editor-buttons"),
           error: document.getElementById("radio-groups-error-buttons"),
+          summary: document.getElementById("radio-groups-summary-buttons"),
+          toggleLabel: document.getElementById("radio-groups-toggle-buttons"),
         },
       ],
     };
@@ -1786,19 +1795,14 @@
       const list = (buttons || []).slice().sort((a, b) => a - b).map((n) => `L${n}`);
       return list.length ? list.join(", ") : "—";
     }
-    function radioGroupHead(title, openKey, summary) {
-      const open = state.radioGroupOpen[openKey] !== false;
-      return `
-        <div class="radio-group-head">
-          <div class="radio-group-head-main">
-            <div class="radio-group-title">${title}</div>
-            <div class="radio-group-summary">${summary}</div>
-          </div>
-          <label class="switch" title="${t("card.section_toggle")}">
-            <input type="checkbox" data-group-open="${openKey}" ${open ? "checked" : ""} />
-            <span class="slider"></span>
-          </label>
-        </div>`;
+    function radioGroupsSummaryLabel() {
+      const groups = normalizeRadioGroups(state.draft.radio_groups);
+      const grouped = groupedButtonSet(groups);
+      const parts = groups.map(
+        (group, gIndex) => `${t("card.radio_group")} ${gIndex + 1}: ${groupSummaryLabel(group.buttons)}`
+      );
+      parts.push(`${t("card.radio_toggle")}: ${groupSummaryLabel([1, 2, 3, 4].filter((i) => !grouped.has(i)))}`);
+      return parts.join(" · ");
     }
     function renderRadioGroupsEditor() {
       const hosts = (els.radioGroupsHosts || []).filter((host) => host.section && host.editor);
@@ -1806,16 +1810,14 @@
       const split = state.draft.mode === "radio_split";
       hosts.forEach((host) => { host.section.hidden = !split; });
       if (!split) return;
-      state.radioGroupOpen = normalizeRadioGroupOpen(state.radioGroupOpen);
+      state.radioGroupsOpen = normalizeRadioGroupsOpen(state.radioGroupsOpen);
       state.draft.radio_groups = normalizeRadioGroups(state.draft.radio_groups);
+      const open = state.radioGroupsOpen;
       const overlap = radioGroupOverlap(state.draft.radio_groups);
       const grouped = groupedButtonSet(state.draft.radio_groups);
-      const groupsHtml = state.draft.radio_groups.map((group, gIndex) => {
-        const openKey = `g${gIndex}`;
-        const open = state.radioGroupOpen[openKey] !== false;
-        return `
-        <div class="radio-group-card ${open ? "open" : ""}" data-group="${gIndex}">
-          ${radioGroupHead(`${t("card.radio_group")} ${gIndex + 1}`, openKey, groupSummaryLabel(group.buttons))}
+      const groupsHtml = state.draft.radio_groups.map((group, gIndex) => `
+        <div class="radio-group-card" data-group="${gIndex}">
+          <div class="radio-group-title">${t("card.radio_group")} ${gIndex + 1}</div>
           <div class="radio-group-members">
             ${[1, 2, 3, 4].map((i) => radioMemberCell({
               index: i,
@@ -1824,13 +1826,10 @@
               independent: false,
             })).join("")}
           </div>
-        </div>`;
-      }).join("");
-      const ungroupedButtons = [1, 2, 3, 4].filter((i) => !grouped.has(i));
-      const ungroupedOpen = state.radioGroupOpen.ungrouped !== false;
+        </div>`).join("");
       const summaryHtml = `
-        <div class="radio-group-card is-summary ${ungroupedOpen ? "open" : ""}" data-summary="ungrouped">
-          ${radioGroupHead(t("card.radio_toggle"), "ungrouped", groupSummaryLabel(ungroupedButtons))}
+        <div class="radio-group-card is-summary" data-summary="ungrouped">
+          <div class="radio-group-title">${t("card.radio_toggle")}</div>
           <div class="radio-group-members">
             ${[1, 2, 3, 4].map((i) => radioMemberCell({
               index: i,
@@ -1842,20 +1841,28 @@
         </div>`;
       const editorHtml = groupsHtml + summaryHtml;
       hosts.forEach((host) => {
+        host.section.classList.toggle("open", open);
+        if (host.summary) host.summary.textContent = radioGroupsSummaryLabel();
+        if (host.toggleLabel) {
+          host.toggleLabel.title = t("card.radio_groups_toggle");
+          const input = host.toggleLabel.querySelector("input[data-radio-groups-open]");
+          if (input) {
+            input.checked = open;
+            if (!input.dataset.bound) {
+              input.dataset.bound = "1";
+              input.addEventListener("change", () => {
+                state.radioGroupsOpen = input.checked;
+                persistState();
+                renderRadioGroupsEditor();
+              });
+            }
+          }
+        }
         if (host.error) {
           host.error.hidden = !overlap;
           host.error.textContent = overlap ? t("card.radio_groups_overlap") : "";
         }
         host.editor.innerHTML = editorHtml;
-        host.editor.querySelectorAll("input[data-group-open]").forEach((input) => {
-          input.addEventListener("change", () => {
-            const key = input.dataset.groupOpen;
-            state.radioGroupOpen = normalizeRadioGroupOpen(state.radioGroupOpen);
-            state.radioGroupOpen[key] = input.checked;
-            persistState();
-            renderRadioGroupsEditor();
-          });
-        });
         host.editor.querySelectorAll(".radio-member[data-group]").forEach((chip) => {
           chip.addEventListener("click", () => {
             const gIndex = Number(chip.dataset.group);
@@ -2369,7 +2376,7 @@
         state.draft.mode = els.modeSelect.value;
         if (state.draft.mode === "radio_split") {
           state.draft.radio_groups = normalizeRadioGroups(state.draft.radio_groups);
-          state.radioGroupOpen = defaultRadioGroupOpen();
+          state.radioGroupsOpen = defaultRadioGroupsOpen();
         } else if (state.draft.mode !== "toggle" && !state.draft.selected_button) {
           state.draft.selected_button = 1;
         }

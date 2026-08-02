@@ -411,6 +411,25 @@ Preferred production design:
 - `scripts/install_local.sh` installs the integration into a selected Home Assistant config directory.
 - `scripts/update_local.sh` updates an existing installation while preserving user storage.
 
+## Brand images
+
+Home Assistant 2026.3 and later serve custom-integration brand images from a
+`brand/` directory inside the integration, proxied through
+`/api/brands/integration/<domain>/<image>`. Local files take priority over the
+public brands CDN, so ConX ships its own icons instead of submitting them to the
+`home-assistant/brands` repository.
+
+Requirements:
+
+- `custom_components/conx_dynamic_panel/brand/` holds `icon.png` (256x256),
+  `icon@2x.png` (512x512), `logo.png`, and `logo@2x.png`.
+- Logo shortest side is 256 for the normal file and 512 for the hDPI file.
+- Images are PNG, optimized, and carry no Home Assistant branding.
+- `brands/master/` keeps the master artwork and `scripts/build_brand_images.py`
+  regenerates every derived file, so sizes never drift by hand.
+- Do not open a `home-assistant/brands` pull request; the local `brand/`
+  directory is the shipping path for this private integration.
+
 ## Repository and CI
 
 Required files:

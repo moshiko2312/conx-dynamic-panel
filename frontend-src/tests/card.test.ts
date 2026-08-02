@@ -345,22 +345,41 @@ describe("custom elements", () => {
     // tabs use active class; query section directly
     const section = el.shadowRoot?.querySelector(".radio-groups-section") as HTMLElement;
     expect(section).toBeTruthy();
-    // Membership is chip-based: no per-button switches, only one collapse switch per card.
+    // Membership is chip-based: no per-button switches and no per-row collapse switches.
     expect(section.querySelectorAll(".radio-member .switch").length).toBe(0);
+    expect(section.querySelectorAll(".radio-group-card .switch").length).toBe(0);
     expect(section.querySelectorAll("button.radio-member").length).toBe(12);
     expect(section.querySelector(".radio-group-card.is-summary")).toBeTruthy();
     expect(section.querySelectorAll(".radio-member.is-independent").length).toBe(4);
-    // Collapse group 1 — membership controls hide, summary remains
-    const groupHeads = section.querySelectorAll(".radio-group-card .radio-group-head input");
-    expect(groupHeads.length).toBe(3);
-    (groupHeads[0] as HTMLInputElement).checked = false;
-    groupHeads[0].dispatchEvent(new Event("change", { bubbles: true }));
+    // Exactly one master collapse switch for the whole radio groups block.
+    const masterToggles = section.querySelectorAll(
+      "input[data-radio-groups-open]"
+    );
+    expect(masterToggles.length).toBe(1);
+    expect(
+      section.querySelectorAll(".radio-groups-head input[type=checkbox]").length
+    ).toBe(1);
+
+    // Collapsing hides every group row and shows the assignment recap instead.
+    const master = masterToggles[0] as HTMLInputElement;
+    master.checked = false;
+    master.dispatchEvent(new Event("change", { bubbles: true }));
     await el.updateComplete;
-    expect(el._radioGroupOpen.g0).toBe(false);
-    const firstCard = section.querySelector(".radio-group-card") as HTMLElement;
-    expect(firstCard.classList.contains("open")).toBe(false);
-    expect(firstCard.querySelector(".radio-group-summary")?.textContent).toMatch(/L1|L4|—/);
-    expect(firstCard.querySelector(".radio-group-members")).toBeFalsy();
+    expect(el._radioGroupsOpen).toBe(false);
+    expect(section.classList.contains("open")).toBe(false);
+    expect(section.querySelectorAll(".radio-group-card").length).toBe(0);
+    expect(section.querySelectorAll("button.radio-member").length).toBe(0);
+    const summary = section.querySelector(".radio-groups-summary");
+    expect(summary?.textContent).toContain("Group 1: L1, L4");
+    expect(summary?.textContent).toContain("Group 2: L2, L3");
+
+    // Re-expanding restores all three rows of chips.
+    master.checked = true;
+    master.dispatchEvent(new Event("change", { bubbles: true }));
+    await el.updateComplete;
+    expect(el._radioGroupsOpen).toBe(true);
+    expect(section.querySelectorAll(".radio-group-card").length).toBe(3);
+    expect(section.querySelectorAll("button.radio-member").length).toBe(12);
   });
 
   it("assigns and removes buttons by tapping radio group chips", async () => {
