@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+
+# Frontend
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Editors and OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets.yaml
+
+# Home Assistant local development
+config/
+.homeassistant/
+.storage/
+home-assistant.log*
+home-assistant_v2.db*
+
+# Build and temporary files
+build/
+tmp/
+*.zip
+*.tar.gz
+
+# Keep the bundled production frontend only when intentionally committed
+# custom_components/conx_dynamic_panel/frontend/conx-dynamic-panel-card.js
