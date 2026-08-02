@@ -6,6 +6,15 @@ ConX Dynamic Panel transforms a supported multi-button smart switch into a confi
 
 > **Private software:** This repository is intended only for ConX business use. It is not prepared for HACS, public distribution, resale, or third-party redistribution.
 
+## Start here
+
+For Cursor or Codex:
+
+1. Read `CURSOR_CODEX_MASTER_PROMPT.md`.
+2. Read `AI_BUILD_SPEC.md` as the authoritative engineering contract.
+3. Follow `AGENTS.md` and `.cursor/rules/conx-dynamic-panel.mdc`.
+4. Review `docs/ARCHITECTURE.md` before creating code.
+
 ## Product concept
 
 The physical relays are not connected to electrical loads. They are used only as physical inputs and LED-state indicators.
@@ -199,37 +208,11 @@ data:
 conx-dynamic-panel/
 ├── custom_components/
 │   └── conx_dynamic_panel/
-│       ├── __init__.py
-│       ├── manifest.json
-│       ├── const.py
-│       ├── config_flow.py
-│       ├── coordinator.py
-│       ├── runtime.py
-│       ├── storage.py
-│       ├── services.yaml
-│       ├── strings.json
-│       ├── translations/
-│       │   ├── en.json
-│       │   └── he.json
-│       ├── adapters/
-│       │   ├── __init__.py
-│       │   ├── base.py
-│       │   └── zemismart_4gang.py
-│       ├── select.py
-│       ├── sensor.py
-│       ├── button.py
-│       ├── switch.py
-│       ├── event.py
-│       └── frontend/
-│           └── conx-dynamic-panel-card.js
 ├── frontend-src/
 ├── docs/
 ├── examples/
 ├── tests/
 ├── scripts/
-│   ├── build_frontend.sh
-│   ├── install_local.sh
-│   └── update_local.sh
 ├── .cursor/rules/
 ├── .github/workflows/
 ├── AGENTS.md
