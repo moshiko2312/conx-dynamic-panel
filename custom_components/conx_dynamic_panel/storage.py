@@ -39,9 +39,11 @@ class PanelStore:
             private=True,
         )
         self.data = PanelStorageData()
+        self.load_error: str | None = None
 
     async def async_load(self) -> PanelStorageData:
         """Load or initialize storage."""
+        self.load_error = None
         raw = await self._store.async_load()
         if raw is None:
             self.data = PanelStorageData()
@@ -52,14 +54,19 @@ class PanelStore:
             migrated = _migrate(dict(raw))
             self.data = PanelStorageData.from_dict(migrated)
             self.data.ensure_defaults()
-        except Exception:  # noqa: BLE001
+        except Exception as err:  # noqa: BLE001
             _LOGGER.exception(
                 "Failed to load %s storage for %s; keeping defaults without overwrite",
                 DOMAIN,
                 self._entry_id,
             )
+            self.load_error = (
+                "Failed to load stored profiles; previous storage was preserved on disk "
+                f"and defaults were loaded in memory only ({err})"
+            )
             self.data = PanelStorageData()
             self.data.ensure_defaults()
+            self.data.last_error = self.load_error
             return self.data
         return self.data
 

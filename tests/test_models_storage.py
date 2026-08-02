@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from custom_components.conx_dynamic_panel.models import PanelStorageData, Profile
 from custom_components.conx_dynamic_panel.storage import _migrate
 
@@ -36,3 +38,17 @@ def test_profile_clone() -> None:
 def test_storage_migration_sets_current_version() -> None:
     migrated = _migrate({"schema_version": 1, "profiles": {}})
     assert migrated["schema_version"] == 1
+
+
+def test_storage_migration_rejects_future_version() -> None:
+    with pytest.raises(ValueError, match="Unsupported storage schema"):
+        _migrate({"schema_version": 99, "profiles": {}})
+
+
+def test_storage_roundtrip_preserves_profiles() -> None:
+    data = PanelStorageData()
+    data.ensure_defaults()
+    restored = PanelStorageData.from_dict(data.to_dict())
+    assert set(restored.profiles) == {"lighting", "scenes"}
+    assert restored.active_profile_id == "lighting"
+    assert restored.profiles["lighting"].buttons[0].name == "Living room"

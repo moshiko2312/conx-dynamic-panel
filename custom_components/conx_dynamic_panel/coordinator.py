@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import UTC, datetime
 from typing import Any
@@ -27,7 +28,14 @@ from .exceptions import (
     ProfileNotFoundError,
     SyncInProgressError,
 )
-from .models import ButtonAction, PanelStorageData, Profile, capability_defaults
+from .models import (
+    ButtonAction,
+    HardwareState,
+    PanelStorageData,
+    Profile,
+    SyncResult,
+    capability_defaults,
+)
 from .runtime import PanelRuntime
 
 _LOGGER = logging.getLogger(__name__)
@@ -198,7 +206,17 @@ class PanelCoordinator:
             self.data.sync_status = SYNC_SYNCING  # type: ignore[assignment]
             self.data.last_error = None
             self.runtime.async_notify()
-            result = await self.runtime.adapter.async_apply_profile(profile)
+            try:
+                result = await asyncio.wait_for(
+                    self.runtime.adapter.async_apply_profile(profile),
+                    timeout=self.runtime.sync_timeout,
+                )
+            except TimeoutError:
+                result = SyncResult(
+                    success=False,
+                    error=f"Sync timed out after {self.runtime.sync_timeout:.0f}s",
+                    confirmed_steps=[],
+                )
             if result.success:
                 self.data.applied_snapshot = profile.to_dict()
                 self.data.last_sync = datetime.now(UTC).isoformat()
@@ -218,6 +236,7 @@ class PanelCoordinator:
         if profile is None:
             raise ProfileNotFoundError("No active profile")
         hardware = await self.runtime.adapter.async_read_hardware_state()
+        drifted = self._hardware_differs_from_snapshot(hardware)
         for button, name in zip(profile.buttons, hardware.names, strict=True):
             button.name = name
         profile.color_on = hardware.color_on or profile.color_on
@@ -230,35 +249,30 @@ class PanelCoordinator:
                 index + 1 for index, value in enumerate(hardware.relays) if value
             ]
             profile.selected_button = on_indexes[0] if on_indexes else None
-        self.data.refresh_pending_status()
-        await self._async_detect_out_of_sync(hardware_profile=profile)
+        if drifted:
+            self.data.sync_status = SYNC_OUT_OF_SYNC  # type: ignore[assignment]
+        else:
+            self.data.refresh_pending_status()
         await self.runtime.store.async_save()
         self.runtime.async_notify()
 
-    async def _async_detect_out_of_sync(self, *, hardware_profile: Profile) -> None:
-        if not self.data.applied_snapshot:
-            self.data.refresh_pending_status()
-            return
-        if hardware_profile.to_dict() != self.data.applied_snapshot:
-            # Compare hardware-derived fields against snapshot when useful.
-            snapshot = self.data.applied_snapshot
-            changed = any(
-                hardware_profile.to_dict().get(key) != snapshot.get(key)
-                for key in (
-                    "color_on",
-                    "color_off",
-                    "radar",
-                    "backlight",
-                    "child_lock",
-                    "buttons",
-                )
-            )
-            if changed and self.data.sync_status not in {SYNC_SYNCING, SYNC_PENDING}:
-                self.data.sync_status = SYNC_OUT_OF_SYNC  # type: ignore[assignment]
-            else:
-                self.data.refresh_pending_status()
-        else:
-            self.data.refresh_pending_status()
+    def _hardware_differs_from_snapshot(self, hardware: HardwareState) -> bool:
+        """Return True when hardware settings differ from the last applied snapshot."""
+        snapshot = self.data.applied_snapshot
+        if not snapshot:
+            return False
+        buttons = sorted(snapshot.get("buttons") or [], key=lambda item: item.get("index", 0))
+        snapshot_names = tuple(str(button.get("name") or "") for button in buttons)
+        if len(snapshot_names) != BUTTON_COUNT:
+            snapshot_names = (snapshot_names + ("", "", "", ""))[:BUTTON_COUNT]
+        return (
+            hardware.names != snapshot_names
+            or hardware.color_on != snapshot.get("color_on")
+            or hardware.color_off != snapshot.get("color_off")
+            or hardware.radar != snapshot.get("radar")
+            or bool(hardware.backlight) != bool(snapshot.get("backlight"))
+            or bool(hardware.child_lock) != bool(snapshot.get("child_lock"))
+        )
 
     async def async_activate_profile(self, profile_id: str, *, sync: bool = False) -> None:
         """Activate a profile, optionally syncing immediately."""
@@ -276,6 +290,7 @@ class PanelCoordinator:
         profile = Profile.from_dict(payload)
         if profile.id in self.data.profiles:
             raise ValueError(f"Profile already exists: {profile.id}")
+        self._validate_profile_actions(profile)
         self.data.profiles[profile.id] = profile
         if not self.data.active_profile_id:
             self.data.active_profile_id = profile.id
@@ -290,10 +305,27 @@ class PanelCoordinator:
         payload = dict(payload)
         payload["id"] = profile_id
         profile = Profile.from_dict(payload)
+        self._validate_profile_actions(profile)
         self.data.profiles[profile_id] = profile
         self.data.refresh_pending_status()
         await self._async_after_draft_change()
         return profile
+
+    def _validate_profile_actions(self, profile: Profile) -> None:
+        """Validate mode and action service existence when practical."""
+        if profile.mode not in {MODE_TOGGLE, MODE_RADIO_MANDATORY, MODE_RADIO_OPTIONAL}:
+            raise ValueError(f"Unsupported mode: {profile.mode}")
+        for button in profile.buttons:
+            action = button.action
+            if action is None:
+                continue
+            if "." not in action.action:
+                raise ValueError(f"Invalid action on button {button.index}: {action.action}")
+            domain, service = action.action.split(".", 1)
+            if not self.hass.services.has_service(domain, service):
+                raise ValueError(
+                    f"Service does not exist for button {button.index}: {action.action}"
+                )
 
     async def async_delete_profile(self, profile_id: str) -> None:
         """Delete a profile draft."""

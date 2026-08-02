@@ -14,6 +14,7 @@ from custom_components.conx_dynamic_panel.const import (
     MODE_RADIO_OPTIONAL,
     MODE_TOGGLE,
     SYNC_ERROR,
+    SYNC_OUT_OF_SYNC,
     SYNC_SYNCED,
 )
 from custom_components.conx_dynamic_panel.coordinator import PanelCoordinator
@@ -42,6 +43,15 @@ class FakeAdapter:
     def __init__(self) -> None:
         self.relay_calls: list[tuple[int, bool]] = []
         self.apply_result = SyncResult(success=True, confirmed_steps=["names"])
+        self.hardware = HardwareState(
+            names=("A", "B", "C", "D"),
+            relays=(True, False, False, False),
+            color_on="cyan",
+            color_off="blue",
+            radar="30s",
+            backlight=True,
+            child_lock=False,
+        )
 
     async def async_apply_profile(self, profile: Profile) -> SyncResult:
         return self.apply_result
@@ -52,15 +62,7 @@ class FakeAdapter:
         self.relay_calls.append((index, state))
 
     async def async_read_hardware_state(self) -> HardwareState:
-        return HardwareState(
-            names=("A", "B", "C", "D"),
-            relays=(True, False, False, False),
-            color_on="cyan",
-            color_off="blue",
-            radar="30s",
-            backlight=True,
-            child_lock=False,
-        )
+        return self.hardware
 
     def supported_colors(self) -> list[str]:
         return ["cyan", "blue"]
@@ -102,6 +104,8 @@ def _runtime(adapter: FakeAdapter, store: FakeStore) -> Any:
         listeners=[],
         update_callbacks=[],
         auto_sync=False,
+        sync_timeout=30.0,
+        confirm_timeout=10.0,
         async_notify=lambda: None,
     )
 
@@ -215,3 +219,73 @@ async def test_pull_updates_draft_names() -> None:
     profile = store.data.active_profile()
     assert profile is not None
     assert profile.button_names() == ("A", "B", "C", "D")
+
+
+@pytest.mark.asyncio
+async def test_pull_detects_out_of_sync_against_snapshot() -> None:
+    store = FakeStore()
+    adapter = FakeAdapter()
+    runtime = _runtime(adapter, store)
+    coordinator = PanelCoordinator(runtime)  # type: ignore[arg-type]
+    store.data.applied_snapshot = {
+        "id": "lighting",
+        "name": "Lighting",
+        "mode": "toggle",
+        "color_on": "cyan",
+        "color_off": "blue",
+        "radar": "30s",
+        "backlight": True,
+        "child_lock": False,
+        "selected_button": None,
+        "buttons": [
+            {"index": 1, "name": "Living room", "action": None},
+            {"index": 2, "name": "Kitchen", "action": None},
+            {"index": 3, "name": "Outdoor", "action": None},
+            {"index": 4, "name": "All off", "action": None},
+        ],
+    }
+    adapter.hardware = HardwareState(
+        names=("Changed", "B", "C", "D"),
+        relays=(False, False, False, False),
+        color_on="cyan",
+        color_off="blue",
+        radar="30s",
+        backlight=True,
+        child_lock=False,
+    )
+    await coordinator.async_pull_from_panel()
+    assert store.data.sync_status == SYNC_OUT_OF_SYNC
+    profile = store.data.active_profile()
+    assert profile is not None
+    assert profile.button_names()[0] == "Changed"
+
+
+@pytest.mark.asyncio
+async def test_activate_profile_optional_sync() -> None:
+    store = FakeStore()
+    adapter = FakeAdapter()
+    runtime = _runtime(adapter, store)
+    coordinator = PanelCoordinator(runtime)  # type: ignore[arg-type]
+    await coordinator.async_activate_profile("scenes", sync=True)
+    assert store.data.active_profile_id == "scenes"
+    assert store.data.sync_status == SYNC_SYNCED
+    assert store.data.applied_snapshot["id"] == "scenes"
+
+
+@pytest.mark.asyncio
+async def test_update_profile_rejects_missing_service() -> None:
+    store = FakeStore()
+    adapter = FakeAdapter()
+    runtime = _runtime(adapter, store)
+    runtime.hass.services.has_service = lambda domain, service: False
+    coordinator = PanelCoordinator(runtime)  # type: ignore[arg-type]
+    profile = store.data.active_profile()
+    assert profile is not None
+    payload = profile.to_dict()
+    payload["buttons"][0]["action"] = {
+        "action": "light.toggle",
+        "target": {"entity_id": "light.x"},
+        "data": {},
+    }
+    with pytest.raises(ValueError, match="Service does not exist"):
+        await coordinator.async_update_profile(profile.id, payload)

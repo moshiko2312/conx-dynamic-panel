@@ -77,6 +77,22 @@ class Zemismart4GangAdapter(PanelAdapter):
             state = self.hass.states.get(entity_id)
             if entry is None and state is None:
                 raise MappingValidationError(f"Text entity {entity_id} is missing")
+            if entry is not None and getattr(entry, "disabled_by", None) is not None:
+                raise MappingValidationError(
+                    f"Text entity {entity_id} is disabled and not writable"
+                )
+            if state is not None and state.state in {"unavailable", "unknown"}:
+                raise MappingValidationError(
+                    f"Text entity {entity_id} is {state.state} and not writable"
+                )
+            # Prefer entities that expose a text mode; absence is allowed when the
+            # entity exists because some integrations omit the attribute until first write.
+            if state is not None:
+                mode = state.attributes.get("mode")
+                if mode is not None and str(mode).lower() == "password":
+                    raise MappingValidationError(
+                        f"Text entity {entity_id} uses password mode and is unsuitable"
+                    )
 
     async def async_read_hardware_state(self) -> HardwareState:
         """Read names, relays, colors, radar, backlight, and child lock."""

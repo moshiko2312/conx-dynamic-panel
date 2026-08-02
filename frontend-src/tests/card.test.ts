@@ -132,4 +132,135 @@ describe("custom elements", () => {
     const card = el.shadowRoot?.querySelector("ha-card");
     expect(card?.getAttribute("dir")).toBe("rtl");
   });
+
+  it("edits draft locally without websocket writes until save", async () => {
+    const callWS = vi.fn().mockResolvedValue({
+      entry_id: "abc",
+      panel_name: "Kitchen",
+      adapter_type: "zemismart_4gang",
+      active_profile_id: "lighting",
+      sync_status: "pending",
+      last_sync: null,
+      last_error: null,
+      auto_sync: false,
+      capabilities: {
+        colors: ["cyan", "blue"],
+        radar: ["30s"],
+        modes: ["toggle", "radio_mandatory", "radio_optional"],
+        button_count: 4,
+      },
+      profiles: { lighting: sampleProfile },
+      applied_snapshot: {},
+    });
+    const el = document.createElement("conx-dynamic-panel-card") as any;
+    el.hass = { language: "en", callWS };
+    el.setConfig({ type: "custom:conx-dynamic-panel-card", entry_id: "abc" });
+    document.body.appendChild(el);
+    await el.updateComplete;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await el.updateComplete;
+
+    const before = callWS.mock.calls.length;
+    el._updateButton(1, { name: "Edited locally" });
+    el.requestUpdate();
+    await el.updateComplete;
+    expect(el._dirty).toBe(true);
+    expect(callWS.mock.calls.length).toBe(before);
+    expect(el.shadowRoot?.textContent).toContain("unsaved draft changes");
+  });
+
+  it("requests sync through websocket and shows errors", async () => {
+    const callWS = vi
+      .fn()
+      .mockResolvedValueOnce({
+        entry_id: "abc",
+        panel_name: "Kitchen",
+        adapter_type: "zemismart_4gang",
+        active_profile_id: "lighting",
+        sync_status: "pending",
+        last_sync: null,
+        last_error: null,
+        auto_sync: false,
+        capabilities: {
+          colors: ["cyan"],
+          radar: ["30s"],
+          modes: ["toggle"],
+          button_count: 4,
+        },
+        profiles: { lighting: sampleProfile },
+        applied_snapshot: {},
+      })
+      .mockRejectedValueOnce(new Error("Timed out waiting for text.n1"))
+      .mockResolvedValueOnce({
+        entry_id: "abc",
+        panel_name: "Kitchen",
+        adapter_type: "zemismart_4gang",
+        active_profile_id: "lighting",
+        sync_status: "error",
+        last_sync: null,
+        last_error: "Timed out waiting for text.n1",
+        auto_sync: false,
+        capabilities: {
+          colors: ["cyan"],
+          radar: ["30s"],
+          modes: ["toggle"],
+          button_count: 4,
+        },
+        profiles: { lighting: sampleProfile },
+        applied_snapshot: {},
+      });
+
+    const el = document.createElement("conx-dynamic-panel-card") as any;
+    el.hass = { language: "en", callWS };
+    el.setConfig({ type: "custom:conx-dynamic-panel-card", entry_id: "abc" });
+    document.body.appendChild(el);
+    await el.updateComplete;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await el.updateComplete;
+
+    await el._sync();
+    await el.updateComplete;
+    expect(
+      callWS.mock.calls.some(
+        (call: unknown[]) =>
+          (call[0] as { type?: string }).type === "conx_dynamic_panel/sync"
+      )
+    ).toBe(true);
+    expect(el.shadowRoot?.textContent).toMatch(/Timed out|error/i);
+  });
+
+  it("uses a single-column layout class in compact/mobile mode", async () => {
+    const callWS = vi.fn().mockResolvedValue({
+      entry_id: "abc",
+      panel_name: "Kitchen",
+      adapter_type: "zemismart_4gang",
+      active_profile_id: "lighting",
+      sync_status: "synced",
+      last_sync: null,
+      last_error: null,
+      auto_sync: false,
+      capabilities: {
+        colors: ["cyan"],
+        radar: ["30s"],
+        modes: ["toggle"],
+        button_count: 4,
+      },
+      profiles: { lighting: sampleProfile },
+      applied_snapshot: {},
+    });
+    const el = document.createElement("conx-dynamic-panel-card") as any;
+    el.hass = { language: "en", callWS };
+    el.setConfig({
+      type: "custom:conx-dynamic-panel-card",
+      entry_id: "abc",
+      compact: true,
+    });
+    document.body.appendChild(el);
+    await el.updateComplete;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await el.updateComplete;
+    expect(el.shadowRoot?.querySelector("ha-card")?.classList.contains("compact")).toBe(
+      true
+    );
+  });
 });

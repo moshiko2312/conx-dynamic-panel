@@ -294,36 +294,41 @@ Update an existing install without touching Home Assistant storage:
 
 ## Roadmap
 
-### v0.1.0
+### v0.1.0 (implemented)
 
-- Config Flow
-- Zemismart adapter
-- Profile storage
-- Toggle mode
-- Manual sync
-- Basic custom card
-
-### v0.2.0
-
-- Radio mandatory and optional
-- Pull from panel
-- Better sync diagnostics
-- Hebrew translation
-
-### v0.3.0
-
-- Mixed mode
-- Import/export
-- Profile duplication
-- Sync all panels
+- Config Flow, Reconfigure Flow, and Options Flow
+- Zemismart adapter with confirmation waits
+- Versioned profile storage with draft vs applied snapshot
+- Toggle, radio mandatory, and radio optional
+- Manual Sync, Pull from panel, and sync diagnostics
+- Profile create / update / duplicate / delete
+- Bundled Lit card with English and Hebrew RTL
+- Services, WebSocket API, private install scripts, and automated tests
 
 ### Later
 
+- Mixed mode
+- Import/export
+- Sync all panels
 - Multi-click experiments
 - Automatic profile conditions
 - Additional panel adapters
 - Internal ConX profile library
 - Advanced preview
+
+## Troubleshooting
+
+| Symptom | Likely cause | What to do |
+|---|---|---|
+| Card missing / custom element unknown | Lovelace resource not registered | Add `/conx_dynamic_panel/frontend/conx-dynamic-panel-card.js` as a Lovelace **module** resource, then hard-refresh the browser |
+| Sync status `error` / timeout | Entity unavailable, Zigbee delay, or short timeout | Confirm mapped entities are available; increase **Confirm timeout** / **Sync timeout** in integration options |
+| Sync status `out_of_sync` | Hardware values differ from the last successful sync | Use **Pull from Panel** to inspect, then **Sync to Panel** to re-apply the draft, or keep the pulled draft and sync it |
+| Draft edits do not change the panel | Expected draft behavior | Press **Sync to Panel** (or enable auto-sync in options) |
+| Reconfigure cannot save mapping | Duplicate relays or invalid entity domains | Ensure each relay/name is unique and domains match (`switch` / `text` / `select`) |
+| Actions do not run on press | Wrong mode, suppressed transition, or invalid service | Confirm the profile mode, that the press is physical (not sync-driven), and that the action service exists |
+| Hebrew UI not RTL | Browser/HA language not Hebrew | Set Home Assistant language to Hebrew; the card follows `hass.language` |
+
+See also `docs/PRIVATE_DEPLOYMENT.md` for install/update rules.
 
 ## Ownership
 

@@ -270,7 +270,7 @@ class PanelStorageData:
 
     def refresh_pending_status(self) -> None:
         """Set pending/synced based on draft vs snapshot when idle."""
-        if self.sync_status in {"syncing", "error", "out_of_sync"}:
+        if self.sync_status in {"syncing", "error"}:
             return
         self.sync_status = SYNC_SYNCED if self.draft_matches_snapshot() else SYNC_PENDING  # type: ignore[assignment]
 

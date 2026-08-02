@@ -76,14 +76,25 @@ def install() -> None:
         def _abort_if_unique_id_configured(self) -> None:
             return None
 
+        def _async_current_entries(self) -> list[Any]:
+            return []
+
         def async_show_form(self, **kwargs: Any) -> dict[str, Any]:
             return {"type": "form", **kwargs}
 
         def async_create_entry(self, **kwargs: Any) -> dict[str, Any]:
             return {"type": "create_entry", **kwargs}
 
+        def async_abort(self, **kwargs: Any) -> dict[str, Any]:
+            return {"type": "abort", **kwargs}
+
+        def async_update_reload_and_abort(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+            return {"type": "abort", "reason": "reconfigure_successful", **kwargs}
+
     class OptionsFlow:  # noqa: D101
-        pass
+        @property
+        def config_entry(self) -> Any:
+            return getattr(self, "_config_entry", ConfigEntry())
 
     config_entries.ConfigEntry = ConfigEntry
     config_entries.ConfigFlow = ConfigFlow
@@ -155,9 +166,15 @@ def install() -> None:
         def __init__(self, *args: Any, **kwargs: Any) -> None:
             pass
 
+        def __call__(self, value: Any) -> Any:
+            return value
+
     class SelectSelector:
         def __init__(self, *args: Any, **kwargs: Any) -> None:
             pass
+
+        def __call__(self, value: Any) -> Any:
+            return value
 
     selector.EntitySelector = EntitySelector
     selector.EntitySelectorConfig = _Cfg

@@ -85,4 +85,4 @@ SERVICE_EXECUTE_BUTTON: Final = "execute_button"
 SERVICE_RELOAD: Final = "reload"
 
 FRONTEND_SCRIPT_URL: Final = f"/{DOMAIN}/frontend/conx-dynamic-panel-card.js"
-FRONTEND_RESOURCE_URL: Final = f"/local/{DOMAIN}/conx-dynamic-panel-card.js?v=0.1.0"
+FRONTEND_RESOURCE_URL: Final = f"{FRONTEND_SCRIPT_URL}?v=0.1.0"
