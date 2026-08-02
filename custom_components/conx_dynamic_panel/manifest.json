@@ -1,0 +1,12 @@
+{
+  "domain": "conx_dynamic_panel",
+  "name": "ConX Dynamic Panel",
+  "codeowners": ["@moshiko2312"],
+  "config_flow": true,
+  "documentation": "https://github.com/moshiko2312/conx-dynamic-panel",
+  "integration_type": "device",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/moshiko2312/conx-dynamic-panel/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}

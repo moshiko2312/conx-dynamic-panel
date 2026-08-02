@@ -1,0 +1,123 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Panel identity",
+        "description": "Name this physical panel and choose its adapter.",
+        "data": {
+          "panel_name": "Panel name",
+          "adapter_type": "Adapter type"
+        }
+      },
+      "relays": {
+        "title": "Relay entities",
+        "description": "Select the four switch entities used as physical buttons.",
+        "data": {
+          "relay_l1": "Relay L1",
+          "relay_l2": "Relay L2",
+          "relay_l3": "Relay L3",
+          "relay_l4": "Relay L4"
+        }
+      },
+      "names": {
+        "title": "Name entities",
+        "description": "Select the four text entities that show button labels on the panel.",
+        "data": {
+          "name_l1": "Name L1",
+          "name_l2": "Name L2",
+          "name_l3": "Name L3",
+          "name_l4": "Name L4"
+        }
+      },
+      "settings": {
+        "title": "Shared settings",
+        "description": "Select color, radar, backlight, and child-lock entities.",
+        "data": {
+          "color_off_entity": "Color OFF",
+          "color_on_entity": "Color ON",
+          "radar_entity": "Radar",
+          "backlight_entity": "Backlight",
+          "child_lock_entity": "Child lock"
+        }
+      },
+      "summary": {
+        "title": "Validation summary",
+        "description": "Mapping validated for {panel_name}. Confirm to create the panel."
+      }
+    },
+    "error": {
+      "duplicate_relays": "Relay entities must be unique.",
+      "duplicate_names": "Name entities must be unique.",
+      "invalid_mapping": "Mapping validation failed: {error}"
+    },
+    "abort": {
+      "already_configured": "This relay set is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "ConX Dynamic Panel options",
+        "data": {
+          "sync_timeout": "Sync timeout (seconds)",
+          "confirm_timeout": "Confirmation timeout (seconds)",
+          "auto_sync": "Auto-sync after draft changes",
+          "log_level": "Log level"
+        }
+      }
+    }
+  },
+  "entity": {
+    "select": {
+      "active_profile": {
+        "name": "Active profile"
+      }
+    },
+    "sensor": {
+      "sync_status": {
+        "name": "Sync status"
+      },
+      "last_sync": {
+        "name": "Last sync"
+      },
+      "last_error": {
+        "name": "Last error"
+      }
+    },
+    "button": {
+      "sync": {
+        "name": "Sync to panel"
+      },
+      "pull_from_panel": {
+        "name": "Pull from panel"
+      }
+    },
+    "switch": {
+      "auto_sync": {
+        "name": "Auto sync"
+      }
+    }
+  },
+  "services": {
+    "sync": {
+      "name": "Sync",
+      "description": "Sync the active profile draft to the physical panel."
+    },
+    "activate_profile": {
+      "name": "Activate profile",
+      "description": "Activate a profile, optionally syncing immediately."
+    },
+    "pull_from_panel": {
+      "name": "Pull from panel",
+      "description": "Pull current hardware values into the active profile draft."
+    },
+    "execute_button": {
+      "name": "Execute button",
+      "description": "Execute a button action without a physical press."
+    },
+    "reload": {
+      "name": "Reload",
+      "description": "Reload one or all ConX Dynamic Panel entries."
+    }
+  }
+}

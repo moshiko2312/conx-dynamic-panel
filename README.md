@@ -15,6 +15,16 @@ For Cursor or Codex:
 3. Follow `AGENTS.md` and `.cursor/rules/conx-dynamic-panel.mdc`.
 4. Review `docs/ARCHITECTURE.md` before creating code.
 
+### Implementation status
+
+MVP `0.1.0` is implemented in this repository:
+
+- Backend package under `custom_components/conx_dynamic_panel/`
+- Bundled card source under `frontend-src/`
+- Built card artifact under `custom_components/conx_dynamic_panel/frontend/`
+- Tests under `tests/` and `frontend-src/tests/`
+- Private scripts under `scripts/`
+
 ## Product concept
 
 The physical relays are not connected to electrical loads. They are used only as physical inputs and LED-state indicators.
@@ -228,17 +238,31 @@ conx-dynamic-panel/
 
 No HACS support is required.
 
-1. Build the frontend.
+```bash
+./scripts/build_frontend.sh
+./scripts/install_local.sh /path/to/homeassistant/config
+```
+
+Or manually:
+
+1. Build the frontend with `./scripts/build_frontend.sh`.
 2. Copy `custom_components/conx_dynamic_panel` to the target Home Assistant configuration under `custom_components/`.
 3. Restart Home Assistant.
 4. Add **ConX Dynamic Panel** from **Settings → Devices & services**.
 5. Select all mapped entities.
-6. Add the bundled JavaScript resource if it is not registered automatically.
+6. Add the bundled JavaScript resource if it is not registered automatically:
+   `/conx_dynamic_panel/frontend/conx-dynamic-panel-card.js` as a Lovelace module resource.
 7. Add the card:
 
 ```yaml
 type: custom:conx-dynamic-panel-card
 entry_id: YOUR_CONFIG_ENTRY_ID
+```
+
+Update an existing install without touching Home Assistant storage:
+
+```bash
+./scripts/update_local.sh /path/to/homeassistant/config
 ```
 
 ## Development rules
