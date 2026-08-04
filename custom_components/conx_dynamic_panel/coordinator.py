@@ -254,9 +254,7 @@ class PanelCoordinator:
                 await self._async_cover_halt(cover, reason=COVER_REASON_COMMAND)
                 return self.cover_state_payload()
             direction = (
-                COVER_DIRECTION_OPEN
-                if command == COVER_COMMAND_OPEN
-                else COVER_DIRECTION_CLOSE
+                COVER_DIRECTION_OPEN if command == COVER_COMMAND_OPEN else COVER_DIRECTION_CLOSE
             )
             if state.moving:
                 previous = state.direction
@@ -349,9 +347,7 @@ class PanelCoordinator:
     async def _async_cover_abort(self, reason: str) -> None:
         """Stop any motion and de-energize the cover (acquires the cover lock)."""
         profile = self.data.active_profile()
-        cover = (
-            profile.cover if profile is not None and profile.mode == MODE_COVER else None
-        )
+        cover = profile.cover if profile is not None and profile.mode == MODE_COVER else None
         state = self.runtime.cover
         if cover is None and not state.moving and state.relays is None:
             state.reset(reason)
@@ -784,9 +780,7 @@ class PanelCoordinator:
             from homeassistant.helpers import device_registry as dr
 
             device_registry = dr.async_get(self.hass)
-            device = device_registry.async_get_device(
-                identifiers={(DOMAIN, entry.entry_id)}
-            )
+            device = device_registry.async_get_device(identifiers={(DOMAIN, entry.entry_id)})
             if device is not None:
                 device_registry.async_update_device(device.id, name=name)
         except Exception:  # noqa: BLE001

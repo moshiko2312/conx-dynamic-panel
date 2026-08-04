@@ -273,6 +273,7 @@ async def test_import_rejects_future_schema_version() -> None:
             mode="merge",
         )
 
+
 @pytest.mark.asyncio
 async def test_update_panel_name_updates_mapping_without_empty() -> None:
     store = FakeStore()
@@ -284,4 +285,3 @@ async def test_update_panel_name_updates_mapping_without_empty() -> None:
     assert coordinator.skip_next_reload is True or runtime.entry.title == "Salon"
     with pytest.raises(ValueError, match="cannot be empty"):
         await coordinator.async_update_panel_name("   ")
-

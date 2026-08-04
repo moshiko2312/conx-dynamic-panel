@@ -44,7 +44,5 @@ class ConXAutoSyncSwitch(ConXPanelEntity, SwitchEntity):
     async def _async_set(self, value: bool) -> None:
         options = dict(self.coordinator.runtime.entry.options)
         options[CONF_AUTO_SYNC] = value
-        self.hass.config_entries.async_update_entry(
-            self.coordinator.runtime.entry, options=options
-        )
+        self.hass.config_entries.async_update_entry(self.coordinator.runtime.entry, options=options)
         self.async_write_ha_state()

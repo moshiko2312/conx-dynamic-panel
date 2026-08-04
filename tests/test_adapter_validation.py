@@ -81,9 +81,7 @@ async def test_validate_mapping_success() -> None:
 
 @pytest.mark.asyncio
 async def test_duplicate_relays_rejected() -> None:
-    mapping = _mapping(
-        relay_entities=["switch.l1", "switch.l1", "switch.l3", "switch.l4"]
-    )
+    mapping = _mapping(relay_entities=["switch.l1", "switch.l1", "switch.l3", "switch.l4"])
     adapter = Zemismart4GangAdapter(
         _hass(_valid_states()),
         mapping,

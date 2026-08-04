@@ -42,6 +42,7 @@ def clamp_backlight_brightness(value: Any) -> int:
         return DEFAULT_BACKLIGHT_BRIGHTNESS
     return max(BACKLIGHT_BRIGHTNESS_MIN, min(BACKLIGHT_BRIGHTNESS_MAX, brightness))
 
+
 ButtonMode = Literal["toggle", "radio_mandatory", "radio_optional", "radio_split", "cover"]
 SyncStatus = Literal["synced", "pending", "syncing", "error", "out_of_sync"]
 CoverDirection = Literal["open", "close"]
@@ -118,16 +119,10 @@ class CoverConfig:
         if opposite not in COVER_OPPOSITE_MODES:
             opposite = COVER_OPPOSITE_STOP_ONLY
         return cls(
-            open_button=_clamp_button_index(
-                data.get("open_button"), COVER_DEFAULT_OPEN_BUTTON
-            ),
-            close_button=_clamp_button_index(
-                data.get("close_button"), COVER_DEFAULT_CLOSE_BUTTON
-            ),
+            open_button=_clamp_button_index(data.get("open_button"), COVER_DEFAULT_OPEN_BUTTON),
+            close_button=_clamp_button_index(data.get("close_button"), COVER_DEFAULT_CLOSE_BUTTON),
             open_time_s=clamp_cover_time(data.get("open_time_s"), COVER_DEFAULT_OPEN_TIME),
-            close_time_s=clamp_cover_time(
-                data.get("close_time_s"), COVER_DEFAULT_CLOSE_TIME
-            ),
+            close_time_s=clamp_cover_time(data.get("close_time_s"), COVER_DEFAULT_CLOSE_TIME),
             direction_settle_s=clamp_cover_settle(data.get("direction_settle_s")),
             opposite_press=opposite,
         )
@@ -147,16 +142,12 @@ class CoverConfig:
     def opposite_direction(self, direction: str) -> CoverDirection:
         """Return the inverse travel direction."""
         return (  # type: ignore[return-value]
-            COVER_DIRECTION_CLOSE
-            if direction == COVER_DIRECTION_OPEN
-            else COVER_DIRECTION_OPEN
+            COVER_DIRECTION_CLOSE if direction == COVER_DIRECTION_OPEN else COVER_DIRECTION_OPEN
         )
 
     def duration_for(self, direction: str) -> float:
         """Return the travel time for a direction."""
-        return (
-            self.open_time_s if direction == COVER_DIRECTION_OPEN else self.close_time_s
-        )
+        return self.open_time_s if direction == COVER_DIRECTION_OPEN else self.close_time_s
 
     def relay_indexes(self) -> tuple[int, int]:
         """Return both direction relay indexes (open first)."""

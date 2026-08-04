@@ -117,9 +117,7 @@ def _runtime(adapter: CoverAdapter, store: FakeStore) -> Any:
             has_service=lambda domain, service: True,
             async_call=AsyncMock(),
         ),
-        bus=SimpleNamespace(
-            async_fire=lambda event, data=None: events.append((event, data or {}))
-        ),
+        bus=SimpleNamespace(async_fire=lambda event, data=None: events.append((event, data or {}))),
         async_create_task=lambda coro: asyncio.create_task(coro),
     )
     entry = SimpleNamespace(entry_id="entry-1", options={"auto_sync": False})
@@ -197,9 +195,7 @@ async def test_press_open_while_idle_starts_opening() -> None:
 
 @pytest.mark.asyncio
 async def test_press_close_while_idle_starts_closing_with_close_time() -> None:
-    coordinator, adapter, _store, _profile, runtime = _build(
-        open_time=5.0, close_time=9.0
-    )
+    coordinator, adapter, _store, _profile, runtime = _build(open_time=5.0, close_time=9.0)
     await coordinator._async_handle_physical_press(CLOSE_BUTTON, True)
     assert adapter.relay_calls == [(OPEN_BUTTON, False), (CLOSE_BUTTON, True)]
     assert runtime.cover.direction == "close"
@@ -210,9 +206,7 @@ async def test_press_close_while_idle_starts_closing_with_close_time() -> None:
 @pytest.mark.asyncio
 async def test_arbitrary_buttons_can_be_mapped_to_directions() -> None:
     coordinator, adapter, store, profile, runtime = _build()
-    profile.cover = CoverConfig(
-        open_button=4, close_button=2, open_time_s=5.0, close_time_s=5.0
-    )
+    profile.cover = CoverConfig(open_button=4, close_button=2, open_time_s=5.0, close_time_s=5.0)
     await coordinator._async_handle_physical_press(4, True)
     assert adapter.relay_calls == [(2, False), (4, True)]
     assert runtime.cover.direction == "open"
@@ -425,9 +419,7 @@ async def test_rapid_alternating_presses_never_energize_both() -> None:
 @pytest.mark.asyncio
 async def test_non_cover_button_still_executes_its_action() -> None:
     coordinator, adapter, _store, profile, runtime = _build()
-    profile.buttons[1].action = ButtonAction(
-        action="light.toggle", target={"entity_id": "light.x"}
-    )
+    profile.buttons[1].action = ButtonAction(action="light.toggle", target={"entity_id": "light.x"})
     await coordinator._async_handle_physical_press(2, True)
     runtime.hass.services.async_call.assert_awaited_once()
     assert adapter.relay_calls == []

@@ -69,8 +69,7 @@ async def ws_list_profiles(
         msg["id"],
         {
             "profiles": {
-                key: profile.to_dict()
-                for key, profile in coordinator.data.profiles.items()
+                key: profile.to_dict() for key, profile in coordinator.data.profiles.items()
             },
             "active_profile_id": coordinator.data.active_profile_id,
         },

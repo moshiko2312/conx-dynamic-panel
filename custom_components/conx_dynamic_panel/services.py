@@ -148,9 +148,7 @@ async def async_register_services(hass: HomeAssistant) -> None:
         DOMAIN,
         SERVICE_COVER_COMMAND,
         handle_cover_command,
-        schema=ENTRY_SCHEMA.extend(
-            {vol.Required(ATTR_COMMAND): vol.In(list(COVER_COMMANDS))}
-        ),
+        schema=ENTRY_SCHEMA.extend({vol.Required(ATTR_COMMAND): vol.In(list(COVER_COMMANDS))}),
     )
     hass.services.async_register(
         DOMAIN,

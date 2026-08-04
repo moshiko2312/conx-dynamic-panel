@@ -45,9 +45,7 @@ STEP_SUMMARY = "summary"
 
 
 def _entity_selector(domain: str) -> selector.EntitySelector:
-    return selector.EntitySelector(
-        selector.EntitySelectorConfig(domain=domain, multiple=False)
-    )
+    return selector.EntitySelector(selector.EntitySelectorConfig(domain=domain, multiple=False))
 
 
 def _required_entity(key: str, domain: str, default: str | None = None) -> dict[Any, Any]:
@@ -61,9 +59,7 @@ def _unique_relay_key(relays: list[str]) -> str:
     return "|".join(sorted(relays))
 
 
-async def _async_validate_mapping(
-    hass: HomeAssistant, mapping: EntityMapping
-) -> None:
+async def _async_validate_mapping(hass: HomeAssistant, mapping: EntityMapping) -> None:
     adapter = create_adapter(
         hass,
         mapping,
@@ -82,9 +78,7 @@ class ConXDynamicPanelConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._data: dict[str, Any] = {}
         self._reconfigure = False
 
-    async def async_step_user(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Collect panel identity."""
         errors: dict[str, str] = {}
         if user_input is not None:
@@ -115,9 +109,7 @@ class ConXDynamicPanelConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
         return self.async_show_form(step_id=STEP_USER, data_schema=schema, errors=errors)
 
-    async def async_step_relays(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    async def async_step_relays(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Collect four relay switch entities."""
         errors: dict[str, str] = {}
         if user_input is not None:
@@ -134,10 +126,7 @@ class ConXDynamicPanelConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 if self._reconfigure:
                     current_entry_id = self.context.get("entry_id")
                     for entry in self._async_current_entries():
-                        if (
-                            entry.unique_id == self.unique_id
-                            and entry.entry_id != current_entry_id
-                        ):
+                        if entry.unique_id == self.unique_id and entry.entry_id != current_entry_id:
                             return self.async_abort(reason="already_configured")
                 else:
                     self._abort_if_unique_id_configured()
@@ -151,9 +140,7 @@ class ConXDynamicPanelConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id=STEP_RELAYS, data_schema=vol.Schema(schema_dict), errors=errors
         )
 
-    async def async_step_names(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    async def async_step_names(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Collect four text name entities."""
         errors: dict[str, str] = {}
         if user_input is not None:
@@ -176,9 +163,7 @@ class ConXDynamicPanelConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id=STEP_NAMES, data_schema=vol.Schema(schema_dict), errors=errors
         )
 
-    async def async_step_settings(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    async def async_step_settings(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Collect shared setting entities."""
         if user_input is not None:
             brightness = user_input.pop(CONF_BACKLIGHT_BRIGHTNESS_ENTITY, None)
@@ -190,22 +175,16 @@ class ConXDynamicPanelConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return await self.async_step_summary()
         schema_dict: dict[Any, Any] = {}
         schema_dict.update(
-            _required_entity(
-                CONF_COLOR_OFF_ENTITY, "select", self._data.get(CONF_COLOR_OFF_ENTITY)
-            )
+            _required_entity(CONF_COLOR_OFF_ENTITY, "select", self._data.get(CONF_COLOR_OFF_ENTITY))
         )
         schema_dict.update(
-            _required_entity(
-                CONF_COLOR_ON_ENTITY, "select", self._data.get(CONF_COLOR_ON_ENTITY)
-            )
+            _required_entity(CONF_COLOR_ON_ENTITY, "select", self._data.get(CONF_COLOR_ON_ENTITY))
         )
         schema_dict.update(
             _required_entity(CONF_RADAR_ENTITY, "select", self._data.get(CONF_RADAR_ENTITY))
         )
         schema_dict.update(
-            _required_entity(
-                CONF_BACKLIGHT_ENTITY, "switch", self._data.get(CONF_BACKLIGHT_ENTITY)
-            )
+            _required_entity(CONF_BACKLIGHT_ENTITY, "switch", self._data.get(CONF_BACKLIGHT_ENTITY))
         )
         brightness_default = self._data.get(CONF_BACKLIGHT_BRIGHTNESS_ENTITY)
         brightness_key: Any = (
@@ -223,9 +202,7 @@ class ConXDynamicPanelConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
         return self.async_show_form(step_id=STEP_SETTINGS, data_schema=vol.Schema(schema_dict))
 
-    async def async_step_summary(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    async def async_step_summary(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Validate mapping and create or update the entry."""
         errors: dict[str, str] = {}
         mapping = EntityMapping.from_dict(self._data)
@@ -258,17 +235,13 @@ class ConXDynamicPanelConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id=STEP_SUMMARY,
             data_schema=vol.Schema(
-                {vol.Required("confirm", default=True): bool}
-                if not errors
-                else {}
+                {vol.Required("confirm", default=True): bool} if not errors else {}
             ),
             errors=errors,
             description_placeholders=placeholders,
         )
 
-    async def async_step_reconfigure(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Reconfigure entity mappings without deleting profiles."""
         entry = self._get_reconfigure_entry()
         self._reconfigure = True
@@ -290,9 +263,7 @@ class ConXDynamicPanelConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 class ConXDynamicPanelOptionsFlow(config_entries.OptionsFlow):
     """Handle options."""
 
-    async def async_step_init(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Manage options."""
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)

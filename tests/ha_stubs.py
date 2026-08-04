@@ -175,7 +175,7 @@ def install() -> None:
     storage.Store = Store
 
     event_helpers = module("homeassistant.helpers.event")
-    event_helpers.async_track_state_change_event = lambda *args, **kwargs: (lambda: None)
+    event_helpers.async_track_state_change_event = lambda *args, **kwargs: lambda: None
 
     entity = module("homeassistant.helpers.entity")
 

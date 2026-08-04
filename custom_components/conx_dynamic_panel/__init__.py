@@ -56,9 +56,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConXConfigEntry) -> bool
     _apply_log_level(entry)
     mapping = EntityMapping.from_dict(dict(entry.data))
     suppression = SuppressionTracker()
-    confirm_timeout = float(
-        entry.options.get(CONF_CONFIRM_TIMEOUT, DEFAULT_CONFIRM_TIMEOUT)
-    )
+    confirm_timeout = float(entry.options.get(CONF_CONFIRM_TIMEOUT, DEFAULT_CONFIRM_TIMEOUT))
     adapter = create_adapter(
         hass,
         mapping,

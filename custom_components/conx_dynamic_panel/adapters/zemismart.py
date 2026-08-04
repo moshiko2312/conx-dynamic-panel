@@ -115,9 +115,7 @@ class Zemismart4GangAdapter(PanelAdapter):
     async def async_read_hardware_state(self) -> HardwareState:
         """Read names, relays, colors, radar, backlight, and child lock."""
         names = tuple(self._state_str(entity_id) for entity_id in self.mapping.name_entities)
-        relays = tuple(
-            self._state_bool(entity_id) for entity_id in self.mapping.relay_entities
-        )
+        relays = tuple(self._state_bool(entity_id) for entity_id in self.mapping.relay_entities)
         return HardwareState(
             names=names,  # type: ignore[arg-type]
             relays=relays,  # type: ignore[arg-type]
@@ -298,9 +296,7 @@ class Zemismart4GangAdapter(PanelAdapter):
 
     def _require_domain(self, entity_id: str, domain: str) -> None:
         if not entity_id.startswith(f"{domain}."):
-            raise MappingValidationError(
-                f"Entity {entity_id} must be in domain '{domain}'"
-            )
+            raise MappingValidationError(f"Entity {entity_id} must be in domain '{domain}'")
         self._require_exists(entity_id)
 
     def _require_exists(self, entity_id: str) -> None:
@@ -376,6 +372,5 @@ class Zemismart4GangAdapter(PanelAdapter):
         current = self.hass.states.get(entity_id)
         current_state = current.state if current else "missing"
         raise HardwareWriteError(
-            f"Timed out waiting for {entity_id} to become '{expected}' "
-            f"(current='{current_state}')"
+            f"Timed out waiting for {entity_id} to become '{expected}' (current='{current_state}')"
         )
