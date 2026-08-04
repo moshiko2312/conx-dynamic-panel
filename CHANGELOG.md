@@ -4,10 +4,16 @@ All notable changes to this private project will be documented here.
 
 ## [Unreleased]
 
+### Added
+
+- Profile mode **`mixed` (Free mix / מיקס חופשי / Свободный микс)** with per-button `role`: `toggle`, `momentary`, `radio`, `cover_open`, `cover_close`. Momentary pulses ON then OFF after `pulse_time_s` (`0.1–600 s`, default `2`); re-press cancels the timer and forces OFF. Cover and radio reuse the existing fail-safe engines. Legacy global modes remain. Alias `momentary_mix` / `press_mode` migrate into `mixed` / `role`.
+- **Startup restore:** on integration setup / HA restart, hardware is re-applied from the stored **applied snapshot** (last successful Sync). Draft profiles stay as saved for the editor; applied wins for the panel. Cover/momentary abort still runs first for safety.
+- **Live mapped-entity updates:** relay changes always refresh card runtime (including suppressed self-writes); non-relay mapped entities (names/colors/radar/backlight/lock) refresh the UI and mark `out_of_sync` when they drift from the applied snapshot.
+
 ### Changed
 
 - Faceplate columns follow product photos: for N gangs, **N equal columns** across the glass (labels centered in the black header, LED rings centered under each label). Outer landscape bezel size stays similar across N; no more left-aligned N-of-4 empty trailing slots (Lit card + HTML preview).
-- When `gang_count === 1`, the mode picker shows only **toggle** (radio / radio_split / cover are hidden). Switching a radio/cover profile to 1 gang coerces mode to `toggle`.
+- When `gang_count === 1`, the mode picker shows **toggle** and **mixed** (radio / radio_split / cover are hidden). Multi-button roles inside mixed are coerced to toggle on 1-gang. Switching a radio/cover profile to 1 gang coerces mode to `toggle`.
 - Unsaved-draft warning (`card.unsaved` / `.warn.unsaved-draft`) is centered, bold red, and larger than body text so dirty draft state is unmistakable on noir and ivory (Lit card + HTML preview). Other status/notice/error banners keep their existing styling.
 - Profiles tab (step 1) now shows **profile chips + panel gang count** (`מספר גאנגים` / Panel gangs / Число кнопок) together so gang selection sits with profile context. Cover mode still repeats the gang picker for convenience when editing shutters; Appearance no longer hosts it.
 - Hero faceplate adapts to `gang_count`: only L1…Ln labels and LED rings render (Lit card + HTML preview). Bezel width/aspect stay locked to the landscape footprint while columns redistribute evenly.

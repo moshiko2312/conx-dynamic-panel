@@ -1408,7 +1408,7 @@
     const COLORS = Object.keys(COLOR_PREVIEW);
     const STORAGE_KEY = "conx-card-preview-state-v10";
     const LEGACY_KEYS = ["conx-card-preview-state-v2", "conx-card-preview-state-v3", "conx-card-preview-state-v4", "conx-card-preview-state-v5", "conx-card-preview-state-v6", "conx-card-preview-state-v7", "conx-card-preview-state-v8", "conx-card-preview-state-v9"];
-    const PROFILE_MODES = ["toggle", "radio_mandatory", "radio_optional", "radio_split", "cover"];
+    const PROFILE_MODES = ["toggle", "radio_mandatory", "radio_optional", "radio_split", "mixed", "cover"];
     const MULTI_BUTTON_MODES = new Set(["radio_mandatory", "radio_optional", "radio_split", "cover"]);
     function isMultiButtonMode(mode) {
       return MULTI_BUTTON_MODES.has(mode);
@@ -1507,7 +1507,7 @@
         "card.automation_yaml_evening": "Evening",
         "card.automation_yaml_night": "Night",
         "mode.toggle": "Toggle", "mode.radio_mandatory": "Radio mandatory", "mode.radio_optional": "Radio optional",
-        "mode.radio_split": "Radio split", "mode.cover": "Cover / shutter",
+        "mode.radio_split": "Radio split", "mode.mixed": "Free mix", "mode.cover": "Cover / shutter",
         "card.cover": "Cover / shutter",
         "card.cover_hint": "Pick which panel buttons drive the motor. Pressing a direction starts a timed travel; pressing again stops it. The integration never energizes both directions at once.",
         "card.cover_open_button": "Open button",
@@ -1596,7 +1596,7 @@
         "card.automation_yaml_evening": "ערב",
         "card.automation_yaml_night": "לילה",
         "mode.toggle": "החלפה", "mode.radio_mandatory": "רדיו חובה", "mode.radio_optional": "רדיו אופציונלי",
-        "mode.radio_split": "רדיו ספליט", "mode.cover": "תריס",
+        "mode.radio_split": "רדיו ספליט", "mode.mixed": "מיקס חופשי", "mode.cover": "תריס",
         "card.cover": "תריס",
         "card.cover_hint": "בחרו אילו כפתורים בפאנל מפעילים את המנוע. לחיצה על כיוון מתחילה תנועה מתוזמנת, ולחיצה נוספת עוצרת אותה. האינטגרציה לעולם לא מפעילה את שני הכיוונים יחד.",
         "card.cover_open_button": "כפתור פתיחה",
@@ -1685,7 +1685,7 @@
         "card.automation_yaml_evening": "Вечер",
         "card.automation_yaml_night": "Ночь",
         "mode.toggle": "Переключатель", "mode.radio_mandatory": "Радио (обязательно)", "mode.radio_optional": "Радио (опционально)",
-        "mode.radio_split": "Радио сплит", "mode.cover": "Ролета / жалюзи",
+        "mode.radio_split": "Радио сплит", "mode.mixed": "Свободный микс", "mode.cover": "Ролета / жалюзи",
         "card.cover": "Ролета / жалюзи",
         "card.cover_hint": "Выберите кнопки панели, управляющие мотором. Нажатие направления запускает движение по таймеру, повторное нажатие останавливает его. Интеграция никогда не включает оба направления одновременно.",
         "card.cover_open_button": "Кнопка открытия",

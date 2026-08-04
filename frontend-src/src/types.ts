@@ -4,12 +4,25 @@ export interface ButtonAction {
   data?: Record<string, unknown>;
 }
 
+export type ButtonRole =
+  | "toggle"
+  | "momentary"
+  | "radio"
+  | "cover_open"
+  | "cover_close";
+
 export interface ButtonConfig {
   index: number;
   name: string;
   action: ButtonAction | null;
   /** When profile mode is radio_*, participate in exclusivity (default true). */
   radio_member?: boolean;
+  /** Per-button role when profile mode is mixed. */
+  role?: ButtonRole;
+  /** Pulse duration in seconds for momentary role (0.1–600). */
+  pulse_time_s?: number;
+  /** Cover id when role is cover_open / cover_close. */
+  cover_id?: string | null;
 }
 
 export interface RadioGroup {
@@ -64,6 +77,7 @@ export interface Profile {
     | "radio_mandatory"
     | "radio_optional"
     | "radio_split"
+    | "mixed"
     | "cover";
   color_on: string;
   color_off: string;
@@ -76,9 +90,9 @@ export interface Profile {
   /** How many gangs (L1…Ln) this profile exposes. */
   gang_count: number;
   buttons: ButtonConfig[];
-  /** Classic radio groups for radio_split (exactly one ON per group; ungrouped stay toggles). */
+  /** Classic radio groups for radio_split / mixed radio roles. */
   radio_groups?: RadioGroup[];
-  /** Cover/shutter mappings used when mode is cover. */
+  /** Cover/shutter mappings used when mode is cover or mixed. */
   covers?: CoverConfig[];
   /** Legacy single-cover block; normalized into covers[] on load. */
   cover?: CoverConfig;
@@ -107,6 +121,12 @@ export interface PanelConfig {
       max_settle_s: number;
       opposite_press: string[];
       max_covers?: number;
+    };
+    mixed?: {
+      roles: string[];
+      min_pulse_s: number;
+      max_pulse_s: number;
+      default_pulse_s: number;
     };
   };
   profiles: Record<string, Profile>;

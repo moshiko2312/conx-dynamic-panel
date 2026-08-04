@@ -5,7 +5,14 @@ import type { Profile, ProfilesExport } from "./types";
 /** Must match custom_components/conx_dynamic_panel/const.py STORAGE_VERSION. */
 export const PROFILES_EXPORT_SCHEMA_VERSION = 2;
 
-const MODES = new Set(["toggle", "radio_mandatory", "radio_optional", "radio_split", "cover"]);
+const MODES = new Set([
+  "toggle",
+  "radio_mandatory",
+  "radio_optional",
+  "radio_split",
+  "mixed",
+  "cover",
+]);
 
 function normalizeRadioGroups(raw: unknown): Profile["radio_groups"] {
   const groups: NonNullable<Profile["radio_groups"]> = [];

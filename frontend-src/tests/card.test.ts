@@ -47,10 +47,42 @@ const sampleProfile: Profile = {
   child_lock: false,
   selected_button: null,
   buttons: [
-    { index: 1, name: "Living room", action: null, radio_member: true },
-    { index: 2, name: "Kitchen", action: null, radio_member: true },
-    { index: 3, name: "Outdoor", action: null, radio_member: true },
-    { index: 4, name: "All off", action: null, radio_member: true },
+    {
+      index: 1,
+      name: "Living room",
+      action: null,
+      radio_member: true,
+      role: "toggle",
+      pulse_time_s: 2,
+      cover_id: null,
+    },
+    {
+      index: 2,
+      name: "Kitchen",
+      action: null,
+      radio_member: true,
+      role: "toggle",
+      pulse_time_s: 2,
+      cover_id: null,
+    },
+    {
+      index: 3,
+      name: "Outdoor",
+      action: null,
+      radio_member: true,
+      role: "toggle",
+      pulse_time_s: 2,
+      cover_id: null,
+    },
+    {
+      index: 4,
+      name: "All off",
+      action: null,
+      radio_member: true,
+      role: "toggle",
+      pulse_time_s: 2,
+      cover_id: null,
+    },
   ],
   radio_groups: [
     { id: "g1", buttons: [] },
@@ -88,6 +120,7 @@ function panelPayload(overrides: Record<string, unknown> = {}) {
         "radio_mandatory",
         "radio_optional",
         "radio_split",
+        "mixed",
         "cover",
       ],
       button_count: 4,
@@ -97,6 +130,12 @@ function panelPayload(overrides: Record<string, unknown> = {}) {
         min_settle_s: 0,
         max_settle_s: 5,
         opposite_press: ["stop_only", "stop_then_reverse"],
+      },
+      mixed: {
+        roles: ["toggle", "momentary", "radio", "cover_open", "cover_close"],
+        min_pulse_s: 0.1,
+        max_pulse_s: 600,
+        default_pulse_s: 2,
       },
     },
     profiles: { lighting: sampleProfile },
@@ -794,6 +833,7 @@ describe("custom elements", () => {
       "radio_mandatory",
       "radio_optional",
       "radio_split",
+      "mixed",
       "cover",
     ]);
     expect(modePicker.querySelector('[data-mode="toggle"]')?.classList.contains("on")).toBe(
@@ -853,11 +893,40 @@ describe("custom elements", () => {
     const modes = [
       ...(modePicker.querySelectorAll("button.radio-member[data-mode]") || []),
     ].map((chip) => (chip as HTMLButtonElement).dataset.mode);
-    expect(modes).toEqual(["toggle"]);
+    expect(modes).toEqual(["toggle", "mixed"]);
     expect(modePicker.querySelector('[data-mode="radio_mandatory"]')).toBeFalsy();
     expect(modePicker.querySelector('[data-mode="radio_optional"]')).toBeFalsy();
     expect(modePicker.querySelector('[data-mode="radio_split"]')).toBeFalsy();
     expect(modePicker.querySelector('[data-mode="cover"]')).toBeFalsy();
+    expect(modePicker.querySelector('[data-mode="mixed"]')).toBeTruthy();
+  });
+
+  it("shows per-button role controls in free mix mode", async () => {
+    const callWS = vi.fn().mockResolvedValue(panelPayload({ sync_status: "synced" }));
+    const el = await mountCard({ language: "en", callWS });
+    el._activeTab = "buttons";
+    await el.updateComplete;
+    const modePicker = el.shadowRoot?.querySelector(
+      "[data-mode-picker]"
+    ) as HTMLElement;
+    (modePicker.querySelector('[data-mode="mixed"]') as HTMLButtonElement).click();
+    await el.updateComplete;
+    expect(el._draft?.mode).toBe("mixed");
+    expect(el.shadowRoot?.querySelector("[data-mixed-hint]")).toBeTruthy();
+
+    const expand = el.shadowRoot?.querySelector(
+      '[data-button="1"] .button-edit-toggle'
+    ) as HTMLButtonElement;
+    expand.click();
+    await el.updateComplete;
+    const roleRow = el.shadowRoot?.querySelector(
+      '[data-mixed-role="1"]'
+    ) as HTMLElement;
+    expect(roleRow).toBeTruthy();
+    (roleRow.querySelector('[data-role="momentary"]') as HTMLButtonElement).click();
+    await el.updateComplete;
+    expect(el._draft?.buttons[0].role).toBe("momentary");
+    expect(roleRow.querySelector("[data-pulse-time]")).toBeTruthy();
   });
 
   it("opens a copyable automation example from the settings menu", async () => {

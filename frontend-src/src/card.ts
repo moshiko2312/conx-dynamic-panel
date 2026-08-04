@@ -5,7 +5,11 @@ import {
   COVER_SETTLE_MIN,
   COVER_TIME_MAX,
   COVER_TIME_MIN,
+  DEFAULT_PULSE_TIME,
+  PULSE_TIME_MAX,
+  PULSE_TIME_MIN,
   clampGangCount,
+  clampPulseTime,
   cloneProfile,
   coerceModeForGangCount,
   coverCommand,
@@ -22,6 +26,7 @@ import {
   normalizeCovers,
   profilesEqual,
   pullPanel,
+  rolesForGangCount,
   setActiveProfile,
   syncPanel,
   updatePanelName,
@@ -51,6 +56,7 @@ import {
   resolveTheme,
 } from "./themes";
 import type {
+  ButtonRole,
   CardConfig,
   CoverConfig,
   HomeAssistant,
@@ -487,7 +493,18 @@ export class ConXDynamicPanelCard extends LitElement {
   }
 
   private _renderRadioGroupsEditor() {
-    if (!this._draft || this._draft.mode !== "radio_split") {
+    if (!this._draft) {
+      return nothing;
+    }
+    if (this._draft.mode === "mixed") {
+      const hasRadio = this._draft.buttons.some(
+        (button) =>
+          button.index <= this._gangCount() && button.role === "radio"
+      );
+      if (!hasRadio) {
+        return nothing;
+      }
+    } else if (this._draft.mode !== "radio_split") {
       return nothing;
     }
     const ungrouped = this._ungroupedButtons();
@@ -737,9 +754,11 @@ export class ConXDynamicPanelCard extends LitElement {
         draft.gang_count = gangs < 4 ? 4 : gangs;
         draft.covers = normalizeCovers(draft);
         delete draft.cover;
-      } else if (draft.mode === "radio_split") {
+      } else if (draft.mode === "radio_split" || draft.mode === "mixed") {
         this._ensureRadioGroups(draft);
-        this._setRadioGroupsOpen(true);
+        if (draft.mode === "radio_split") {
+          this._setRadioGroupsOpen(true);
+        }
       } else if (
         draft.mode !== "toggle" &&
         (draft.selected_button == null ||
@@ -751,6 +770,49 @@ export class ConXDynamicPanelCard extends LitElement {
         const firstMember =
           draft.buttons.find((b) => b.radio_member !== false)?.index ?? 1;
         draft.selected_button = firstMember;
+      }
+    });
+  }
+
+  private _setButtonRole(buttonIndex: number, role: ButtonRole): void {
+    this._patchDraft((draft) => {
+      const button = draft.buttons.find((item) => item.index === buttonIndex);
+      if (!button) {
+        return;
+      }
+      const allowed = rolesForGangCount(draft.gang_count);
+      if (!allowed.includes(role)) {
+        return;
+      }
+      button.role = role;
+      if (role === "momentary") {
+        button.pulse_time_s = clampPulseTime(
+          button.pulse_time_s,
+          DEFAULT_PULSE_TIME
+        );
+        button.cover_id = null;
+      } else if (role === "cover_open" || role === "cover_close") {
+        button.cover_id = String(button.cover_id || "cover_1").trim() || "cover_1";
+        // Keep covers timing blocks available for the assigned id.
+        draft.covers = normalizeCovers(draft);
+        const cover = draft.covers.find((item) => item.id === button.cover_id);
+        if (cover) {
+          if (role === "cover_open") {
+            cover.open_button = buttonIndex;
+          } else {
+            cover.close_button = buttonIndex;
+          }
+        }
+      } else {
+        button.cover_id = null;
+      }
+      if (role === "radio") {
+        this._ensureRadioGroups(draft);
+      } else if (draft.radio_groups) {
+        draft.radio_groups = draft.radio_groups.map((group) => ({
+          ...group,
+          buttons: group.buttons.filter((index) => index !== buttonIndex),
+        }));
       }
     });
   }
@@ -1107,7 +1169,19 @@ export class ConXDynamicPanelCard extends LitElement {
   }
 
   private _renderCoverEditor() {
-    if (!this._draft || this._draft.mode !== "cover") {
+    if (!this._draft) {
+      return nothing;
+    }
+    if (this._draft.mode === "mixed") {
+      const hasCover = this._draft.buttons.some(
+        (button) =>
+          button.index <= this._gangCount() &&
+          (button.role === "cover_open" || button.role === "cover_close")
+      );
+      if (!hasCover) {
+        return nothing;
+      }
+    } else if (this._draft.mode !== "cover") {
       return nothing;
     }
     const covers = this._covers();
@@ -1135,7 +1209,17 @@ export class ConXDynamicPanelCard extends LitElement {
 
   /** Live open/close/stop, routed through the backend engine (never direct relays). */
   private _renderCoverControl() {
-    if (this._saved?.mode !== "cover") {
+    const mode = this._saved?.mode;
+    if (mode !== "cover" && mode !== "mixed") {
+      return nothing;
+    }
+    if (
+      mode === "mixed" &&
+      !this._saved?.buttons?.some(
+        (button) =>
+          button.role === "cover_open" || button.role === "cover_close"
+      )
+    ) {
       return nothing;
     }
     const covers = this._covers(this._saved);
@@ -2119,12 +2203,77 @@ export class ConXDynamicPanelCard extends LitElement {
     `;
   }
 
+  private _renderMixedHint() {
+    if (!this._draft || this._draft.mode !== "mixed") {
+      return nothing;
+    }
+    return html`<p class="radio-groups-hint" data-mixed-hint>
+      ${this.t("card.mixed_hint")}
+    </p>`;
+  }
+
+  private _renderButtonRoleEditor(buttonIndex: number, role: ButtonRole) {
+    const roles = rolesForGangCount(this._gangCount()) as ButtonRole[];
+    const pulse =
+      this._draft?.buttons.find((item) => item.index === buttonIndex)
+        ?.pulse_time_s ?? DEFAULT_PULSE_TIME;
+    return html`
+      <div class="mixed-role-row" data-mixed-role=${buttonIndex}>
+        <span class="cover-label">${this.t("card.button_role")}</span>
+        <div class="mode-picker mixed-role-picker" role="radiogroup">
+          ${roles.map(
+            (item) => html`
+              <button
+                type="button"
+                class="radio-member ${role === item ? "on" : ""}"
+                role="radio"
+                aria-checked=${role === item ? "true" : "false"}
+                data-role=${item}
+                ?disabled=${this._busy}
+                @click=${() => this._setButtonRole(buttonIndex, item)}
+              >
+                <span class="radio-member-label">${this.t(`role.${item}`)}</span>
+              </button>
+            `
+          )}
+        </div>
+        ${role === "momentary"
+          ? html`
+              <label class="field field-inline mixed-pulse">
+                <span>${this.t("card.pulse_time")} (${this.t("card.cover_seconds")})</span>
+                <input
+                  type="number"
+                  data-pulse-time
+                  min=${PULSE_TIME_MIN}
+                  max=${PULSE_TIME_MAX}
+                  step="0.1"
+                  .value=${String(pulse)}
+                  ?disabled=${this._busy}
+                  @change=${(e: Event) => {
+                    const value = Number((e.target as HTMLInputElement).value);
+                    this._patchDraft((draft) => {
+                      const button = draft.buttons.find(
+                        (item) => item.index === buttonIndex
+                      );
+                      if (!button) return;
+                      button.pulse_time_s = clampPulseTime(value, DEFAULT_PULSE_TIME);
+                    });
+                  }}
+                />
+              </label>
+            `
+          : nothing}
+      </div>
+    `;
+  }
+
   private _renderButtonsFields() {
     if (!this._panel || !this._draft) {
       return nothing;
     }
     return html`
-      ${this._renderModePicker()} ${this._renderRadioGroupsEditor()}
+      ${this._renderModePicker()} ${this._renderMixedHint()}
+      ${this._renderRadioGroupsEditor()}
       ${this._renderCoverEditor()}
           <div class="buttons-accordion">
             ${this._draft.buttons
@@ -2143,17 +2292,23 @@ export class ConXDynamicPanelCard extends LitElement {
                 this._draft?.mode === "radio_optional";
               const isMember = button.radio_member !== false;
               const coverDirection = this._coverDirectionFor(button.index);
-              const behavior = coverDirection
-                ? this.t(
-                    coverDirection === "open"
-                      ? "card.cover_open"
-                      : "card.cover_close"
-                  )
-                : radioMode
-                  ? isMember
-                    ? this.t("card.radio_member")
-                    : this.t("card.radio_toggle")
-                  : "";
+              const mixedRole =
+                this._draft?.mode === "mixed"
+                  ? (button.role || "toggle")
+                  : null;
+              const behavior = mixedRole
+                ? this.t(`role.${mixedRole}`)
+                : coverDirection
+                  ? this.t(
+                      coverDirection === "open"
+                        ? "card.cover_open"
+                        : "card.cover_close"
+                    )
+                  : radioMode
+                    ? isMember
+                      ? this.t("card.radio_member")
+                      : this.t("card.radio_toggle")
+                    : "";
               const meta =
                 [action, entityId, behavior].filter(Boolean).join(" · ") || "—";
               return html`
@@ -2183,6 +2338,12 @@ export class ConXDynamicPanelCard extends LitElement {
                     <div class="button-edit-fields">
                       ${open
                         ? html`
+                            ${this._draft?.mode === "mixed"
+                              ? this._renderButtonRoleEditor(
+                                  button.index,
+                                  (button.role || "toggle") as ButtonRole
+                                )
+                              : nothing}
                             <label class="field">
                               <span>${this.t("card.label")}</span>
                               <input
@@ -3731,6 +3892,31 @@ export class ConXDynamicPanelCard extends LitElement {
     }
     .cover-section .gang-picker .radio-member {
       min-height: 42px;
+    }
+
+    .mixed-role-row {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .mixed-role-picker {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      width: 100%;
+    }
+    .mixed-role-picker .radio-member {
+      flex: 1 1 auto;
+      min-width: 4.5rem;
+      padding: 8px 6px;
+      min-height: 36px;
+    }
+    .mixed-pulse {
+      width: max-content;
+      max-width: 100%;
+    }
+    .mixed-pulse input[type="number"] {
+      width: 5.5rem;
     }
 
     .mode-picker {

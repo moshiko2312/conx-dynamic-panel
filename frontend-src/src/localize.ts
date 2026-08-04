@@ -143,7 +143,17 @@ const EN: Record<string, string> = {
   "mode.radio_mandatory": "Radio mandatory",
   "mode.radio_optional": "Radio optional",
   "mode.radio_split": "Radio split",
+  "mode.mixed": "Free mix",
   "mode.cover": "Cover / shutter",
+  "card.mixed_hint":
+    "Configure each button freely: toggle, momentary pulse, radio group, or cover open/close. Momentary turns ON then OFF after the pulse time; a re-press cancels and turns OFF.",
+  "card.button_role": "Button role",
+  "card.pulse_time": "Pulse time",
+  "role.toggle": "Toggle",
+  "role.momentary": "Momentary",
+  "role.radio": "Radio",
+  "role.cover_open": "Cover open",
+  "role.cover_close": "Cover close",
 };
 
 const HE: Record<string, string> = {
@@ -286,7 +296,17 @@ const HE: Record<string, string> = {
   "mode.radio_mandatory": "רדיו חובה",
   "mode.radio_optional": "רדיו אופציונלי",
   "mode.radio_split": "רדיו ספליט",
+  "mode.mixed": "מיקס חופשי",
   "mode.cover": "תריס",
+  "card.mixed_hint":
+    "הגדירו כל כפתור בנפרד: טוגל, רגעי, קבוצת רדיו או פתיחה/סגירה של תריס. רגעי מדליק ואז מכבה אחרי זמן הפולס; לחיצה חוזרת מבטלת ומכבה.",
+  "card.button_role": "תפקיד כפתור",
+  "card.pulse_time": "זמן פולס",
+  "role.toggle": "טוגל",
+  "role.momentary": "רגעי",
+  "role.radio": "רדיו",
+  "role.cover_open": "תריס פתיחה",
+  "role.cover_close": "תריס סגירה",
 };
 
 const RU: Record<string, string> = {
@@ -429,7 +449,17 @@ const RU: Record<string, string> = {
   "mode.radio_mandatory": "Радио (обязательно)",
   "mode.radio_optional": "Радио (опционально)",
   "mode.radio_split": "Радио сплит",
+  "mode.mixed": "Свободный микс",
   "mode.cover": "Ролета / жалюзи",
+  "card.mixed_hint":
+    "Настройте каждую кнопку отдельно: тоггл, импульс, радиогруппа или открытие/закрытие ролеты. Импульс включает, затем выключает по таймеру; повторное нажатие отменяет и выключает.",
+  "card.button_role": "Роль кнопки",
+  "card.pulse_time": "Время импульса",
+  "role.toggle": "Тоггл",
+  "role.momentary": "Импульс",
+  "role.radio": "Радио",
+  "role.cover_open": "Ролета открыть",
+  "role.cover_close": "Ролета закрыть",
 };
 
 const TABLES: Record<CardLanguage, Record<string, string>> = {

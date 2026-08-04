@@ -47,14 +47,43 @@ MODE_TOGGLE: Final = "toggle"
 MODE_RADIO_MANDATORY: Final = "radio_mandatory"
 MODE_RADIO_OPTIONAL: Final = "radio_optional"
 MODE_RADIO_SPLIT: Final = "radio_split"
+MODE_MIXED: Final = "mixed"
 MODE_COVER: Final = "cover"
+# Accepted alias from the short-lived momentary_mix draft; normalized to mixed.
+MODE_MOMENTARY_MIX_ALIAS: Final = "momentary_mix"
 SUPPORTED_MODES: Final = (
     MODE_TOGGLE,
     MODE_RADIO_MANDATORY,
     MODE_RADIO_OPTIONAL,
     MODE_RADIO_SPLIT,
+    MODE_MIXED,
     MODE_COVER,
 )
+
+# Per-button roles inside mode=mixed (and stored for forward compatibility).
+BUTTON_ROLE_TOGGLE: Final = "toggle"
+BUTTON_ROLE_MOMENTARY: Final = "momentary"
+BUTTON_ROLE_RADIO: Final = "radio"
+BUTTON_ROLE_COVER_OPEN: Final = "cover_open"
+BUTTON_ROLE_COVER_CLOSE: Final = "cover_close"
+BUTTON_ROLES: Final = (
+    BUTTON_ROLE_TOGGLE,
+    BUTTON_ROLE_MOMENTARY,
+    BUTTON_ROLE_RADIO,
+    BUTTON_ROLE_COVER_OPEN,
+    BUTTON_ROLE_COVER_CLOSE,
+)
+# Roles that need at least two physical buttons.
+MULTI_BUTTON_ROLES: Final = (
+    BUTTON_ROLE_RADIO,
+    BUTTON_ROLE_COVER_OPEN,
+    BUTTON_ROLE_COVER_CLOSE,
+)
+
+# Timed pulse for momentary buttons (seconds).
+PULSE_TIME_MIN: Final = 0.1
+PULSE_TIME_MAX: Final = 600.0
+DEFAULT_PULSE_TIME: Final = 2.0
 
 # Cover (shutter) motor safety limits. Travel times are seconds of relay hold.
 COVER_TIME_MIN: Final = 1.0

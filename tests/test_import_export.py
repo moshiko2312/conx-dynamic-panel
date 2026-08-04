@@ -17,7 +17,7 @@ from custom_components.conx_dynamic_panel.models import (
     Profile,
     SyncResult,
 )
-from custom_components.conx_dynamic_panel.runtime import CoverRuntime
+from custom_components.conx_dynamic_panel.runtime import CoverRuntime, MomentaryRuntime
 from custom_components.conx_dynamic_panel.suppression import SuppressionTracker
 
 
@@ -105,6 +105,7 @@ def _runtime(adapter: FakeAdapter, store: FakeStore) -> Any:
         suppression=SuppressionTracker(),
         sync_lock=asyncio.Lock(),
         cover=CoverRuntime(),
+        momentary=MomentaryRuntime(),
         unloading=False,
         listeners=[],
         update_callbacks=[],

@@ -43,6 +43,37 @@ def _migrate_v1_to_v2(data: dict[str, Any]) -> None:
         _migrate_profile_covers(snapshot)
 
 
+def _normalize_button_roles(profile: dict[str, Any]) -> None:
+    """Preserve additive mixed-mode fields; map legacy momentary_mix / press_mode."""
+    if profile.get("mode") == "momentary_mix":
+        profile["mode"] = "mixed"
+    buttons = profile.get("buttons")
+    if not isinstance(buttons, list):
+        return
+    for button in buttons:
+        if not isinstance(button, dict):
+            continue
+        if button.get("role"):
+            continue
+        press_mode = str(button.get("press_mode") or "").strip().lower()
+        if press_mode == "momentary":
+            button["role"] = "momentary"
+        elif press_mode:
+            button["role"] = "toggle"
+
+
+def _migrate_mixed_fields(data: dict[str, Any]) -> None:
+    """Normalize mixed-mode aliases without dropping profiles or snapshots."""
+    profiles = data.get("profiles")
+    if isinstance(profiles, dict):
+        for profile in profiles.values():
+            if isinstance(profile, dict):
+                _normalize_button_roles(profile)
+    snapshot = data.get("applied_snapshot")
+    if isinstance(snapshot, dict) and snapshot:
+        _normalize_button_roles(snapshot)
+
+
 def _migrate(data: dict[str, Any]) -> dict[str, Any]:
     """Migrate storage payload to the current schema version."""
     version = int(data.get("schema_version") or 1)
@@ -52,6 +83,8 @@ def _migrate(data: dict[str, Any]) -> dict[str, Any]:
         )
     if version < 2:
         _migrate_v1_to_v2(data)
+    # Additive mixed-mode fields (role / pulse_time_s) — keep schema at 2.
+    _migrate_mixed_fields(data)
     # Future migrations append here while preserving profiles and snapshots.
     data["schema_version"] = STORAGE_VERSION
     return data

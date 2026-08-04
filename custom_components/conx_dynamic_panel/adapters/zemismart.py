@@ -238,6 +238,14 @@ class Zemismart4GangAdapter(PanelAdapter):
             for index in profile.all_cover_relay_indexes():
                 await self.async_set_relay(index, False, suppress_event=True)
             return
+        if profile.mode == "mixed":
+            # Cover directions and momentary pulses start safe (OFF). Toggle/radio
+            # buttons keep their latched state; exclusivity is enforced on press.
+            for index in profile.all_cover_relay_indexes():
+                await self.async_set_relay(index, False, suppress_event=True)
+            for index in profile.momentary_button_indexes():
+                await self.async_set_relay(index, False, suppress_event=True)
+            return
         # Toggle and radio_split leave relays as-is; exclusivity is enforced on press.
         if profile.mode in {"toggle", "radio_split"}:
             return

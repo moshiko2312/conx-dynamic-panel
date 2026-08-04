@@ -10,6 +10,12 @@ from .const import (
     BACKLIGHT_BRIGHTNESS_MAX,
     BACKLIGHT_BRIGHTNESS_MIN,
     BUTTON_COUNT,
+    BUTTON_ROLE_COVER_CLOSE,
+    BUTTON_ROLE_COVER_OPEN,
+    BUTTON_ROLE_MOMENTARY,
+    BUTTON_ROLE_RADIO,
+    BUTTON_ROLE_TOGGLE,
+    BUTTON_ROLES,
     COVER_DEFAULT_CLOSE_BUTTON,
     COVER_DEFAULT_CLOSE_TIME,
     COVER_DEFAULT_ID,
@@ -27,10 +33,16 @@ from .const import (
     DEFAULT_BACKLIGHT_BRIGHTNESS,
     DEFAULT_COLORS,
     DEFAULT_GANG_COUNT,
+    DEFAULT_PULSE_TIME,
     DEFAULT_RADAR,
     GANG_COUNT_MAX,
     GANG_COUNT_MIN,
+    MODE_MIXED,
+    MODE_MOMENTARY_MIX_ALIAS,
     MODE_TOGGLE,
+    MULTI_BUTTON_ROLES,
+    PULSE_TIME_MAX,
+    PULSE_TIME_MIN,
     STORAGE_VERSION,
     SUPPORTED_MODES,
     SYNC_PENDING,
@@ -47,9 +59,54 @@ def clamp_backlight_brightness(value: Any) -> int:
     return max(BACKLIGHT_BRIGHTNESS_MIN, min(BACKLIGHT_BRIGHTNESS_MAX, brightness))
 
 
-ButtonMode = Literal["toggle", "radio_mandatory", "radio_optional", "radio_split", "cover"]
+ButtonMode = Literal[
+    "toggle",
+    "radio_mandatory",
+    "radio_optional",
+    "radio_split",
+    "mixed",
+    "cover",
+]
+ButtonRole = Literal["toggle", "momentary", "radio", "cover_open", "cover_close"]
 SyncStatus = Literal["synced", "pending", "syncing", "error", "out_of_sync"]
 CoverDirection = Literal["open", "close"]
+
+
+def clamp_pulse_time(value: Any, default: float = DEFAULT_PULSE_TIME) -> float:
+    """Clamp a momentary pulse duration to the supported seconds range."""
+    try:
+        seconds = float(value)
+    except (TypeError, ValueError):
+        return default
+    if seconds != seconds:  # NaN
+        return default
+    return max(PULSE_TIME_MIN, min(PULSE_TIME_MAX, seconds))
+
+
+def normalize_button_role(value: Any, *, legacy_press_mode: Any = None) -> ButtonRole:
+    """Normalize a per-button role for mixed mode.
+
+    Accepts legacy ``press_mode`` values (toggle/momentary) from the brief
+    momentary_mix draft.
+    """
+    role = str(value or "").strip().lower()
+    if not role and legacy_press_mode is not None:
+        legacy = str(legacy_press_mode or "").strip().lower()
+        if legacy == BUTTON_ROLE_MOMENTARY:
+            return BUTTON_ROLE_MOMENTARY  # type: ignore[return-value]
+        if legacy:
+            return BUTTON_ROLE_TOGGLE  # type: ignore[return-value]
+    if role in BUTTON_ROLES:
+        return role  # type: ignore[return-value]
+    return BUTTON_ROLE_TOGGLE  # type: ignore[return-value]
+
+
+def normalize_profile_mode(value: Any) -> str:
+    """Normalize profile mode, mapping the momentary_mix alias to mixed."""
+    mode = str(value or MODE_TOGGLE).strip().lower() or MODE_TOGGLE
+    if mode == MODE_MOMENTARY_MIX_ALIAS:
+        return MODE_MIXED
+    return mode
 
 
 def clamp_cover_time(value: Any, default: float) -> float:
@@ -383,6 +440,58 @@ def validate_radio_groups(groups: list[RadioGroup]) -> None:
             ownership[index] = group.id
 
 
+def validate_mixed_profile(profile: Profile) -> None:
+    """Validate per-button roles for mode=mixed."""
+    if profile.mode != MODE_MIXED:
+        return
+    validate_radio_groups(profile.radio_groups)
+    radio_indexes = {
+        button.index for button in profile.visible_buttons() if button.role == BUTTON_ROLE_RADIO
+    }
+    for group in profile.radio_groups:
+        for index in group.buttons:
+            if index not in radio_indexes:
+                raise ValueError(
+                    f"Button {index} is in radio group '{group.id}' but role is not radio"
+                )
+    for button in profile.visible_buttons():
+        # role=radio without a group behaves as toggle at runtime (same as radio_split).
+        if button.role in MULTI_BUTTON_ROLES and profile.gang_count < 2:
+            raise ValueError(
+                f"Role '{button.role}' requires at least 2 gangs (button {button.index})"
+            )
+        if not PULSE_TIME_MIN <= button.pulse_time_s <= PULSE_TIME_MAX:
+            raise ValueError(
+                f"Button {button.index} pulse_time_s must be between "
+                f"{PULSE_TIME_MIN} and {PULSE_TIME_MAX} seconds"
+            )
+
+    cover_dirs: dict[str, dict[str, int]] = {}
+    for button in profile.visible_buttons():
+        if not button.is_cover_role:
+            continue
+        cover_id = (button.cover_id or "").strip()
+        if not cover_id:
+            raise ValueError(f"Button {button.index} cover role requires cover_id")
+        slot = cover_dirs.setdefault(cover_id, {})
+        key = "open" if button.role == BUTTON_ROLE_COVER_OPEN else "close"
+        if key in slot:
+            raise ValueError(f"Cover '{cover_id}' has multiple {key} buttons")
+        slot[key] = button.index
+
+    for cover_id, pair in cover_dirs.items():
+        if "open" not in pair or "close" not in pair:
+            raise ValueError(
+                f"Cover '{cover_id}' needs both cover_open and cover_close buttons"
+            )
+        if pair["open"] == pair["close"]:
+            raise ValueError(f"Cover '{cover_id}' open and close must use different buttons")
+        cover = profile.cover_by_id(cover_id)
+        if cover is None:
+            raise ValueError(f"Cover '{cover_id}' is missing timing configuration")
+        validate_cover_config(cover, gang_count=profile.gang_count)
+
+
 @dataclass(slots=True)
 class ButtonAction:
     """Normalized Home Assistant service-call action."""
@@ -418,15 +527,34 @@ class ButtonConfig:
     name: str = ""
     action: ButtonAction | None = None
     radio_member: bool = True
+    # Per-button role for mode=mixed (ignored by legacy single-behavior modes).
+    role: ButtonRole = BUTTON_ROLE_TOGGLE  # type: ignore[assignment]
+    pulse_time_s: float = DEFAULT_PULSE_TIME
+    # Cover id when role is cover_open / cover_close.
+    cover_id: str | None = None
+
+    def __post_init__(self) -> None:
+        self.role = normalize_button_role(self.role)
+        self.pulse_time_s = clamp_pulse_time(self.pulse_time_s)
+        if self.cover_id is not None:
+            cover_id = str(self.cover_id).strip()
+            self.cover_id = cover_id or None
+        if self.role not in {BUTTON_ROLE_COVER_OPEN, BUTTON_ROLE_COVER_CLOSE}:
+            self.cover_id = None
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize button."""
-        return {
+        payload: dict[str, Any] = {
             "index": self.index,
             "name": self.name,
             "action": self.action.to_dict() if self.action else None,
             "radio_member": bool(self.radio_member),
+            "role": self.role,
+            "pulse_time_s": self.pulse_time_s,
         }
+        if self.cover_id:
+            payload["cover_id"] = self.cover_id
+        return payload
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ButtonConfig:
@@ -436,7 +564,22 @@ class ButtonConfig:
             name=str(data.get("name") or ""),
             action=ButtonAction.from_dict(data.get("action")),
             radio_member=bool(data.get("radio_member", True)),
+            role=normalize_button_role(
+                data.get("role"), legacy_press_mode=data.get("press_mode")
+            ),
+            pulse_time_s=clamp_pulse_time(data.get("pulse_time_s", DEFAULT_PULSE_TIME)),
+            cover_id=data.get("cover_id"),
         )
+
+    @property
+    def is_momentary(self) -> bool:
+        """Whether this button is a timed pulse role."""
+        return self.role == BUTTON_ROLE_MOMENTARY
+
+    @property
+    def is_cover_role(self) -> bool:
+        """Whether this button drives a cover direction."""
+        return self.role in {BUTTON_ROLE_COVER_OPEN, BUTTON_ROLE_COVER_CLOSE}
 
 
 @dataclass(slots=True)
@@ -460,6 +603,7 @@ class Profile:
     covers: list[CoverConfig] = field(default_factory=list)
 
     def __post_init__(self) -> None:
+        self.mode = normalize_profile_mode(self.mode)  # type: ignore[assignment]
         self.gang_count = clamp_gang_count(self.gang_count)
         by_index = {button.index: button for button in self.buttons}
         self.buttons = [
@@ -469,6 +613,10 @@ class Profile:
         self.backlight_brightness = clamp_backlight_brightness(self.backlight_brightness)
         self.radio_groups = normalize_radio_groups(self.radio_groups, gang_count=self.gang_count)
         self.covers = normalize_covers(self.covers, gang_count=self.gang_count)
+        if self.mode == MODE_MIXED:
+            self._coerce_roles_for_gang_count()
+            self.sync_covers_from_roles()
+            self._prune_radio_groups_to_radio_roles()
         if self.selected_button is not None and (
             self.selected_button < 1 or self.selected_button > self.gang_count
         ):
@@ -555,6 +703,96 @@ class Profile:
                 return group
         return None
 
+    def is_momentary_button(self, index: int) -> bool:
+        """Return whether a button is a timed pulse role (mixed mode)."""
+        button = self.button_by_index(index)
+        return bool(button and button.is_momentary)
+
+    def momentary_button_indexes(self) -> list[int]:
+        """Return 1-based indexes configured as momentary within gang_count."""
+        return [
+            button.index
+            for button in self.visible_buttons()
+            if button.is_momentary
+        ]
+
+    def button_role(self, index: int) -> str:
+        """Return the mixed-mode role for a button (default toggle)."""
+        button = self.button_by_index(index)
+        if button is None:
+            return BUTTON_ROLE_TOGGLE
+        return button.role
+
+    def _coerce_roles_for_gang_count(self) -> None:
+        """Downgrade multi-button roles when the profile is 1-gang."""
+        if self.gang_count > 1:
+            return
+        for button in self.buttons:
+            if button.role in MULTI_BUTTON_ROLES:
+                button.role = BUTTON_ROLE_TOGGLE  # type: ignore[assignment]
+                button.cover_id = None
+
+    def _prune_radio_groups_to_radio_roles(self) -> None:
+        """Keep radio_groups membership limited to role=radio buttons."""
+        radio_indexes = {
+            button.index for button in self.visible_buttons() if button.role == BUTTON_ROLE_RADIO
+        }
+        for group in self.radio_groups:
+            group.buttons = [index for index in group.buttons if index in radio_indexes]
+
+    def sync_covers_from_roles(self) -> None:
+        """Rebuild cover open/close button indexes from mixed button roles.
+
+        Timing/settle/opposite_press are preserved from existing cover entries
+        with the same id. Orphan timing blocks without both directions are kept
+        only when still referenced; incomplete pairs are dropped from active use
+        by validation.
+        """
+        if self.mode != MODE_MIXED:
+            return
+        by_id: dict[str, dict[str, int]] = {}
+        for button in self.visible_buttons():
+            if not button.is_cover_role:
+                continue
+            cover_id = (button.cover_id or "").strip() or COVER_DEFAULT_ID
+            button.cover_id = cover_id
+            slot = by_id.setdefault(cover_id, {})
+            if button.role == BUTTON_ROLE_COVER_OPEN:
+                slot["open_button"] = button.index
+            else:
+                slot["close_button"] = button.index
+
+        existing = {cover.id: cover for cover in self.covers}
+        rebuilt: list[CoverConfig] = []
+        for cover_id, pair in by_id.items():
+            open_button = pair.get("open_button")
+            close_button = pair.get("close_button")
+            if open_button is None or close_button is None:
+                # Incomplete pair: keep a placeholder so the UI can finish wiring.
+                open_button = open_button or pair.get("close_button") or 1
+                close_button = close_button or open_button
+            prior = existing.get(cover_id)
+            payload = {
+                "id": cover_id,
+                "open_button": open_button,
+                "close_button": close_button,
+                "open_time_s": prior.open_time_s if prior else COVER_DEFAULT_OPEN_TIME,
+                "close_time_s": prior.close_time_s if prior else COVER_DEFAULT_CLOSE_TIME,
+                "direction_settle_s": (
+                    prior.direction_settle_s if prior else COVER_DEFAULT_SETTLE
+                ),
+                "opposite_press": (
+                    prior.opposite_press if prior else COVER_OPPOSITE_STOP_ONLY
+                ),
+            }
+            rebuilt.append(
+                normalize_cover(payload, gang_count=self.gang_count, default_id=cover_id)
+            )
+        # Preserve unused cover timing templates when no cover roles exist yet.
+        if not rebuilt and self.covers:
+            rebuilt = list(self.covers)
+        self.covers = normalize_covers(rebuilt, gang_count=self.gang_count)
+
     def to_dict(self) -> dict[str, Any]:
         """Serialize profile."""
         return {
@@ -587,7 +825,7 @@ class Profile:
         return cls(
             id=str(data["id"]),
             name=str(data.get("name") or data["id"]),
-            mode=data.get("mode") or MODE_TOGGLE,
+            mode=normalize_profile_mode(data.get("mode") or MODE_TOGGLE),  # type: ignore[arg-type]
             color_on=str(data.get("color_on") or "cyan"),
             color_off=str(data.get("color_off") or "blue"),
             radar=str(data.get("radar") or "30s"),
@@ -838,5 +1076,11 @@ def capability_defaults() -> dict[str, Any]:
             "max_settle_s": COVER_SETTLE_MAX,
             "opposite_press": list(COVER_OPPOSITE_MODES),
             "max_covers": max_covers_for_gangs(BUTTON_COUNT),
+        },
+        "mixed": {
+            "roles": list(BUTTON_ROLES),
+            "min_pulse_s": PULSE_TIME_MIN,
+            "max_pulse_s": PULSE_TIME_MAX,
+            "default_pulse_s": DEFAULT_PULSE_TIME,
         },
     }

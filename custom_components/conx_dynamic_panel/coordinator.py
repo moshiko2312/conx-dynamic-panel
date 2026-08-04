@@ -13,6 +13,10 @@ from homeassistant.helpers.event import async_track_state_change_event
 
 from .const import (
     BUTTON_COUNT,
+    BUTTON_ROLE_COVER_CLOSE,
+    BUTTON_ROLE_COVER_OPEN,
+    BUTTON_ROLE_MOMENTARY,
+    BUTTON_ROLE_RADIO,
     COVER_COMMAND_OPEN,
     COVER_COMMAND_STOP,
     COVER_COMMANDS,
@@ -30,6 +34,7 @@ from .const import (
     EVENT_BUTTON_PRESS,
     EVENT_COVER_STATE,
     MODE_COVER,
+    MODE_MIXED,
     MODE_RADIO_MANDATORY,
     MODE_RADIO_OPTIONAL,
     MODE_RADIO_SPLIT,
@@ -57,6 +62,7 @@ from .models import (
     SyncResult,
     capability_defaults,
     validate_covers,
+    validate_mixed_profile,
     validate_radio_groups,
 )
 from .runtime import CoverMotion, PanelRuntime
@@ -79,30 +85,55 @@ class PanelCoordinator:
         return self.runtime.store.data
 
     async def async_setup(self) -> None:
-        """Load storage and attach relay listeners."""
+        """Load storage, attach listeners, and restore hardware from applied snapshot.
+
+        Persistence survives HA restart via versioned Store. Draft profiles stay
+        as saved for the editor; hardware is re-driven from ``applied_snapshot``
+        (last successful Sync) so the panel matches the last known-good state.
+        """
         await self.runtime.store.async_load()
         self.data.refresh_pending_status()
         self._attach_listeners()
         # A restart must never inherit an energized motor: start from both off so
         # the engine's belief and the hardware agree.
         await self._async_cover_abort(COVER_REASON_SAFETY)
+        # Drop any armed pulse timers and force momentary relays OFF.
+        await self._async_momentary_abort()
+        await self._async_restore_applied_to_hardware()
         self.runtime.async_notify()
 
     def _attach_listeners(self) -> None:
-        entity_ids = list(self.runtime.mapping.relay_entities)
+        relay_ids = list(self.runtime.mapping.relay_entities)
+        # Also watch names/colors/radar/backlight/lock so external Zigbee/HA
+        # changes refresh the card and can mark out_of_sync vs applied snapshot.
+        other_ids = [
+            entity_id
+            for entity_id in self.runtime.mapping.all_entities()
+            if entity_id not in relay_ids
+        ]
 
         @callback
-        def _on_state_change(event: Event) -> None:
+        def _on_relay_change(event: Event) -> None:
             self.hass.async_create_task(self._async_handle_relay_event(event))
 
-        remove = async_track_state_change_event(self.hass, entity_ids, _on_state_change)
-        self.runtime.listeners.append(remove)
+        @callback
+        def _on_mapped_change(event: Event) -> None:
+            self.hass.async_create_task(self._async_handle_mapped_entity_event(event))
+
+        self.runtime.listeners.append(
+            async_track_state_change_event(self.hass, relay_ids, _on_relay_change)
+        )
+        if other_ids:
+            self.runtime.listeners.append(
+                async_track_state_change_event(self.hass, other_ids, _on_mapped_change)
+            )
 
     async def async_unload(self) -> None:
         """Stop the motor, detach listeners, and mark unloading."""
         # De-energize before dropping listeners so a cover can never be left
         # travelling by an unload, reload, or Home Assistant shutdown.
         await self._async_cover_abort(COVER_REASON_ABORT)
+        await self._async_momentary_abort()
         self.runtime.unloading = True
         for remove in self.runtime.listeners:
             remove()
@@ -121,6 +152,9 @@ class PanelCoordinator:
             return
         if old_state.state == new_state.state:
             return
+        # Always refresh card-visible runtime after a real entity change, even
+        # when the transition is integration-driven (suppressed).
+        self.runtime.async_notify()
         if self.runtime.suppression.should_suppress(entity_id, new_state.state):
             return
         try:
@@ -129,6 +163,92 @@ class PanelCoordinator:
             return
         turned_on = new_state.state == "on"
         await self._async_handle_physical_press(index, turned_on)
+        self.runtime.async_notify()
+
+    async def _async_handle_mapped_entity_event(self, event: Event) -> None:
+        """Refresh UI and drift status when non-relay mapped entities change."""
+        if self.runtime.unloading:
+            return
+        if self.data.sync_status == SYNC_SYNCING:
+            return
+        new_state = event.data.get("new_state")
+        old_state = event.data.get("old_state")
+        if new_state is None or old_state is None:
+            return
+        if new_state.state in {STATE_UNKNOWN, STATE_UNAVAILABLE}:
+            return
+        if old_state.state == new_state.state:
+            return
+        self.runtime.async_notify()
+        if not self.data.applied_snapshot:
+            return
+        try:
+            hardware = await self.runtime.adapter.async_read_hardware_state()
+        except Exception:  # noqa: BLE001
+            return
+        if (
+            self._hardware_differs_from_snapshot(hardware)
+            and self.data.sync_status not in {SYNC_SYNCING, SYNC_ERROR}
+        ):
+            self.data.sync_status = SYNC_OUT_OF_SYNC  # type: ignore[assignment]
+            self.runtime.async_notify()
+
+    async def _async_restore_applied_to_hardware(self) -> None:
+        """Re-apply last successful Sync after HA restart / entry setup.
+
+        Draft profiles are not overwritten. Only ``applied_snapshot`` is written
+        to the panel so hardware matches the last known-good configuration.
+        """
+        snapshot = self.data.applied_snapshot
+        if not snapshot:
+            _LOGGER.debug("No applied snapshot to restore for %s", self.runtime.entry.entry_id)
+            return
+        try:
+            applied = Profile.from_dict(dict(snapshot))
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.error("Applied snapshot is invalid; skipping hardware restore: %s", err)
+            self.data.last_error = f"Applied snapshot invalid on startup: {err}"
+            self.data.sync_status = SYNC_ERROR  # type: ignore[assignment]
+            await self.runtime.store.async_save()
+            return
+
+        if self.runtime.sync_lock.locked():
+            return
+        async with self.runtime.sync_lock:
+            try:
+                result = await asyncio.wait_for(
+                    self.runtime.adapter.async_apply_profile(applied),
+                    timeout=self.runtime.sync_timeout,
+                )
+            except TimeoutError:
+                result = SyncResult(
+                    success=False,
+                    error=f"Startup restore timed out after {self.runtime.sync_timeout:.0f}s",
+                    confirmed_steps=[],
+                )
+            if result.success:
+                _LOGGER.info(
+                    "Restored panel '%s' from applied snapshot (%s)",
+                    self.runtime.mapping.panel_name,
+                    applied.id,
+                )
+                try:
+                    hardware = await self.runtime.adapter.async_read_hardware_state()
+                    if self._hardware_differs_from_snapshot(hardware):
+                        self.data.sync_status = SYNC_OUT_OF_SYNC  # type: ignore[assignment]
+                    else:
+                        self.data.refresh_pending_status()
+                except Exception:  # noqa: BLE001
+                    self.data.refresh_pending_status()
+            else:
+                self.data.last_error = result.error or "Startup restore failed"
+                self.data.sync_status = SYNC_ERROR  # type: ignore[assignment]
+                _LOGGER.error(
+                    "Startup restore failed for '%s': %s",
+                    self.runtime.mapping.panel_name,
+                    self.data.last_error,
+                )
+            await self.runtime.store.async_save()
 
     async def _async_handle_physical_press(self, index: int, turned_on: bool) -> None:
         profile = self.data.active_profile()
@@ -136,6 +256,9 @@ class PanelCoordinator:
             return
         if profile.mode == MODE_COVER:
             await self._async_cover_press(profile, index, turned_on)
+            return
+        if profile.mode == MODE_MIXED:
+            await self._async_mixed_press(profile, index, turned_on)
             return
         if profile.mode == MODE_TOGGLE:
             await self._async_execute_button_action(profile, index, turned_on)
@@ -152,6 +275,120 @@ class PanelCoordinator:
             return
         if profile.mode == MODE_RADIO_OPTIONAL:
             await self._async_radio_optional(profile, index, turned_on)
+
+    # ------------------------------------------------------------------
+    # Mixed mode — per-button roles
+    #
+    # Each visible button has role: toggle | momentary | radio |
+    # cover_open | cover_close. Engines below reuse the dedicated cover /
+    # radio / pulse helpers so safety contracts stay identical.
+    # ------------------------------------------------------------------
+
+    async def _async_mixed_press(
+        self, profile: Profile, index: int, turned_on: bool
+    ) -> None:
+        """Route a physical press by the button's mixed-mode role."""
+        role = profile.button_role(index)
+        if role in {BUTTON_ROLE_COVER_OPEN, BUTTON_ROLE_COVER_CLOSE}:
+            await self._async_cover_press(profile, index, turned_on)
+            return
+        if role == BUTTON_ROLE_MOMENTARY:
+            await self._async_momentary_press(profile, index, turned_on)
+            return
+        if role == BUTTON_ROLE_RADIO:
+            await self._async_radio_split(profile, index, turned_on)
+            return
+        await self._async_execute_button_action(profile, index, turned_on)
+
+    # ------------------------------------------------------------------
+    # Momentary (timed pulse) engine — used by mixed role=momentary
+    #
+    # Press contract:
+    #   * Physical ON → run HA action once, arm OFF after pulse_time_s.
+    #   * Re-press while ON/timer armed → cancel timer and force OFF
+    #     (fail-safe; no second action). On latching panels the re-press
+    #     arrives as physical OFF; an ON while a timer is already armed
+    #     is treated the same way.
+    #   * Timer expiry → force OFF with transition suppression (no action).
+    # ------------------------------------------------------------------
+
+    async def _async_momentary_press(
+        self, profile: Profile, index: int, turned_on: bool
+    ) -> None:
+        """Handle a physical press for a momentary-role button."""
+        button = profile.button_by_index(index)
+        if button is None or button.role != BUTTON_ROLE_MOMENTARY:
+            await self._async_execute_button_action(profile, index, turned_on)
+            return
+
+        async with self.runtime.momentary.lock:
+            armed = index in self.runtime.momentary.timers
+            if not turned_on:
+                self.runtime.momentary.cancel_timer(index)
+                return
+            if armed:
+                self.runtime.momentary.cancel_timer(index)
+                await self.runtime.adapter.async_set_relay(
+                    index, False, suppress_event=True
+                )
+                return
+            await self._async_execute_button_action(profile, index, True)
+            duration = button.pulse_time_s
+            self.runtime.momentary.timers[index] = self.hass.async_create_task(
+                self._async_momentary_pulse_timer(profile.id, index, duration)
+            )
+
+    async def _async_momentary_pulse_timer(
+        self, profile_id: str, index: int, duration: float
+    ) -> None:
+        """Turn a momentary relay OFF after the configured pulse time."""
+        try:
+            await asyncio.sleep(duration)
+        except asyncio.CancelledError:
+            raise
+        async with self.runtime.momentary.lock:
+            timer = self.runtime.momentary.timers.get(index)
+            current = asyncio.current_task()
+            if timer is not current:
+                return
+            self.runtime.momentary.timers.pop(index, None)
+            profile = self.data.active_profile()
+            if (
+                profile is None
+                or profile.id != profile_id
+                or profile.mode != MODE_MIXED
+                or not profile.is_momentary_button(index)
+            ):
+                await self.runtime.adapter.async_set_relay(
+                    index, False, suppress_event=True
+                )
+                return
+            await self.runtime.adapter.async_set_relay(
+                index, False, suppress_event=True
+            )
+
+    async def _async_momentary_abort(self) -> None:
+        """Cancel all pulse timers and force momentary-role relays OFF.
+
+        Non-momentary buttons are left alone so latched toggles / radio /
+        cover engines are not disturbed. Remembered timer indexes are always
+        forced OFF even after leaving mixed mode.
+        """
+        async with self.runtime.momentary.lock:
+            indexes = set(self.runtime.momentary.timers)
+            self.runtime.momentary.cancel_all()
+            profile = self.data.active_profile()
+            if profile is not None and profile.mode == MODE_MIXED:
+                indexes.update(profile.momentary_button_indexes())
+            for index in sorted(indexes):
+                try:
+                    await self.runtime.adapter.async_set_relay(
+                        index, False, suppress_event=True
+                    )
+                except Exception as err:  # noqa: BLE001
+                    _LOGGER.error(
+                        "Momentary abort failed to turn off button %s: %s", index, err
+                    )
 
     async def _async_radio_split(self, profile: Profile, index: int, turned_on: bool) -> None:
         """Handle radio_split: exclusivity only within the button's group."""
@@ -389,7 +626,11 @@ class PanelCoordinator:
     async def _async_cover_abort(self, reason: str) -> None:
         """Stop every cover and de-energize all known direction relays."""
         profile = self.data.active_profile()
-        covers = list(profile.covers) if profile is not None and profile.mode == MODE_COVER else []
+        covers = (
+            list(profile.covers)
+            if profile is not None and profile.mode in {MODE_COVER, MODE_MIXED}
+            else []
+        )
         state = self.runtime.cover
         if (
             not covers
@@ -473,7 +714,11 @@ class PanelCoordinator:
         they mirror the first moving cover, else the first configured cover.
         """
         profile = self.data.active_profile()
-        covers = list(profile.covers) if profile is not None and profile.mode == MODE_COVER else []
+        covers = (
+            list(profile.covers)
+            if profile is not None and profile.mode in {MODE_COVER, MODE_MIXED}
+            else []
+        )
         cover_states: list[dict[str, Any]] = []
         for cover in covers:
             motion = self.runtime.cover.get(cover.id)
@@ -498,7 +743,16 @@ class PanelCoordinator:
             selected = cover_states[0]
 
         return {
-            "active": bool(profile is not None and profile.mode == MODE_COVER),
+            "active": bool(
+                profile is not None
+                and (
+                    profile.mode == MODE_COVER
+                    or (
+                        profile.mode == MODE_MIXED
+                        and bool(profile.all_cover_relay_indexes())
+                    )
+                )
+            ),
             "state": (selected or {}).get("state", "idle"),
             "direction": (selected or {}).get("direction"),
             "duration": (selected or {}).get("duration"),
@@ -559,8 +813,9 @@ class PanelCoordinator:
             profile = self.data.active_profile()
             if profile is None:
                 raise ProfileNotFoundError("No active profile")
-            # Never rewrite relays while a motor is running.
+            # Never rewrite relays while a motor or pulse is running.
             await self._async_cover_abort(COVER_REASON_ABORT)
+            await self._async_momentary_abort()
             self.data.sync_status = SYNC_SYNCING  # type: ignore[assignment]
             self.data.last_error = None
             self.runtime.async_notify()
@@ -649,6 +904,7 @@ class PanelCoordinator:
             raise ProfileNotFoundError(profile_id)
         if profile_id != self.data.active_profile_id:
             await self._async_cover_abort(COVER_REASON_ABORT)
+            await self._async_momentary_abort()
         self.data.active_profile_id = profile_id
         self.data.refresh_pending_status()
         await self.runtime.store.async_save()
@@ -680,6 +936,7 @@ class PanelCoordinator:
         if profile_id == self.data.active_profile_id:
             # Button mapping or travel times may have changed under a moving motor.
             await self._async_cover_abort(COVER_REASON_ABORT)
+            await self._async_momentary_abort()
         self.data.profiles[profile_id] = profile
         self.data.refresh_pending_status()
         await self._async_after_draft_change()
@@ -691,6 +948,8 @@ class PanelCoordinator:
             raise ValueError(f"Unsupported mode: {profile.mode}")
         if profile.mode == MODE_RADIO_SPLIT:
             validate_radio_groups(profile.radio_groups)
+        if profile.mode == MODE_MIXED:
+            validate_mixed_profile(profile)
         if profile.mode == MODE_COVER:
             validate_covers(profile.covers, gang_count=profile.gang_count)
         for button in profile.buttons:
@@ -713,6 +972,7 @@ class PanelCoordinator:
             raise ValueError("At least one profile must remain")
         if profile_id == self.data.active_profile_id:
             await self._async_cover_abort(COVER_REASON_ABORT)
+            await self._async_momentary_abort()
         del self.data.profiles[profile_id]
         if self.data.active_profile_id == profile_id:
             self.data.active_profile_id = next(iter(self.data.profiles))
@@ -810,6 +1070,7 @@ class PanelCoordinator:
             imported[profile.id] = profile
 
         await self._async_cover_abort(COVER_REASON_ABORT)
+        await self._async_momentary_abort()
         if mode == "replace":
             self.data.profiles = imported
         else:
@@ -845,6 +1106,9 @@ class PanelCoordinator:
         if profile.mode == MODE_COVER and profile.is_cover_button(button):
             # Cover buttons drive the motor, never an arbitrary stored action.
             await self._async_cover_press(profile, button, True)
+            return
+        if profile.mode == MODE_MIXED:
+            await self._async_mixed_press(profile, button, True)
             return
         await self._async_execute_button_action(profile, button, True)
 

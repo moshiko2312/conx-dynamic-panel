@@ -20,6 +20,30 @@ type UnloadCallback = Callable[[], Coroutine[Any, Any, None] | None]
 
 
 @dataclass(slots=True)
+class MomentaryRuntime:
+    """Live timed-pulse state for momentary_mix buttons on one panel entry.
+
+    Each momentary button may have at most one armed OFF timer. ``lock``
+    serializes press/timer/abort decisions so a re-press cannot race the
+    expiry handler.
+    """
+
+    lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+    timers: dict[int, asyncio.Task[None]] = field(default_factory=dict)
+
+    def cancel_timer(self, index: int) -> None:
+        """Cancel and drop the pulse timer for one button, if any."""
+        timer = self.timers.pop(index, None)
+        if timer is not None and not timer.done():
+            timer.cancel()
+
+    def cancel_all(self) -> None:
+        """Cancel every armed pulse timer without touching hardware."""
+        for index in list(self.timers):
+            self.cancel_timer(index)
+
+
+@dataclass(slots=True)
 class CoverMotion:
     """Live motion state for one cover mapping on a panel entry."""
 
@@ -129,6 +153,7 @@ class PanelRuntime:
     suppression: SuppressionTracker
     sync_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     cover: CoverRuntime = field(default_factory=CoverRuntime)
+    momentary: MomentaryRuntime = field(default_factory=MomentaryRuntime)
     unloading: bool = False
     listeners: list[Callable[[], None]] = field(default_factory=list)
     update_callbacks: list[Callable[[], None]] = field(default_factory=list)

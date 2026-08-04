@@ -214,6 +214,23 @@ Rules:
 
 Use a per-entry async lock so only one sync can run at a time.
 
+## Persistence and restart restore
+
+Versioned `Store` persistence (`schema_version`, profiles, `active_profile_id`, `applied_snapshot`, sync metadata) must survive Home Assistant restarts. Migrations must never drop profiles or the applied snapshot.
+
+On integration setup / HA start:
+
+1. Load storage (with migrations).
+2. Abort cover motion and momentary pulse timers (safe OFF for those relays).
+3. If an `applied_snapshot` exists, **re-apply it to hardware** (names, colors, radar, backlight, child lock, mode relay intents). Draft profiles are not overwritten — applied wins for the panel; the editor keeps any unsaved/pending draft.
+4. If restore fails, keep the snapshot on disk, set `error`, and expose `last_error`.
+
+Live state:
+
+- Listen to mapped relay entities for physical presses (with transition suppression for self-writes).
+- Always notify the card when mapped entity states change so UI tracks the real world (Zigbee restore, external control).
+- Listen to other mapped entities (names/colors/radar/backlight/lock); when they drift from the applied snapshot outside an active sync, mark `out_of_sync`.
+
 ## Profile modes
 
 ### Toggle
@@ -245,6 +262,19 @@ Multiple independent radio groups via profile `radio_groups` (each `{ id, button
 - Physical ON within a group: execute action, suppress and turn other members of that group only OFF.
 - Physical OFF within a group: suppress and restore that member to ON (classic radio; no all-off).
 - Sync does not force a global single selected relay pattern.
+
+### Mixed (free mix)
+
+Per-button `role` on the profile (`mode: mixed`):
+
+| Role | Behavior |
+|---|---|
+| `toggle` | Latched on/off; action on every real physical transition |
+| `momentary` | ON + action once, then OFF after `pulse_time_s`; re-press cancels and forces OFF |
+| `radio` | Classic radio within `radio_groups` (ungrouped radio acts as toggle) |
+| `cover_open` / `cover_close` | Same fail-safe cover engine; `cover_id` + `covers[]` timing |
+
+Validation: cover open/close must be paired and exclusive; radio groups exclusive; momentary timers cancel on profile change / sync / unload. `gang_count === 1` allows toggle and momentary only. Legacy modes stay available; alias `momentary_mix` normalizes to `mixed`.
 
 ### Cover
 

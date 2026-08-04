@@ -195,6 +195,46 @@ const MULTI_BUTTON_MODES = new Set([
   "cover",
 ]);
 
+export const PULSE_TIME_MIN = 0.1;
+export const PULSE_TIME_MAX = 600;
+export const DEFAULT_PULSE_TIME = 2;
+
+export const BUTTON_ROLES = [
+  "toggle",
+  "momentary",
+  "radio",
+  "cover_open",
+  "cover_close",
+] as const;
+
+const MULTI_BUTTON_ROLES = new Set(["radio", "cover_open", "cover_close"]);
+
+export function clampPulseTime(value: unknown, fallback = DEFAULT_PULSE_TIME): number {
+  return clampNumber(value, PULSE_TIME_MIN, PULSE_TIME_MAX, fallback);
+}
+
+export function normalizeButtonRole(
+  value: unknown,
+  legacyPressMode?: unknown
+): (typeof BUTTON_ROLES)[number] {
+  const role = String(value || "").trim().toLowerCase();
+  if ((BUTTON_ROLES as readonly string[]).includes(role)) {
+    return role as (typeof BUTTON_ROLES)[number];
+  }
+  const legacy = String(legacyPressMode || "").trim().toLowerCase();
+  if (legacy === "momentary") {
+    return "momentary";
+  }
+  return "toggle";
+}
+
+export function rolesForGangCount(gangCount: number): string[] {
+  if (clampGangCount(gangCount) > 1) {
+    return [...BUTTON_ROLES];
+  }
+  return BUTTON_ROLES.filter((role) => !MULTI_BUTTON_ROLES.has(role));
+}
+
 export function isMultiButtonMode(mode: string): boolean {
   return MULTI_BUTTON_MODES.has(mode);
 }
@@ -325,10 +365,11 @@ export function normalizeCovers(
 export function normalizeProfile(profile: Profile): Profile {
   const cloned = structuredClone(profile);
   cloned.gang_count = clampGangCount(cloned.gang_count ?? 4);
-  cloned.mode = coerceModeForGangCount(
-    String(cloned.mode || "toggle"),
-    cloned.gang_count
-  ) as Profile["mode"];
+  let mode = String(cloned.mode || "toggle");
+  if (mode === "momentary_mix") {
+    mode = "mixed";
+  }
+  cloned.mode = coerceModeForGangCount(mode, cloned.gang_count) as Profile["mode"];
   if (typeof cloned.backlight_brightness !== "number" || !Number.isFinite(cloned.backlight_brightness)) {
     cloned.backlight_brightness = 100;
   } else {
@@ -337,23 +378,43 @@ export function normalizeProfile(profile: Profile): Profile {
       Math.min(100, Math.round(cloned.backlight_brightness))
     );
   }
+  const allowedRoles = new Set(rolesForGangCount(cloned.gang_count));
   cloned.buttons = [1, 2, 3, 4].map((index) => {
     const found = cloned.buttons?.find((button) => button.index === index);
+    let role = normalizeButtonRole(found?.role, (found as { press_mode?: string } | undefined)?.press_mode);
+    if (!allowedRoles.has(role)) {
+      role = "toggle";
+    }
     return {
       index,
       name: found?.name ?? `Button ${index}`,
       action: found?.action ?? null,
       radio_member: found?.radio_member !== false,
+      role,
+      pulse_time_s: clampPulseTime(found?.pulse_time_s, DEFAULT_PULSE_TIME),
+      cover_id:
+        role === "cover_open" || role === "cover_close"
+          ? String(found?.cover_id || "cover_1").trim() || "cover_1"
+          : null,
     };
   });
   const groups = Array.isArray(cloned.radio_groups) ? cloned.radio_groups : [];
+  const radioIndexes = new Set(
+    cloned.buttons
+      .filter((button) => button.role === "radio" && button.index <= cloned.gang_count)
+      .map((button) => button.index)
+  );
   const normalizedGroups = groups.map((group, index) => ({
     id: String(group?.id || `g${index + 1}`),
     buttons: Array.isArray(group?.buttons)
       ? group.buttons
           .map((n) => Number(n))
           .filter(
-            (n, i, arr) => n >= 1 && n <= cloned.gang_count && arr.indexOf(n) === i
+            (n, i, arr) =>
+              n >= 1 &&
+              n <= cloned.gang_count &&
+              arr.indexOf(n) === i &&
+              (cloned.mode !== "mixed" || radioIndexes.has(n))
           )
       : [],
   }));

@@ -146,6 +146,10 @@ Classic radio among radio members: exactly one button remains ON. Re-pressing th
 
 Define multiple radio groups (for example buttons 1+4 in one group and 2+3 in another). Within a group exactly one button stays ON (classic radio; no self-toggle-off). Buttons not assigned to any group behave as independent toggles.
 
+### Free mix (`mixed`)
+
+Configure each button separately with a `role`: toggle, momentary (timed pulse), radio (via radio groups), or cover open/close. Momentary presses turn the relay ON, run the button action once, then turn it OFF after `pulse_time_s`. A re-press cancels the timer and forces OFF. Cover roles reuse the fail-safe motor engine. Legacy single-behavior modes remain available.
+
 ### Cover
 
 Timed shutter/awning control. Choose which panel buttons are **Open** and **Close** (any two of L1–L4, they must differ) and set a travel time for each direction. Remaining buttons stay independent toggles.
@@ -174,6 +178,8 @@ Each profile has:
 
 - **Draft:** editable configuration stored by the integration.
 - **Applied snapshot:** the last configuration successfully written to the physical panel.
+
+Both survive Home Assistant restarts via versioned storage. On startup the integration re-applies the **applied snapshot** to the physical panel so hardware matches the last successful Sync; any pending draft remains in the editor until you Sync again.
 
 Editing changes only the draft and sets the state to `pending`.
 
