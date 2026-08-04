@@ -720,6 +720,9 @@ export class ConXDynamicPanelCard extends LitElement {
     this._patchDraft((draft) => {
       draft.mode = mode;
       if (draft.mode === "cover") {
+        // 4-gang panels need gang_count=4 so two covers (floor(n/2)) are available.
+        const gangs = clampGangCount(draft.gang_count ?? 4);
+        draft.gang_count = gangs < 4 ? 4 : gangs;
         draft.covers = normalizeCovers(draft);
         delete draft.cover;
       } else if (draft.mode === "radio_split") {
@@ -1068,30 +1071,51 @@ export class ConXDynamicPanelCard extends LitElement {
     `;
   }
 
+  private _renderEmptyCoverSlot(index: number) {
+    return html`
+      <div class="cover-block cover-block-empty" data-cover-slot=${index}>
+        <div class="cover-head">
+          <span class="menu-label"
+            >${this.t("card.cover")} ${index + 1}</span
+          >
+          <span class="cover-slot-status">${this.t("card.cover_slot_empty")}</span>
+        </div>
+        <p class="radio-groups-hint">${this.t("card.cover_slot_hint")}</p>
+        <button
+          type="button"
+          class="btn primary cover-add-slot"
+          data-cover-add
+          ?disabled=${this._busy}
+          @click=${() => this._addCover()}
+        >
+          ${this.t("card.cover_add")}
+        </button>
+      </div>
+    `;
+  }
+
   private _renderCoverEditor() {
     if (!this._draft || this._draft.mode !== "cover") {
       return nothing;
     }
     const covers = this._covers();
     const maxCovers = maxCoversForGangs(this._gangCount());
+    const slots = Array.from(
+      { length: Math.max(maxCovers, covers.length) },
+      (_, index) => covers[index] ?? null
+    );
     return html`
       <div class="cover-section" data-cover-editor>
         <div class="cover-head">
           <span class="menu-label">${this.t("card.cover")}</span>
-          ${covers.length < maxCovers
-            ? html`<button
-                type="button"
-                class="btn"
-                data-cover-add
-                ?disabled=${this._busy}
-                @click=${() => this._addCover()}
-              >
-                ${this.t("card.cover_add")}
-              </button>`
-            : nothing}
         </div>
         <p class="radio-groups-hint">${this.t("card.cover_hint")}</p>
-        ${covers.map((cover, index) => this._renderOneCoverEditor(cover, index))}
+        ${this._renderGangPicker()}
+        ${slots.map((cover, index) =>
+          cover
+            ? this._renderOneCoverEditor(cover, index)
+            : this._renderEmptyCoverSlot(index)
+        )}
         <p class="cover-safety">${this.t("card.cover_safety")}</p>
       </div>
     `;
@@ -3657,22 +3681,34 @@ ${this._renderGangPicker()}
       width: max-content;
       max-width: 100%;
     }
+    .cover-section .gang-picker {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      width: 100%;
+      max-width: none;
+      margin-bottom: 4px;
+    }
+    .cover-section .gang-picker .radio-member {
+      min-height: 42px;
+    }
 
     .mode-picker {
       display: flex;
       flex-wrap: wrap;
-      gap: 6px;
-      width: max-content;
-      max-width: 100%;
+      gap: 8px;
+      width: 100%;
     }
     .mode-picker .radio-member {
-      flex: 0 1 auto;
-      padding: 8px 10px;
-      min-height: 34px;
+      flex: 1 1 0;
+      min-width: min(100%, 5.25rem);
+      padding: 12px 8px;
+      min-height: 44px;
     }
     .mode-picker .radio-member-label {
-      font-size: 0.72rem;
-      white-space: nowrap;
+      font-size: 0.82rem;
+      font-weight: 800;
+      white-space: normal;
+      text-align: center;
+      line-height: 1.2;
     }
 
     .color-select {
@@ -3865,9 +3901,25 @@ ${this._renderGangPicker()}
       border-top: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
     }
     .cover-block:first-of-type {
-      margin-top: 0;
-      padding-top: 0;
-      border-top: none;
+      margin-top: 8px;
+      padding-top: 10px;
+    }
+    .cover-block-empty {
+      padding: 12px;
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      border-top: 1px dashed var(--border);
+      background: color-mix(in srgb, var(--surface) 70%, transparent);
+    }
+    .cover-slot-status {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--text-muted);
+    }
+    .cover-add-slot {
+      width: 100%;
+      min-height: 44px;
+      font-weight: 800;
     }
     .cover-head {
       display: flex;
@@ -3913,7 +3965,15 @@ ${this._renderGangPicker()}
       direction: ltr;
       display: grid;
       grid-template-columns: repeat(var(--conx-gang-count, 4), minmax(0, 1fr));
-      gap: 6px;
+      gap: 8px;
+      width: 100%;
+    }
+    .cover-buttons .radio-member {
+      min-height: 42px;
+      padding: 10px 4px;
+    }
+    .cover-buttons .radio-member-label {
+      font-size: 0.85rem;
     }
     .cover-safety {
       margin: 10px 0 0;

@@ -683,7 +683,7 @@ describe("custom elements", () => {
     expect(buttonsPanel?.querySelector("[data-mode-picker]")).toBeTruthy();
   });
 
-  it("places mode picker at the top of the buttons tab as compact chips", async () => {
+  it("places full-width mode chips at the top of the buttons tab", async () => {
     const callWS = vi.fn().mockResolvedValue(panelPayload({ sync_status: "synced" }));
     const el = await mountCard({ language: "en", callWS });
     el._activeTab = "buttons";
@@ -712,8 +712,13 @@ describe("custom elements", () => {
     (modePicker.querySelector('[data-mode="cover"]') as HTMLButtonElement).click();
     await el.updateComplete;
     expect(el._draft?.mode).toBe("cover");
+    expect(el._draft?.gang_count).toBe(4);
     const coverEl = el.shadowRoot?.querySelector("[data-cover-editor]");
     expect(coverEl).toBeTruthy();
+    expect(coverEl?.querySelector("[data-cover-slot]")).toBeTruthy();
+    expect(coverEl?.querySelector("[data-cover-add]")?.textContent?.trim()).toBe(
+      "Add cover"
+    );
     const modeEl = el.shadowRoot?.querySelector("[data-mode-picker]");
     expect(
       modeEl &&
@@ -837,6 +842,54 @@ describe("cover mode", () => {
     });
     await el.updateComplete;
     expect(el.shadowRoot?.querySelector("[data-cover-editor]")).toBeTruthy();
+  });
+
+  it("shows Cover 1 and an Add-cover slot for Cover 2 on a 4-gang panel", async () => {
+    const callWS = vi
+      .fn()
+      .mockResolvedValue(panelPayload({ profiles: { lighting: coverProfile() } }));
+    const el = await mountCard({ language: "en", callWS });
+    el._activeTab = "buttons";
+    await el.updateComplete;
+
+    const editor = el.shadowRoot?.querySelector("[data-cover-editor]") as HTMLElement;
+    expect(editor).toBeTruthy();
+    expect(editor.querySelector("[data-gang-picker]")).toBeTruthy();
+    expect(editor.querySelectorAll(".cover-block").length).toBe(2);
+    expect(editor.querySelector("[data-cover-slot='1']")).toBeTruthy();
+    expect(editor.querySelector("[data-cover-add]")?.textContent?.trim()).toBe("Add cover");
+
+    (editor.querySelector("[data-cover-add]") as HTMLButtonElement).click();
+    await el.updateComplete;
+    expect(el._draft?.covers?.length).toBe(2);
+    expect(el._draft?.covers?.[1]?.open_button).toBe(2);
+    expect(el._draft?.covers?.[1]?.close_button).toBe(4);
+    // After adding, the empty slot is gone and both editors remain.
+    const updated = el.shadowRoot?.querySelector("[data-cover-editor]") as HTMLElement;
+    expect(updated.querySelector("[data-cover-slot]")).toBeFalsy();
+    expect(updated.querySelectorAll(".cover-block").length).toBe(2);
+    expect(updated.querySelector("[data-cover-add]")).toBeFalsy();
+  });
+
+  it("raises gang_count to 4 when switching into cover mode", async () => {
+    const callWS = vi.fn().mockResolvedValue(
+      panelPayload({
+        profiles: {
+          lighting: { ...sampleProfile, gang_count: 2, mode: "toggle" },
+        },
+      })
+    );
+    const el = await mountCard({ language: "en", callWS });
+    el._activeTab = "buttons";
+    await el.updateComplete;
+    expect(el._draft?.gang_count).toBe(2);
+    (el.shadowRoot?.querySelector(
+      '[data-mode="cover"]'
+    ) as HTMLButtonElement).click();
+    await el.updateComplete;
+    expect(el._draft?.mode).toBe("cover");
+    expect(el._draft?.gang_count).toBe(4);
+    expect(el.shadowRoot?.querySelector("[data-cover-slot='1']")).toBeTruthy();
   });
 
   it("swaps directions instead of assigning one button to both", async () => {

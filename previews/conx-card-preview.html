@@ -596,21 +596,31 @@
       width: max-content;
       max-width: 100%;
     }
+    .cover-section .gang-picker {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      width: 100%;
+      max-width: none;
+      margin-bottom: 4px;
+    }
+    .cover-section .gang-picker .radio-member { min-height: 42px; }
     .mode-picker {
       display: flex;
       flex-wrap: wrap;
-      gap: 6px;
-      width: max-content;
-      max-width: 100%;
+      gap: 8px;
+      width: 100%;
     }
     .mode-picker .radio-member {
-      flex: 0 1 auto;
-      padding: 8px 10px;
-      min-height: 34px;
+      flex: 1 1 0;
+      min-width: min(100%, 5.25rem);
+      padding: 12px 8px;
+      min-height: 44px;
     }
     .mode-picker .radio-member-label {
-      font-size: .72rem;
-      white-space: nowrap;
+      font-size: .82rem;
+      font-weight: 800;
+      white-space: normal;
+      text-align: center;
+      line-height: 1.2;
     }
     .color-select { display:grid; grid-template-columns:18px 1fr; align-items:center; gap:8px; }
     .swatch { width:18px; height:18px; border-radius:50%; border:1px solid rgba(0,0,0,.25); }
@@ -1002,6 +1012,39 @@
       text-transform: uppercase;
       color: var(--text-muted);
     }
+    .cover-block {
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+    }
+    .cover-block:first-of-type {
+      margin-top: 8px;
+      padding-top: 10px;
+    }
+    .cover-block-empty {
+      padding: 12px;
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      border-top: 1px dashed var(--border);
+      background: color-mix(in srgb, var(--surface) 70%, transparent);
+    }
+    .cover-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .cover-slot-status {
+      font-size: .75rem;
+      font-weight: 700;
+      color: var(--text-muted);
+    }
+    .cover-add-slot {
+      width: 100%;
+      min-height: 44px;
+      font-weight: 800;
+    }
     .cover-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1025,9 +1068,15 @@
       /* Physical panel order: L1 leftmost regardless of UI language RTL. */
       direction: ltr;
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 6px;
+      grid-template-columns: repeat(var(--conx-gang-count, 4), minmax(0, 1fr));
+      gap: 8px;
+      width: 100%;
     }
+    .cover-buttons .radio-member {
+      min-height: 42px;
+      padding: 10px 4px;
+    }
+    .cover-buttons .radio-member-label { font-size: .85rem; }
     .cover-safety {
       margin: 10px 0 0;
       font-size: .8rem;
@@ -1040,6 +1089,12 @@
       border-radius: 12px;
       border: 1px solid var(--border);
       background: var(--input-bg);
+    }
+    .cover-control[hidden] { display: none !important; }
+    .cover-control-block + .cover-control-block {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
     }
     .cover-control-head {
       display: flex;
@@ -1203,17 +1258,7 @@
               </div>
             </div>
           </div>
-          <div class="cover-control" id="cover-control" hidden>
-            <div class="cover-control-head">
-              <span class="menu-label" data-i18n="card.cover_live">Cover control</span>
-              <span class="cover-state" id="cover-state"></span>
-            </div>
-            <div class="cover-control-row">
-              <button type="button" class="btn" data-cover-command="open" data-i18n="card.cover_open">Open</button>
-              <button type="button" class="btn danger" data-cover-command="stop" data-i18n="card.cover_stop">Stop</button>
-              <button type="button" class="btn" data-cover-command="close" data-i18n="card.cover_close">Close</button>
-            </div>
-          </div>
+          <div class="cover-control" id="cover-control" hidden></div>
         </div>
       </section>
 
@@ -1303,40 +1348,7 @@
                 </div>
                 <div class="radio-groups-error" id="radio-groups-error-buttons" hidden></div>
               </div>
-              <div class="cover-section" id="cover-section" hidden>
-                <span class="menu-label" data-i18n="card.cover">Cover / shutter</span>
-                <p class="radio-groups-hint" data-i18n="card.cover_hint"></p>
-                <div class="cover-grid">
-                  <div class="cover-field">
-                    <span class="cover-label" data-i18n="card.cover_open_button">Open button</span>
-                    <div class="cover-buttons" id="cover-open-buttons" role="radiogroup" dir="ltr"></div>
-                  </div>
-                  <div class="cover-field">
-                    <span class="cover-label" data-i18n="card.cover_close_button">Close button</span>
-                    <div class="cover-buttons" id="cover-close-buttons" role="radiogroup" dir="ltr"></div>
-                  </div>
-                </div>
-                <div class="cover-times">
-                  <label class="field"><span id="cover-open-time-label">Open travel time</span>
-                    <input type="number" id="cover-open-time" min="1" max="600" step="0.5" />
-                  </label>
-                  <label class="field"><span id="cover-close-time-label">Close travel time</span>
-                    <input type="number" id="cover-close-time" min="1" max="600" step="0.5" />
-                  </label>
-                  <label class="field"><span id="cover-settle-label">Direction change delay</span>
-                    <input type="number" id="cover-settle" min="0" max="5" step="0.1" />
-                  </label>
-                </div>
-                <p class="radio-groups-hint" data-i18n="card.cover_settle_hint"></p>
-                <label class="field field-compact-select"><span data-i18n="card.cover_opposite">Opposite direction press</span>
-                  <select id="cover-opposite">
-                    <option value="stop_only" data-i18n-option="cover.stop_only">Stop only</option>
-                    <option value="stop_then_reverse" data-i18n-option="cover.stop_then_reverse">Stop, then reverse</option>
-                  </select>
-                </label>
-                <div class="radio-groups-error" id="cover-same-button-error" hidden></div>
-                <p class="cover-safety" data-i18n="card.cover_safety"></p>
-              </div>
+              <div class="cover-section" id="cover-section" hidden></div>
               <div id="buttons-editor"></div>
             </div>
           </section>
@@ -1363,14 +1375,15 @@
       warm_white: "#ffe0b2", warm_yellow: "#ffc400",
     };
     const COLORS = Object.keys(COLOR_PREVIEW);
-    const STORAGE_KEY = "conx-card-preview-state-v9";
-    const LEGACY_KEYS = ["conx-card-preview-state-v2", "conx-card-preview-state-v3", "conx-card-preview-state-v4", "conx-card-preview-state-v5", "conx-card-preview-state-v6", "conx-card-preview-state-v7", "conx-card-preview-state-v8"];
+    const STORAGE_KEY = "conx-card-preview-state-v10";
+    const LEGACY_KEYS = ["conx-card-preview-state-v2", "conx-card-preview-state-v3", "conx-card-preview-state-v4", "conx-card-preview-state-v5", "conx-card-preview-state-v6", "conx-card-preview-state-v7", "conx-card-preview-state-v8", "conx-card-preview-state-v9"];
     const PROFILE_MODES = ["toggle", "radio_mandatory", "radio_optional", "radio_split", "cover"];
     const COVER_TIME_MIN = 1;
     const COVER_TIME_MAX = 600;
     const COVER_SETTLE_MIN = 0;
     const COVER_SETTLE_MAX = 5;
     const DEFAULT_COVER = {
+      id: "cover_1",
       open_button: 1, close_button: 2,
       open_time_s: 20, close_time_s: 20,
       direction_settle_s: 0.5, opposite_press: "stop_only",
@@ -1467,6 +1480,12 @@
         "card.cover_state_idle": "Stopped", "card.cover_state_open": "Opening", "card.cover_state_close": "Closing",
         "card.cover_seconds": "s",
         "card.cover_safety": "Safety: presses run through the integration. Both direction relays are forced off on stop, timer expiry, profile change, sync, and reload.",
+        "card.cover_add": "Add cover",
+        "card.cover_remove": "Remove",
+        "card.cover_slot_empty": "Not configured",
+        "card.cover_slot_hint": "Assign the remaining buttons to a second shutter. Each cover needs two different buttons (open + close).",
+        "card.gang_count": "Panel gangs",
+        "card.gang_count_hint": "How many physical buttons (L1…Ln) this profile uses. Cover count is limited to floor(n/2). Choose 4 to use two covers.",
         "cover.stop_only": "Stop only", "cover.stop_then_reverse": "Stop, then reverse",
       },
       he: {
@@ -1550,6 +1569,12 @@
         "card.cover_state_idle": "עצור", "card.cover_state_open": "נפתח", "card.cover_state_close": "נסגר",
         "card.cover_seconds": "שנ׳",
         "card.cover_safety": "בטיחות: הלחיצות עוברות דרך האינטגרציה. שני ממסרי הכיוון מכובים בעצירה, בתום הזמן, בהחלפת פרופיל, בסנכרון ובטעינה מחדש.",
+        "card.cover_add": "הוסף תריס",
+        "card.cover_remove": "הסר",
+        "card.cover_slot_empty": "לא מוגדר",
+        "card.cover_slot_hint": "שייכו את הכפתורים הנותרים לתריס שני. לכל תריס נדרשים שני כפתורים שונים (פתיחה + סגירה).",
+        "card.gang_count": "מספר גאנגים",
+        "card.gang_count_hint": "כמה כפתורים פיזיים (L1…Ln) הפרופיל משתמש. מספר התריסים מוגבל ל־floor(n/2). בחרו 4 כדי להשתמש בשני תריסים.",
         "cover.stop_only": "עצירה בלבד", "cover.stop_then_reverse": "עצירה ואז כיוון הפוך",
       },
       ru: {
@@ -1633,6 +1658,12 @@
         "card.cover_state_idle": "Остановлено", "card.cover_state_open": "Открывается", "card.cover_state_close": "Закрывается",
         "card.cover_seconds": "с",
         "card.cover_safety": "Безопасность: нажатия обрабатываются интеграцией. Оба реле направлений принудительно выключаются при остановке, истечении таймера, смене профиля, синхронизации и перезагрузке.",
+        "card.cover_add": "Добавить ролету",
+        "card.cover_remove": "Удалить",
+        "card.cover_slot_empty": "Не настроено",
+        "card.cover_slot_hint": "Назначьте оставшиеся кнопки второй ролете. Каждой ролете нужны две разные кнопки (открыть + закрыть).",
+        "card.gang_count": "Число кнопок",
+        "card.gang_count_hint": "Сколько физических кнопок (L1…Ln) использует профиль. Число ролет ограничено floor(n/2). Выберите 4, чтобы использовать две ролеты.",
         "cover.stop_only": "Только стоп", "cover.stop_then_reverse": "Стоп, затем реверс",
       },
     };
@@ -1684,20 +1715,39 @@
       if (!Number.isFinite(parsed)) return fallback;
       return Math.min(max, Math.max(min, parsed));
     }
-    function coverButton(value, fallback) {
+    function clampGangCount(value) {
+      return Math.round(clampNumber(value, 1, 4, 4));
+    }
+    function maxCoversForGangs(gangCount) {
+      return Math.max(0, Math.floor(clampGangCount(gangCount) / 2));
+    }
+    function defaultCoverPair(slot, gangCount) {
+      const openButton = slot * 2 + 1;
+      const closeButton = slot * 2 + 2;
+      if (closeButton > gangCount) return [1, gangCount >= 2 ? 2 : 1];
+      return [openButton, closeButton];
+    }
+    function coverButton(value, fallback, gangCount) {
       const parsed = Math.round(typeof value === "number" ? value : Number(value));
-      if (!Number.isFinite(parsed) || parsed < 1 || parsed > 4) return fallback;
+      const limit = clampGangCount(gangCount || 4);
+      if (!Number.isFinite(parsed) || parsed < 1 || parsed > limit) return Math.min(fallback, limit);
       return parsed;
     }
     /** Mirror of the backend CoverConfig normalization so the preview never shows unsafe values. */
-    function normalizeCover(raw) {
+    function normalizeCover(raw, options = {}) {
+      const gangCount = clampGangCount(options.gangCount ?? 4);
+      const slot = options.slot ?? 0;
+      const defaultId = options.defaultId || `cover_${slot + 1}`;
+      const [openDefault, closeDefault] = defaultCoverPair(slot, gangCount);
       const source = raw && typeof raw === "object" ? raw : {};
-      const openButton = coverButton(source.open_button, DEFAULT_COVER.open_button);
-      let closeButton = coverButton(source.close_button, DEFAULT_COVER.close_button);
+      const openButton = coverButton(source.open_button, openDefault, gangCount);
+      let closeButton = coverButton(source.close_button, closeDefault, gangCount);
       if (closeButton === openButton) {
-        closeButton = [1, 2, 3, 4].find((i) => i !== openButton) || 2;
+        closeButton = Array.from({ length: gangCount }, (_, i) => i + 1).find((i) => i !== openButton)
+          || Math.min(openButton + 1, gangCount);
       }
       return {
+        id: String(source.id || "").trim() || defaultId,
         open_button: openButton,
         close_button: closeButton,
         open_time_s: clampNumber(source.open_time_s, COVER_TIME_MIN, COVER_TIME_MAX, DEFAULT_COVER.open_time_s),
@@ -1706,10 +1756,43 @@
         opposite_press: source.opposite_press === "stop_then_reverse" ? "stop_then_reverse" : "stop_only",
       };
     }
-    function coverDirectionFor(index, profile) {
+    function normalizeCovers(profile) {
+      const gangCount = clampGangCount(profile?.gang_count ?? 4);
+      const maxCovers = maxCoversForGangs(gangCount);
+      let covers = [];
+      if (Array.isArray(profile?.covers) && profile.covers.length) {
+        covers = profile.covers.map((item, index) =>
+          normalizeCover(item, { gangCount, defaultId: `cover_${index + 1}`, slot: index })
+        );
+      } else if (profile?.cover) {
+        covers = [normalizeCover(profile.cover, { gangCount, defaultId: "cover_1", slot: 0 })];
+      } else if (maxCovers > 0) {
+        covers = [normalizeCover(undefined, { gangCount, defaultId: "cover_1", slot: 0 })];
+      }
+      if (maxCovers === 0) return [];
+      covers = covers.slice(0, maxCovers);
+      const seen = new Set();
+      return covers.map((cover, index) => {
+        let id = cover.id || `cover_${index + 1}`;
+        let suffix = 2;
+        while (seen.has(id)) {
+          id = `${cover.id || `cover_${index + 1}`}_${suffix}`;
+          suffix += 1;
+        }
+        seen.add(id);
+        return { ...cover, id };
+      });
+    }
+    function coverForButton(index, profile) {
       const d = profile || state.draft;
       if (!d || d.mode !== "cover") return null;
-      const cover = normalizeCover(d.cover);
+      return normalizeCovers(d).find(
+        (cover) => cover.open_button === index || cover.close_button === index
+      ) || null;
+    }
+    function coverDirectionFor(index, profile) {
+      const cover = coverForButton(index, profile);
+      if (!cover) return null;
       if (cover.open_button === index) return "open";
       if (cover.close_button === index) return "close";
       return null;
@@ -1737,15 +1820,18 @@
       const profile = {
         id, name, mode: "toggle", color_on: "cyan", color_off: "blue", radar: "30s",
         backlight: true, backlight_brightness: 100, child_lock: false, selected_button: null,
+        gang_count: 4,
         ringOn: { 1: true, 2: false, 3: true, 4: false }, buttons: baseButtons,
         radio_groups: [{ id: "g1", buttons: [] }, { id: "g2", buttons: [] }],
-        cover: { ...DEFAULT_COVER },
+        covers: [{ ...DEFAULT_COVER }],
         ...overrides,
       };
       if (!PROFILE_MODES.includes(profile.mode)) profile.mode = "toggle";
+      profile.gang_count = clampGangCount(profile.gang_count ?? 4);
       profile.buttons = [1,2,3,4].map((i) => normalizeButton((profile.buttons || []).find((x) => x.index === i), i));
       profile.radio_groups = normalizeRadioGroups(profile.radio_groups);
-      profile.cover = normalizeCover(profile.cover);
+      profile.covers = normalizeCovers(profile);
+      delete profile.cover;
       if (typeof profile.backlight_brightness !== "number") profile.backlight_brightness = 100;
       return profile;
     }
@@ -1899,18 +1985,7 @@
       childLock: document.getElementById("child-lock"),
       buttonsEditor: document.getElementById("buttons-editor"),
       coverSection: document.getElementById("cover-section"),
-      coverOpenButtons: document.getElementById("cover-open-buttons"),
-      coverCloseButtons: document.getElementById("cover-close-buttons"),
-      coverOpenTime: document.getElementById("cover-open-time"),
-      coverCloseTime: document.getElementById("cover-close-time"),
-      coverOpenTimeLabel: document.getElementById("cover-open-time-label"),
-      coverCloseTimeLabel: document.getElementById("cover-close-time-label"),
-      coverSettle: document.getElementById("cover-settle"),
-      coverSettleLabel: document.getElementById("cover-settle-label"),
-      coverOpposite: document.getElementById("cover-opposite"),
-      coverSameButtonError: document.getElementById("cover-same-button-error"),
       coverControl: document.getElementById("cover-control"),
-      coverState: document.getElementById("cover-state"),
       labels: document.getElementById("faceplate-labels"),
       rings: document.getElementById("faceplate-rings"),
       faceplate: document.getElementById("faceplate"),
@@ -1989,42 +2064,59 @@
      * the two directions are never energized together. This simulation exists only so
      * the preview shows the same observable behavior.
      */
-    const coverLive = { active: false, direction: null, travelTimer: null, settleTimer: null };
-    function coverHalt() {
-      if (coverLive.travelTimer) clearTimeout(coverLive.travelTimer);
-      if (coverLive.settleTimer) clearTimeout(coverLive.settleTimer);
-      coverLive.travelTimer = null;
-      coverLive.settleTimer = null;
-      coverLive.active = false;
-      coverLive.direction = null;
+    /** Per-cover motion simulation (mirrors multi-cover backend). */
+    const coverLives = {};
+    function getCoverLive(coverId) {
+      if (!coverLives[coverId]) {
+        coverLives[coverId] = { active: false, direction: null, travelTimer: null, settleTimer: null };
+      }
+      return coverLives[coverId];
     }
-    function coverStart(direction) {
-      coverHalt();
-      const cover = normalizeCover(state.draft.cover);
+    function coverHalt(coverId) {
+      const ids = coverId ? [coverId] : Object.keys(coverLives);
+      for (const id of ids) {
+        const live = getCoverLive(id);
+        if (live.travelTimer) clearTimeout(live.travelTimer);
+        if (live.settleTimer) clearTimeout(live.settleTimer);
+        live.travelTimer = null;
+        live.settleTimer = null;
+        live.active = false;
+        live.direction = null;
+      }
+    }
+    function coverStart(direction, coverId) {
+      const covers = normalizeCovers(state.draft);
+      const cover = covers.find((item) => item.id === coverId) || covers[0];
+      if (!cover) return;
+      coverHalt(cover.id);
+      const live = getCoverLive(cover.id);
       const duration = direction === "open" ? cover.open_time_s : cover.close_time_s;
-      coverLive.active = true;
-      coverLive.direction = direction;
-      coverLive.travelTimer = setTimeout(() => {
-        coverHalt();
+      live.active = true;
+      live.direction = direction;
+      live.travelTimer = setTimeout(() => {
+        coverHalt(cover.id);
         renderCoverState();
         renderFaceplate();
       }, duration * 1000);
     }
-    function coverPress(direction) {
+    function coverPress(direction, coverId) {
       if (!state.draft || state.draft.mode !== "cover") return;
-      const cover = normalizeCover(state.draft.cover);
-      if (cover.open_button === cover.close_button) return;
-      if (!coverLive.active) {
-        coverStart(direction);
-      } else if (coverLive.direction === direction) {
-        coverHalt();
+      const covers = normalizeCovers(state.draft);
+      const cover = covers.find((item) => item.id === coverId) || covers[0];
+      if (!cover || cover.open_button === cover.close_button) return;
+      const live = getCoverLive(cover.id);
+      if (!live.active) {
+        coverStart(direction, cover.id);
+      } else if (live.direction === direction) {
+        coverHalt(cover.id);
       } else {
         // Opposite direction: always stop both first, never cross-fade.
-        coverHalt();
+        coverHalt(cover.id);
         if (cover.opposite_press === "stop_then_reverse") {
-          coverLive.settleTimer = setTimeout(() => {
-            coverLive.settleTimer = null;
-            coverStart(direction);
+          const settled = getCoverLive(cover.id);
+          settled.settleTimer = setTimeout(() => {
+            settled.settleTimer = null;
+            coverStart(direction, cover.id);
             renderCoverState();
             renderFaceplate();
           }, cover.direction_settle_s * 1000);
@@ -2032,23 +2124,57 @@
       }
       renderCoverState();
     }
-    function coverStateLabel() {
-      if (!coverLive.active || !coverLive.direction) return t("card.cover_state_idle");
-      return t("card.cover_state_" + coverLive.direction);
+    function coverStateLabel(coverId) {
+      const live = coverId ? getCoverLive(coverId) : null;
+      if (!live || !live.active || !live.direction) return t("card.cover_state_idle");
+      return t("card.cover_state_" + live.direction);
     }
     function renderCoverState() {
       const isCover = state.draft && state.draft.mode === "cover";
-      if (els.coverControl) els.coverControl.hidden = !isCover;
-      if (els.coverState) {
-        els.coverState.textContent = coverStateLabel();
-        els.coverState.classList.toggle("moving", Boolean(coverLive.active));
+      if (!els.coverControl) return;
+      els.coverControl.hidden = !isCover;
+      if (!isCover) {
+        els.coverControl.innerHTML = "";
+        return;
       }
+      const covers = normalizeCovers(state.draft);
+      els.coverControl.innerHTML = covers.map((cover) => {
+        const live = getCoverLive(cover.id);
+        const label = covers.length > 1
+          ? `${t("card.cover_live")} · ${cover.id}`
+          : t("card.cover_live");
+        return `<div class="cover-control-block" data-cover-id="${cover.id}">
+          <div class="cover-control-head">
+            <span class="menu-label">${label}</span>
+            <span class="cover-state${live.active ? " moving" : ""}">${coverStateLabel(cover.id)}</span>
+          </div>
+          <div class="cover-control-row">
+            <button type="button" class="btn" data-cover-command="open" data-cover-id="${cover.id}">${t("card.cover_open")}</button>
+            <button type="button" class="btn danger" data-cover-command="stop" data-cover-id="${cover.id}">${t("card.cover_stop")}</button>
+            <button type="button" class="btn" data-cover-command="close" data-cover-id="${cover.id}">${t("card.cover_close")}</button>
+          </div>
+        </div>`;
+      }).join("");
+      els.coverControl.querySelectorAll("[data-cover-command]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const command = btn.dataset.coverCommand;
+          const coverId = btn.dataset.coverId;
+          if (command === "stop") coverHalt(coverId);
+          else coverPress(command, coverId);
+          renderCoverState();
+          renderFaceplate();
+        });
+      });
     }
     function isRingOn(index) {
       const d = state.draft;
       if (d.mode === "cover") {
+        const cover = coverForButton(index, d);
         const direction = coverDirectionFor(index, d);
-        if (direction) return coverLive.active && coverLive.direction === direction;
+        if (cover && direction) {
+          const live = getCoverLive(cover.id);
+          return live.active && live.direction === direction;
+        }
         return Boolean(d.ringOn[index]);
       }
       if (d.mode === "radio_split") return Boolean(d.ringOn[index]);
@@ -2058,10 +2184,11 @@
     function handleFaceplatePress(index) {
       const d = state.draft;
       if (d.mode === "cover") {
+        const cover = coverForButton(index, d);
         const direction = coverDirectionFor(index, d);
-        if (direction) {
+        if (cover && direction) {
           // Runtime motor action, not a draft edit — never marks the profile dirty.
-          coverPress(direction);
+          coverPress(direction, cover.id);
           return false;
         }
         d.ringOn[index] = !d.ringOn[index];
@@ -2249,20 +2376,38 @@
         });
       });
     }
-    function patchCover(mutate) {
-      const cover = normalizeCover(state.draft.cover);
-      mutate(cover);
-      state.draft.cover = normalizeCover(cover);
+    function patchCovers(mutate) {
+      const covers = normalizeCovers(state.draft);
+      mutate(covers, state.draft);
+      state.draft.covers = normalizeCovers({ ...state.draft, covers });
+      delete state.draft.cover;
       markDirty(true);
       renderCoverEditor();
       renderFaceplate();
     }
+    function setGangCount(count) {
+      state.draft.gang_count = clampGangCount(count);
+      state.draft.covers = normalizeCovers(state.draft);
+      delete state.draft.cover;
+      markDirty(true);
+      renderCoverEditor();
+      renderButtonsEditor();
+      renderFaceplate();
+    }
     /**
      * Assigning a button already used by the other direction swaps the pair, so
-     * open and close can never collapse onto one button.
+     * open and close can never collapse onto one button. Buttons owned by another
+     * cover are refused.
      */
-    function setCoverButton(direction, index) {
-      patchCover((cover) => {
+    function setCoverButton(coverId, direction, index) {
+      patchCovers((covers) => {
+        const cover = covers.find((item) => item.id === coverId);
+        if (!cover) return;
+        const ownedElsewhere = covers.some(
+          (item) => item.id !== coverId
+            && (item.open_button === index || item.close_button === index)
+        );
+        if (ownedElsewhere) return;
         const previous = direction === "open" ? cover.open_button : cover.close_button;
         if (direction === "open") {
           if (cover.close_button === index) cover.close_button = previous;
@@ -2273,22 +2418,27 @@
         }
       });
     }
-    function renderCoverButtonPicker(host, direction, cover) {
-      if (!host) return;
-      const selected = direction === "open" ? cover.open_button : cover.close_button;
-      host.innerHTML = [1, 2, 3, 4].map((i) => `
-        <button type="button" class="radio-member${selected === i ? " on" : ""}" role="radio"
-          aria-checked="${selected === i ? "true" : "false"}" data-cover-button="${i}">
-          <span class="radio-member-label">L${i}</span>
-        </button>`).join("");
-      host.querySelectorAll("[data-cover-button]").forEach((chip) => {
-        chip.addEventListener("click", () => setCoverButton(direction, Number(chip.dataset.coverButton)));
+    function addCover() {
+      patchCovers((covers, draft) => {
+        const maxCovers = maxCoversForGangs(draft.gang_count);
+        if (covers.length >= maxCovers) return;
+        const used = new Set(covers.flatMap((c) => [c.open_button, c.close_button]));
+        const gangCount = clampGangCount(draft.gang_count);
+        const free = Array.from({ length: gangCount }, (_, i) => i + 1).filter((i) => !used.has(i));
+        const openButton = free[0] ?? 1;
+        const closeButton = free[1] ?? Math.min(openButton + 1, gangCount);
+        covers.push(normalizeCover(
+          { open_button: openButton, close_button: closeButton },
+          { gangCount, defaultId: `cover_${covers.length + 1}`, slot: covers.length }
+        ));
       });
     }
-    function bindCoverInput(input, apply) {
-      if (!input || input.dataset.bound) return;
-      input.dataset.bound = "1";
-      input.addEventListener("change", () => patchCover((cover) => apply(cover, input.value)));
+    function removeCover(coverId) {
+      patchCovers((covers) => {
+        if (covers.length <= 1) return;
+        const next = covers.filter((cover) => cover.id !== coverId);
+        covers.splice(0, covers.length, ...next);
+      });
     }
     function setMode(mode) {
       if (!state.draft || !PROFILE_MODES.includes(mode)) return;
@@ -2299,7 +2449,10 @@
         state.draft.radio_groups = normalizeRadioGroups(state.draft.radio_groups);
         state.radioGroupsOpen = defaultRadioGroupsOpen();
       } else if (state.draft.mode === "cover") {
-        state.draft.cover = normalizeCover(state.draft.cover);
+        const gangs = clampGangCount(state.draft.gang_count ?? 4);
+        state.draft.gang_count = gangs < 4 ? 4 : gangs;
+        state.draft.covers = normalizeCovers(state.draft);
+        delete state.draft.cover;
       } else if (state.draft.mode !== "toggle" && !state.draft.selected_button) {
         state.draft.selected_button = 1;
       }
@@ -2322,39 +2475,163 @@
         chip.addEventListener("click", () => setMode(chip.dataset.mode));
       });
     }
+    function renderOneCoverEditorHtml(cover, index, allCovers, gangCount) {
+      const unit = t("card.cover_seconds");
+      const canRemove = allCovers.length > 1;
+      const ownedByOther = new Set(
+        allCovers
+          .filter((item) => item.id !== cover.id)
+          .flatMap((item) => [item.open_button, item.close_button])
+      );
+      const buttonRow = (direction) => {
+        const selected = direction === "open" ? cover.open_button : cover.close_button;
+        return Array.from({ length: gangCount }, (_, i) => i + 1).map((btn) => {
+          const disabled = ownedByOther.has(btn) ? " disabled" : "";
+          return `<button type="button" class="radio-member${selected === btn ? " on" : ""}" role="radio"
+            aria-checked="${selected === btn ? "true" : "false"}"
+            data-cover-id="${cover.id}" data-cover-direction="${direction}" data-cover-button="${btn}"${disabled}>
+            <span class="radio-member-label">L${btn}</span>
+          </button>`;
+        }).join("");
+      };
+      const clash = cover.open_button === cover.close_button;
+      return `<div class="cover-block" data-cover-id="${cover.id}">
+        <div class="cover-head">
+          <span class="menu-label">${t("card.cover")} ${index + 1}</span>
+          ${canRemove ? `<button type="button" class="btn danger" data-cover-remove="${cover.id}">${t("card.cover_remove")}</button>` : ""}
+        </div>
+        <div class="cover-grid">
+          <div class="cover-field">
+            <span class="cover-label">${t("card.cover_open_button")}</span>
+            <div class="cover-buttons" role="radiogroup" dir="ltr" style="--conx-gang-count:${gangCount}">${buttonRow("open")}</div>
+          </div>
+          <div class="cover-field">
+            <span class="cover-label">${t("card.cover_close_button")}</span>
+            <div class="cover-buttons" role="radiogroup" dir="ltr" style="--conx-gang-count:${gangCount}">${buttonRow("close")}</div>
+          </div>
+        </div>
+        <div class="cover-times">
+          <label class="field"><span>${t("card.cover_open_time")} (${unit})</span>
+            <input type="number" data-cover-open-time="${cover.id}" min="1" max="600" step="0.5" value="${cover.open_time_s}" />
+          </label>
+          <label class="field"><span>${t("card.cover_close_time")} (${unit})</span>
+            <input type="number" data-cover-close-time="${cover.id}" min="1" max="600" step="0.5" value="${cover.close_time_s}" />
+          </label>
+          <label class="field"><span>${t("card.cover_settle")} (${unit})</span>
+            <input type="number" data-cover-settle="${cover.id}" min="0" max="5" step="0.1" value="${cover.direction_settle_s}" />
+          </label>
+        </div>
+        <p class="radio-groups-hint">${t("card.cover_settle_hint")}</p>
+        <label class="field field-compact-select"><span>${t("card.cover_opposite")}</span>
+          <select data-cover-opposite="${cover.id}">
+            <option value="stop_only"${cover.opposite_press === "stop_only" ? " selected" : ""}>${t("cover.stop_only")}</option>
+            <option value="stop_then_reverse"${cover.opposite_press === "stop_then_reverse" ? " selected" : ""}>${t("cover.stop_then_reverse")}</option>
+          </select>
+        </label>
+        ${clash ? `<div class="radio-groups-error">${t("card.cover_same_button")}</div>` : ""}
+      </div>`;
+    }
+    function renderEmptyCoverSlotHtml(index) {
+      return `<div class="cover-block cover-block-empty" data-cover-slot="${index}">
+        <div class="cover-head">
+          <span class="menu-label">${t("card.cover")} ${index + 1}</span>
+          <span class="cover-slot-status">${t("card.cover_slot_empty")}</span>
+        </div>
+        <p class="radio-groups-hint">${t("card.cover_slot_hint")}</p>
+        <button type="button" class="btn primary cover-add-slot" data-cover-add>${t("card.cover_add")}</button>
+      </div>`;
+    }
     function renderCoverEditor() {
       const isCover = state.draft && state.draft.mode === "cover";
-      if (els.coverSection) els.coverSection.hidden = !isCover;
+      if (!els.coverSection) return;
+      els.coverSection.hidden = !isCover;
       renderCoverState();
-      if (!isCover) return;
-      const cover = normalizeCover(state.draft.cover);
-      state.draft.cover = cover;
-      const unit = t("card.cover_seconds");
-      renderCoverButtonPicker(els.coverOpenButtons, "open", cover);
-      renderCoverButtonPicker(els.coverCloseButtons, "close", cover);
-      if (els.coverOpenTimeLabel) els.coverOpenTimeLabel.textContent = `${t("card.cover_open_time")} (${unit})`;
-      if (els.coverCloseTimeLabel) els.coverCloseTimeLabel.textContent = `${t("card.cover_close_time")} (${unit})`;
-      if (els.coverSettleLabel) els.coverSettleLabel.textContent = `${t("card.cover_settle")} (${unit})`;
-      if (els.coverOpenTime) els.coverOpenTime.value = String(cover.open_time_s);
-      if (els.coverCloseTime) els.coverCloseTime.value = String(cover.close_time_s);
-      if (els.coverSettle) els.coverSettle.value = String(cover.direction_settle_s);
-      if (els.coverOpposite) els.coverOpposite.value = cover.opposite_press;
-      if (els.coverSameButtonError) {
-        const clash = cover.open_button === cover.close_button;
-        els.coverSameButtonError.hidden = !clash;
-        els.coverSameButtonError.textContent = clash ? t("card.cover_same_button") : "";
+      if (!isCover) {
+        els.coverSection.innerHTML = "";
+        return;
       }
-      bindCoverInput(els.coverOpenTime, (c, value) => {
-        c.open_time_s = clampNumber(value, COVER_TIME_MIN, COVER_TIME_MAX, DEFAULT_COVER.open_time_s);
+      const gangCount = clampGangCount(state.draft.gang_count ?? 4);
+      state.draft.gang_count = gangCount;
+      const covers = normalizeCovers(state.draft);
+      state.draft.covers = covers;
+      delete state.draft.cover;
+      const maxCovers = maxCoversForGangs(gangCount);
+      const slots = Array.from({ length: Math.max(maxCovers, covers.length) }, (_, i) => covers[i] || null);
+      const gangPicker = `<label class="field">
+        <span>${t("card.gang_count")}</span>
+        <div class="gang-picker" role="radiogroup" dir="ltr" data-gang-picker>
+          ${[1, 2, 3, 4].map((count) => `
+            <button type="button" class="radio-member${gangCount === count ? " on" : ""}" role="radio"
+              aria-checked="${gangCount === count ? "true" : "false"}" data-gang-count="${count}">
+              <span class="radio-member-label">${count}</span>
+            </button>`).join("")}
+        </div>
+        <p class="radio-groups-hint">${t("card.gang_count_hint")}</p>
+      </label>`;
+      els.coverSection.innerHTML = `
+        <div class="cover-head"><span class="menu-label">${t("card.cover")}</span></div>
+        <p class="radio-groups-hint">${t("card.cover_hint")}</p>
+        ${gangPicker}
+        ${slots.map((cover, index) =>
+          cover
+            ? renderOneCoverEditorHtml(cover, index, covers, gangCount)
+            : renderEmptyCoverSlotHtml(index)
+        ).join("")}
+        <p class="cover-safety">${t("card.cover_safety")}</p>`;
+      els.coverSection.querySelectorAll("[data-gang-count]").forEach((btn) => {
+        btn.addEventListener("click", () => setGangCount(Number(btn.dataset.gangCount)));
       });
-      bindCoverInput(els.coverCloseTime, (c, value) => {
-        c.close_time_s = clampNumber(value, COVER_TIME_MIN, COVER_TIME_MAX, DEFAULT_COVER.close_time_s);
+      els.coverSection.querySelectorAll("[data-cover-add]").forEach((btn) => {
+        btn.addEventListener("click", () => addCover());
       });
-      bindCoverInput(els.coverSettle, (c, value) => {
-        c.direction_settle_s = clampNumber(value, COVER_SETTLE_MIN, COVER_SETTLE_MAX, DEFAULT_COVER.direction_settle_s);
+      els.coverSection.querySelectorAll("[data-cover-remove]").forEach((btn) => {
+        btn.addEventListener("click", () => removeCover(btn.dataset.coverRemove));
       });
-      bindCoverInput(els.coverOpposite, (c, value) => {
-        c.opposite_press = value === "stop_then_reverse" ? "stop_then_reverse" : "stop_only";
+      els.coverSection.querySelectorAll("[data-cover-button]").forEach((chip) => {
+        chip.addEventListener("click", () => {
+          if (chip.disabled) return;
+          setCoverButton(
+            chip.dataset.coverId,
+            chip.dataset.coverDirection,
+            Number(chip.dataset.coverButton)
+          );
+        });
+      });
+      els.coverSection.querySelectorAll("[data-cover-open-time]").forEach((input) => {
+        input.addEventListener("change", () => {
+          patchCovers((covers) => {
+            const cover = covers.find((item) => item.id === input.dataset.coverOpenTime);
+            if (!cover) return;
+            cover.open_time_s = clampNumber(input.value, COVER_TIME_MIN, COVER_TIME_MAX, DEFAULT_COVER.open_time_s);
+          });
+        });
+      });
+      els.coverSection.querySelectorAll("[data-cover-close-time]").forEach((input) => {
+        input.addEventListener("change", () => {
+          patchCovers((covers) => {
+            const cover = covers.find((item) => item.id === input.dataset.coverCloseTime);
+            if (!cover) return;
+            cover.close_time_s = clampNumber(input.value, COVER_TIME_MIN, COVER_TIME_MAX, DEFAULT_COVER.close_time_s);
+          });
+        });
+      });
+      els.coverSection.querySelectorAll("[data-cover-settle]").forEach((input) => {
+        input.addEventListener("change", () => {
+          patchCovers((covers) => {
+            const cover = covers.find((item) => item.id === input.dataset.coverSettle);
+            if (!cover) return;
+            cover.direction_settle_s = clampNumber(input.value, COVER_SETTLE_MIN, COVER_SETTLE_MAX, DEFAULT_COVER.direction_settle_s);
+          });
+        });
+      });
+      els.coverSection.querySelectorAll("[data-cover-opposite]").forEach((select) => {
+        select.addEventListener("change", () => {
+          patchCovers((covers) => {
+            const cover = covers.find((item) => item.id === select.dataset.coverOpposite);
+            if (!cover) return;
+            cover.opposite_press = select.value === "stop_then_reverse" ? "stop_then_reverse" : "stop_only";
+          });
+        });
       });
     }
     function renderProfiles() {
@@ -2838,15 +3115,7 @@
         markDirty(true); renderProfiles();
       });
       // Mode picker chips are bound in renderModePicker().
-      document.querySelectorAll("[data-cover-command]").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          const command = btn.dataset.coverCommand;
-          if (command === "stop") coverHalt();
-          else coverPress(command);
-          renderCoverState();
-          renderFaceplate();
-        });
-      });
+      // Cover live controls are bound inside renderCoverState().
       els.colorOn.addEventListener("change", () => { state.draft.color_on = els.colorOn.value; markDirty(true); applyRingColors(); });
       els.colorOff.addEventListener("change", () => { state.draft.color_off = els.colorOff.value; markDirty(true); applyRingColors(); });
       els.radar.addEventListener("change", () => { state.draft.radar = els.radar.value; markDirty(true); });

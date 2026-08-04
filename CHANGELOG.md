@@ -11,7 +11,8 @@ All notable changes to this private project will be documented here.
 
 ### Changed
 
-- Mode control moved from Appearance (step 2) to Buttons (step 3), above radio groups / cover editors. Compact segmented chips replace the full-width `<select>` (Lit card + HTML preview; EN/HE/RU).
+- Mode control moved from Appearance (step 2) to Buttons (step 3), above radio groups / cover editors. Segmented mode chips replace the `<select>` and now span the full grid width with larger tap targets (Lit card + HTML preview; EN/HE/RU).
+- Cover mode on a 4-gang panel always surfaces **Cover 1** plus a prominent **Cover 2** empty slot with **Add cover** (gang picker shown in the cover section; selecting Cover mode raises `gang_count` to 4 when lower). Preview migrated from legacy single `cover` to `covers[]` + multi-cover live controls.
 - L1–L4 chip rows and faceplate force LTR so **L1 is leftmost** under Hebrew RTL.
 
 - Profile mode `cover` for timed shutter/awning control. The installer maps any two of L1–L4 to open and close and sets a travel time per direction; the remaining buttons stay independent toggles. The whole engine lives in the coordinator, so physical presses, the card, services, and automations all share one code path.

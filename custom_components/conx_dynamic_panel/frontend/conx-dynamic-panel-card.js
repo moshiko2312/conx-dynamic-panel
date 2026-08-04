@@ -284,9 +284,9 @@ P.elementStyles = [], P.shadowRootOptions = { mode: "open" }, P[U("elementProper
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const j = globalThis, Ct = (e) => e, Q = j.trustedTypes, At = Q ? Q.createPolicy("lit-html", { createHTML: (e) => e }) : void 0, Ht = "$lit$", x = `lit$${Math.random().toFixed(9).slice(2)}$`, Yt = "?" + x, he = `<${Yt}>`, C = document, H = () => C.createComment(""), Y = (e) => e === null || typeof e != "object" && typeof e != "function", bt = Array.isArray, ue = (e) => bt(e) || typeof (e == null ? void 0 : e[Symbol.iterator]) == "function", at = `[ 	
-\f\r]`, L = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, Ot = /-->/g, Pt = />/g, k = RegExp(`>|${at}(?:([^\\s"'>=/]+)(${at}*=${at}*(?:[^ 	
-\f\r"'\`<>=]|("|')|))|$)`, "g"), zt = /'/g, Mt = /"/g, Gt = /^(?:script|style|textarea|title)$/i, _e = (e) => (t, ...r) => ({ _$litType$: e, strings: t, values: r }), d = _e(1), N = Symbol.for("lit-noChange"), l = Symbol.for("lit-nothing"), Tt = /* @__PURE__ */ new WeakMap(), S = C.createTreeWalker(C, 129);
+const j = globalThis, Ct = (e) => e, Q = j.trustedTypes, At = Q ? Q.createPolicy("lit-html", { createHTML: (e) => e }) : void 0, Ht = "$lit$", x = `lit$${Math.random().toFixed(9).slice(2)}$`, Gt = "?" + x, he = `<${Gt}>`, A = document, H = () => A.createComment(""), G = (e) => e === null || typeof e != "object" && typeof e != "function", bt = Array.isArray, ue = (e) => bt(e) || typeof (e == null ? void 0 : e[Symbol.iterator]) == "function", at = `[ 	
+\f\r]`, L = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, Ot = /-->/g, Pt = />/g, S = RegExp(`>|${at}(?:([^\\s"'>=/]+)(${at}*=${at}*(?:[^ 	
+\f\r"'\`<>=]|("|')|))|$)`, "g"), zt = /'/g, Mt = /"/g, Yt = /^(?:script|style|textarea|title)$/i, _e = (e) => (t, ...r) => ({ _$litType$: e, strings: t, values: r }), d = _e(1), N = Symbol.for("lit-noChange"), l = Symbol.for("lit-nothing"), Tt = /* @__PURE__ */ new WeakMap(), E = A.createTreeWalker(A, 129);
 function Wt(e, t) {
   if (!bt(e) || !e.hasOwnProperty("raw")) throw Error("invalid template strings array");
   return At !== void 0 ? At.createHTML(t) : t;
@@ -297,37 +297,37 @@ const ge = (e, t) => {
   for (let o = 0; o < r; o++) {
     const c = e[o];
     let p, u, h = -1, f = 0;
-    for (; f < c.length && (s.lastIndex = f, u = s.exec(c), u !== null); ) f = s.lastIndex, s === L ? u[1] === "!--" ? s = Ot : u[1] !== void 0 ? s = Pt : u[2] !== void 0 ? (Gt.test(u[2]) && (a = RegExp("</" + u[2], "g")), s = k) : u[3] !== void 0 && (s = k) : s === k ? u[0] === ">" ? (s = a ?? L, h = -1) : u[1] === void 0 ? h = -2 : (h = s.lastIndex - u[2].length, p = u[1], s = u[3] === void 0 ? k : u[3] === '"' ? Mt : zt) : s === Mt || s === zt ? s = k : s === Ot || s === Pt ? s = L : (s = k, a = void 0);
-    const b = s === k && e[o + 1].startsWith("/>") ? " " : "";
+    for (; f < c.length && (s.lastIndex = f, u = s.exec(c), u !== null); ) f = s.lastIndex, s === L ? u[1] === "!--" ? s = Ot : u[1] !== void 0 ? s = Pt : u[2] !== void 0 ? (Yt.test(u[2]) && (a = RegExp("</" + u[2], "g")), s = S) : u[3] !== void 0 && (s = S) : s === S ? u[0] === ">" ? (s = a ?? L, h = -1) : u[1] === void 0 ? h = -2 : (h = s.lastIndex - u[2].length, p = u[1], s = u[3] === void 0 ? S : u[3] === '"' ? Mt : zt) : s === Mt || s === zt ? s = S : s === Ot || s === Pt ? s = L : (s = S, a = void 0);
+    const b = s === S && e[o + 1].startsWith("/>") ? " " : "";
     n += s === L ? c + he : h >= 0 ? (i.push(p), c.slice(0, h) + Ht + c.slice(h) + x + b) : c + x + (h === -2 ? o : b);
   }
   return [Wt(e, n + (e[r] || "<?>") + (t === 2 ? "</svg>" : t === 3 ? "</math>" : "")), i];
 };
-class G {
+class Y {
   constructor({ strings: t, _$litType$: r }, i) {
     let a;
     this.parts = [];
     let n = 0, s = 0;
     const o = t.length - 1, c = this.parts, [p, u] = ge(t, r);
-    if (this.el = G.createElement(p, i), S.currentNode = this.el.content, r === 2 || r === 3) {
+    if (this.el = Y.createElement(p, i), E.currentNode = this.el.content, r === 2 || r === 3) {
       const h = this.el.content.firstChild;
       h.replaceWith(...h.childNodes);
     }
-    for (; (a = S.nextNode()) !== null && c.length < o; ) {
+    for (; (a = E.nextNode()) !== null && c.length < o; ) {
       if (a.nodeType === 1) {
         if (a.hasAttributes()) for (const h of a.getAttributeNames()) if (h.endsWith(Ht)) {
-          const f = u[s++], b = a.getAttribute(h).split(x), $ = /([.?@])?(.*)/.exec(f);
-          c.push({ type: 1, index: n, name: $[2], strings: b, ctor: $[1] === "." ? fe : $[1] === "?" ? be : $[1] === "@" ? ve : et }), a.removeAttribute(h);
+          const f = u[s++], b = a.getAttribute(h).split(x), w = /([.?@])?(.*)/.exec(f);
+          c.push({ type: 1, index: n, name: w[2], strings: b, ctor: w[1] === "." ? fe : w[1] === "?" ? be : w[1] === "@" ? ve : et }), a.removeAttribute(h);
         } else h.startsWith(x) && (c.push({ type: 6, index: n }), a.removeAttribute(h));
-        if (Gt.test(a.tagName)) {
+        if (Yt.test(a.tagName)) {
           const h = a.textContent.split(x), f = h.length - 1;
           if (f > 0) {
             a.textContent = Q ? Q.emptyScript : "";
-            for (let b = 0; b < f; b++) a.append(h[b], H()), S.nextNode(), c.push({ type: 2, index: ++n });
+            for (let b = 0; b < f; b++) a.append(h[b], H()), E.nextNode(), c.push({ type: 2, index: ++n });
             a.append(h[f], H());
           }
         }
-      } else if (a.nodeType === 8) if (a.data === Yt) c.push({ type: 2, index: n });
+      } else if (a.nodeType === 8) if (a.data === Gt) c.push({ type: 2, index: n });
       else {
         let h = -1;
         for (; (h = a.data.indexOf(x, h + 1)) !== -1; ) c.push({ type: 7, index: n }), h += x.length - 1;
@@ -336,7 +336,7 @@ class G {
     }
   }
   static createElement(t, r) {
-    const i = C.createElement("template");
+    const i = A.createElement("template");
     return i.innerHTML = t, i;
   }
 }
@@ -344,7 +344,7 @@ function D(e, t, r = e, i) {
   var s, o;
   if (t === N) return t;
   let a = i !== void 0 ? (s = r._$Co) == null ? void 0 : s[i] : r._$Cl;
-  const n = Y(t) ? void 0 : t._$litDirective$;
+  const n = G(t) ? void 0 : t._$litDirective$;
   return (a == null ? void 0 : a.constructor) !== n && ((o = a == null ? void 0 : a._$AO) == null || o.call(a, !1), n === void 0 ? a = void 0 : (a = new n(e), a._$AT(e, r, i)), i !== void 0 ? (r._$Co ?? (r._$Co = []))[i] = a : r._$Cl = a), a !== void 0 && (t = D(e, a._$AS(e, t.values), a, i)), t;
 }
 class me {
@@ -358,17 +358,17 @@ class me {
     return this._$AM._$AU;
   }
   u(t) {
-    const { el: { content: r }, parts: i } = this._$AD, a = ((t == null ? void 0 : t.creationScope) ?? C).importNode(r, !0);
-    S.currentNode = a;
-    let n = S.nextNode(), s = 0, o = 0, c = i[0];
+    const { el: { content: r }, parts: i } = this._$AD, a = ((t == null ? void 0 : t.creationScope) ?? A).importNode(r, !0);
+    E.currentNode = a;
+    let n = E.nextNode(), s = 0, o = 0, c = i[0];
     for (; c !== void 0; ) {
       if (s === c.index) {
         let p;
         c.type === 2 ? p = new V(n, n.nextSibling, this, t) : c.type === 1 ? p = new c.ctor(n, c.name, c.strings, this, t) : c.type === 6 && (p = new xe(n, this, t)), this._$AV.push(p), c = i[++o];
       }
-      s !== (c == null ? void 0 : c.index) && (n = S.nextNode(), s++);
+      s !== (c == null ? void 0 : c.index) && (n = E.nextNode(), s++);
     }
-    return S.currentNode = C, a;
+    return E.currentNode = A, a;
   }
   p(t) {
     let r = 0;
@@ -395,7 +395,7 @@ class V {
     return this._$AB;
   }
   _$AI(t, r = this) {
-    t = D(this, t, r), Y(t) ? t === l || t == null || t === "" ? (this._$AH !== l && this._$AR(), this._$AH = l) : t !== this._$AH && t !== N && this._(t) : t._$litType$ !== void 0 ? this.$(t) : t.nodeType !== void 0 ? this.T(t) : ue(t) ? this.k(t) : this._(t);
+    t = D(this, t, r), G(t) ? t === l || t == null || t === "" ? (this._$AH !== l && this._$AR(), this._$AH = l) : t !== this._$AH && t !== N && this._(t) : t._$litType$ !== void 0 ? this.$(t) : t.nodeType !== void 0 ? this.T(t) : ue(t) ? this.k(t) : this._(t);
   }
   O(t) {
     return this._$AA.parentNode.insertBefore(t, this._$AB);
@@ -404,11 +404,11 @@ class V {
     this._$AH !== t && (this._$AR(), this._$AH = this.O(t));
   }
   _(t) {
-    this._$AH !== l && Y(this._$AH) ? this._$AA.nextSibling.data = t : this.T(C.createTextNode(t)), this._$AH = t;
+    this._$AH !== l && G(this._$AH) ? this._$AA.nextSibling.data = t : this.T(A.createTextNode(t)), this._$AH = t;
   }
   $(t) {
     var n;
-    const { values: r, _$litType$: i } = t, a = typeof i == "number" ? this._$AC(t) : (i.el === void 0 && (i.el = G.createElement(Wt(i.h, i.h[0]), this.options)), i);
+    const { values: r, _$litType$: i } = t, a = typeof i == "number" ? this._$AC(t) : (i.el === void 0 && (i.el = Y.createElement(Wt(i.h, i.h[0]), this.options)), i);
     if (((n = this._$AH) == null ? void 0 : n._$AD) === a) this._$AH.p(r);
     else {
       const s = new me(a, this), o = s.u(this.options);
@@ -417,7 +417,7 @@ class V {
   }
   _$AC(t) {
     let r = Tt.get(t.strings);
-    return r === void 0 && Tt.set(t.strings, r = new G(t)), r;
+    return r === void 0 && Tt.set(t.strings, r = new Y(t)), r;
   }
   k(t) {
     bt(this._$AH) || (this._$AH = [], this._$AR());
@@ -451,11 +451,11 @@ class et {
   _$AI(t, r = this, i, a) {
     const n = this.strings;
     let s = !1;
-    if (n === void 0) t = D(this, t, r, 0), s = !Y(t) || t !== this._$AH && t !== N, s && (this._$AH = t);
+    if (n === void 0) t = D(this, t, r, 0), s = !G(t) || t !== this._$AH && t !== N, s && (this._$AH = t);
     else {
       const o = t;
       let c, p;
-      for (t = n[0], c = 0; c < n.length - 1; c++) p = D(this, o[i + c], r, c), p === N && (p = this._$AH[c]), s || (s = !Y(p) || p !== this._$AH[c]), p === l ? t = l : t !== l && (t += (p ?? "") + n[c + 1]), this._$AH[c] = p;
+      for (t = n[0], c = 0; c < n.length - 1; c++) p = D(this, o[i + c], r, c), p === N && (p = this._$AH[c]), s || (s = !G(p) || p !== this._$AH[c]), p === l ? t = l : t !== l && (t += (p ?? "") + n[c + 1]), this._$AH[c] = p;
     }
     s && !a && this.j(t);
   }
@@ -505,7 +505,7 @@ class xe {
   }
 }
 const nt = j.litHtmlPolyfillSupport;
-nt == null || nt(G, V), (j.litHtmlVersions ?? (j.litHtmlVersions = [])).push("3.3.3");
+nt == null || nt(Y, V), (j.litHtmlVersions ?? (j.litHtmlVersions = [])).push("3.3.3");
 const ye = (e, t, r) => {
   const i = (r == null ? void 0 : r.renderBefore) ?? t;
   let a = i._$litPart$;
@@ -520,7 +520,7 @@ const ye = (e, t, r) => {
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const E = globalThis;
+const C = globalThis;
 class T extends P {
   constructor() {
     super(...arguments), this.renderOptions = { host: this }, this._$Do = void 0;
@@ -547,10 +547,10 @@ class T extends P {
   }
 }
 var Ut;
-T._$litElement$ = !0, T.finalized = !0, (Ut = E.litElementHydrateSupport) == null || Ut.call(E, { LitElement: T });
-const st = E.litElementPolyfillSupport;
+T._$litElement$ = !0, T.finalized = !0, (Ut = C.litElementHydrateSupport) == null || Ut.call(C, { LitElement: T });
+const st = C.litElementPolyfillSupport;
 st == null || st({ LitElement: T });
-(E.litElementVersions ?? (E.litElementVersions = [])).push("4.2.2");
+(C.litElementVersions ?? (C.litElementVersions = [])).push("4.2.2");
 /**
  * @license
  * Copyright 2017 Google LLC
@@ -696,22 +696,22 @@ function Z(e, t, r, i) {
   const a = typeof e == "number" ? e : Number(e);
   return Number.isFinite(a) ? Math.max(t, Math.min(r, a)) : i;
 }
-function A(e) {
+function $(e) {
   return Math.round(Z(e, 1, 4, 4));
 }
 function ut(e) {
-  return Math.max(0, Math.floor(A(e) / 2));
+  return Math.max(0, Math.floor($(e) / 2));
 }
 function Re(e, t) {
   const r = e * 2 + 1, i = e * 2 + 2;
   return i > t ? [1, t >= 2 ? 2 : 1] : [r, i];
 }
 function Nt(e, t, r) {
-  const i = Math.round(typeof e == "number" ? e : Number(e)), a = A(r);
+  const i = Math.round(typeof e == "number" ? e : Number(e)), a = $(r);
   return !Number.isFinite(i) || i < 1 || i > a ? Math.min(t, a) : i;
 }
 function R(e, t = {}) {
-  const r = A(t.gangCount ?? 4), i = t.slot ?? 0, a = t.defaultId ?? `cover_${i + 1}`, [n, s] = Re(i, r), o = e || {}, c = Nt(o.open_button, n, r);
+  const r = $(t.gangCount ?? 4), i = t.slot ?? 0, a = t.defaultId ?? `cover_${i + 1}`, [n, s] = Re(i, r), o = e || {}, c = Nt(o.open_button, n, r);
   let p = Nt(o.close_button, s, r);
   return p === c && (p = Array.from({ length: r }, (u, h) => h + 1).find((u) => u !== c) ?? Math.min(c + 1, r)), {
     id: String(o.id || "").trim() || a,
@@ -739,7 +739,7 @@ function R(e, t = {}) {
   };
 }
 function z(e) {
-  const t = A((e == null ? void 0 : e.gang_count) ?? 4), r = ut(t);
+  const t = $((e == null ? void 0 : e.gang_count) ?? 4), r = ut(t);
   let i = [];
   if (Array.isArray(e == null ? void 0 : e.covers) && e.covers.length ? i = e.covers.map(
     (n, s) => R(n, { gangCount: t, defaultId: `cover_${s + 1}`, slot: s })
@@ -756,7 +756,7 @@ function z(e) {
 }
 function Ne(e) {
   const t = structuredClone(e);
-  t.gang_count = A(t.gang_count ?? 4), typeof t.backlight_brightness != "number" || !Number.isFinite(t.backlight_brightness) ? t.backlight_brightness = 100 : t.backlight_brightness = Math.max(
+  t.gang_count = $(t.gang_count ?? 4), typeof t.backlight_brightness != "number" || !Number.isFinite(t.backlight_brightness) ? t.backlight_brightness = 100 : t.backlight_brightness = Math.max(
     0,
     Math.min(100, Math.round(t.backlight_brightness))
   ), t.buttons = [1, 2, 3, 4].map((a) => {
@@ -955,14 +955,14 @@ function He(e) {
     }
   };
 }
-function Ye(e, t) {
+function Ge(e, t) {
   return {
     schema_version: I,
     active_profile_id: t,
     profiles: structuredClone(e)
   };
 }
-function Ge(e, t, r = "YOUR_CONFIG_ENTRY_ID") {
+function Ye(e, t, r = "YOUR_CONFIG_ENTRY_ID") {
   const i = JSON.stringify(e, null, 2).split(`
 `).map((a, n) => n === 0 ? a : `    ${a}`).join(`
 `);
@@ -1037,8 +1037,10 @@ const Vt = "conx-dynamic-panel-lang", Xt = {}, qt = {
   "card.cover_safety": "Safety: presses run through the integration. Both direction relays are forced off on stop, timer expiry, profile change, sync, and reload.",
   "card.cover_add": "Add cover",
   "card.cover_remove": "Remove",
+  "card.cover_slot_empty": "Not configured",
+  "card.cover_slot_hint": "Assign the remaining buttons to a second shutter. Each cover needs two different buttons (open + close).",
   "card.gang_count": "Panel gangs",
-  "card.gang_count_hint": "How many physical buttons (L1…Ln) this profile uses. Cover count is limited to floor(n/2).",
+  "card.gang_count_hint": "How many physical buttons (L1…Ln) this profile uses. Cover count is limited to floor(n/2). Choose 4 to use two covers.",
   "cover.stop_only": "Stop only",
   "cover.stop_then_reverse": "Stop, then reverse",
   "theme.noir": "Noir gray",
@@ -1167,8 +1169,10 @@ const Vt = "conx-dynamic-panel-lang", Xt = {}, qt = {
   "card.cover_safety": "בטיחות: הלחיצות עוברות דרך האינטגרציה. שני ממסרי הכיוון מכובים בעצירה, בתום הזמן, בהחלפת פרופיל, בסנכרון ובטעינה מחדש.",
   "card.cover_add": "הוסף תריס",
   "card.cover_remove": "הסר",
+  "card.cover_slot_empty": "לא מוגדר",
+  "card.cover_slot_hint": "שייכו את הכפתורים הנותרים לתריס שני. לכל תריס נדרשים שני כפתורים שונים (פתיחה + סגירה).",
   "card.gang_count": "מספר גאנגים",
-  "card.gang_count_hint": "כמה כפתורים פיזיים (L1…Ln) הפרופיל משתמש. מספר התריסים מוגבל ל־floor(n/2).",
+  "card.gang_count_hint": "כמה כפתורים פיזיים (L1…Ln) הפרופיל משתמש. מספר התריסים מוגבל ל־floor(n/2). בחרו 4 כדי להשתמש בשני תריסים.",
   "cover.stop_only": "עצירה בלבד",
   "cover.stop_then_reverse": "עצירה ואז כיוון הפוך",
   "theme.noir": "נואר אפור",
@@ -1297,8 +1301,10 @@ const Vt = "conx-dynamic-panel-lang", Xt = {}, qt = {
   "card.cover_safety": "Безопасность: нажатия обрабатываются интеграцией. Оба реле направлений принудительно выключаются при остановке, истечении таймера, смене профиля, синхронизации и перезагрузке.",
   "card.cover_add": "Добавить ролету",
   "card.cover_remove": "Удалить",
+  "card.cover_slot_empty": "Не настроено",
+  "card.cover_slot_hint": "Назначьте оставшиеся кнопки второй ролете. Каждой ролете нужны две разные кнопки (открыть + закрыть).",
   "card.gang_count": "Число кнопок",
-  "card.gang_count_hint": "Сколько физических кнопок (L1…Ln) использует профиль. Число ролет ограничено floor(n/2).",
+  "card.gang_count_hint": "Сколько физических кнопок (L1…Ln) использует профиль. Число ролет ограничено floor(n/2). Выберите 4, чтобы использовать две ролеты.",
   "cover.stop_only": "Только стоп",
   "cover.stop_then_reverse": "Стоп, затем реверс",
   "theme.noir": "Нуар серый",
@@ -1545,8 +1551,8 @@ let _ = class extends T {
   _buildServiceYaml(e) {
     if (!this._panel || !this._config)
       return "";
-    const t = e || Ye(this._panel.profiles, this._panel.active_profile_id);
-    return Ge(
+    const t = e || Ge(this._panel.profiles, this._panel.active_profile_id);
+    return Ye(
       t,
       this._importMode,
       this._config.entry_id
@@ -1839,7 +1845,7 @@ let _ = class extends T {
   }
   _gangCount(e) {
     var t;
-    return A(((t = e || this._draft) == null ? void 0 : t.gang_count) ?? 4);
+    return $(((t = e || this._draft) == null ? void 0 : t.gang_count) ?? 4);
   }
   _gangIndexes(e) {
     const t = this._gangCount(e);
@@ -1881,7 +1887,7 @@ let _ = class extends T {
   }
   _setGangCount(e) {
     this._patchDraft((t) => {
-      t.gang_count = A(e), t.covers = z(t), delete t.cover, t.radio_groups && (t.radio_groups = t.radio_groups.map((r) => ({
+      t.gang_count = $(e), t.covers = z(t), delete t.cover, t.radio_groups && (t.radio_groups = t.radio_groups.map((r) => ({
         ...r,
         buttons: r.buttons.filter((i) => i <= t.gang_count)
       }))), t.selected_button != null && (t.selected_button < 1 || t.selected_button > t.gang_count) && (t.selected_button = null);
@@ -1890,9 +1896,10 @@ let _ = class extends T {
   _setMode(e) {
     this._patchDraft((t) => {
       var r;
-      if (t.mode = e, t.mode === "cover")
-        t.covers = z(t), delete t.cover;
-      else if (t.mode === "radio_split")
+      if (t.mode = e, t.mode === "cover") {
+        const i = $(t.gang_count ?? 4);
+        t.gang_count = i < 4 ? 4 : i, t.covers = z(t), delete t.cover;
+      } else if (t.mode === "radio_split")
         this._ensureRadioGroups(t), this._setRadioGroupsOpen(!0);
       else if (t.mode !== "toggle" && (t.selected_button == null || !t.buttons.some(
         (i) => i.index === t.selected_button && i.radio_member !== !1
@@ -2157,26 +2164,45 @@ let _ = class extends T {
       </div>
     `;
   }
+  _renderEmptyCoverSlot(e) {
+    return d`
+      <div class="cover-block cover-block-empty" data-cover-slot=${e}>
+        <div class="cover-head">
+          <span class="menu-label"
+            >${this.t("card.cover")} ${e + 1}</span
+          >
+          <span class="cover-slot-status">${this.t("card.cover_slot_empty")}</span>
+        </div>
+        <p class="radio-groups-hint">${this.t("card.cover_slot_hint")}</p>
+        <button
+          type="button"
+          class="btn primary cover-add-slot"
+          data-cover-add
+          ?disabled=${this._busy}
+          @click=${() => this._addCover()}
+        >
+          ${this.t("card.cover_add")}
+        </button>
+      </div>
+    `;
+  }
   _renderCoverEditor() {
     if (!this._draft || this._draft.mode !== "cover")
       return l;
-    const e = this._covers(), t = ut(this._gangCount());
+    const e = this._covers(), t = ut(this._gangCount()), r = Array.from(
+      { length: Math.max(t, e.length) },
+      (i, a) => e[a] ?? null
+    );
     return d`
       <div class="cover-section" data-cover-editor>
         <div class="cover-head">
           <span class="menu-label">${this.t("card.cover")}</span>
-          ${e.length < t ? d`<button
-                type="button"
-                class="btn"
-                data-cover-add
-                ?disabled=${this._busy}
-                @click=${() => this._addCover()}
-              >
-                ${this.t("card.cover_add")}
-              </button>` : l}
         </div>
         <p class="radio-groups-hint">${this.t("card.cover_hint")}</p>
-        ${e.map((r, i) => this._renderOneCoverEditor(r, i))}
+        ${this._renderGangPicker()}
+        ${r.map(
+      (i, a) => i ? this._renderOneCoverEditor(i, a) : this._renderEmptyCoverSlot(a)
+    )}
         <p class="cover-safety">${this.t("card.cover_safety")}</p>
       </div>
     `;
@@ -2980,10 +3006,10 @@ ${this._renderGangPicker()}
       ${this._renderCoverEditor()}
           <div class="buttons-accordion">
             ${this._draft.buttons.filter((e) => e.index <= this._gangCount()).map((e) => {
-      var u, h, f, b, $;
+      var u, h, f, b, w;
       const t = !!this._expandedButtons[e.index], r = String(
         ((h = (u = e.action) == null ? void 0 : u.target) == null ? void 0 : h.entity_id) || ""
-      ), i = (e.name || "").trim() || "—", a = ((f = e.action) == null ? void 0 : f.action) || "", n = ((b = this._draft) == null ? void 0 : b.mode) === "radio_mandatory" || (($ = this._draft) == null ? void 0 : $.mode) === "radio_optional", s = e.radio_member !== !1, o = this._coverDirectionFor(e.index), c = o ? this.t(
+      ), i = (e.name || "").trim() || "—", a = ((f = e.action) == null ? void 0 : f.action) || "", n = ((b = this._draft) == null ? void 0 : b.mode) === "radio_mandatory" || ((w = this._draft) == null ? void 0 : w.mode) === "radio_optional", s = e.radio_member !== !1, o = this._coverDirectionFor(e.index), c = o ? this.t(
         o === "open" ? "card.cover_open" : "card.cover_close"
       ) : n ? s ? this.t("card.radio_member") : this.t("card.radio_toggle") : "", p = [a, r, c].filter(Boolean).join(" · ") || "—";
       return d`
@@ -3016,7 +3042,7 @@ ${this._renderGangPicker()}
                                 type="text"
                                 .value=${e.name}
                                 ?disabled=${this._busy}
-                                @input=${(w) => this._onButtonNameInput(e.index, w)}
+                                @input=${(k) => this._onButtonNameInput(e.index, k)}
                               />
                             </label>
                             <label class="field">
@@ -3026,7 +3052,7 @@ ${this._renderGangPicker()}
                                 .value=${a}
                                 placeholder="light.toggle"
                                 ?disabled=${this._busy}
-                                @input=${(w) => this._onButtonActionInput(e.index, w)}
+                                @input=${(k) => this._onButtonActionInput(e.index, k)}
                               />
                             </label>
                             <label class="field">
@@ -3036,7 +3062,7 @@ ${this._renderGangPicker()}
                                 .value=${r}
                                 placeholder="light.living_room"
                                 ?disabled=${this._busy}
-                                @input=${(w) => this._onButtonEntityInput(e.index, w)}
+                                @input=${(k) => this._onButtonEntityInput(e.index, k)}
                               />
                             </label>
                             ${n ? d`
@@ -3046,11 +3072,11 @@ ${this._renderGangPicker()}
                                       <select
                                         .value=${s ? "radio" : "toggle"}
                                         ?disabled=${this._busy}
-                                        @change=${(w) => this._patchDraft((ee) => {
+                                        @change=${(k) => this._patchDraft((ee) => {
         const $t = ee.buttons.find(
           (re) => re.index === e.index
         );
-        $t && ($t.radio_member = w.target.value === "radio");
+        $t && ($t.radio_member = k.target.value === "radio");
       })}
                                       >
                                         <option value="radio">
@@ -4472,22 +4498,34 @@ _.styles = Ft`
       width: max-content;
       max-width: 100%;
     }
+    .cover-section .gang-picker {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      width: 100%;
+      max-width: none;
+      margin-bottom: 4px;
+    }
+    .cover-section .gang-picker .radio-member {
+      min-height: 42px;
+    }
 
     .mode-picker {
       display: flex;
       flex-wrap: wrap;
-      gap: 6px;
-      width: max-content;
-      max-width: 100%;
+      gap: 8px;
+      width: 100%;
     }
     .mode-picker .radio-member {
-      flex: 0 1 auto;
-      padding: 8px 10px;
-      min-height: 34px;
+      flex: 1 1 0;
+      min-width: min(100%, 5.25rem);
+      padding: 12px 8px;
+      min-height: 44px;
     }
     .mode-picker .radio-member-label {
-      font-size: 0.72rem;
-      white-space: nowrap;
+      font-size: 0.82rem;
+      font-weight: 800;
+      white-space: normal;
+      text-align: center;
+      line-height: 1.2;
     }
 
     .color-select {
@@ -4680,9 +4718,25 @@ _.styles = Ft`
       border-top: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
     }
     .cover-block:first-of-type {
-      margin-top: 0;
-      padding-top: 0;
-      border-top: none;
+      margin-top: 8px;
+      padding-top: 10px;
+    }
+    .cover-block-empty {
+      padding: 12px;
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      border-top: 1px dashed var(--border);
+      background: color-mix(in srgb, var(--surface) 70%, transparent);
+    }
+    .cover-slot-status {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--text-muted);
+    }
+    .cover-add-slot {
+      width: 100%;
+      min-height: 44px;
+      font-weight: 800;
     }
     .cover-head {
       display: flex;
@@ -4728,7 +4782,15 @@ _.styles = Ft`
       direction: ltr;
       display: grid;
       grid-template-columns: repeat(var(--conx-gang-count, 4), minmax(0, 1fr));
-      gap: 6px;
+      gap: 8px;
+      width: 100%;
+    }
+    .cover-buttons .radio-member {
+      min-height: 42px;
+      padding: 10px 4px;
+    }
+    .cover-buttons .radio-member-label {
+      font-size: 0.85rem;
     }
     .cover-safety {
       margin: 10px 0 0;
