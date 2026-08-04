@@ -2647,9 +2647,10 @@ let _ = class extends T {
     return d`
       <!--
         Faceplate topography matches Zemismart 4-gang: black label bar,
-        white glass touch face, 4 LED rings L→R. Rings use profile
-        color_on / color_off. Extension point for a future photo skin:
-        set --conx-faceplate-skin on .faceplate.
+        white glass touch face, fixed 4-slot grid L→R. Only L1…Ln render;
+        unused slots stay empty so outer size never shrinks with gang_count.
+        Rings use profile color_on / color_off. Extension point for a future
+        photo skin: set --conx-faceplate-skin on .faceplate.
       -->
       <div
         class="faceplate"
@@ -5027,11 +5028,11 @@ _.styles = Ft`
 
     .faceplate-bezel {
       position: relative;
-      /* Scale width with gang count so 1–3 gang panels do not look empty. */
-      min-width: calc(80px * var(--conx-gang-count, 4));
-      width: min(100%, calc(140px * var(--conx-gang-count, 4)));
+      /* Always the 4-gang footprint; unused gangs leave empty slots. */
+      min-width: calc(80px * 4);
+      width: min(100%, calc(140px * 4));
       margin: 0 auto;
-      aspect-ratio: calc(0.64 * var(--conx-gang-count, 4)) / 1;
+      aspect-ratio: calc(0.64 * 4) / 1;
       border-radius: 18px;
       padding: 5px;
       background:
@@ -5068,7 +5069,7 @@ _.styles = Ft`
 
     .faceplate-labels {
       display: grid;
-      grid-template-columns: repeat(var(--conx-gang-count, 4), 1fr);
+      grid-template-columns: repeat(4, 1fr);
       align-items: center;
       background: #0a0a0a;
       color: #f5f5f5;
@@ -5097,7 +5098,7 @@ _.styles = Ft`
 
     .faceplate-rings {
       display: grid;
-      grid-template-columns: repeat(var(--conx-gang-count, 4), 1fr);
+      grid-template-columns: repeat(4, 1fr);
       width: 100%;
       place-items: center;
     }

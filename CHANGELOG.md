@@ -7,7 +7,7 @@ All notable changes to this private project will be documented here.
 ### Changed
 
 - Profiles tab (step 1) now shows **profile chips + panel gang count** (`מספר גאנגים` / Panel gangs / Число кнопок) together so gang selection sits with profile context. Cover mode still repeats the gang picker for convenience when editing shutters; Appearance no longer hosts it.
-- Hero faceplate adapts to `gang_count`: only L1…Ln labels and LED rings render (Lit card + HTML preview), and bezel width/aspect scale with N so a 2-gang profile does not show empty L3/L4 slots.
+- Hero faceplate adapts to `gang_count`: only L1…Ln labels and LED rings render (Lit card + HTML preview). Bezel width/aspect stay locked to the **4-gang footprint**; unused slots stay empty so 1–3 gang profiles do not shrink the switch.
 
 ### Added
 

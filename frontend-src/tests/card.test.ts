@@ -280,6 +280,24 @@ describe("custom elements", () => {
         (node) => node.textContent?.trim()
       )
     ).toEqual(["Living room", "Kitchen"]);
+    // Outer bezel stays locked to the 4-gang footprint (unused slots empty).
+    const Card = customElements.get("conx-dynamic-panel-card") as unknown as {
+      styles: { cssText: string } | Array<{ cssText: string }>;
+    };
+    const cssText = Array.isArray(Card.styles)
+      ? Card.styles.map((part) => part.cssText).join("\n")
+      : Card.styles.cssText;
+    expect(cssText).toContain("min-width: calc(80px * 4)");
+    expect(cssText).toContain("aspect-ratio: calc(0.64 * 4) / 1");
+    expect(cssText).toContain(
+      ".faceplate-labels {\n      display: grid;\n      grid-template-columns: repeat(4, 1fr);"
+    );
+    expect(cssText).toContain(
+      ".faceplate-rings {\n      display: grid;\n      grid-template-columns: repeat(4, 1fr);"
+    );
+    expect(cssText).not.toContain(
+      "min-width: calc(80px * var(--conx-gang-count"
+    );
 
     const profilesPanel = el.shadowRoot?.querySelector(
       "[data-profiles-gang]"

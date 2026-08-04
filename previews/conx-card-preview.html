@@ -395,10 +395,11 @@
     .faceplate { width: 100%; }
     .faceplate-bezel {
       position: relative;
-      min-width: calc(100px * var(--conx-gang-count, 4));
-      width: min(100%, calc(230px * var(--conx-gang-count, 4)));
+      /* Always the 4-gang footprint; unused gangs leave empty slots. */
+      min-width: calc(100px * 4);
+      width: min(100%, calc(230px * 4));
       margin: 0 auto;
-      aspect-ratio: calc(0.66 * var(--conx-gang-count, 4)) / 1;
+      aspect-ratio: calc(0.66 * 4) / 1;
       border-radius: 22px; padding: 7px;
       background: linear-gradient(145deg, #f2f0ea 0%, #b8b0a4 36%, #ebe6dc 62%, #8a8378 100%);
       box-shadow: inset 0 1px 1px #fff, inset 0 -1px 2px rgba(0,0,0,.35), 0 16px 36px rgba(0,0,0,.35);
@@ -410,7 +411,7 @@
     }
     .faceplate-labels {
       display: grid;
-      grid-template-columns: repeat(var(--conx-gang-count, 4), 1fr);
+      grid-template-columns: repeat(4, 1fr);
       align-items: center;
       background: linear-gradient(180deg, #2a3038 0%, #1a1d22 100%); color: #f0f2f5; padding: 0 6px;
     }
@@ -426,7 +427,7 @@
     }
     .faceplate-rings {
       display: grid;
-      grid-template-columns: repeat(var(--conx-gang-count, 4), 1fr);
+      grid-template-columns: repeat(4, 1fr);
       width: 100%;
       place-items: center;
     }
