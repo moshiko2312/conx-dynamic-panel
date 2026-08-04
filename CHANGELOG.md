@@ -4,6 +4,10 @@ All notable changes to this private project will be documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Free mix presses felt dead:** unsaved editor drafts never drive the panel — presses use the last **saved** active profile. The red unsaved banner now states this; a post-save sync notice clarifies that Sync is for labels/colors while press behavior already follows the saved draft. Radio-group membership in mixed mode auto-promotes to `role=radio` and prunes non-radio members so toggle/momentary buttons cannot sit in a conflicting group. Role chip `radio` is labeled **Radio group / קבוצת רדיו** (not a phantom “relay” role); empty actions show a clear “relay-only” hint.
+
 ### Changed
 
 - **Free mix discoverability:** Buttons tab now shows a full-width **Per-button roles / תפקיד לכל כפתור** section immediately under Mode (not buried in collapsed accordion rows). Each L1…Ln has role chips (toggle / momentary / radio / cover open / cover close), with pulse time for momentary, `cover_id` + Cover section for shutter roles, and Radio groups when any button is radio. Action/entity fields stay in the accordion for non-cover roles. Lit card + HTML preview parity.

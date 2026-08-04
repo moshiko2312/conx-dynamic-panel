@@ -78,7 +78,11 @@ const EN: Record<string, string> = {
   "cover.stop_then_reverse": "Stop, then reverse",
   "theme.noir": "Noir gray",
   "theme.ivory": "Ivory cool",
-  "card.unsaved": "You have unsaved draft changes.",
+  "card.unsaved":
+    "Unsaved draft — physical presses still use the last saved profile. Save Draft to apply roles/actions; Sync updates panel labels and colors.",
+  "card.sync_needed":
+    "Draft saved. Press behavior already uses this draft. Sync to Panel to push labels, colors, and on-panel settings.",
+  "card.missing_action": "No Home Assistant action — only the panel relay will change.",
   "card.loading": "Loading panel…",
   "card.missing_entry": "Configure an entry_id for this card.",
   "card.compact": "Compact mode",
@@ -146,18 +150,18 @@ const EN: Record<string, string> = {
   "mode.mixed": "Free mix",
   "mode.cover": "Cover / shutter",
   "card.mixed_hint":
-    "Configure each button freely: toggle, momentary pulse, radio group, or cover open/close. Momentary turns ON then OFF after the pulse time; a re-press cancels and turns OFF.",
+    "Configure each button freely: toggle (latched relay), momentary pulse, radio group, or cover open/close. Momentary turns ON then OFF after the pulse time; a re-press cancels and turns OFF. There is no separate “relay” role — use Toggle for a latched relay, and set an Action if Home Assistant should also run.",
   "card.mixed_roles": "Per-button roles",
   "card.button_role": "Button role",
   "card.pulse_time": "Pulse time",
   "card.cover_id": "Cover",
   "card.mixed_radio_hint":
-    "Assign this button to a radio group in the Radio groups section below.",
+    "Assign this button to a radio group below. Classic radio keeps exactly one member ON (turning it off snaps it back). Only role=Radio buttons stay in groups.",
   "card.mixed_cover_hint":
     "Travel times and motor safety settings are in the Cover section below.",
   "role.toggle": "Toggle",
   "role.momentary": "Momentary",
-  "role.radio": "Radio",
+  "role.radio": "Radio group",
   "role.cover_open": "Cover open",
   "role.cover_close": "Cover close",
 };
@@ -237,7 +241,11 @@ const HE: Record<string, string> = {
   "cover.stop_then_reverse": "עצירה ואז כיוון הפוך",
   "theme.noir": "נואר אפור",
   "theme.ivory": "שנהב קר",
-  "card.unsaved": "יש שינויי טיוטה שלא נשמרו.",
+  "card.unsaved":
+    "יש שינויי טיוטה שלא נשמרו — לחיצות על הפאנל עדיין לפי הפרופיל השמור האחרון. שמרו טיוטה כדי להחיל תפקידים/פעולות; סנכרון מעדכן תוויות וצבעים בפאנל.",
+  "card.sync_needed":
+    "הטיוטה נשמרה. התנהגות הלחיצות כבר לפי הטיוטה. סנכרנו לפאנל כדי לדחוף תוויות, צבעים והגדרות על החומרה.",
+  "card.missing_action": "אין פעולת Home Assistant — ישתנה רק ממסר הפאנל.",
   "card.loading": "טוען פאנל…",
   "card.missing_entry": "יש להגדיר entry_id לכרטיס.",
   "card.compact": "מצב קומפקטי",
@@ -305,18 +313,18 @@ const HE: Record<string, string> = {
   "mode.mixed": "מיקס חופשי",
   "mode.cover": "תריס",
   "card.mixed_hint":
-    "הגדירו כל כפתור בנפרד: טוגל, רגעי, קבוצת רדיו או פתיחה/סגירה של תריס. רגעי מדליק ואז מכבה אחרי זמן הפולס; לחיצה חוזרת מבטלת ומכבה.",
+    "הגדירו כל כפתור בנפרד: טוגל (ממסר נעול), רגעי, קבוצת רדיו או פתיחה/סגירה של תריס. רגעי מדליק ואז מכבה אחרי זמן הפולס; לחיצה חוזרת מבטלת ומכבה. אין תפקיד נפרד בשם «רליי» — לטוגל של הממסר בחרו טוגל, ולהפעלת Home Assistant הגדירו גם פעולה.",
   "card.mixed_roles": "תפקיד לכל כפתור",
   "card.button_role": "תפקיד כפתור",
   "card.pulse_time": "זמן פולס",
   "card.cover_id": "תריס",
   "card.mixed_radio_hint":
-    "שייכו את הכפתור לקבוצת רדיו במקטע קבוצות רדיו למטה.",
+    "שייכו את הכפתור לקבוצת רדיו למטה. רדיו קלאסי משאיר תמיד חבר אחד דלוק (כיבוי מחזיר להדלקה). רק כפתורים בתפקיד «קבוצת רדיו» נשארים בקבוצה.",
   "card.mixed_cover_hint":
     "זמני נסיעה והגדרות בטיחות של המנוע נמצאים במקטע תריס למטה.",
   "role.toggle": "טוגל",
   "role.momentary": "רגעי",
-  "role.radio": "רדיו",
+  "role.radio": "קבוצת רדיו",
   "role.cover_open": "פתיחת תריס",
   "role.cover_close": "סגירת תריס",
 };
@@ -396,7 +404,11 @@ const RU: Record<string, string> = {
   "cover.stop_then_reverse": "Стоп, затем реверс",
   "theme.noir": "Нуар серый",
   "theme.ivory": "Слоновая кость холодная",
-  "card.unsaved": "Есть несохранённые изменения черновика.",
+  "card.unsaved":
+    "Несохранённый черновик — нажатия на панели всё ещё по последнему сохранённому профилю. Сохраните черновик для ролей/действий; синхронизация обновляет подписи и цвета на панели.",
+  "card.sync_needed":
+    "Черновик сохранён. Поведение кнопок уже по этому черновику. Синхронизируйте панель, чтобы отправить подписи, цвета и настройки на железо.",
+  "card.missing_action": "Нет действия Home Assistant — изменится только реле панели.",
   "card.loading": "Загрузка панели…",
   "card.missing_entry": "Укажите entry_id для карточки.",
   "card.compact": "Компактный режим",
@@ -464,18 +476,18 @@ const RU: Record<string, string> = {
   "mode.mixed": "Свободный микс",
   "mode.cover": "Ролета / жалюзи",
   "card.mixed_hint":
-    "Настройте каждую кнопку отдельно: тоггл, импульс, радиогруппа или открытие/закрытие ролеты. Импульс включает, затем выключает по таймеру; повторное нажатие отменяет и выключает.",
+    "Настройте каждую кнопку отдельно: тоггл (защёлка реле), импульс, радиогруппа или открытие/закрытие ролеты. Импульс включает, затем выключает по таймеру; повторное нажатие отменяет и выключает. Отдельной роли «реле» нет — для защёлки реле выберите Тоггл и при необходимости задайте действие Home Assistant.",
   "card.mixed_roles": "Роль каждой кнопки",
   "card.button_role": "Роль кнопки",
   "card.pulse_time": "Время импульса",
   "card.cover_id": "Ролета",
   "card.mixed_radio_hint":
-    "Назначьте кнопку в секцию радиогрупп ниже.",
+    "Назначьте кнопку в радиогруппу ниже. Классическое радио держит ровно одного участника включённым (выключение возвращает включение). В группах остаются только кнопки с ролью «Радиогруппа».",
   "card.mixed_cover_hint":
     "Время хода и безопасность мотора — в секции ролеты ниже.",
   "role.toggle": "Тоггл",
   "role.momentary": "Импульс",
-  "role.radio": "Радио",
+  "role.radio": "Радиогруппа",
   "role.cover_open": "Открыть ролету",
   "role.cover_close": "Закрыть ролету",
 };

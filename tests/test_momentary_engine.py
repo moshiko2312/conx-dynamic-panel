@@ -11,6 +11,7 @@ import pytest
 
 from custom_components.conx_dynamic_panel.const import (
     BUTTON_ROLE_MOMENTARY,
+    BUTTON_ROLE_RADIO,
     BUTTON_ROLE_TOGGLE,
     DEFAULT_PULSE_TIME,
     MODE_MIXED,
@@ -26,6 +27,7 @@ from custom_components.conx_dynamic_panel.models import (
     HardwareState,
     PanelStorageData,
     Profile,
+    RadioGroup,
     SyncResult,
     clamp_pulse_time,
 )
@@ -215,6 +217,65 @@ async def test_mixed_toggle_button_stays_independent() -> None:
     assert runtime.hass.services.async_call.await_count == 2
     assert runtime.momentary.timers == {}
     assert adapter.relay_calls == []
+
+
+@pytest.mark.asyncio
+async def test_mixed_radio_on_runs_action_and_clears_peers() -> None:
+    store = FakeStore()
+    adapter = FakeAdapter()
+    runtime = _runtime(adapter, store)
+    coordinator = PanelCoordinator(runtime)  # type: ignore[arg-type]
+    profile = _mixed_profile(store)
+    profile.buttons[1].role = BUTTON_ROLE_RADIO  # type: ignore[assignment]
+    profile.buttons[2].role = BUTTON_ROLE_RADIO  # type: ignore[assignment]
+    profile.buttons[2].action = ButtonAction(
+        action="switch.toggle",
+        target={"entity_id": "switch.other"},
+    )
+    profile.radio_groups = [
+        RadioGroup(id="g1", buttons=[2, 3]),
+        RadioGroup(id="g2", buttons=[]),
+    ]
+
+    await coordinator._async_handle_physical_press(2, True)
+    assert runtime.hass.services.async_call.await_count == 1
+    assert (3, False) in adapter.relay_calls
+
+
+def test_mixed_prunes_non_radio_from_radio_groups() -> None:
+    profile = Profile(
+        id="mix",
+        name="Mix",
+        mode=MODE_MIXED,  # type: ignore[arg-type]
+        buttons=[
+            ButtonConfig(index=1, name="Pulse", role=BUTTON_ROLE_MOMENTARY),  # type: ignore[arg-type]
+            ButtonConfig(index=2, name="A", role=BUTTON_ROLE_TOGGLE),  # type: ignore[arg-type]
+            ButtonConfig(index=3, name="B", role=BUTTON_ROLE_RADIO),  # type: ignore[arg-type]
+            ButtonConfig(index=4, name="C", role=BUTTON_ROLE_TOGGLE),  # type: ignore[arg-type]
+        ],
+        radio_groups=[
+            RadioGroup(id="g1", buttons=[4]),
+            RadioGroup(id="g2", buttons=[2, 3]),
+        ],
+    )
+    assert profile.radio_groups[0].buttons == []
+    assert profile.radio_groups[1].buttons == [3]
+
+
+@pytest.mark.asyncio
+async def test_mixed_toggle_without_action_still_fires_press_event() -> None:
+    store = FakeStore()
+    adapter = FakeAdapter()
+    runtime = _runtime(adapter, store)
+    fired: list[tuple[str, dict[str, Any]]] = []
+    runtime.hass.bus.async_fire = lambda event, data: fired.append((event, data))
+    coordinator = PanelCoordinator(runtime)  # type: ignore[arg-type]
+    profile = _mixed_profile(store)
+    profile.buttons[1].action = None
+
+    await coordinator._async_handle_physical_press(2, True)
+    assert runtime.hass.services.async_call.await_count == 0
+    assert fired and fired[0][1]["button"] == 2
 
 
 @pytest.mark.asyncio

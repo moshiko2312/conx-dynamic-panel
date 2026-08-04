@@ -274,7 +274,11 @@ Per-button `role` on the profile (`mode: mixed`):
 | `radio` | Classic radio within `radio_groups` (ungrouped radio acts as toggle) |
 | `cover_open` / `cover_close` | Same fail-safe cover engine; `cover_id` + `covers[]` timing |
 
-Validation: cover open/close must be paired and exclusive; radio groups exclusive; momentary timers cancel on profile change / sync / unload. `gang_count === 1` allows toggle and momentary only. Legacy modes stay available; alias `momentary_mix` normalizes to `mixed`.
+There is no separate `relay` role. A latched panel relay is `toggle`; configure a Home Assistant `action` when the press should also run a service.
+
+Validation: cover open/close must be paired and exclusive; radio groups may only contain `role=radio` buttons (non-radio members are pruned); radio groups exclusive; momentary timers cancel on profile change / sync / unload. `gang_count === 1` allows toggle and momentary only. Legacy modes stay available; alias `momentary_mix` normalizes to `mixed`.
+
+**Draft vs Sync for presses:** physical press routing (mode, roles, actions, radio exclusivity, momentary pulse, cover) uses the **saved active profile draft** in storage — not the applied snapshot and not an unsaved editor buffer. **Save Draft** makes role/action changes live for presses. **Sync** pushes labels, colors, radar, backlight, child lock, and mode relay safety to hardware. With `auto_sync`, a successful draft save also syncs hardware. Unsaved card edits never affect presses.
 
 ### Cover
 

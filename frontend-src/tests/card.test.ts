@@ -711,7 +711,8 @@ describe("custom elements", () => {
     await el.updateComplete;
     expect(el._dirty).toBe(true);
     expect(callWS.mock.calls.length).toBe(before);
-    expect(el.shadowRoot?.textContent).toMatch(/unsaved draft changes/i);
+    expect(el.shadowRoot?.textContent).toMatch(/Unsaved draft/i);
+    expect(el.shadowRoot?.textContent).toMatch(/last saved profile/i);
     const warn = el.shadowRoot?.querySelector(".warn.unsaved-draft") as HTMLElement;
     expect(warn).toBeTruthy();
     expect(warn.getAttribute("role")).toBe("status");
@@ -948,9 +949,74 @@ describe("custom elements", () => {
   it("labels free-mix per-button roles in Hebrew", () => {
     expect(localize("he", "card.mixed_roles")).toBe("תפקיד לכל כפתור");
     expect(localize("he", "role.momentary")).toBe("רגעי");
+    expect(localize("he", "role.radio")).toBe("קבוצת רדיו");
+    expect(localize("he", "role.radio")).not.toContain("רליי");
     expect(localize("he", "role.cover_open")).toBe("פתיחת תריס");
     expect(localize("he", "role.cover_close")).toBe("סגירת תריס");
     expect(localize("en", "card.mixed_roles")).toBe("Per-button roles");
+    expect(localize("en", "role.radio")).toBe("Radio group");
+    expect(localize("he", "card.unsaved")).toContain("שמרו טיוטה");
+    expect(localize("en", "card.sync_needed")).toContain("Press behavior");
+  });
+
+  it("promotes mixed buttons to radio when added to a radio group", async () => {
+    const callWS = vi.fn().mockResolvedValue(panelPayload({ sync_status: "synced" }));
+    const el = await mountCard({ language: "en", callWS });
+    el._activeTab = "buttons";
+    await el.updateComplete;
+    const modePicker = el.shadowRoot?.querySelector(
+      "[data-mode-picker]"
+    ) as HTMLElement;
+    (modePicker.querySelector('[data-mode="mixed"]') as HTMLButtonElement).click();
+    await el.updateComplete;
+    const roleRow = el.shadowRoot?.querySelector(
+      '[data-mixed-role="2"]'
+    ) as HTMLElement;
+    (roleRow.querySelector('[data-role="radio"]') as HTMLButtonElement).click();
+    await el.updateComplete;
+    expect(el._draft?.buttons[1].role).toBe("radio");
+
+    // L4 starts as toggle; joining a group must promote it to radio.
+    expect(el._draft?.buttons[3].role).toBe("toggle");
+    const groupCard = el.shadowRoot?.querySelector(
+      ".radio-group-card:not(.is-summary)"
+    ) as HTMLElement;
+    const l4Chip = [
+      ...(groupCard.querySelectorAll(".radio-member") || []),
+    ].find((chip) => chip.textContent?.includes("L4")) as HTMLButtonElement;
+    expect(l4Chip).toBeTruthy();
+    l4Chip.click();
+    await el.updateComplete;
+    expect(el._draft?.buttons[3].role).toBe("radio");
+    expect(el._draft?.radio_groups?.[0].buttons).toContain(4);
+  });
+
+  it("shows sync-needed notice after save when hardware is pending", async () => {
+    const savedProfile = {
+      ...panelPayload().profiles.lighting,
+      mode: "mixed",
+    };
+    const callWS = vi
+      .fn()
+      .mockResolvedValueOnce(panelPayload({ sync_status: "synced" }))
+      .mockResolvedValueOnce(savedProfile)
+      .mockResolvedValueOnce(
+        panelPayload({
+          sync_status: "pending",
+          profiles: { lighting: savedProfile },
+        })
+      );
+    const el = await mountCard({ language: "en", callWS });
+    el._activeTab = "buttons";
+    await el.updateComplete;
+    (el.shadowRoot?.querySelector('[data-mode="mixed"]') as HTMLButtonElement).click();
+    await el.updateComplete;
+    expect(el._dirty).toBe(true);
+    await el._saveDraft();
+    await el.updateComplete;
+    expect(el._dirty).toBe(false);
+    expect(el.shadowRoot?.querySelector("[data-sync-needed]")).toBeTruthy();
+    expect(el.shadowRoot?.querySelector(".unsaved-draft")).toBeFalsy();
   });
 
   it("opens a copyable automation example from the settings menu", async () => {

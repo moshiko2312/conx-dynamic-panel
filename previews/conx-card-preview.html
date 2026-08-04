@@ -1547,7 +1547,9 @@
         "card.child_lock": "Child lock", "card.button": "Button",
         "card.button_expand": "Expand button settings", "card.button_collapse": "Collapse button settings",
         "card.label": "Label", "card.action": "Action", "card.entity_id": "Entity ID",
-        "card.unsaved": "You have unsaved draft changes.",
+        "card.unsaved": "Unsaved draft — physical presses still use the last saved profile. Save Draft to apply roles/actions; Sync updates panel labels and colors.",
+        "card.sync_needed": "Draft saved. Press behavior already uses this draft. Sync to Panel to push labels, colors, and on-panel settings.",
+        "card.missing_action": "No Home Assistant action — only the panel relay will change.",
         "card.export": "Export", "card.open_export_wizard": "Export wizard",
         "card.back_to_editor": "Back to editor",
         "card.open_standalone_wizard": "Standalone wizard (HTML)",
@@ -1582,14 +1584,14 @@
         "card.automation_yaml_night": "Night",
         "mode.toggle": "Toggle", "mode.radio_mandatory": "Radio mandatory", "mode.radio_optional": "Radio optional",
         "mode.radio_split": "Radio split", "mode.mixed": "Free mix", "mode.cover": "Cover / shutter",
-        "card.mixed_hint": "Configure each button freely: toggle, momentary pulse, radio group, or cover open/close. Momentary turns ON then OFF after the pulse time; a re-press cancels and turns OFF.",
+        "card.mixed_hint": "Configure each button freely: toggle (latched relay), momentary pulse, radio group, or cover open/close. Momentary turns ON then OFF after the pulse time; a re-press cancels and turns OFF. There is no separate “relay” role — use Toggle for a latched relay, and set an Action if Home Assistant should also run.",
         "card.mixed_roles": "Per-button roles",
         "card.button_role": "Button role",
         "card.pulse_time": "Pulse time",
         "card.cover_id": "Cover",
-        "card.mixed_radio_hint": "Assign this button to a radio group in the Radio groups section below.",
+        "card.mixed_radio_hint": "Assign this button to a radio group below. Classic radio keeps exactly one member ON (turning it off snaps it back). Only role=Radio buttons stay in groups.",
         "card.mixed_cover_hint": "Travel times and motor safety settings are in the Cover section below.",
-        "role.toggle": "Toggle", "role.momentary": "Momentary", "role.radio": "Radio",
+        "role.toggle": "Toggle", "role.momentary": "Momentary", "role.radio": "Radio group",
         "role.cover_open": "Cover open", "role.cover_close": "Cover close",
         "card.cover": "Cover / shutter",
         "card.cover_hint": "Pick which panel buttons drive the motor. Pressing a direction starts a timed travel; pressing again stops it. The integration never energizes both directions at once.",
@@ -1645,7 +1647,9 @@
         "card.child_lock": "נעילת ילדים", "card.button": "כפתור",
         "card.button_expand": "הרחב הגדרות כפתור", "card.button_collapse": "כווץ הגדרות כפתור",
         "card.label": "תווית", "card.action": "פעולה", "card.entity_id": "מזהה ישות",
-        "card.unsaved": "יש שינויי טיוטה שלא נשמרו.",
+        "card.unsaved": "יש שינויי טיוטה שלא נשמרו — לחיצות על הפאנל עדיין לפי הפרופיל השמור האחרון. שמרו טיוטה כדי להחיל תפקידים/פעולות; סנכרון מעדכן תוויות וצבעים בפאנל.",
+        "card.sync_needed": "הטיוטה נשמרה. התנהגות הלחיצות כבר לפי הטיוטה. סנכרנו לפאנל כדי לדחוף תוויות, צבעים והגדרות על החומרה.",
+        "card.missing_action": "אין פעולת Home Assistant — ישתנה רק ממסר הפאנל.",
         "card.export": "ייצוא", "card.open_export_wizard": "אשף ייצוא",
         "card.back_to_editor": "חזרה לעריכה",
         "card.open_standalone_wizard": "אשף נפרד (HTML)",
@@ -1680,14 +1684,14 @@
         "card.automation_yaml_night": "לילה",
         "mode.toggle": "החלפה", "mode.radio_mandatory": "רדיו חובה", "mode.radio_optional": "רדיו אופציונלי",
         "mode.radio_split": "רדיו ספליט", "mode.mixed": "מיקס חופשי", "mode.cover": "תריס",
-        "card.mixed_hint": "הגדירו כל כפתור בנפרד: טוגל, רגעי, קבוצת רדיו או פתיחה/סגירה של תריס. רגעי מדליק ואז מכבה אחרי זמן הפולס; לחיצה חוזרת מבטלת ומכבה.",
+        "card.mixed_hint": "הגדירו כל כפתור בנפרד: טוגל (ממסר נעול), רגעי, קבוצת רדיו או פתיחה/סגירה של תריס. רגעי מדליק ואז מכבה אחרי זמן הפולס; לחיצה חוזרת מבטלת ומכבה. אין תפקיד נפרד בשם «רליי» — לטוגל של הממסר בחרו טוגל, ולהפעלת Home Assistant הגדירו גם פעולה.",
         "card.mixed_roles": "תפקיד לכל כפתור",
         "card.button_role": "תפקיד כפתור",
         "card.pulse_time": "זמן פולס",
         "card.cover_id": "תריס",
-        "card.mixed_radio_hint": "שייכו את הכפתור לקבוצת רדיו במקטע קבוצות רדיו למטה.",
+        "card.mixed_radio_hint": "שייכו את הכפתור לקבוצת רדיו למטה. רדיו קלאסי משאיר תמיד חבר אחד דלוק (כיבוי מחזיר להדלקה). רק כפתורים בתפקיד «קבוצת רדיו» נשארים בקבוצה.",
         "card.mixed_cover_hint": "זמני נסיעה והגדרות בטיחות של המנוע נמצאים במקטע תריס למטה.",
-        "role.toggle": "טוגל", "role.momentary": "רגעי", "role.radio": "רדיו",
+        "role.toggle": "טוגל", "role.momentary": "רגעי", "role.radio": "קבוצת רדיו",
         "role.cover_open": "פתיחת תריס", "role.cover_close": "סגירת תריס",
         "card.cover": "תריס",
         "card.cover_hint": "בחרו אילו כפתורים בפאנל מפעילים את המנוע. לחיצה על כיוון מתחילה תנועה מתוזמנת, ולחיצה נוספת עוצרת אותה. האינטגרציה לעולם לא מפעילה את שני הכיוונים יחד.",
@@ -1743,7 +1747,9 @@
         "card.child_lock": "Блокировка", "card.button": "Кнопка",
         "card.button_expand": "Развернуть настройки кнопки", "card.button_collapse": "Свернуть настройки кнопки",
         "card.label": "Название", "card.action": "Действие", "card.entity_id": "Entity ID",
-        "card.unsaved": "Есть несохранённые изменения черновика.",
+        "card.unsaved": "Несохранённый черновик — нажатия на панели всё ещё по последнему сохранённому профилю. Сохраните черновик для ролей/действий; синхронизация обновляет подписи и цвета на панели.",
+        "card.sync_needed": "Черновик сохранён. Поведение кнопок уже по этому черновику. Синхронизируйте панель, чтобы отправить подписи, цвета и настройки на железо.",
+        "card.missing_action": "Нет действия Home Assistant — изменится только реле панели.",
         "card.export": "Экспорт", "card.open_export_wizard": "Мастер экспорта",
         "card.back_to_editor": "Назад к редактору",
         "card.open_standalone_wizard": "Отдельный мастер (HTML)",
@@ -1778,14 +1784,14 @@
         "card.automation_yaml_night": "Ночь",
         "mode.toggle": "Переключатель", "mode.radio_mandatory": "Радио (обязательно)", "mode.radio_optional": "Радио (опционально)",
         "mode.radio_split": "Радио сплит", "mode.mixed": "Свободный микс", "mode.cover": "Ролета / жалюзи",
-        "card.mixed_hint": "Настройте каждую кнопку отдельно: тоггл, импульс, радиогруппа или открытие/закрытие ролеты. Импульс включает, затем выключает по таймеру; повторное нажатие отменяет и выключает.",
+        "card.mixed_hint": "Настройте каждую кнопку отдельно: тоггл (защёлка реле), импульс, радиогруппа или открытие/закрытие ролеты. Импульс включает, затем выключает по таймеру; повторное нажатие отменяет и выключает. Отдельной роли «реле» нет — для защёлки реле выберите Тоггл и при необходимости задайте действие Home Assistant.",
         "card.mixed_roles": "Роль каждой кнопки",
         "card.button_role": "Роль кнопки",
         "card.pulse_time": "Время импульса",
         "card.cover_id": "Ролета",
-        "card.mixed_radio_hint": "Назначьте кнопку в секцию радиогрупп ниже.",
+        "card.mixed_radio_hint": "Назначьте кнопку в радиогруппу ниже. Классическое радио держит ровно одного участника включённым (выключение возвращает включение). В группах остаются только кнопки с ролью «Радиогруппа».",
         "card.mixed_cover_hint": "Время хода и безопасность мотора — в секции ролеты ниже.",
-        "role.toggle": "Тоггл", "role.momentary": "Импульс", "role.radio": "Радио",
+        "role.toggle": "Тоггл", "role.momentary": "Импульс", "role.radio": "Радиогруппа",
         "role.cover_open": "Открыть ролету", "role.cover_close": "Закрыть ролету",
         "card.cover": "Ролета / жалюзи",
         "card.cover_hint": "Выберите кнопки панели, управляющие мотором. Нажатие направления запускает движение по таймеру, повторное нажатие останавливает его. Интеграция никогда не включает оба направления одновременно.",
@@ -1837,7 +1843,16 @@
         cover_id: isCover ? (String((b && b.cover_id) || "cover_1").trim() || "cover_1") : null,
       };
     }
-    function normalizeRadioGroups(raw) {
+    function normalizeRadioGroups(raw, profile) {
+      const gangCount = clampGangCount((profile && profile.gang_count) || 4);
+      const radioIndexes =
+        profile && profile.mode === "mixed"
+          ? new Set(
+              (profile.buttons || [])
+                .filter((b) => b.role === "radio" && b.index <= gangCount)
+                .map((b) => b.index)
+            )
+          : null;
       const groups = [];
       if (Array.isArray(raw)) {
         raw.forEach((item, index) => {
@@ -1845,7 +1860,14 @@
           const buttons = [];
           (Array.isArray(item.buttons) ? item.buttons : []).forEach((n) => {
             const i = Number(n);
-            if (i >= 1 && i <= 4 && !buttons.includes(i)) buttons.push(i);
+            if (
+              i >= 1 &&
+              i <= gangCount &&
+              !buttons.includes(i) &&
+              (radioIndexes == null || radioIndexes.has(i))
+            ) {
+              buttons.push(i);
+            }
           });
           groups.push({ id: String(item.id || ("g" + (index + 1))), buttons });
         });
@@ -2000,7 +2022,7 @@
       profile.gang_count = clampGangCount(profile.gang_count ?? 4);
       profile.mode = coerceModeForGangCount(profile.mode, profile.gang_count);
       profile.buttons = [1,2,3,4].map((i) => normalizeButton((profile.buttons || []).find((x) => x.index === i), i, profile.gang_count));
-      profile.radio_groups = normalizeRadioGroups(profile.radio_groups);
+      profile.radio_groups = normalizeRadioGroups(profile.radio_groups, profile);
       profile.covers = normalizeCovers(profile);
       delete profile.cover;
       if (typeof profile.backlight_brightness !== "number") profile.backlight_brightness = 100;
@@ -2453,7 +2475,7 @@
       return list.length ? list.join(", ") : "—";
     }
     function radioGroupsSummaryLabel() {
-      const groups = normalizeRadioGroups(state.draft.radio_groups);
+      const groups = normalizeRadioGroups(state.draft.radio_groups, state.draft);
       const grouped = groupedButtonSet(groups);
       const gangCount = clampGangCount(state.draft.gang_count ?? 4);
       const parts = groups.map(
@@ -2501,7 +2523,7 @@
         button.cover_id = null;
       }
       if (role === "radio") {
-        state.draft.radio_groups = normalizeRadioGroups(state.draft.radio_groups);
+        state.draft.radio_groups = normalizeRadioGroups(state.draft.radio_groups, state.draft);
         state.radioGroupsOpen = true;
       } else if (state.draft.radio_groups) {
         state.draft.radio_groups = state.draft.radio_groups.map((group) => ({
@@ -2613,7 +2635,7 @@
       hosts.forEach((host) => { host.section.hidden = !split; });
       if (!split) return;
       state.radioGroupsOpen = normalizeRadioGroupsOpen(state.radioGroupsOpen);
-      state.draft.radio_groups = normalizeRadioGroups(state.draft.radio_groups);
+      state.draft.radio_groups = normalizeRadioGroups(state.draft.radio_groups, state.draft);
       const open = state.radioGroupsOpen;
       const overlap = radioGroupOverlap(state.draft.radio_groups);
       const grouped = groupedButtonSet(state.draft.radio_groups);
@@ -2670,23 +2692,32 @@
         host.editor.querySelectorAll(".radio-member[data-group]").forEach((chip) => {
           chip.addEventListener("click", () => {
             const gIndex = Number(chip.dataset.group);
-            const button = Number(chip.dataset.button);
-            const groups = normalizeRadioGroups(state.draft.radio_groups);
+            const buttonIndex = Number(chip.dataset.button);
             const selected = chip.classList.contains("on");
+            if (!selected && state.draft.mode === "mixed") {
+              const button = state.draft.buttons.find((b) => b.index === buttonIndex);
+              if (button && button.role !== "radio") {
+                button.role = "radio";
+                button.cover_id = null;
+              }
+            }
+            const groups = normalizeRadioGroups(state.draft.radio_groups, state.draft);
             if (!selected) {
               groups.forEach((g, idx) => {
                 if (idx === gIndex) {
-                  if (!g.buttons.includes(button)) g.buttons.push(button);
+                  if (!g.buttons.includes(buttonIndex)) g.buttons.push(buttonIndex);
                 } else {
-                  g.buttons = g.buttons.filter((b) => b !== button);
+                  g.buttons = g.buttons.filter((b) => b !== buttonIndex);
                 }
               });
             } else if (groups[gIndex]) {
-              groups[gIndex].buttons = groups[gIndex].buttons.filter((b) => b !== button);
+              groups[gIndex].buttons = groups[gIndex].buttons.filter((b) => b !== buttonIndex);
             }
             state.draft.radio_groups = groups;
             markDirty(true);
+            renderMixedRolesSection();
             renderRadioGroupsEditor();
+            renderButtonsEditor();
             renderFaceplate();
           });
         });
@@ -2694,7 +2725,7 @@
           chip.addEventListener("click", () => {
             if (chip.classList.contains("on")) return;
             const button = Number(chip.dataset.button);
-            const groups = normalizeRadioGroups(state.draft.radio_groups).map((g) => ({
+            const groups = normalizeRadioGroups(state.draft.radio_groups, state.draft).map((g) => ({
               ...g,
               buttons: g.buttons.filter((b) => b !== button),
             }));
@@ -2826,7 +2857,7 @@
       // Leaving cover mode must never leave a simulated motion running.
       coverHalt();
       if (state.draft.mode === "radio_split" || state.draft.mode === "mixed") {
-        state.draft.radio_groups = normalizeRadioGroups(state.draft.radio_groups);
+        state.draft.radio_groups = normalizeRadioGroups(state.draft.radio_groups, state.draft);
         if (state.draft.mode === "radio_split") {
           state.radioGroupsOpen = defaultRadioGroupsOpen();
         }
@@ -3369,7 +3400,7 @@
         const mode = PROFILE_MODES.includes(value.mode) ? value.mode : "toggle";
         normalized[id] = makeProfile(id, String(value.name || id), {
           ...value, mode,
-          radio_groups: normalizeRadioGroups(value.radio_groups),
+          radio_groups: normalizeRadioGroups(value.radio_groups, value),
           buttons: [1,2,3,4].map((i) => {
             const found = (value.buttons || []).find((b) => Number(b.index) === i) || {};
             let action = "", entity = "";

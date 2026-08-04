@@ -379,12 +379,30 @@ export class ConXDynamicPanelCard extends LitElement {
 
   private _ensureRadioGroups(draft: Profile): void {
     const groups = Array.isArray(draft.radio_groups) ? draft.radio_groups : [];
+    const gangCount = clampGangCount(draft.gang_count ?? 4);
+    const radioIndexes =
+      draft.mode === "mixed"
+        ? new Set(
+            (draft.buttons || [])
+              .filter(
+                (button) =>
+                  button.role === "radio" && button.index <= gangCount
+              )
+              .map((button) => button.index)
+          )
+        : null;
     const normalized = groups.map((group, index) => ({
       id: String(group?.id || `g${index + 1}`),
       buttons: Array.isArray(group?.buttons)
         ? group.buttons
             .map((n) => Number(n))
-            .filter((n, i, arr) => n >= 1 && n <= 4 && arr.indexOf(n) === i)
+            .filter(
+              (n, i, arr) =>
+                n >= 1 &&
+                n <= gangCount &&
+                arr.indexOf(n) === i &&
+                (radioIndexes == null || radioIndexes.has(n))
+            )
         : [],
     }));
     while (normalized.length < 2) {
@@ -414,6 +432,15 @@ export class ConXDynamicPanelCard extends LitElement {
 
   private _toggleSplitGroupButton(groupIndex: number, buttonIndex: number, checked: boolean): void {
     this._patchDraft((draft) => {
+      // In free mix, joining a radio group implies role=radio so press routing
+      // and group membership stay consistent (no dead "toggle stuck in radio").
+      if (checked && draft.mode === "mixed") {
+        const button = draft.buttons.find((item) => item.index === buttonIndex);
+        if (button && button.role !== "radio") {
+          button.role = "radio";
+          button.cover_id = null;
+        }
+      }
       this._ensureRadioGroups(draft);
       const groups = draft.radio_groups || [];
       groups.forEach((group, index) => {
@@ -2419,11 +2446,13 @@ export class ConXDynamicPanelCard extends LitElement {
                       ? this.t("card.radio_member")
                       : this.t("card.radio_toggle")
                     : "";
+              const missingAction = !isCoverMapped && !action;
               const meta =
                 [
                   isCoverMapped ? "" : action,
                   isCoverMapped ? "" : entityId,
                   behavior,
+                  missingAction ? this.t("card.missing_action") : "",
                 ]
                   .filter(Boolean)
                   .join(" · ") || "—";
@@ -2467,6 +2496,14 @@ export class ConXDynamicPanelCard extends LitElement {
                             ${isCoverMapped
                               ? nothing
                               : html`
+                                  ${missingAction
+                                    ? html`<p
+                                        class="radio-groups-hint"
+                                        data-missing-action
+                                      >
+                                        ${this.t("card.missing_action")}
+                                      </p>`
+                                    : nothing}
                                   <label class="field">
                                     <span>${this.t("card.action")}</span>
                                     <input
@@ -2741,6 +2778,13 @@ export class ConXDynamicPanelCard extends LitElement {
 
         ${this._dirty
           ? html`<div class="warn unsaved-draft" role="status">${this.t("card.unsaved")}</div>`
+          : nothing}
+        ${!this._dirty &&
+        (this._panel.sync_status === "pending" ||
+          this._panel.sync_status === "out_of_sync")
+          ? html`<div class="notice sync-needed" role="status" data-sync-needed>
+              ${this.t("card.sync_needed")}
+            </div>`
           : nothing}
         ${this._notice
           ? html`<div class="notice">${this._notice}</div>`
