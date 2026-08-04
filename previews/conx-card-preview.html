@@ -404,7 +404,7 @@
     .faceplate { width: 100%; }
     .faceplate-bezel {
       position: relative;
-      /* Always the 4-gang footprint; unused gangs leave empty slots. */
+      /* Landscape footprint stays similar across gang counts (product photos). */
       min-width: calc(100px * 4);
       width: min(100%, calc(230px * 4));
       margin: 0 auto;
@@ -415,12 +415,12 @@
     }
     .faceplate-glass {
       height: 100%; border-radius: 16px; overflow: hidden;
-      display: grid; grid-template-rows: 28% 72%; background: #fff;
+      display: grid; grid-template-rows: 24% 76%; background: #fff;
       box-shadow: inset 0 0 0 1px rgba(0,0,0,.08);
     }
     .faceplate-labels {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(var(--conx-gang-count, 4), 1fr);
       align-items: center;
       background: linear-gradient(180deg, #2a3038 0%, #1a1d22 100%); color: #f0f2f5; padding: 0 6px;
     }
@@ -436,7 +436,7 @@
     }
     .faceplate-rings {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(var(--conx-gang-count, 4), 1fr);
       width: 100%;
       place-items: center;
     }
@@ -1409,6 +1409,18 @@
     const STORAGE_KEY = "conx-card-preview-state-v10";
     const LEGACY_KEYS = ["conx-card-preview-state-v2", "conx-card-preview-state-v3", "conx-card-preview-state-v4", "conx-card-preview-state-v5", "conx-card-preview-state-v6", "conx-card-preview-state-v7", "conx-card-preview-state-v8", "conx-card-preview-state-v9"];
     const PROFILE_MODES = ["toggle", "radio_mandatory", "radio_optional", "radio_split", "cover"];
+    const MULTI_BUTTON_MODES = new Set(["radio_mandatory", "radio_optional", "radio_split", "cover"]);
+    function isMultiButtonMode(mode) {
+      return MULTI_BUTTON_MODES.has(mode);
+    }
+    function modesForGangCount(modes, gangCount) {
+      if (clampGangCount(gangCount) > 1) return modes.slice();
+      return modes.filter((mode) => !isMultiButtonMode(mode));
+    }
+    function coerceModeForGangCount(mode, gangCount) {
+      if (clampGangCount(gangCount) === 1 && isMultiButtonMode(mode)) return "toggle";
+      return mode;
+    }
     const COVER_TIME_MIN = 1;
     const COVER_TIME_MAX = 600;
     const COVER_SETTLE_MIN = 0;
@@ -1859,6 +1871,7 @@
       };
       if (!PROFILE_MODES.includes(profile.mode)) profile.mode = "toggle";
       profile.gang_count = clampGangCount(profile.gang_count ?? 4);
+      profile.mode = coerceModeForGangCount(profile.mode, profile.gang_count);
       profile.buttons = [1,2,3,4].map((i) => normalizeButton((profile.buttons || []).find((x) => x.index === i), i));
       profile.radio_groups = normalizeRadioGroups(profile.radio_groups);
       profile.covers = normalizeCovers(profile);
@@ -2430,6 +2443,7 @@
     }
     function setGangCount(count) {
       state.draft.gang_count = clampGangCount(count);
+      state.draft.mode = coerceModeForGangCount(state.draft.mode, state.draft.gang_count);
       state.draft.covers = normalizeCovers(state.draft);
       delete state.draft.cover;
       if (state.draft.radio_groups) {
@@ -2440,6 +2454,7 @@
       }
       markDirty(true);
       renderProfilesGangPicker();
+      renderModePicker();
       renderCoverEditor();
       renderButtonsEditor();
       renderRadioGroupsEditor();
@@ -2522,6 +2537,8 @@
     }
     function setMode(mode) {
       if (!state.draft || !PROFILE_MODES.includes(mode)) return;
+      const gangCount = clampGangCount(state.draft.gang_count ?? 4);
+      if (!modesForGangCount(PROFILE_MODES, gangCount).includes(mode)) return;
       state.draft.mode = mode;
       // Leaving cover mode must never leave a simulated motion running.
       coverHalt();
@@ -2546,8 +2563,13 @@
     }
     function renderModePicker() {
       if (!els.modePicker || !state.draft) return;
-      const selected = PROFILE_MODES.includes(state.draft.mode) ? state.draft.mode : "toggle";
-      els.modePicker.innerHTML = PROFILE_MODES.map((mode) => `
+      const gangCount = clampGangCount(state.draft.gang_count ?? 4);
+      const modes = modesForGangCount(PROFILE_MODES, gangCount);
+      const selected = coerceModeForGangCount(
+        PROFILE_MODES.includes(state.draft.mode) ? state.draft.mode : "toggle",
+        gangCount
+      );
+      els.modePicker.innerHTML = modes.map((mode) => `
         <button type="button" class="radio-member${selected === mode ? " on" : ""}" role="radio"
           aria-checked="${selected === mode ? "true" : "false"}" data-mode="${mode}">
           <span class="radio-member-label">${t("mode." + mode)}</span>

@@ -7,6 +7,7 @@ import {
   COVER_TIME_MIN,
   clampGangCount,
   cloneProfile,
+  coerceModeForGangCount,
   coverCommand,
   createProfile,
   deleteProfile,
@@ -16,6 +17,7 @@ import {
   fetchConfig,
   importProfiles,
   maxCoversForGangs,
+  modesForGangCount,
   normalizeCover,
   normalizeCovers,
   profilesEqual,
@@ -699,6 +701,7 @@ export class ConXDynamicPanelCard extends LitElement {
   private _setGangCount(count: number): void {
     this._patchDraft((draft) => {
       draft.gang_count = clampGangCount(count);
+      draft.mode = coerceModeForGangCount(draft.mode, draft.gang_count) as Profile["mode"];
       draft.covers = normalizeCovers(draft);
       delete draft.cover;
       if (draft.radio_groups) {
@@ -717,6 +720,15 @@ export class ConXDynamicPanelCard extends LitElement {
   }
 
   private _setMode(mode: Profile["mode"]): void {
+    if (
+      !this._draft ||
+      !modesForGangCount(
+        this._panel?.capabilities.modes || [mode],
+        this._gangCount()
+      ).includes(mode)
+    ) {
+      return;
+    }
     this._patchDraft((draft) => {
       draft.mode = mode;
       if (draft.mode === "cover") {
@@ -1715,11 +1727,10 @@ export class ConXDynamicPanelCard extends LitElement {
     const ringOff = this._ringOffColor();
     return html`
       <!--
-        Faceplate topography matches Zemismart 4-gang: black label bar,
-        white glass touch face, fixed 4-slot grid L→R. Only L1…Ln render;
-        unused slots stay empty so outer size never shrinks with gang_count.
-        Rings use profile color_on / color_off. Extension point for a future
-        photo skin: set --conx-faceplate-skin on .faceplate.
+        Faceplate matches product photos: black label bar (~20–25%), white
+        touch face, N equal columns (L1 leftmost … Ln). Outer bezel keeps the
+        landscape 4-gang footprint; rings use color_on / color_off.
+        Photo skin hook: --conx-faceplate-skin on .faceplate.
       -->
       <div
         class="faceplate"
@@ -1954,12 +1965,19 @@ export class ConXDynamicPanelCard extends LitElement {
     if (!this._panel || !this._draft) {
       return nothing;
     }
-    const selected = this._draft.mode;
+    const modes = modesForGangCount(
+      this._panel.capabilities.modes,
+      this._gangCount()
+    );
+    const selected = coerceModeForGangCount(
+      this._draft.mode,
+      this._gangCount()
+    );
     return html`
       <label class="field">
         <span>${this.t("card.mode")}</span>
         <div class="mode-picker" role="radiogroup" data-mode-picker>
-          ${this._panel.capabilities.modes.map(
+          ${modes.map(
             (mode) => html`
               <button
                 type="button"
@@ -4205,7 +4223,7 @@ export class ConXDynamicPanelCard extends LitElement {
       margin-bottom: 0;
     }
 
-    /* Zemismart 4-gang faceplate recreation (labels top / rings bottom, 1×4). */
+    /* Product-photo faceplate: N equal columns, fixed landscape bezel. */
     .faceplate {
       padding: 14px;
       border-radius: 16px;
@@ -4221,7 +4239,7 @@ export class ConXDynamicPanelCard extends LitElement {
 
     .faceplate-bezel {
       position: relative;
-      /* Always the 4-gang footprint; unused gangs leave empty slots. */
+      /* Landscape footprint stays similar across gang counts (photos). */
       min-width: calc(80px * 4);
       width: min(100%, calc(140px * 4));
       margin: 0 auto;
@@ -4255,14 +4273,14 @@ export class ConXDynamicPanelCard extends LitElement {
       border-radius: 14px;
       overflow: hidden;
       display: grid;
-      grid-template-rows: 26% 74%;
+      grid-template-rows: 24% 76%;
       background: #fff;
       box-shadow: inset 0 0 0 1px color-mix(in srgb, #000 8%, transparent);
     }
 
     .faceplate-labels {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(var(--conx-gang-count, 4), 1fr);
       align-items: center;
       background: #0a0a0a;
       color: #f5f5f5;
@@ -4291,7 +4309,7 @@ export class ConXDynamicPanelCard extends LitElement {
 
     .faceplate-rings {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(var(--conx-gang-count, 4), 1fr);
       width: 100%;
       place-items: center;
     }

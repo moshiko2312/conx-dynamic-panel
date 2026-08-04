@@ -187,6 +187,40 @@ export function clampGangCount(value: unknown): number {
   return Math.round(clampNumber(value, 1, 4, 4));
 }
 
+/** Modes that need at least two physical buttons (radio exclusivity / cover pair). */
+const MULTI_BUTTON_MODES = new Set([
+  "radio_mandatory",
+  "radio_optional",
+  "radio_split",
+  "cover",
+]);
+
+export function isMultiButtonMode(mode: string): boolean {
+  return MULTI_BUTTON_MODES.has(mode);
+}
+
+/** Filter capability modes for the picker: 1-gang only offers toggle (and other 1-button-safe modes). */
+export function modesForGangCount(
+  modes: readonly string[],
+  gangCount: number
+): string[] {
+  if (clampGangCount(gangCount) > 1) {
+    return [...modes];
+  }
+  return modes.filter((mode) => !isMultiButtonMode(mode));
+}
+
+/** Coerce radio/cover down to toggle when the profile is 1-gang. */
+export function coerceModeForGangCount(
+  mode: string,
+  gangCount: number
+): string {
+  if (clampGangCount(gangCount) === 1 && isMultiButtonMode(mode)) {
+    return "toggle";
+  }
+  return mode;
+}
+
 export function maxCoversForGangs(gangCount: number): number {
   return Math.max(0, Math.floor(clampGangCount(gangCount) / 2));
 }
@@ -291,6 +325,10 @@ export function normalizeCovers(
 export function normalizeProfile(profile: Profile): Profile {
   const cloned = structuredClone(profile);
   cloned.gang_count = clampGangCount(cloned.gang_count ?? 4);
+  cloned.mode = coerceModeForGangCount(
+    String(cloned.mode || "toggle"),
+    cloned.gang_count
+  ) as Profile["mode"];
   if (typeof cloned.backlight_brightness !== "number" || !Number.isFinite(cloned.backlight_brightness)) {
     cloned.backlight_brightness = 100;
   } else {

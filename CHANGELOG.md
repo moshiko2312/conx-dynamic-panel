@@ -6,9 +6,11 @@ All notable changes to this private project will be documented here.
 
 ### Changed
 
+- Faceplate columns follow product photos: for N gangs, **N equal columns** across the glass (labels centered in the black header, LED rings centered under each label). Outer landscape bezel size stays similar across N; no more left-aligned N-of-4 empty trailing slots (Lit card + HTML preview).
+- When `gang_count === 1`, the mode picker shows only **toggle** (radio / radio_split / cover are hidden). Switching a radio/cover profile to 1 gang coerces mode to `toggle`.
 - Unsaved-draft warning (`card.unsaved` / `.warn.unsaved-draft`) is centered, bold red, and larger than body text so dirty draft state is unmistakable on noir and ivory (Lit card + HTML preview). Other status/notice/error banners keep their existing styling.
 - Profiles tab (step 1) now shows **profile chips + panel gang count** (`מספר גאנגים` / Panel gangs / Число кнопок) together so gang selection sits with profile context. Cover mode still repeats the gang picker for convenience when editing shutters; Appearance no longer hosts it.
-- Hero faceplate adapts to `gang_count`: only L1…Ln labels and LED rings render (Lit card + HTML preview). Bezel width/aspect stay locked to the **4-gang footprint**; unused slots stay empty so 1–3 gang profiles do not shrink the switch.
+- Hero faceplate adapts to `gang_count`: only L1…Ln labels and LED rings render (Lit card + HTML preview). Bezel width/aspect stay locked to the landscape footprint while columns redistribute evenly.
 
 ### Added
 

@@ -280,7 +280,7 @@ describe("custom elements", () => {
         (node) => node.textContent?.trim()
       )
     ).toEqual(["Living room", "Kitchen"]);
-    // Outer bezel stays locked to the 4-gang footprint (unused slots empty).
+    // Outer bezel stays landscape 4-gang size; columns follow --conx-gang-count.
     const Card = customElements.get("conx-dynamic-panel-card") as unknown as {
       styles: { cssText: string } | Array<{ cssText: string }>;
     };
@@ -290,13 +290,13 @@ describe("custom elements", () => {
     expect(cssText).toContain("min-width: calc(80px * 4)");
     expect(cssText).toContain("aspect-ratio: calc(0.64 * 4) / 1");
     expect(cssText).toContain(
-      ".faceplate-labels {\n      display: grid;\n      grid-template-columns: repeat(4, 1fr);"
-    );
-    expect(cssText).toContain(
-      ".faceplate-rings {\n      display: grid;\n      grid-template-columns: repeat(4, 1fr);"
+      "grid-template-columns: repeat(var(--conx-gang-count, 4), 1fr);"
     );
     expect(cssText).not.toContain(
       "min-width: calc(80px * var(--conx-gang-count"
+    );
+    expect(cssText).not.toContain(
+      ".faceplate-labels {\n      display: grid;\n      grid-template-columns: repeat(4, 1fr);"
     );
 
     const profilesPanel = el.shadowRoot?.querySelector(
@@ -815,6 +815,49 @@ describe("custom elements", () => {
         coverEl &&
         Boolean(modeEl.compareDocumentPosition(coverEl) & Node.DOCUMENT_POSITION_FOLLOWING)
     ).toBe(true);
+  });
+
+  it("hides radio and cover modes for 1-gang and coerces draft mode to toggle", async () => {
+    const callWS = vi.fn().mockResolvedValue(
+      panelPayload({
+        sync_status: "synced",
+        profiles: {
+          lighting: {
+            ...sampleProfile,
+            mode: "radio_optional",
+            selected_button: 2,
+            gang_count: 2,
+          },
+        },
+      })
+    );
+    const el = await mountCard({ language: "en", callWS });
+    el._activeTab = "buttons";
+    await el.updateComplete;
+    expect(el._draft?.mode).toBe("radio_optional");
+
+    const profilesPanelHost = el.shadowRoot?.querySelector(
+      "[data-profiles-gang]"
+    ) as HTMLElement;
+    const pick1 = profilesPanelHost.querySelector(
+      '[data-gang-picker] button.radio-member:nth-child(1)'
+    ) as HTMLButtonElement;
+    pick1.click();
+    await el.updateComplete;
+    expect(el._draft?.gang_count).toBe(1);
+    expect(el._draft?.mode).toBe("toggle");
+
+    const modePicker = el.shadowRoot?.querySelector(
+      "[data-mode-picker]"
+    ) as HTMLElement;
+    const modes = [
+      ...(modePicker.querySelectorAll("button.radio-member[data-mode]") || []),
+    ].map((chip) => (chip as HTMLButtonElement).dataset.mode);
+    expect(modes).toEqual(["toggle"]);
+    expect(modePicker.querySelector('[data-mode="radio_mandatory"]')).toBeFalsy();
+    expect(modePicker.querySelector('[data-mode="radio_optional"]')).toBeFalsy();
+    expect(modePicker.querySelector('[data-mode="radio_split"]')).toBeFalsy();
+    expect(modePicker.querySelector('[data-mode="cover"]')).toBeFalsy();
   });
 
   it("opens a copyable automation example from the settings menu", async () => {
