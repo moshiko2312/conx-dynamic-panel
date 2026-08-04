@@ -14,6 +14,7 @@ export const COVER_SETTLE_MIN = 0;
 export const COVER_SETTLE_MAX = 5;
 
 export const DEFAULT_COVER: CoverConfig = {
+  id: "cover_1",
   open_button: 1,
   close_button: 2,
   open_time_s: 20,
@@ -156,17 +157,22 @@ export async function updatePanelName(
   });
 }
 
-/** Ask the backend safety engine to open, close, or stop the cover. */
+/** Ask the backend safety engine to open, close, or stop a cover. */
 export async function coverCommand(
   hass: HomeAssistant,
   entryId: string,
-  command: "open" | "close" | "stop"
+  command: "open" | "close" | "stop",
+  coverId?: string
 ): Promise<CoverState> {
-  return hass.callWS<CoverState>({
+  const msg: Record<string, unknown> = {
     type: "conx_dynamic_panel/cover_command",
     entry_id: entryId,
     command,
-  });
+  };
+  if (coverId) {
+    msg.cover_id = coverId;
+  }
+  return hass.callWS<CoverState>(msg);
 }
 
 function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
@@ -177,24 +183,52 @@ function clampNumber(value: unknown, min: number, max: number, fallback: number)
   return Math.max(min, Math.min(max, parsed));
 }
 
+export function clampGangCount(value: unknown): number {
+  return Math.round(clampNumber(value, 1, 4, 4));
+}
+
+export function maxCoversForGangs(gangCount: number): number {
+  return Math.max(0, Math.floor(clampGangCount(gangCount) / 2));
+}
+
+function defaultCoverPair(slot: number, gangCount: number): [number, number] {
+  const openButton = slot * 2 + 1;
+  const closeButton = slot * 2 + 2;
+  if (closeButton > gangCount) {
+    return [1, gangCount >= 2 ? 2 : 1];
+  }
+  return [openButton, closeButton];
+}
+
 /** Out-of-range button indexes fall back to the default, matching the backend. */
-function coverButton(value: unknown, fallback: number): number {
+function coverButton(value: unknown, fallback: number, gangCount: number): number {
   const parsed = Math.round(typeof value === "number" ? value : Number(value));
-  if (!Number.isFinite(parsed) || parsed < 1 || parsed > 4) {
-    return fallback;
+  const limit = clampGangCount(gangCount);
+  if (!Number.isFinite(parsed) || parsed < 1 || parsed > limit) {
+    return Math.min(fallback, limit);
   }
   return parsed;
 }
 
 /** Normalize a cover block so the editor always has complete, in-range values. */
-export function normalizeCover(raw: Partial<CoverConfig> | undefined): CoverConfig {
+export function normalizeCover(
+  raw: Partial<CoverConfig> | undefined,
+  options: { gangCount?: number; defaultId?: string; slot?: number } = {}
+): CoverConfig {
+  const gangCount = clampGangCount(options.gangCount ?? 4);
+  const slot = options.slot ?? 0;
+  const defaultId = options.defaultId ?? `cover_${slot + 1}`;
+  const [openDefault, closeDefault] = defaultCoverPair(slot, gangCount);
   const source = raw || {};
-  const openButton = coverButton(source.open_button, DEFAULT_COVER.open_button);
-  let closeButton = coverButton(source.close_button, DEFAULT_COVER.close_button);
+  const openButton = coverButton(source.open_button, openDefault, gangCount);
+  let closeButton = coverButton(source.close_button, closeDefault, gangCount);
   if (closeButton === openButton) {
-    closeButton = [1, 2, 3, 4].find((index) => index !== openButton) ?? 2;
+    closeButton =
+      Array.from({ length: gangCount }, (_, i) => i + 1).find((index) => index !== openButton) ??
+      Math.min(openButton + 1, gangCount);
   }
   return {
+    id: String(source.id || "").trim() || defaultId,
     open_button: openButton,
     close_button: closeButton,
     open_time_s: clampNumber(
@@ -220,9 +254,43 @@ export function normalizeCover(raw: Partial<CoverConfig> | undefined): CoverConf
   };
 }
 
+/** Normalize legacy ``cover`` or modern ``covers[]`` into a cover list. */
+export function normalizeCovers(
+  profile: Pick<Profile, "covers" | "cover" | "gang_count"> | undefined
+): CoverConfig[] {
+  const gangCount = clampGangCount(profile?.gang_count ?? 4);
+  const maxCovers = maxCoversForGangs(gangCount);
+  let covers: CoverConfig[] = [];
+  if (Array.isArray(profile?.covers) && profile!.covers!.length) {
+    covers = profile!.covers!.map((item, index) =>
+      normalizeCover(item, { gangCount, defaultId: `cover_${index + 1}`, slot: index })
+    );
+  } else if (profile?.cover) {
+    covers = [normalizeCover(profile.cover, { gangCount, defaultId: "cover_1", slot: 0 })];
+  } else if (maxCovers > 0) {
+    covers = [normalizeCover(undefined, { gangCount, defaultId: "cover_1", slot: 0 })];
+  }
+  if (maxCovers === 0) {
+    return [];
+  }
+  covers = covers.slice(0, maxCovers);
+  const seen = new Set<string>();
+  return covers.map((cover, index) => {
+    let id = cover.id || `cover_${index + 1}`;
+    let suffix = 2;
+    while (seen.has(id)) {
+      id = `${cover.id || `cover_${index + 1}`}_${suffix}`;
+      suffix += 1;
+    }
+    seen.add(id);
+    return { ...cover, id };
+  });
+}
+
 /** Normalize legacy/partial profiles so new fields always exist in the card draft. */
 export function normalizeProfile(profile: Profile): Profile {
   const cloned = structuredClone(profile);
+  cloned.gang_count = clampGangCount(cloned.gang_count ?? 4);
   if (typeof cloned.backlight_brightness !== "number" || !Number.isFinite(cloned.backlight_brightness)) {
     cloned.backlight_brightness = 100;
   } else {
@@ -246,14 +314,23 @@ export function normalizeProfile(profile: Profile): Profile {
     buttons: Array.isArray(group?.buttons)
       ? group.buttons
           .map((n) => Number(n))
-          .filter((n, i, arr) => n >= 1 && n <= 4 && arr.indexOf(n) === i)
+          .filter(
+            (n, i, arr) => n >= 1 && n <= cloned.gang_count && arr.indexOf(n) === i
+          )
       : [],
   }));
   while (normalizedGroups.length < 2) {
     normalizedGroups.push({ id: `g${normalizedGroups.length + 1}`, buttons: [] });
   }
   cloned.radio_groups = normalizedGroups;
-  cloned.cover = normalizeCover(cloned.cover);
+  cloned.covers = normalizeCovers(cloned);
+  delete cloned.cover;
+  if (
+    cloned.selected_button != null &&
+    (cloned.selected_button < 1 || cloned.selected_button > cloned.gang_count)
+  ) {
+    cloned.selected_button = null;
+  }
   return cloned;
 }
 

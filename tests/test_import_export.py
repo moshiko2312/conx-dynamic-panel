@@ -120,7 +120,7 @@ async def test_export_profiles_payload() -> None:
     store = FakeStore()
     coordinator = PanelCoordinator(_runtime(FakeAdapter(), store))  # type: ignore[arg-type]
     payload = coordinator.export_profiles()
-    assert payload["schema_version"] == 1
+    assert payload["schema_version"] == 2
     assert "lighting" in payload["profiles"]
     assert payload["active_profile_id"] == "lighting"
 
@@ -194,7 +194,7 @@ async def test_export_import_roundtrip() -> None:
     store = FakeStore()
     coordinator = PanelCoordinator(_runtime(FakeAdapter(), store))  # type: ignore[arg-type]
     exported = coordinator.export_profiles()
-    assert exported["schema_version"] == 1
+    assert exported["schema_version"] == 2
     await coordinator.async_import_profiles(
         {
             "profiles": {

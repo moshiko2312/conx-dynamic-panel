@@ -13,6 +13,7 @@ from homeassistant.helpers import device_registry as dr
 from .const import (
     ATTR_BUTTON,
     ATTR_COMMAND,
+    ATTR_COVER_ID,
     ATTR_DEVICE_ID,
     ATTR_ENTRY_ID,
     ATTR_MODE,
@@ -86,7 +87,10 @@ async def async_register_services(hass: HomeAssistant) -> None:
     async def handle_cover_command(call: ServiceCall) -> None:
         coordinator = _get_coordinator(hass, call)
         try:
-            await coordinator.async_cover_command(str(call.data[ATTR_COMMAND]))
+            await coordinator.async_cover_command(
+                str(call.data[ATTR_COMMAND]),
+                cover_id=call.data.get(ATTR_COVER_ID),
+            )
         except ValueError as err:
             raise HomeAssistantError(str(err)) from err
 
@@ -148,7 +152,12 @@ async def async_register_services(hass: HomeAssistant) -> None:
         DOMAIN,
         SERVICE_COVER_COMMAND,
         handle_cover_command,
-        schema=ENTRY_SCHEMA.extend({vol.Required(ATTR_COMMAND): vol.In(list(COVER_COMMANDS))}),
+        schema=ENTRY_SCHEMA.extend(
+            {
+                vol.Required(ATTR_COMMAND): vol.In(list(COVER_COMMANDS)),
+                vol.Optional(ATTR_COVER_ID): cv.string,
+            }
+        ),
     )
     hass.services.async_register(
         DOMAIN,

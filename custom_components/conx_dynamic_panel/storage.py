@@ -8,24 +8,39 @@ from typing import Any
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
-from .const import DOMAIN, STORAGE_KEY, STORAGE_VERSION
-from .models import CoverConfig, PanelStorageData
+from .const import DEFAULT_GANG_COUNT, DOMAIN, STORAGE_KEY, STORAGE_VERSION
+from .models import PanelStorageData, clamp_gang_count, normalize_covers
 
 _LOGGER = logging.getLogger(__name__)
 
 
-def _ensure_cover_defaults(data: dict[str, Any]) -> None:
-    """Give pre-cover profiles a default cover block without touching other keys.
+def _migrate_profile_covers(profile: dict[str, Any]) -> None:
+    """Migrate a single ``cover`` object into ``covers[]`` and drop the legacy key."""
+    gang_count = clamp_gang_count(profile.get("gang_count", DEFAULT_GANG_COUNT))
+    profile["gang_count"] = gang_count
+    if isinstance(profile.get("covers"), list):
+        profile["covers"] = [
+            cover.to_dict()
+            for cover in normalize_covers(profile.get("covers"), gang_count=gang_count)
+        ]
+    else:
+        legacy = profile.get("cover")
+        profile["covers"] = [
+            cover.to_dict() for cover in normalize_covers(None, legacy, gang_count=gang_count)
+        ]
+    profile.pop("cover", None)
 
-    Cover support is additive: every field has a safe default, so stored profiles
-    stay valid and the storage schema version does not change.
-    """
+
+def _migrate_v1_to_v2(data: dict[str, Any]) -> None:
+    """Schema 1 → 2: ``cover`` → ``covers[]`` plus per-profile ``gang_count``."""
     profiles = data.get("profiles")
-    if not isinstance(profiles, dict):
-        return
-    for profile in profiles.values():
-        if isinstance(profile, dict) and not isinstance(profile.get("cover"), dict):
-            profile["cover"] = CoverConfig().to_dict()
+    if isinstance(profiles, dict):
+        for profile in profiles.values():
+            if isinstance(profile, dict):
+                _migrate_profile_covers(profile)
+    snapshot = data.get("applied_snapshot")
+    if isinstance(snapshot, dict) and snapshot:
+        _migrate_profile_covers(snapshot)
 
 
 def _migrate(data: dict[str, Any]) -> dict[str, Any]:
@@ -35,7 +50,8 @@ def _migrate(data: dict[str, Any]) -> dict[str, Any]:
         raise ValueError(
             f"Unsupported storage schema version {version}; current is {STORAGE_VERSION}"
         )
-    _ensure_cover_defaults(data)
+    if version < 2:
+        _migrate_v1_to_v2(data)
     # Future migrations append here while preserving profiles and snapshots.
     data["schema_version"] = STORAGE_VERSION
     return data

@@ -19,8 +19,10 @@ export interface RadioGroup {
 
 export type CoverOppositePress = "stop_only" | "stop_then_reverse";
 
-/** Cover/shutter wiring and travel timing enforced by the backend engine. */
+/** One cover/shutter motor mapping and travel timing. */
 export interface CoverConfig {
+  /** Stable id within the profile (e.g. cover_1). */
+  id: string;
   /** 1-based panel button that drives the open direction. */
   open_button: number;
   /** 1-based panel button that drives the close direction. */
@@ -32,12 +34,26 @@ export interface CoverConfig {
   opposite_press: CoverOppositePress;
 }
 
+export interface CoverMotionState {
+  id: string;
+  state: "idle" | "open" | "close";
+  direction: "open" | "close" | null;
+  duration: number | null;
+  reason: string | null;
+  open_button?: number;
+  close_button?: number;
+}
+
 export interface CoverState {
   active: boolean;
   state: "idle" | "open" | "close";
   direction: "open" | "close" | null;
   duration: number | null;
   reason: string | null;
+  /** Cover currently mirrored by the top-level fields. */
+  cover_id?: string | null;
+  /** Per-cover live motion when the profile has multiple covers. */
+  covers?: CoverMotionState[];
 }
 
 export interface Profile {
@@ -57,10 +73,14 @@ export interface Profile {
   backlight_brightness: number;
   child_lock: boolean;
   selected_button: number | null;
+  /** How many gangs (L1…Ln) this profile exposes. */
+  gang_count: number;
   buttons: ButtonConfig[];
   /** Classic radio groups for radio_split (exactly one ON per group; ungrouped stay toggles). */
   radio_groups?: RadioGroup[];
-  /** Cover/shutter mapping and travel times, used when mode is cover. */
+  /** Cover/shutter mappings used when mode is cover. */
+  covers?: CoverConfig[];
+  /** Legacy single-cover block; normalized into covers[] on load. */
   cover?: CoverConfig;
 }
 
@@ -78,12 +98,15 @@ export interface PanelConfig {
     radar: string[];
     modes: string[];
     button_count: number;
+    gang_count_min?: number;
+    gang_count_max?: number;
     cover?: {
       min_time_s: number;
       max_time_s: number;
       min_settle_s: number;
       max_settle_s: number;
       opposite_press: string[];
+      max_covers?: number;
     };
   };
   profiles: Record<string, Profile>;

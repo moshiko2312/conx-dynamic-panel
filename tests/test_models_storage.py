@@ -98,7 +98,57 @@ def test_backlight_brightness_clamped() -> None:
 
 def test_storage_migration_sets_current_version() -> None:
     migrated = _migrate({"schema_version": 1, "profiles": {}})
-    assert migrated["schema_version"] == 1
+    assert migrated["schema_version"] == 2
+
+
+def test_storage_migration_cover_to_covers() -> None:
+    migrated = _migrate(
+        {
+            "schema_version": 1,
+            "profiles": {
+                "lighting": {
+                    "id": "lighting",
+                    "name": "Lighting",
+                    "cover": {
+                        "open_button": 1,
+                        "close_button": 3,
+                        "open_time_s": 20,
+                        "close_time_s": 20,
+                        "direction_settle_s": 0.5,
+                        "opposite_press": "stop_only",
+                    },
+                }
+            },
+        }
+    )
+    profile = migrated["profiles"]["lighting"]
+    assert "cover" not in profile
+    assert profile["gang_count"] == 4
+    assert len(profile["covers"]) == 1
+    assert profile["covers"][0]["open_button"] == 1
+    assert profile["covers"][0]["close_button"] == 3
+
+
+def test_profile_covers_and_gang_count() -> None:
+    profile = Profile.from_dict(
+        {
+            "id": "covers",
+            "name": "Covers",
+            "mode": "cover",
+            "gang_count": 4,
+            "covers": [
+                {"id": "a", "open_button": 1, "close_button": 2},
+                {"id": "b", "open_button": 3, "close_button": 4},
+            ],
+        }
+    )
+    assert profile.gang_count == 4
+    assert len(profile.covers) == 2
+    assert profile.cover_for_button(3) is profile.covers[1]
+    assert profile.cover.id == "a"
+    payload = profile.to_dict()
+    assert "cover" not in payload
+    assert payload["covers"][1]["id"] == "b"
 
 
 def test_storage_migration_rejects_future_version() -> None:

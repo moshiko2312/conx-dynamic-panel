@@ -5,6 +5,7 @@ import {
   COVER_SETTLE_MIN,
   COVER_TIME_MAX,
   COVER_TIME_MIN,
+  clampGangCount,
   cloneProfile,
   coverCommand,
   createProfile,
@@ -14,7 +15,9 @@ import {
   exportProfiles,
   fetchConfig,
   importProfiles,
+  maxCoversForGangs,
   normalizeCover,
+  normalizeCovers,
   profilesEqual,
   pullPanel,
   setActiveProfile,
@@ -426,7 +429,7 @@ export class ConXDynamicPanelCard extends LitElement {
         grouped.add(index);
       }
     }
-    return new Set([1, 2, 3, 4].filter((index) => !grouped.has(index)));
+    return new Set(this._gangIndexes().filter((index) => !grouped.has(index)));
   }
 
   private _makeButtonIndependent(buttonIndex: number): void {
@@ -523,8 +526,12 @@ export class ConXDynamicPanelCard extends LitElement {
                     <div class="radio-group-title">
                       ${this.t("card.radio_group")} ${gIndex + 1}
                     </div>
-                    <div class="radio-group-members">
-                      ${[1, 2, 3, 4].map((buttonIndex) =>
+                    <div
+                      class="radio-group-members"
+                      dir="ltr"
+                      style="--conx-gang-count:${this._gangCount()}"
+                    >
+                      ${this._gangIndexes().map((buttonIndex) =>
                         this._renderRadioMemberCell(
                           buttonIndex,
                           group.buttons.includes(buttonIndex),
@@ -539,8 +546,12 @@ export class ConXDynamicPanelCard extends LitElement {
                 <div class="radio-group-title">
                   ${this.t("card.radio_toggle")}
                 </div>
-                <div class="radio-group-members">
-                  ${[1, 2, 3, 4].map((buttonIndex) =>
+                <div
+                  class="radio-group-members"
+                  dir="ltr"
+                  style="--conx-gang-count:${this._gangCount()}"
+                >
+                  ${this._gangIndexes().map((buttonIndex) =>
                     this._renderRadioMemberCell(
                       buttonIndex,
                       ungrouped.has(buttonIndex),
@@ -620,51 +631,116 @@ export class ConXDynamicPanelCard extends LitElement {
     );
     parts.push(
       `${this.t("card.radio_toggle")}: ${this._groupSummary(
-        [1, 2, 3, 4].filter((n) => ungrouped.has(n))
+        [1, 2, 3, 4]
+          .filter((n) => n <= this._gangCount() && ungrouped.has(n))
       )}`
     );
     return parts.join(" · ");
   }
 
-  private _coverConfig(profile?: Profile): CoverConfig {
-    return normalizeCover((profile || this._draft)?.cover);
+  private _gangCount(profile?: Profile): number {
+    return clampGangCount((profile || this._draft)?.gang_count ?? 4);
+  }
+
+  private _gangIndexes(profile?: Profile): number[] {
+    const count = this._gangCount(profile);
+    return Array.from({ length: count }, (_, i) => i + 1);
+  }
+
+  private _covers(profile?: Profile): CoverConfig[] {
+    return normalizeCovers(profile || this._draft || undefined);
+  }
+
+  private _coverConfig(profile?: Profile, coverId?: string): CoverConfig {
+    const covers = this._covers(profile);
+    if (coverId) {
+      return covers.find((cover) => cover.id === coverId) || covers[0] || normalizeCover(undefined);
+    }
+    return covers[0] || normalizeCover(undefined);
   }
 
   private _isCoverButton(buttonIndex: number): boolean {
     if (this._draft?.mode !== "cover") {
       return false;
     }
-    const cover = this._coverConfig();
-    return cover.open_button === buttonIndex || cover.close_button === buttonIndex;
+    return this._covers().some(
+      (cover) => cover.open_button === buttonIndex || cover.close_button === buttonIndex
+    );
   }
 
   private _coverDirectionFor(buttonIndex: number): "open" | "close" | null {
     if (this._draft?.mode !== "cover") {
       return null;
     }
-    const cover = this._coverConfig();
-    if (cover.open_button === buttonIndex) return "open";
-    if (cover.close_button === buttonIndex) return "close";
+    for (const cover of this._covers()) {
+      if (cover.open_button === buttonIndex) return "open";
+      if (cover.close_button === buttonIndex) return "close";
+    }
     return null;
   }
 
-  private _patchCover(mutate: (cover: CoverConfig) => void): void {
+  private _coverForButton(buttonIndex: number): CoverConfig | null {
+    return (
+      this._covers().find(
+        (cover) => cover.open_button === buttonIndex || cover.close_button === buttonIndex
+      ) || null
+    );
+  }
+
+  private _patchCovers(mutate: (covers: CoverConfig[], draft: Profile) => void): void {
     this._patchDraft((draft) => {
-      const cover = normalizeCover(draft.cover);
-      mutate(cover);
-      draft.cover = cover;
+      const covers = normalizeCovers(draft);
+      mutate(covers, draft);
+      draft.covers = normalizeCovers({ ...draft, covers });
+      delete draft.cover;
+    });
+  }
+
+  private _setGangCount(count: number): void {
+    this._patchDraft((draft) => {
+      draft.gang_count = clampGangCount(count);
+      draft.covers = normalizeCovers(draft);
+      delete draft.cover;
+      if (draft.radio_groups) {
+        draft.radio_groups = draft.radio_groups.map((group) => ({
+          ...group,
+          buttons: group.buttons.filter((index) => index <= draft.gang_count),
+        }));
+      }
+      if (
+        draft.selected_button != null &&
+        (draft.selected_button < 1 || draft.selected_button > draft.gang_count)
+      ) {
+        draft.selected_button = null;
+      }
     });
   }
 
   /**
    * Assign a panel button to a direction. Choosing the button already used by
    * the other direction swaps them, so the pair can never collapse onto one
-   * button and leave the motor without a stop path.
+   * button and leave the motor without a stop path. Buttons owned by another
+   * cover are refused.
    */
-  private _setCoverButton(direction: "open" | "close", buttonIndex: number): void {
-    this._patchCover((cover) => {
-      const previous =
-        direction === "open" ? cover.open_button : cover.close_button;
+  private _setCoverButton(
+    coverId: string,
+    direction: "open" | "close",
+    buttonIndex: number
+  ): void {
+    this._patchCovers((covers) => {
+      const cover = covers.find((item) => item.id === coverId);
+      if (!cover) {
+        return;
+      }
+      const ownedElsewhere = covers.some(
+        (item) =>
+          item.id !== coverId &&
+          (item.open_button === buttonIndex || item.close_button === buttonIndex)
+      );
+      if (ownedElsewhere) {
+        return;
+      }
+      const previous = direction === "open" ? cover.open_button : cover.close_button;
       if (direction === "open") {
         if (cover.close_button === buttonIndex) {
           cover.close_button = previous;
@@ -679,12 +755,20 @@ export class ConXDynamicPanelCard extends LitElement {
     });
   }
 
-  private _setCoverTime(direction: "open" | "close", value: number): void {
+  private _setCoverTime(
+    coverId: string,
+    direction: "open" | "close",
+    value: number
+  ): void {
     const seconds = Math.max(
       COVER_TIME_MIN,
       Math.min(COVER_TIME_MAX, Number.isFinite(value) ? value : COVER_TIME_MIN)
     );
-    this._patchCover((cover) => {
+    this._patchCovers((covers) => {
+      const cover = covers.find((item) => item.id === coverId);
+      if (!cover) {
+        return;
+      }
       if (direction === "open") {
         cover.open_time_s = seconds;
       } else {
@@ -693,14 +777,57 @@ export class ConXDynamicPanelCard extends LitElement {
     });
   }
 
-  private async _coverCommand(command: "open" | "close" | "stop"): Promise<void> {
+  private _addCover(): void {
+    this._patchCovers((covers, draft) => {
+      const maxCovers = maxCoversForGangs(draft.gang_count);
+      if (covers.length >= maxCovers) {
+        return;
+      }
+      const used = new Set(
+        covers.flatMap((cover) => [cover.open_button, cover.close_button])
+      );
+      const free = this._gangIndexes(draft).filter((index) => !used.has(index));
+      const openButton = free[0] ?? 1;
+      const closeButton = free[1] ?? Math.min(openButton + 1, draft.gang_count);
+      covers.push(
+        normalizeCover(
+          { open_button: openButton, close_button: closeButton },
+          {
+            gangCount: draft.gang_count,
+            defaultId: `cover_${covers.length + 1}`,
+            slot: covers.length,
+          }
+        )
+      );
+    });
+  }
+
+  private _removeCover(coverId: string): void {
+    this._patchCovers((covers) => {
+      if (covers.length <= 1) {
+        return;
+      }
+      const next = covers.filter((cover) => cover.id !== coverId);
+      covers.splice(0, covers.length, ...next);
+    });
+  }
+
+  private async _coverCommand(
+    command: "open" | "close" | "stop",
+    coverId?: string
+  ): Promise<void> {
     if (!this.hass || !this._config) {
       return;
     }
     this._busy = true;
     this._error = undefined;
     try {
-      const state = await coverCommand(this.hass, this._config.entry_id, command);
+      const state = await coverCommand(
+        this.hass,
+        this._config.entry_id,
+        command,
+        coverId
+      );
       if (this._panel) {
         this._panel = { ...this._panel, cover_state: state };
       }
@@ -711,25 +838,70 @@ export class ConXDynamicPanelCard extends LitElement {
     }
   }
 
-  private _coverStateLabel(): string {
-    const state = this._panel?.cover_state?.state || "idle";
-    return this.t(`card.cover_state_${state}`);
+  private _coverStateLabel(coverId?: string): string {
+    const live = this._panel?.cover_state;
+    if (coverId && live?.covers?.length) {
+      const item = live.covers.find((cover) => cover.id === coverId);
+      return this.t(`card.cover_state_${item?.state || "idle"}`);
+    }
+    return this.t(`card.cover_state_${live?.state || "idle"}`);
   }
 
-  private _renderCoverButtonPicker(direction: "open" | "close") {
-    const cover = this._coverConfig();
-    const selected = direction === "open" ? cover.open_button : cover.close_button;
+  private _renderGangPicker() {
+    if (!this._draft) {
+      return nothing;
+    }
+    const selected = this._gangCount();
     return html`
-      <div class="cover-buttons" role="radiogroup">
-        ${[1, 2, 3, 4].map(
+      <label class="field">
+        <span>${this.t("card.gang_count")}</span>
+        <div class="gang-picker" role="radiogroup" dir="ltr" data-gang-picker>
+          ${[1, 2, 3, 4].map(
+            (count) => html`
+              <button
+                type="button"
+                class="radio-member ${selected === count ? "on" : ""}"
+                role="radio"
+                aria-checked=${selected === count ? "true" : "false"}
+                ?disabled=${this._busy}
+                @click=${() => this._setGangCount(count)}
+              >
+                <span class="radio-member-label">${count}</span>
+              </button>
+            `
+          )}
+        </div>
+        <p class="radio-groups-hint">${this.t("card.gang_count_hint")}</p>
+      </label>
+    `;
+  }
+
+  private _renderCoverButtonPicker(
+    cover: CoverConfig,
+    direction: "open" | "close"
+  ) {
+    const selected = direction === "open" ? cover.open_button : cover.close_button;
+    const ownedByOther = new Set(
+      this._covers()
+        .filter((item) => item.id !== cover.id)
+        .flatMap((item) => [item.open_button, item.close_button])
+    );
+    return html`
+      <div
+        class="cover-buttons"
+        role="radiogroup"
+        dir="ltr"
+        style="--conx-gang-count:${this._gangCount()}"
+      >
+        ${this._gangIndexes().map(
           (buttonIndex) => html`
             <button
               type="button"
               class="radio-member ${selected === buttonIndex ? "on" : ""}"
               role="radio"
               aria-checked=${selected === buttonIndex ? "true" : "false"}
-              ?disabled=${this._busy}
-              @click=${() => this._setCoverButton(direction, buttonIndex)}
+              ?disabled=${this._busy || ownedByOther.has(buttonIndex)}
+              @click=${() => this._setCoverButton(cover.id, direction, buttonIndex)}
             >
               <span class="radio-member-label">L${buttonIndex}</span>
             </button>
@@ -739,32 +911,40 @@ export class ConXDynamicPanelCard extends LitElement {
     `;
   }
 
-  private _renderCoverEditor() {
-    if (!this._draft || this._draft.mode !== "cover") {
-      return nothing;
-    }
-    const cover = this._coverConfig();
+  private _renderOneCoverEditor(cover: CoverConfig, index: number) {
     const limits = this._panel?.capabilities.cover;
     const minTime = limits?.min_time_s ?? COVER_TIME_MIN;
     const maxTime = limits?.max_time_s ?? COVER_TIME_MAX;
     const unit = this.t("card.cover_seconds");
+    const canRemove = this._covers().length > 1;
     return html`
-      <div class="cover-section" data-cover-editor>
+      <div class="cover-block" data-cover-id=${cover.id}>
         <div class="cover-head">
-          <span class="menu-label">${this.t("card.cover")}</span>
+          <span class="menu-label"
+            >${this.t("card.cover")} ${index + 1}</span
+          >
+          ${canRemove
+            ? html`<button
+                type="button"
+                class="btn danger"
+                ?disabled=${this._busy}
+                @click=${() => this._removeCover(cover.id)}
+              >
+                ${this.t("card.cover_remove")}
+              </button>`
+            : nothing}
         </div>
-        <p class="radio-groups-hint">${this.t("card.cover_hint")}</p>
         <div class="cover-grid">
           <div class="cover-field">
             <span class="cover-label">${this.t("card.cover_open_button")}</span>
-            ${this._renderCoverButtonPicker("open")}
+            ${this._renderCoverButtonPicker(cover, "open")}
           </div>
           <div class="cover-field">
             <span class="cover-label">${this.t("card.cover_close_button")}</span>
-            ${this._renderCoverButtonPicker("close")}
+            ${this._renderCoverButtonPicker(cover, "close")}
           </div>
         </div>
-        <div class="grid-2">
+        <div class="cover-times">
           <label class="field">
             <span>${this.t("card.cover_open_time")} (${unit})</span>
             <input
@@ -776,7 +956,11 @@ export class ConXDynamicPanelCard extends LitElement {
               .value=${String(cover.open_time_s)}
               ?disabled=${this._busy}
               @change=${(e: Event) =>
-                this._setCoverTime("open", Number((e.target as HTMLInputElement).value))}
+                this._setCoverTime(
+                  cover.id,
+                  "open",
+                  Number((e.target as HTMLInputElement).value)
+                )}
             />
           </label>
           <label class="field">
@@ -790,31 +974,40 @@ export class ConXDynamicPanelCard extends LitElement {
               .value=${String(cover.close_time_s)}
               ?disabled=${this._busy}
               @change=${(e: Event) =>
-                this._setCoverTime("close", Number((e.target as HTMLInputElement).value))}
+                this._setCoverTime(
+                  cover.id,
+                  "close",
+                  Number((e.target as HTMLInputElement).value)
+                )}
+            />
+          </label>
+          <label class="field">
+            <span>${this.t("card.cover_settle")} (${unit})</span>
+            <input
+              type="number"
+              data-cover-settle
+              min=${limits?.min_settle_s ?? COVER_SETTLE_MIN}
+              max=${limits?.max_settle_s ?? COVER_SETTLE_MAX}
+              step="0.1"
+              .value=${String(cover.direction_settle_s)}
+              ?disabled=${this._busy}
+              @change=${(e: Event) => {
+                const value = Number((e.target as HTMLInputElement).value);
+                this._patchCovers((covers) => {
+                  const target = covers.find((item) => item.id === cover.id);
+                  if (!target) return;
+                  target.direction_settle_s = Math.max(
+                    COVER_SETTLE_MIN,
+                    Math.min(
+                      COVER_SETTLE_MAX,
+                      Number.isFinite(value) ? value : 0
+                    )
+                  );
+                });
+              }}
             />
           </label>
         </div>
-        <label class="field">
-          <span>${this.t("card.cover_settle")} (${unit})</span>
-          <input
-            type="number"
-            data-cover-settle
-            min=${limits?.min_settle_s ?? COVER_SETTLE_MIN}
-            max=${limits?.max_settle_s ?? COVER_SETTLE_MAX}
-            step="0.1"
-            .value=${String(cover.direction_settle_s)}
-            ?disabled=${this._busy}
-            @change=${(e: Event) => {
-              const value = Number((e.target as HTMLInputElement).value);
-              this._patchCover((draftCover) => {
-                draftCover.direction_settle_s = Math.max(
-                  COVER_SETTLE_MIN,
-                  Math.min(COVER_SETTLE_MAX, Number.isFinite(value) ? value : 0)
-                );
-              });
-            }}
-          />
-        </label>
         <p class="radio-groups-hint">${this.t("card.cover_settle_hint")}</p>
         <label class="field">
           <span>${this.t("card.cover_opposite")}</span>
@@ -825,9 +1018,13 @@ export class ConXDynamicPanelCard extends LitElement {
               ?disabled=${this._busy}
               @change=${(e: Event) => {
                 const value = (e.target as HTMLSelectElement).value;
-                this._patchCover((draftCover) => {
-                  draftCover.opposite_press =
-                    value === "stop_then_reverse" ? "stop_then_reverse" : "stop_only";
+                this._patchCovers((covers) => {
+                  const target = covers.find((item) => item.id === cover.id);
+                  if (!target) return;
+                  target.opposite_press =
+                    value === "stop_then_reverse"
+                      ? "stop_then_reverse"
+                      : "stop_only";
                 });
               }}
             >
@@ -843,6 +1040,34 @@ export class ConXDynamicPanelCard extends LitElement {
               ${this.t("card.cover_same_button")}
             </div>`
           : nothing}
+      </div>
+    `;
+  }
+
+  private _renderCoverEditor() {
+    if (!this._draft || this._draft.mode !== "cover") {
+      return nothing;
+    }
+    const covers = this._covers();
+    const maxCovers = maxCoversForGangs(this._gangCount());
+    return html`
+      <div class="cover-section" data-cover-editor>
+        <div class="cover-head">
+          <span class="menu-label">${this.t("card.cover")}</span>
+          ${covers.length < maxCovers
+            ? html`<button
+                type="button"
+                class="btn"
+                data-cover-add
+                ?disabled=${this._busy}
+                @click=${() => this._addCover()}
+              >
+                ${this.t("card.cover_add")}
+              </button>`
+            : nothing}
+        </div>
+        <p class="radio-groups-hint">${this.t("card.cover_hint")}</p>
+        ${covers.map((cover, index) => this._renderOneCoverEditor(cover, index))}
         <p class="cover-safety">${this.t("card.cover_safety")}</p>
       </div>
     `;
@@ -853,42 +1078,60 @@ export class ConXDynamicPanelCard extends LitElement {
     if (this._saved?.mode !== "cover") {
       return nothing;
     }
-    const state = this._panel?.cover_state?.state || "idle";
+    const covers = this._covers(this._saved);
     return html`
       <div class="cover-control" data-cover-control>
-        <div class="cover-control-head">
-          <span class="menu-label">${this.t("card.cover_live")}</span>
-          <span class="cover-state cover-state-${state}">${this._coverStateLabel()}</span>
-        </div>
-        <div class="cover-control-row">
-          <button
-            type="button"
-            class="btn"
-            data-cover-open
-            ?disabled=${this._busy}
-            @click=${() => this._coverCommand("open")}
-          >
-            ${this.t("card.cover_open")}
-          </button>
-          <button
-            type="button"
-            class="btn danger"
-            data-cover-stop
-            ?disabled=${this._busy}
-            @click=${() => this._coverCommand("stop")}
-          >
-            ${this.t("card.cover_stop")}
-          </button>
-          <button
-            type="button"
-            class="btn"
-            data-cover-close
-            ?disabled=${this._busy}
-            @click=${() => this._coverCommand("close")}
-          >
-            ${this.t("card.cover_close")}
-          </button>
-        </div>
+        ${covers.map((cover) => {
+          const live = this._panel?.cover_state?.covers?.find(
+            (item) => item.id === cover.id
+          );
+          const state = live?.state || (covers.length === 1
+            ? this._panel?.cover_state?.state || "idle"
+            : "idle");
+          return html`
+            <div class="cover-control-block" data-cover-id=${cover.id}>
+              <div class="cover-control-head">
+                <span class="menu-label"
+                  >${this.t("card.cover_live")}${covers.length > 1
+                    ? ` · ${cover.id}`
+                    : ""}</span
+                >
+                <span class="cover-state cover-state-${state}"
+                  >${this._coverStateLabel(cover.id)}</span
+                >
+              </div>
+              <div class="cover-control-row">
+                <button
+                  type="button"
+                  class="btn"
+                  data-cover-open
+                  ?disabled=${this._busy}
+                  @click=${() => this._coverCommand("open", cover.id)}
+                >
+                  ${this.t("card.cover_open")}
+                </button>
+                <button
+                  type="button"
+                  class="btn danger"
+                  data-cover-stop
+                  ?disabled=${this._busy}
+                  @click=${() => this._coverCommand("stop", cover.id)}
+                >
+                  ${this.t("card.cover_stop")}
+                </button>
+                <button
+                  type="button"
+                  class="btn"
+                  data-cover-close
+                  ?disabled=${this._busy}
+                  @click=${() => this._coverCommand("close", cover.id)}
+                >
+                  ${this.t("card.cover_close")}
+                </button>
+              </div>
+            </div>
+          `;
+        })}
       </div>
     `;
   }
@@ -1014,6 +1257,7 @@ export class ConXDynamicPanelCard extends LitElement {
       backlight_brightness: 100,
       child_lock: false,
       selected_button: null,
+      gang_count: this._gangCount(this._draft || undefined),
       buttons: [1, 2, 3, 4].map((index) => ({
         index,
         name: `Button ${index}`,
@@ -1267,9 +1511,17 @@ export class ConXDynamicPanelCard extends LitElement {
       const direction = this._coverDirectionFor(buttonIndex);
       if (direction) {
         // A direction ring is lit only while the engine reports that travel.
+        const cover = this._coverForButton(buttonIndex);
         const live = this._panel?.cover_state;
-        if (live?.active) {
-          return live.direction === direction;
+        if (live?.active && cover) {
+          const item = live.covers?.find((entry) => entry.id === cover.id);
+          if (item) {
+            return item.direction === direction;
+          }
+          if (live.cover_id === cover.id || !live.covers?.length) {
+            return live.direction === direction;
+          }
+          return false;
         }
         return Boolean(this._splitPreviewOn[buttonIndex]);
       }
@@ -1314,7 +1566,10 @@ export class ConXDynamicPanelCard extends LitElement {
       if (!direction) {
         return;
       }
-      const cover = this._coverConfig();
+      const cover = this._coverForButton(buttonIndex);
+      if (!cover) {
+        return;
+      }
       const opposite =
         direction === "open" ? cover.close_button : cover.open_button;
       // Preview mirrors the engine: pressing again stops, and the two
@@ -1420,7 +1675,7 @@ export class ConXDynamicPanelCard extends LitElement {
       <div
         class="faceplate"
         dir="ltr"
-        style="--ring-on:${ringOn};--ring-off:${ringOff}"
+        style="--ring-on:${ringOn};--ring-off:${ringOff};--conx-gang-count:${this._gangCount()}"
         role="img"
         aria-label=${this.t("card.preview")}
       >
@@ -1428,17 +1683,21 @@ export class ConXDynamicPanelCard extends LitElement {
           <div class="faceplate-skin"></div>
           <div class="faceplate-glass">
             <div class="faceplate-labels">
-              ${this._draft.buttons.map(
-                (button) => html`
-                  <div class="faceplate-label">
-                    ${button.name || `L${button.index}`}
-                  </div>
-                `
-              )}
+              ${this._draft.buttons
+                .filter((button) => button.index <= this._gangCount())
+                .map(
+                  (button) => html`
+                    <div class="faceplate-label">
+                      ${button.name || `L${button.index}`}
+                    </div>
+                  `
+                )}
             </div>
             <div class="faceplate-touch">
               <div class="faceplate-rings">
-                ${this._draft.buttons.map((button) => {
+                ${this._draft.buttons
+                  .filter((button) => button.index <= this._gangCount())
+                  .map((button) => {
                   const on = this._isRingOn(button.index);
                   const pressed = this._pressedRing === button.index;
                   return html`
@@ -1644,6 +1903,7 @@ export class ConXDynamicPanelCard extends LitElement {
       return nothing;
     }
     return html`
+${this._renderGangPicker()}
 <label class="field">
             <span>${this.t("card.mode")}</span>
             <div class="select-wrap">
@@ -1654,7 +1914,8 @@ export class ConXDynamicPanelCard extends LitElement {
                   this._patchDraft((draft) => {
                     draft.mode = (e.target as HTMLSelectElement).value as Profile["mode"];
                     if (draft.mode === "cover") {
-                      draft.cover = normalizeCover(draft.cover);
+                      draft.covers = normalizeCovers(draft);
+                      delete draft.cover;
                     } else if (draft.mode === "radio_split") {
                       this._ensureRadioGroups(draft);
                       this._setRadioGroupsOpen(true);
@@ -1804,7 +2065,9 @@ export class ConXDynamicPanelCard extends LitElement {
     return html`
       ${this._renderRadioGroupsEditor()} ${this._renderCoverEditor()}
           <div class="buttons-accordion">
-            ${this._draft.buttons.map((button) => {
+            ${this._draft.buttons
+              .filter((button) => button.index <= this._gangCount())
+              .map((button) => {
               const open = Boolean(this._expandedButtons[button.index]);
               const entityId = String(
                 (
@@ -1960,12 +2223,17 @@ export class ConXDynamicPanelCard extends LitElement {
         ${this._draft.mode === "cover"
           ? html`<div data-cover-review>
               <strong>${this.t("card.cover")}</strong>
-              ${this.t("card.cover_open_button")} L${this._coverConfig().open_button} ·
-              ${this.t("card.cover_close_button")} L${this._coverConfig().close_button} ·
-              ${this._coverConfig().open_time_s}${this.t("card.cover_seconds")} /
-              ${this._coverConfig().close_time_s}${this.t("card.cover_seconds")}
+              ${this._covers()
+                .map(
+                  (cover) =>
+                    `${cover.id}: L${cover.open_button}/${cover.close_button} (${cover.open_time_s}/${cover.close_time_s}${this.t("card.cover_seconds")})`
+                )
+                .join(" · ")}
             </div>`
           : nothing}
+        <div>
+          <strong>${this.t("card.gang_count")}</strong> ${this._gangCount()}
+        </div>
       </div>
       ${this._renderFaceplate()} ${this._renderCoverControl()}
       <div class="row actions">
@@ -3285,6 +3553,7 @@ export class ConXDynamicPanelCard extends LitElement {
     }
 
     input[type="text"],
+    input[type="number"],
     select,
     textarea.yaml-box {
       font: inherit;
@@ -3298,7 +3567,31 @@ export class ConXDynamicPanelCard extends LitElement {
         inset 0 -1px 0 color-mix(in srgb, #0b1218 6%, transparent);
     }
 
+    input[type="text"],
+    select,
+    textarea.yaml-box {
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+    }
+
+    /* Compact numerics: values like 20 / 0.5 should not smear full-width. */
+    input[type="number"] {
+      width: 7.5ch;
+      min-width: 4.75rem;
+      max-width: 9rem;
+      box-sizing: content-box;
+      -moz-appearance: textfield;
+      appearance: textfield;
+    }
+    input[type="number"]::-webkit-outer-spin-button,
+    input[type="number"]::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
     input[type="text"]:focus,
+    input[type="number"]:focus,
     select:focus {
       outline: none;
       border-color: color-mix(in srgb, var(--conx-accent) 55%, transparent);
@@ -3309,6 +3602,43 @@ export class ConXDynamicPanelCard extends LitElement {
 
     .select-wrap {
       position: relative;
+      max-width: 22rem;
+    }
+
+    .field-inline {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px 12px;
+    }
+    .field-inline > span {
+      min-width: 0;
+      flex: 1 1 8rem;
+    }
+    .field-inline input[type="number"],
+    .field-inline .select-wrap {
+      flex: 0 0 auto;
+    }
+
+    .cover-times {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 16px;
+      margin-bottom: 10px;
+    }
+    .cover-times .field {
+      flex: 0 1 auto;
+      margin-bottom: 0;
+      min-width: 0;
+    }
+
+    .gang-picker {
+      direction: ltr;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(2.6rem, 3.4rem));
+      gap: 6px;
+      width: max-content;
+      max-width: 100%;
     }
 
     .color-select {
@@ -3429,8 +3759,10 @@ export class ConXDynamicPanelCard extends LitElement {
       margin-bottom: 8px;
     }
     .radio-group-members {
+      /* Physical panel order: L1 leftmost regardless of UI language RTL. */
+      direction: ltr;
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(var(--conx-gang-count, 4), minmax(0, 1fr));
       gap: 6px;
     }
     .radio-member {
@@ -3493,6 +3825,23 @@ export class ConXDynamicPanelCard extends LitElement {
       border: 1px solid var(--border);
       background: color-mix(in srgb, var(--surface-2, var(--surface)) 88%, transparent);
     }
+    .cover-block {
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+    }
+    .cover-block:first-of-type {
+      margin-top: 0;
+      padding-top: 0;
+      border-top: none;
+    }
+    .cover-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
     .cover-section .menu-label {
       display: block;
       font-size: 0.72rem;
@@ -3500,6 +3849,11 @@ export class ConXDynamicPanelCard extends LitElement {
       letter-spacing: 0.06em;
       text-transform: uppercase;
       color: var(--text-muted);
+    }
+    .cover-control-block + .cover-control-block {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
     }
     .cover-grid {
       display: grid;
@@ -3521,8 +3875,10 @@ export class ConXDynamicPanelCard extends LitElement {
       color: var(--text-muted);
     }
     .cover-buttons {
+      /* Physical panel order: L1 leftmost regardless of UI language RTL. */
+      direction: ltr;
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(var(--conx-gang-count, 4), minmax(0, 1fr));
       gap: 6px;
     }
     .cover-safety {
@@ -3787,7 +4143,7 @@ export class ConXDynamicPanelCard extends LitElement {
 
     .faceplate-labels {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(var(--conx-gang-count, 4), 1fr);
       align-items: center;
       background: #0a0a0a;
       color: #f5f5f5;
@@ -3816,7 +4172,7 @@ export class ConXDynamicPanelCard extends LitElement {
 
     .faceplate-rings {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(var(--conx-gang-count, 4), 1fr);
       width: 100%;
       place-items: center;
     }

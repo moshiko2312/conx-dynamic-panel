@@ -263,16 +263,17 @@ async def ws_update_panel_name(
         vol.Required("type"): "conx_dynamic_panel/cover_command",
         vol.Required("entry_id"): str,
         vol.Required("command"): vol.In(list(COVER_COMMANDS)),
+        vol.Optional("cover_id"): str,
     }
 )
 @websocket_api.async_response
 async def ws_cover_command(
     hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
 ) -> None:
-    """Open, close, or stop the cover through the backend safety engine."""
+    """Open, close, or stop a cover through the backend safety engine."""
     coordinator = _coordinator(hass, msg["entry_id"])
     try:
-        result = await coordinator.async_cover_command(msg["command"])
+        result = await coordinator.async_cover_command(msg["command"], cover_id=msg.get("cover_id"))
     except ValueError as err:
         raise HomeAssistantError(str(err)) from err
     connection.send_result(msg["id"], result)

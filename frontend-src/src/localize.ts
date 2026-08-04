@@ -66,6 +66,11 @@ const EN: Record<string, string> = {
   "card.cover_seconds": "s",
   "card.cover_safety":
     "Safety: presses run through the integration. Both direction relays are forced off on stop, timer expiry, profile change, sync, and reload.",
+  "card.cover_add": "Add cover",
+  "card.cover_remove": "Remove",
+  "card.gang_count": "Panel gangs",
+  "card.gang_count_hint":
+    "How many physical buttons (L1…Ln) this profile uses. Cover count is limited to floor(n/2).",
   "cover.stop_only": "Stop only",
   "cover.stop_then_reverse": "Stop, then reverse",
   "theme.noir": "Noir gray",
@@ -201,6 +206,11 @@ const HE: Record<string, string> = {
   "card.cover_seconds": "שנ׳",
   "card.cover_safety":
     "בטיחות: הלחיצות עוברות דרך האינטגרציה. שני ממסרי הכיוון מכובים בעצירה, בתום הזמן, בהחלפת פרופיל, בסנכרון ובטעינה מחדש.",
+  "card.cover_add": "הוסף תריס",
+  "card.cover_remove": "הסר",
+  "card.gang_count": "מספר גאנגים",
+  "card.gang_count_hint":
+    "כמה כפתורים פיזיים (L1…Ln) הפרופיל משתמש. מספר התריסים מוגבל ל־floor(n/2).",
   "cover.stop_only": "עצירה בלבד",
   "cover.stop_then_reverse": "עצירה ואז כיוון הפוך",
   "theme.noir": "נואר אפור",
@@ -336,6 +346,11 @@ const RU: Record<string, string> = {
   "card.cover_seconds": "с",
   "card.cover_safety":
     "Безопасность: нажатия обрабатываются интеграцией. Оба реле направлений принудительно выключаются при остановке, истечении таймера, смене профиля, синхронизации и перезагрузке.",
+  "card.cover_add": "Добавить ролету",
+  "card.cover_remove": "Удалить",
+  "card.gang_count": "Число кнопок",
+  "card.gang_count_hint":
+    "Сколько физических кнопок (L1…Ln) использует профиль. Число ролет ограничено floor(n/2).",
   "cover.stop_only": "Только стоп",
   "cover.stop_then_reverse": "Стоп, затем реверс",
   "theme.noir": "Нуар серый",

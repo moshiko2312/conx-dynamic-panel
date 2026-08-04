@@ -12,6 +12,7 @@ from .const import (
     BUTTON_COUNT,
     COVER_DEFAULT_CLOSE_BUTTON,
     COVER_DEFAULT_CLOSE_TIME,
+    COVER_DEFAULT_ID,
     COVER_DEFAULT_OPEN_BUTTON,
     COVER_DEFAULT_OPEN_TIME,
     COVER_DEFAULT_SETTLE,
@@ -25,7 +26,10 @@ from .const import (
     COVER_TIME_MIN,
     DEFAULT_BACKLIGHT_BRIGHTNESS,
     DEFAULT_COLORS,
+    DEFAULT_GANG_COUNT,
     DEFAULT_RADAR,
+    GANG_COUNT_MAX,
+    GANG_COUNT_MIN,
     MODE_TOGGLE,
     STORAGE_VERSION,
     SUPPORTED_MODES,
@@ -70,25 +74,51 @@ def clamp_cover_settle(value: Any) -> float:
     return max(COVER_SETTLE_MIN, min(COVER_SETTLE_MAX, seconds))
 
 
-def _clamp_button_index(value: Any, default: int) -> int:
+def clamp_gang_count(value: Any) -> int:
+    """Clamp panel gang count to the supported 1–4 range."""
+    try:
+        count = int(value)
+    except (TypeError, ValueError):
+        return DEFAULT_GANG_COUNT
+    return max(GANG_COUNT_MIN, min(GANG_COUNT_MAX, count))
+
+
+def max_covers_for_gangs(gang_count: int) -> int:
+    """Return how many independent covers fit on ``gang_count`` buttons."""
+    return max(0, int(gang_count) // 2)
+
+
+def _clamp_button_index(value: Any, default: int, *, gang_count: int = BUTTON_COUNT) -> int:
     try:
         index = int(value)
     except (TypeError, ValueError):
         return default
-    if index < 1 or index > BUTTON_COUNT:
-        return default
+    limit = max(1, min(BUTTON_COUNT, int(gang_count)))
+    if index < 1 or index > limit:
+        return min(default, limit) if default <= limit else 1
     return index
+
+
+def _default_cover_pair(slot: int, gang_count: int) -> tuple[int, int]:
+    """Return a non-overlapping open/close pair for cover slot ``slot`` (0-based)."""
+    open_button = slot * 2 + 1
+    close_button = slot * 2 + 2
+    if close_button > gang_count:
+        open_button = 1
+        close_button = 2 if gang_count >= 2 else 1
+    return open_button, close_button
 
 
 @dataclass(slots=True)
 class CoverConfig:
-    """Cover/shutter wiring and travel timing for a cover-mode profile.
+    """Cover/shutter wiring and travel timing for one motor on a cover-mode profile.
 
-    ``open_button`` and ``close_button`` are 1-based panel button indexes, so any
-    of L1–L4 can drive either direction. Times are the seconds a direction relay
-    stays energized before the engine forces it off.
+    ``open_button`` and ``close_button`` are 1-based panel button indexes within the
+    profile's ``gang_count``. Times are the seconds a direction relay stays
+    energized before the engine forces it off.
     """
 
+    id: str = COVER_DEFAULT_ID
     open_button: int = COVER_DEFAULT_OPEN_BUTTON
     close_button: int = COVER_DEFAULT_CLOSE_BUTTON
     open_time_s: float = COVER_DEFAULT_OPEN_TIME
@@ -99,6 +129,7 @@ class CoverConfig:
     def to_dict(self) -> dict[str, Any]:
         """Serialize cover config."""
         return {
+            "id": self.id,
             "open_button": self.open_button,
             "close_button": self.close_button,
             "open_time_s": self.open_time_s,
@@ -108,7 +139,13 @@ class CoverConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any] | None) -> CoverConfig:
+    def from_dict(
+        cls,
+        data: dict[str, Any] | None,
+        *,
+        gang_count: int = BUTTON_COUNT,
+        default_id: str = COVER_DEFAULT_ID,
+    ) -> CoverConfig:
         """Deserialize cover config, clamping every value into safe ranges.
 
         Button equality is preserved instead of repaired so that
@@ -118,9 +155,16 @@ class CoverConfig:
         opposite = str(data.get("opposite_press") or COVER_OPPOSITE_STOP_ONLY)
         if opposite not in COVER_OPPOSITE_MODES:
             opposite = COVER_OPPOSITE_STOP_ONLY
+        cover_id = str(data.get("id") or "").strip() or default_id
+        open_default, close_default = _default_cover_pair(0, gang_count)
         return cls(
-            open_button=_clamp_button_index(data.get("open_button"), COVER_DEFAULT_OPEN_BUTTON),
-            close_button=_clamp_button_index(data.get("close_button"), COVER_DEFAULT_CLOSE_BUTTON),
+            id=cover_id,
+            open_button=_clamp_button_index(
+                data.get("open_button"), open_default, gang_count=gang_count
+            ),
+            close_button=_clamp_button_index(
+                data.get("close_button"), close_default, gang_count=gang_count
+            ),
             open_time_s=clamp_cover_time(data.get("open_time_s"), COVER_DEFAULT_OPEN_TIME),
             close_time_s=clamp_cover_time(data.get("close_time_s"), COVER_DEFAULT_CLOSE_TIME),
             direction_settle_s=clamp_cover_settle(data.get("direction_settle_s")),
@@ -154,22 +198,80 @@ class CoverConfig:
         return (self.open_button, self.close_button)
 
 
-def normalize_cover(raw: Any) -> CoverConfig:
+def normalize_cover(
+    raw: Any, *, gang_count: int = BUTTON_COUNT, default_id: str = COVER_DEFAULT_ID
+) -> CoverConfig:
     """Normalize a stored/posted cover payload into a CoverConfig."""
     if isinstance(raw, CoverConfig):
-        return CoverConfig.from_dict(raw.to_dict())
+        return CoverConfig.from_dict(raw.to_dict(), gang_count=gang_count, default_id=default_id)
     if isinstance(raw, dict):
-        return CoverConfig.from_dict(raw)
-    return CoverConfig()
+        return CoverConfig.from_dict(raw, gang_count=gang_count, default_id=default_id)
+    open_button, close_button = _default_cover_pair(0, gang_count)
+    return CoverConfig(id=default_id, open_button=open_button, close_button=close_button)
 
 
-def validate_cover_config(cover: CoverConfig) -> None:
+def normalize_covers(
+    raw_covers: Any = None,
+    raw_cover: Any = None,
+    *,
+    gang_count: int = BUTTON_COUNT,
+) -> list[CoverConfig]:
+    """Normalize legacy ``cover`` or modern ``covers[]`` into a cover list.
+
+    Empty input yields one default cover when the gang count can host a motor
+    pair; otherwise an empty list. Excess covers beyond ``floor(gang_count/2)``
+    are dropped. Invalid button indexes are clamped into ``1..gang_count``.
+    """
+    gang_count = clamp_gang_count(gang_count)
+    max_covers = max_covers_for_gangs(gang_count)
+    covers: list[CoverConfig] = []
+    if isinstance(raw_covers, list) and raw_covers:
+        for index, item in enumerate(raw_covers):
+            covers.append(
+                normalize_cover(item, gang_count=gang_count, default_id=f"cover_{index + 1}")
+            )
+    elif raw_cover is not None:
+        covers.append(
+            normalize_cover(raw_cover, gang_count=gang_count, default_id=COVER_DEFAULT_ID)
+        )
+    elif max_covers > 0:
+        open_button, close_button = _default_cover_pair(0, gang_count)
+        covers.append(
+            CoverConfig(
+                id=COVER_DEFAULT_ID,
+                open_button=open_button,
+                close_button=close_button,
+            )
+        )
+
+    if max_covers == 0:
+        return []
+    covers = covers[:max_covers]
+
+    # Stable unique ids.
+    seen: set[str] = set()
+    for index, cover in enumerate(covers):
+        base = cover.id.strip() or f"cover_{index + 1}"
+        candidate = base
+        suffix = 2
+        while candidate in seen:
+            candidate = f"{base}_{suffix}"
+            suffix += 1
+        cover.id = candidate
+        seen.add(candidate)
+    return covers
+
+
+def validate_cover_config(cover: CoverConfig, *, gang_count: int = BUTTON_COUNT) -> None:
     """Raise ValueError when a cover configuration is unsafe to run."""
+    gang_count = clamp_gang_count(gang_count)
+    if not cover.id.strip():
+        raise ValueError("Cover id is required")
     if cover.open_button == cover.close_button:
         raise ValueError("Cover open and close buttons must be different panel buttons")
     for index in cover.relay_indexes():
-        if index < 1 or index > BUTTON_COUNT:
-            raise ValueError(f"Cover button {index} is outside 1-{BUTTON_COUNT}")
+        if index < 1 or index > gang_count:
+            raise ValueError(f"Cover button {index} is outside 1-{gang_count}")
     for label, seconds in (
         ("open_time_s", cover.open_time_s),
         ("close_time_s", cover.close_time_s),
@@ -187,6 +289,29 @@ def validate_cover_config(cover: CoverConfig) -> None:
         raise ValueError(f"Unsupported cover opposite_press: {cover.opposite_press}")
 
 
+def validate_covers(covers: list[CoverConfig], *, gang_count: int = BUTTON_COUNT) -> None:
+    """Validate every cover and enforce exclusive button ownership across covers."""
+    gang_count = clamp_gang_count(gang_count)
+    max_covers = max_covers_for_gangs(gang_count)
+    if len(covers) > max_covers:
+        raise ValueError(f"At most {max_covers} cover(s) are allowed for a {gang_count}-gang panel")
+    if not covers:
+        raise ValueError("Cover mode requires at least one cover mapping")
+    ownership: dict[int, str] = {}
+    seen_ids: set[str] = set()
+    for cover in covers:
+        validate_cover_config(cover, gang_count=gang_count)
+        if cover.id in seen_ids:
+            raise ValueError(f"Duplicate cover id: {cover.id}")
+        seen_ids.add(cover.id)
+        for index in cover.relay_indexes():
+            if index in ownership:
+                raise ValueError(
+                    f"Button {index} is used by both '{ownership[index]}' and '{cover.id}'"
+                )
+            ownership[index] = cover.id
+
+
 @dataclass(slots=True)
 class RadioGroup:
     """One exclusive radio group within radio_split mode."""
@@ -199,30 +324,31 @@ class RadioGroup:
         return {"id": self.id, "buttons": list(self.buttons)}
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> RadioGroup:
+    def from_dict(cls, data: dict[str, Any], *, gang_count: int = BUTTON_COUNT) -> RadioGroup:
         """Deserialize radio group."""
         raw_buttons = data.get("buttons") or []
+        limit = clamp_gang_count(gang_count)
         buttons: list[int] = []
         for item in raw_buttons:
             try:
                 index = int(item)
             except (TypeError, ValueError):
                 continue
-            if 1 <= index <= BUTTON_COUNT and index not in buttons:
+            if 1 <= index <= limit and index not in buttons:
                 buttons.append(index)
         group_id = str(data.get("id") or "").strip() or "g"
         return cls(id=group_id, buttons=buttons)
 
 
-def normalize_radio_groups(raw: Any) -> list[RadioGroup]:
+def normalize_radio_groups(raw: Any, *, gang_count: int = BUTTON_COUNT) -> list[RadioGroup]:
     """Normalize radio_groups payload; ensure two editable groups by default."""
     groups: list[RadioGroup] = []
     if isinstance(raw, list):
         for index, item in enumerate(raw):
             if isinstance(item, RadioGroup):
-                group = RadioGroup(id=item.id, buttons=list(item.buttons))
+                group = RadioGroup.from_dict(item.to_dict(), gang_count=gang_count)
             elif isinstance(item, dict):
-                group = RadioGroup.from_dict(item)
+                group = RadioGroup.from_dict(item, gang_count=gang_count)
             else:
                 continue
             if not group.id or group.id == "g":
@@ -327,19 +453,44 @@ class Profile:
     backlight_brightness: int = DEFAULT_BACKLIGHT_BRIGHTNESS
     child_lock: bool = False
     selected_button: int | None = None
+    # How many physical gangs (L1…Ln) this profile exposes in the UI/engine.
+    gang_count: int = DEFAULT_GANG_COUNT
     buttons: list[ButtonConfig] = field(default_factory=list)
     radio_groups: list[RadioGroup] = field(default_factory=list)
-    cover: CoverConfig = field(default_factory=CoverConfig)
+    covers: list[CoverConfig] = field(default_factory=list)
 
     def __post_init__(self) -> None:
+        self.gang_count = clamp_gang_count(self.gang_count)
         by_index = {button.index: button for button in self.buttons}
         self.buttons = [
             by_index.get(i) or ButtonConfig(index=i, name=f"Button {i}")
             for i in range(1, BUTTON_COUNT + 1)
         ]
         self.backlight_brightness = clamp_backlight_brightness(self.backlight_brightness)
-        self.radio_groups = normalize_radio_groups(self.radio_groups)
-        self.cover = normalize_cover(self.cover)
+        self.radio_groups = normalize_radio_groups(self.radio_groups, gang_count=self.gang_count)
+        self.covers = normalize_covers(self.covers, gang_count=self.gang_count)
+        if self.selected_button is not None and (
+            self.selected_button < 1 or self.selected_button > self.gang_count
+        ):
+            self.selected_button = None
+
+    @property
+    def cover(self) -> CoverConfig:
+        """First cover mapping (legacy single-cover accessor)."""
+        if self.covers:
+            return self.covers[0]
+        open_button, close_button = _default_cover_pair(0, self.gang_count)
+        return CoverConfig(open_button=open_button, close_button=close_button)
+
+    @cover.setter
+    def cover(self, value: CoverConfig | dict[str, Any] | None) -> None:
+        """Replace the first cover, preserving any additional covers."""
+        normalized = normalize_cover(value, gang_count=self.gang_count)
+        if self.covers:
+            self.covers[0] = normalized
+            self.covers = normalize_covers(self.covers, gang_count=self.gang_count)
+        else:
+            self.covers = normalize_covers([normalized], gang_count=self.gang_count)
 
     def button_names(self) -> tuple[str, str, str, str]:
         """Return ordered button names."""
@@ -350,6 +501,10 @@ class Profile:
         """Return button config for a 1-based index."""
         return next((button for button in self.buttons if button.index == index), None)
 
+    def visible_buttons(self) -> list[ButtonConfig]:
+        """Return button configs for the active gang count only."""
+        return [button for button in self.buttons if button.index <= self.gang_count]
+
     def is_radio_member(self, index: int) -> bool:
         """Return whether a button participates in radio exclusivity."""
         button = self.button_by_index(index)
@@ -359,12 +514,39 @@ class Profile:
 
     def radio_member_indexes(self) -> list[int]:
         """Return 1-based indexes of buttons that participate in radio mode."""
-        members = [button.index for button in self.buttons if button.radio_member]
-        return members or list(range(1, BUTTON_COUNT + 1))
+        members = [
+            button.index
+            for button in self.buttons
+            if button.radio_member and button.index <= self.gang_count
+        ]
+        return members or list(range(1, self.gang_count + 1))
+
+    def cover_for_button(self, index: int) -> CoverConfig | None:
+        """Return the cover driven by a button, if any."""
+        for cover in self.covers:
+            if cover.direction_for(index) is not None:
+                return cover
+        return None
+
+    def cover_by_id(self, cover_id: str) -> CoverConfig | None:
+        """Return a cover by id."""
+        for cover in self.covers:
+            if cover.id == cover_id:
+                return cover
+        return None
 
     def is_cover_button(self, index: int) -> bool:
-        """Return whether a button drives the cover motor in cover mode."""
-        return self.cover.direction_for(index) is not None
+        """Return whether a button drives a cover motor in cover mode."""
+        return self.cover_for_button(index) is not None
+
+    def all_cover_relay_indexes(self) -> list[int]:
+        """Return every direction relay used by any cover on this profile."""
+        indexes: list[int] = []
+        for cover in self.covers:
+            for index in cover.relay_indexes():
+                if index not in indexes:
+                    indexes.append(index)
+        return indexes
 
     def radio_group_for(self, index: int) -> RadioGroup | None:
         """Return the radio_split group containing a button, if any."""
@@ -386,15 +568,22 @@ class Profile:
             "backlight_brightness": self.backlight_brightness,
             "child_lock": self.child_lock,
             "selected_button": self.selected_button,
+            "gang_count": self.gang_count,
             "buttons": [button.to_dict() for button in self.buttons],
             "radio_groups": [group.to_dict() for group in self.radio_groups],
-            "cover": self.cover.to_dict(),
+            "covers": [cover.to_dict() for cover in self.covers],
         }
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Profile:
         """Deserialize profile."""
         buttons = [ButtonConfig.from_dict(item) for item in data.get("buttons") or []]
+        gang_count = clamp_gang_count(data.get("gang_count", DEFAULT_GANG_COUNT))
+        covers = normalize_covers(
+            data.get("covers"),
+            data.get("cover"),
+            gang_count=gang_count,
+        )
         return cls(
             id=str(data["id"]),
             name=str(data.get("name") or data["id"]),
@@ -408,9 +597,10 @@ class Profile:
             ),
             child_lock=bool(data.get("child_lock", False)),
             selected_button=data.get("selected_button"),
+            gang_count=gang_count,
             buttons=buttons,
-            radio_groups=normalize_radio_groups(data.get("radio_groups")),
-            cover=normalize_cover(data.get("cover")),
+            radio_groups=normalize_radio_groups(data.get("radio_groups"), gang_count=gang_count),
+            covers=covers,
         )
 
     def clone(self, new_id: str, new_name: str | None = None) -> Profile:
@@ -639,11 +829,14 @@ def capability_defaults() -> dict[str, Any]:
         "radar": list(DEFAULT_RADAR),
         "modes": list(SUPPORTED_MODES),
         "button_count": BUTTON_COUNT,
+        "gang_count_min": GANG_COUNT_MIN,
+        "gang_count_max": GANG_COUNT_MAX,
         "cover": {
             "min_time_s": COVER_TIME_MIN,
             "max_time_s": COVER_TIME_MAX,
             "min_settle_s": COVER_SETTLE_MIN,
             "max_settle_s": COVER_SETTLE_MAX,
             "opposite_press": list(COVER_OPPOSITE_MODES),
+            "max_covers": max_covers_for_gangs(BUTTON_COUNT),
         },
     }

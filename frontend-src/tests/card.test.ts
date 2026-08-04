@@ -56,14 +56,18 @@ const sampleProfile: Profile = {
     { id: "g1", buttons: [] },
     { id: "g2", buttons: [] },
   ],
-  cover: {
-    open_button: 1,
-    close_button: 2,
-    open_time_s: 20,
-    close_time_s: 20,
-    direction_settle_s: 0.5,
-    opposite_press: "stop_only",
-  },
+  gang_count: 4,
+  covers: [
+    {
+      id: "cover_1",
+      open_button: 1,
+      close_button: 2,
+      open_time_s: 20,
+      close_time_s: 20,
+      direction_settle_s: 0.5,
+      opposite_press: "stop_only",
+    },
+  ],
 };
 
 function panelPayload(overrides: Record<string, unknown> = {}) {
@@ -722,7 +726,22 @@ describe("cover mode", () => {
   const coverProfile = (overrides: Record<string, unknown> = {}) => ({
     ...sampleProfile,
     mode: "cover",
-    cover: { ...sampleProfile.cover, open_button: 1, close_button: 3, ...overrides },
+    covers: [
+      {
+        ...(sampleProfile.covers?.[0] || {
+          id: "cover_1",
+          open_button: 1,
+          close_button: 2,
+          open_time_s: 20,
+          close_time_s: 20,
+          direction_settle_s: 0.5,
+          opposite_press: "stop_only",
+        }),
+        open_button: 1,
+        close_button: 3,
+        ...overrides,
+      },
+    ],
   });
 
   beforeEach(() => {
@@ -732,6 +751,7 @@ describe("cover mode", () => {
 
   it("normalizes partial cover payloads into safe values", () => {
     expect(normalizeCover(undefined)).toEqual({
+      id: "cover_1",
       open_button: 1,
       close_button: 2,
       open_time_s: 20,
@@ -789,9 +809,9 @@ describe("cover mode", () => {
     // Assign the close direction to L1, which the open direction already uses.
     closeChips[0].click();
     await el.updateComplete;
-    expect(el._draft?.cover?.close_button).toBe(1);
-    expect(el._draft?.cover?.open_button).toBe(3);
-    expect(el._draft?.cover?.open_button).not.toBe(el._draft?.cover?.close_button);
+    expect(el._draft?.covers?.[0]?.close_button).toBe(1);
+    expect(el._draft?.covers?.[0]?.open_button).toBe(3);
+    expect(el._draft?.covers?.[0]?.open_button).not.toBe(el._draft?.covers?.[0]?.close_button);
   });
 
   it("edits travel times and clamps them to the supported range", async () => {
@@ -808,7 +828,7 @@ describe("cover mode", () => {
     openTime.value = "35";
     openTime.dispatchEvent(new Event("change", { bubbles: true }));
     await el.updateComplete;
-    expect(el._draft?.cover?.open_time_s).toBe(35);
+    expect(el._draft?.covers?.[0]?.open_time_s).toBe(35);
 
     const closeTime = el.shadowRoot?.querySelector(
       "input[data-cover-close-time]"
@@ -816,7 +836,7 @@ describe("cover mode", () => {
     closeTime.value = "99999";
     closeTime.dispatchEvent(new Event("change", { bubbles: true }));
     await el.updateComplete;
-    expect(el._draft?.cover?.close_time_s).toBe(600);
+    expect(el._draft?.covers?.[0]?.close_time_s).toBe(600);
     // Editing a draft must never touch hardware.
     expect(callWS).toHaveBeenCalledTimes(1);
   });
@@ -834,7 +854,7 @@ describe("cover mode", () => {
     select.value = "stop_then_reverse";
     select.dispatchEvent(new Event("change", { bubbles: true }));
     await el.updateComplete;
-    expect(el._draft?.cover?.opposite_press).toBe("stop_then_reverse");
+    expect(el._draft?.covers?.[0]?.opposite_press).toBe("stop_then_reverse");
   });
 
   it("lights only the travelling direction ring", async () => {
@@ -885,6 +905,7 @@ describe("cover mode", () => {
       type: "conx_dynamic_panel/cover_command",
       entry_id: "abc",
       command: "open",
+      cover_id: "cover_1",
     });
     expect(el._panel?.cover_state?.state).toBe("open");
 

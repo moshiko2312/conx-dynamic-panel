@@ -63,18 +63,20 @@ class CoverAdapter:
         self.relays: dict[int, bool] = {1: False, 2: False, 3: False, 4: False}
         self.fail_on: set[tuple[int, bool]] = set()
         self.apply_result = SyncResult(success=True, confirmed_steps=["relays"])
+        self.cover_pairs: list[tuple[int, int]] = [(OPEN_BUTTON, CLOSE_BUTTON)]
 
     async def async_set_relay(
         self, index: int, state: bool, *, suppress_event: bool = True
     ) -> None:
         if (index, state) in self.fail_on:
             raise RuntimeError(f"relay {index} write failed")
-        if state and index in (OPEN_BUTTON, CLOSE_BUTTON):
-            other = CLOSE_BUTTON if index == OPEN_BUTTON else OPEN_BUTTON
-            if self.relays[other]:
-                raise BothDirectionsEnergized(
-                    f"relay {index} turned on while relay {other} is still on"
-                )
+        if state:
+            for left, right in self.cover_pairs:
+                other = right if index == left else left if index == right else None
+                if other is not None and self.relays[other]:
+                    raise BothDirectionsEnergized(
+                        f"relay {index} turned on while relay {other} is still on"
+                    )
         self.relays[index] = state
         self.relay_calls.append((index, state))
 
@@ -169,6 +171,7 @@ def _build(**kwargs: Any) -> tuple[PanelCoordinator, CoverAdapter, FakeStore, Pr
     runtime = _runtime(adapter, store)
     coordinator = PanelCoordinator(runtime)  # type: ignore[arg-type]
     profile = _cover_profile(store, **kwargs)
+    adapter.cover_pairs = [profile.cover.relay_indexes()]
     return coordinator, adapter, store, profile, runtime
 
 
@@ -333,7 +336,7 @@ async def test_updating_active_profile_cancels_travel() -> None:
     coordinator, adapter, store, profile, runtime = _build(open_time=5.0)
     await coordinator._async_handle_physical_press(OPEN_BUTTON, True)
     payload = profile.to_dict()
-    payload["cover"]["open_time_s"] = 30.0
+    payload["covers"][0]["open_time_s"] = 30.0
     await coordinator.async_update_profile(profile.id, payload)
     assert runtime.cover.moving is False
     _assert_all_cover_relays_off(adapter)
@@ -457,7 +460,7 @@ async def test_cover_command_rejects_non_cover_profile() -> None:
 async def test_update_profile_rejects_same_button_for_both_directions() -> None:
     coordinator, _adapter, _store, profile, _runtime = _build()
     payload = profile.to_dict()
-    payload["cover"]["close_button"] = payload["cover"]["open_button"]
+    payload["covers"][0]["close_button"] = payload["covers"][0]["open_button"]
     with pytest.raises(ValueError, match="must be different"):
         await coordinator.async_update_profile(profile.id, payload)
 
@@ -491,12 +494,71 @@ def test_cover_state_payload_reports_idle_by_default() -> None:
     adapter = CoverAdapter()
     runtime = _runtime(adapter, store)
     coordinator = PanelCoordinator(runtime)  # type: ignore[arg-type]
-    _cover_profile(store)
+    profile = _cover_profile(store)
     payload = coordinator.cover_state_payload()
-    assert payload == {
-        "active": True,
-        "state": "idle",
-        "direction": None,
-        "duration": None,
-        "reason": None,
-    }
+    assert payload["active"] is True
+    assert payload["state"] == "idle"
+    assert payload["direction"] is None
+    assert payload["duration"] is None
+    assert payload["cover_id"] == profile.cover.id
+    assert len(payload["covers"]) == 1
+    assert payload["covers"][0]["id"] == profile.cover.id
+    assert payload["covers"][0]["state"] == "idle"
+
+
+@pytest.mark.asyncio
+async def test_two_covers_can_move_independently() -> None:
+    coordinator, adapter, store, profile, runtime = _build(open_time=5.0)
+    profile.covers = [
+        CoverConfig(id="a", open_button=1, close_button=2, open_time_s=5.0, close_time_s=5.0),
+        CoverConfig(id="b", open_button=3, close_button=4, open_time_s=5.0, close_time_s=5.0),
+    ]
+    adapter.cover_pairs = [cover.relay_indexes() for cover in profile.covers]
+    await coordinator._async_handle_physical_press(1, True)
+    await coordinator._async_handle_physical_press(3, True)
+    assert runtime.cover.get("a").direction == "open"
+    assert runtime.cover.get("b").direction == "open"
+    assert adapter.relays[1] is True
+    assert adapter.relays[3] is True
+    assert adapter.relays[2] is False
+    assert adapter.relays[4] is False
+    await coordinator._async_cover_abort("test")
+    assert runtime.cover.moving is False
+    assert all(state is False for state in adapter.relays.values())
+
+
+@pytest.mark.asyncio
+async def test_cover_command_targets_cover_id() -> None:
+    coordinator, adapter, store, profile, runtime = _build(open_time=5.0)
+    profile.covers = [
+        CoverConfig(id="a", open_button=1, close_button=2, open_time_s=5.0, close_time_s=5.0),
+        CoverConfig(id="b", open_button=3, close_button=4, open_time_s=5.0, close_time_s=5.0),
+    ]
+    adapter.cover_pairs = [cover.relay_indexes() for cover in profile.covers]
+    result = await coordinator.async_cover_command("open", cover_id="b")
+    assert result["cover_id"] == "b"
+    assert runtime.cover.get("b").direction == "open"
+    assert runtime.cover.get("a").moving is False
+    assert adapter.relays[3] is True
+    await coordinator._async_cover_abort("test")
+
+
+def test_validate_covers_rejects_overlap_and_too_many() -> None:
+    from custom_components.conx_dynamic_panel.models import validate_covers
+
+    with pytest.raises(ValueError, match="used by both"):
+        validate_covers(
+            [
+                CoverConfig(id="a", open_button=1, close_button=2),
+                CoverConfig(id="b", open_button=2, close_button=3),
+            ],
+            gang_count=4,
+        )
+    with pytest.raises(ValueError, match="At most 1"):
+        validate_covers(
+            [
+                CoverConfig(id="a", open_button=1, close_button=2),
+                CoverConfig(id="b", open_button=3, close_button=4),
+            ],
+            gang_count=3,
+        )

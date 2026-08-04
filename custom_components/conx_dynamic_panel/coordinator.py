@@ -56,10 +56,10 @@ from .models import (
     Profile,
     SyncResult,
     capability_defaults,
-    validate_cover_config,
+    validate_covers,
     validate_radio_groups,
 )
-from .runtime import PanelRuntime
+from .runtime import CoverMotion, PanelRuntime
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -195,38 +195,42 @@ class PanelCoordinator:
     # ------------------------------------------------------------------
     # Cover / shutter engine
     #
-    # Safety contract:
-    #   * Only one direction relay may ever be energized by this engine.
-    #   * Every start de-energizes the opposite relay first and confirms it.
-    #   * Any failure, abort, unload, or timer expiry forces both relays OFF.
+    # Safety contract (per cover):
+    #   * Only one direction relay of a given cover may ever be energized.
+    #   * Every start de-energizes that cover's opposite relay first.
+    #   * Any failure, abort, unload, or timer expiry forces that cover OFF.
     #   * All decisions run under one lock so presses cannot interleave.
+    # Different covers may travel at the same time when their buttons differ.
     # ------------------------------------------------------------------
 
     async def _async_cover_press(self, profile: Profile, index: int, turned_on: bool) -> None:
         """Route a physical relay transition while a cover profile is active."""
-        cover = profile.cover
-        direction = cover.direction_for(index)
-        if direction is None:
-            # Buttons outside the cover pair stay independent toggles.
+        cover = profile.cover_for_button(index)
+        if cover is None:
+            # Buttons outside every cover pair stay independent toggles.
             await self._async_execute_button_action(profile, index, turned_on)
             return
-        if not self._cover_is_usable(cover):
+        direction = cover.direction_for(index)
+        if direction is None:
+            await self._async_execute_button_action(profile, index, turned_on)
+            return
+        if not self._cover_is_usable(profile, cover):
             await self._async_cover_abort(COVER_REASON_ERROR)
             return
 
         async with self.runtime.cover.lock:
-            state = self.runtime.cover
+            motion = self.runtime.cover.get(cover.id)
             if not turned_on:
                 # A direction relay switching OFF can never mean "start moving":
                 # it is either the stop press for the current travel or hardware
-                # drift. Both cases resolve to a full halt.
+                # drift. Both cases resolve to a full halt for this cover.
                 await self._async_cover_halt(
                     cover,
-                    reason=COVER_REASON_STOP_PRESS if state.moving else COVER_REASON_SAFETY,
+                    reason=COVER_REASON_STOP_PRESS if motion.moving else COVER_REASON_SAFETY,
                 )
                 return
-            if state.moving:
-                previous = state.direction
+            if motion.moving:
+                previous = motion.direction
                 await self._async_cover_halt(cover, reason=COVER_REASON_STOP_PRESS)
                 if (
                     previous == direction
@@ -236,8 +240,10 @@ class PanelCoordinator:
                 await self._async_cover_settle(cover)
             await self._async_cover_start(cover, profile, direction, COVER_REASON_PRESS)
 
-    async def async_cover_command(self, command: str) -> dict[str, Any]:
-        """Drive the cover from the card, a service, or an automation."""
+    async def async_cover_command(
+        self, command: str, cover_id: str | None = None
+    ) -> dict[str, Any]:
+        """Drive one cover from the card, a service, or an automation."""
         if command not in COVER_COMMANDS:
             raise ValueError(f"Unsupported cover command: {command}")
         profile = self.data.active_profile()
@@ -245,63 +251,79 @@ class PanelCoordinator:
             raise ProfileNotFoundError("No active profile")
         if profile.mode != MODE_COVER:
             raise ValueError("Active profile is not in cover mode")
-        cover = profile.cover
-        validate_cover_config(cover)
+        validate_covers(profile.covers, gang_count=profile.gang_count)
+        cover = self._resolve_cover(profile, cover_id)
 
         async with self.runtime.cover.lock:
-            state = self.runtime.cover
+            motion = self.runtime.cover.get(cover.id)
             if command == COVER_COMMAND_STOP:
                 await self._async_cover_halt(cover, reason=COVER_REASON_COMMAND)
-                return self.cover_state_payload()
+                return self.cover_state_payload(cover_id=cover.id)
             direction = (
                 COVER_DIRECTION_OPEN if command == COVER_COMMAND_OPEN else COVER_DIRECTION_CLOSE
             )
-            if state.moving:
-                previous = state.direction
+            if motion.moving:
+                previous = motion.direction
                 await self._async_cover_halt(cover, reason=COVER_REASON_COMMAND)
                 if (
                     previous == direction
                     or cover.opposite_press != COVER_OPPOSITE_STOP_THEN_REVERSE
                 ):
-                    return self.cover_state_payload()
+                    return self.cover_state_payload(cover_id=cover.id)
                 await self._async_cover_settle(cover)
             await self._async_cover_start(cover, profile, direction, COVER_REASON_COMMAND)
-        return self.cover_state_payload()
+        return self.cover_state_payload(cover_id=cover.id)
+
+    def _resolve_cover(self, profile: Profile, cover_id: str | None) -> CoverConfig:
+        """Resolve a cover by id, defaulting to the first cover on the profile."""
+        if cover_id:
+            cover = profile.cover_by_id(cover_id)
+            if cover is None:
+                raise ValueError(f"Unknown cover id: {cover_id}")
+            return cover
+        if not profile.covers:
+            raise ValueError("Cover mode requires at least one cover mapping")
+        return profile.covers[0]
 
     async def _async_cover_start(
         self, cover: CoverConfig, profile: Profile, direction: str, reason: str
     ) -> None:
         """Energize one direction. Caller must hold the cover lock."""
-        state = self.runtime.cover
+        motion = self.runtime.cover.get(cover.id)
         target = cover.button_for(direction)
         opposite = cover.button_for(cover.opposite_direction(direction))
         duration = cover.duration_for(direction)
 
-        # Hard mutual exclusion: the opposite relay is confirmed OFF before this
-        # direction is allowed to energize.
+        # Hard mutual exclusion within this cover: opposite OFF before start.
         if not await self._async_cover_relay_off(opposite):
             await self._async_cover_halt(cover, reason=COVER_REASON_ERROR)
             return
         try:
             await self.runtime.adapter.async_set_relay(target, True, suppress_event=True)
         except Exception as err:  # noqa: BLE001
-            _LOGGER.error("Cover %s failed to energize relay %s: %s", direction, target, err)
+            _LOGGER.error(
+                "Cover %s %s failed to energize relay %s: %s",
+                cover.id,
+                direction,
+                target,
+                err,
+            )
             await self._async_cover_halt(cover, reason=COVER_REASON_ERROR)
             return
 
-        state.direction = direction
-        state.duration = duration
-        state.started_at = self._monotonic()
-        state.last_reason = reason
-        state.relays = cover.relay_indexes()
-        state.timer = self.hass.async_create_task(
-            self._async_cover_travel_timer(profile.id, direction, duration)
+        motion.direction = direction
+        motion.duration = duration
+        motion.started_at = self._monotonic()
+        motion.last_reason = reason
+        motion.relays = cover.relay_indexes()
+        motion.timer = self.hass.async_create_task(
+            self._async_cover_travel_timer(profile.id, cover.id, direction, duration)
         )
-        self._fire_cover_event(profile, direction, reason)
+        self._fire_cover_event(profile, cover, direction, reason)
         self.runtime.async_notify()
 
     async def _async_cover_travel_timer(
-        self, profile_id: str, direction: str, duration: float
+        self, profile_id: str, cover_id: str, direction: str, duration: float
     ) -> None:
         """Force both relays OFF once the configured travel time elapses."""
         try:
@@ -309,51 +331,85 @@ class PanelCoordinator:
         except asyncio.CancelledError:
             raise
         async with self.runtime.cover.lock:
-            state = self.runtime.cover
-            if not state.moving or state.direction != direction:
+            motion = self.runtime.cover.get(cover_id)
+            if not motion.moving or motion.direction != direction:
                 return
             # Clear the handle first so the halt below never cancels this task.
-            state.timer = None
+            motion.timer = None
             profile = self.data.active_profile()
-            cover = profile.cover if profile and profile.id == profile_id else None
+            cover = None
+            if profile is not None and profile.id == profile_id:
+                cover = profile.cover_by_id(cover_id)
+            if cover is None:
+                # Profile changed; still de-energize the remembered pair.
+                await self._async_cover_halt_motion(
+                    motion, cover=None, reason=COVER_REASON_TRAVEL_COMPLETE
+                )
+                return
             await self._async_cover_halt(cover, reason=COVER_REASON_TRAVEL_COMPLETE)
 
     async def _async_cover_halt(self, cover: CoverConfig | None, *, reason: str) -> None:
-        """Cancel any travel timer and force both direction relays OFF.
+        """Cancel any travel timer and force both direction relays OFF for one cover.
 
         Caller must hold the cover lock. The relay pair that was last energized
         is always included, so a profile switch mid-travel still de-energizes the
         buttons that are actually wired to the motor.
         """
-        state = self.runtime.cover
-        was_moving = state.moving
-        timer = state.timer
+        if cover is None:
+            return
+        motion = self.runtime.cover.get(cover.id)
+        await self._async_cover_halt_motion(motion, cover=cover, reason=reason)
+
+    async def _async_cover_halt_motion(
+        self,
+        motion: CoverMotion,
+        *,
+        cover: CoverConfig | None,
+        reason: str,
+    ) -> None:
+        """Halt one motion entry. Caller must hold the cover lock."""
+        was_moving = motion.moving
+        timer = motion.timer
         indexes: list[int] = []
-        for pair in (state.relays, cover.relay_indexes() if cover is not None else None):
+        for pair in (motion.relays, cover.relay_indexes() if cover is not None else None):
             for index in pair or ():
                 if index not in indexes:
                     indexes.append(index)
-        state.reset(reason)
+        motion.reset(reason)
         if timer is not None and timer is not asyncio.current_task():
             timer.cancel()
         for index in indexes:
             await self._async_cover_relay_off(index)
         if was_moving or reason in {COVER_REASON_SAFETY, COVER_REASON_ERROR}:
             profile = self.data.active_profile()
-            if profile is not None:
-                self._fire_cover_event(profile, None, reason)
+            if profile is not None and cover is not None:
+                self._fire_cover_event(profile, cover, None, reason)
         self.runtime.async_notify()
 
     async def _async_cover_abort(self, reason: str) -> None:
-        """Stop any motion and de-energize the cover (acquires the cover lock)."""
+        """Stop every cover and de-energize all known direction relays."""
         profile = self.data.active_profile()
-        cover = profile.cover if profile is not None and profile.mode == MODE_COVER else None
+        covers = list(profile.covers) if profile is not None and profile.mode == MODE_COVER else []
         state = self.runtime.cover
-        if cover is None and not state.moving and state.relays is None:
-            state.reset(reason)
+        if (
+            not covers
+            and not state.moving
+            and not any(motion.relays is not None for motion in state.motions.values())
+        ):
+            state.reset_all(reason)
             return
         async with state.lock:
-            await self._async_cover_halt(cover, reason=reason)
+            # Halt every known motion first so remembered pairs are cleared even
+            # when the active profile no longer lists them.
+            cover_by_id = {cover.id: cover for cover in covers}
+            for cover_id, motion in list(state.motions.items()):
+                await self._async_cover_halt_motion(
+                    motion,
+                    cover=cover_by_id.get(cover_id),
+                    reason=reason,
+                )
+            for cover in covers:
+                await self._async_cover_halt(cover, reason=reason)
 
     async def _async_cover_relay_off(self, index: int) -> bool:
         """Force one relay OFF, reporting success without raising."""
@@ -370,9 +426,12 @@ class PanelCoordinator:
         if cover.direction_settle_s > 0:
             await asyncio.sleep(cover.direction_settle_s)
 
-    def _cover_is_usable(self, cover: CoverConfig) -> bool:
+    def _cover_is_usable(self, profile: Profile, cover: CoverConfig) -> bool:
         try:
-            validate_cover_config(cover)
+            validate_covers(profile.covers, gang_count=profile.gang_count)
+            # Also ensure this specific cover is still present after validation.
+            if profile.cover_by_id(cover.id) is None:
+                raise ValueError(f"Unknown cover id: {cover.id}")
         except ValueError as err:
             _LOGGER.error("Cover configuration is unsafe, refusing to move: %s", err)
             return False
@@ -384,31 +443,68 @@ class PanelCoordinator:
         except RuntimeError:  # pragma: no cover - defensive outside the loop
             return 0.0
 
-    def _fire_cover_event(self, profile: Profile, direction: str | None, reason: str) -> None:
+    def _fire_cover_event(
+        self,
+        profile: Profile,
+        cover: CoverConfig,
+        direction: str | None,
+        reason: str,
+    ) -> None:
+        motion = self.runtime.cover.get(cover.id)
         self.hass.bus.async_fire(
             EVENT_COVER_STATE,
             {
                 "entry_id": self.runtime.entry.entry_id,
                 "panel_id": self.runtime.mapping.panel_name,
                 "profile_id": profile.id,
+                "cover_id": cover.id,
                 "state": direction or "idle",
                 "reason": reason,
-                "open_button": profile.cover.open_button,
-                "close_button": profile.cover.close_button,
-                "duration": self.runtime.cover.duration,
+                "open_button": cover.open_button,
+                "close_button": cover.close_button,
+                "duration": motion.duration,
             },
         )
 
-    def cover_state_payload(self) -> dict[str, Any]:
-        """Return live cover motion state for the card."""
-        state = self.runtime.cover
+    def cover_state_payload(self, cover_id: str | None = None) -> dict[str, Any]:
+        """Return live cover motion state for the card.
+
+        When ``cover_id`` is set, top-level fields mirror that cover. Otherwise
+        they mirror the first moving cover, else the first configured cover.
+        """
         profile = self.data.active_profile()
+        covers = list(profile.covers) if profile is not None and profile.mode == MODE_COVER else []
+        cover_states: list[dict[str, Any]] = []
+        for cover in covers:
+            motion = self.runtime.cover.get(cover.id)
+            cover_states.append(
+                {
+                    "id": cover.id,
+                    "state": motion.direction or "idle",
+                    "direction": motion.direction,
+                    "duration": motion.duration,
+                    "reason": motion.last_reason,
+                    "open_button": cover.open_button,
+                    "close_button": cover.close_button,
+                }
+            )
+
+        selected: dict[str, Any] | None = None
+        if cover_id:
+            selected = next((item for item in cover_states if item["id"] == cover_id), None)
+        if selected is None:
+            selected = next((item for item in cover_states if item["direction"]), None)
+        if selected is None and cover_states:
+            selected = cover_states[0]
+
         return {
             "active": bool(profile is not None and profile.mode == MODE_COVER),
-            "state": state.direction or "idle",
-            "direction": state.direction,
-            "duration": state.duration,
-            "reason": state.last_reason,
+            "state": (selected or {}).get("state", "idle"),
+            "direction": (selected or {}).get("direction"),
+            "duration": (selected or {}).get("duration"),
+            "reason": (selected or {}).get("reason"),
+            "cover_id": (selected or {}).get("id"),
+            "covers": cover_states,
         }
 
     async def _async_execute_button_action(
@@ -596,7 +692,7 @@ class PanelCoordinator:
         if profile.mode == MODE_RADIO_SPLIT:
             validate_radio_groups(profile.radio_groups)
         if profile.mode == MODE_COVER:
-            validate_cover_config(profile.cover)
+            validate_covers(profile.covers, gang_count=profile.gang_count)
         for button in profile.buttons:
             action = button.action
             if action is None:

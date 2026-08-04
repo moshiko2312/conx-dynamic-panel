@@ -11,6 +11,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
 from .adapters.base import PanelAdapter
+from .const import COVER_DEFAULT_ID
 from .models import EntityMapping
 from .storage import PanelStore
 from .suppression import SuppressionTracker
@@ -19,14 +20,10 @@ type UnloadCallback = Callable[[], Coroutine[Any, Any, None] | None]
 
 
 @dataclass(slots=True)
-class CoverRuntime:
-    """Live cover/shutter motion state for one panel entry.
+class CoverMotion:
+    """Live motion state for one cover mapping on a panel entry."""
 
-    ``lock`` serializes every relay decision so two presses can never interleave
-    and leave both direction relays energized.
-    """
-
-    lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+    cover_id: str = COVER_DEFAULT_ID
     direction: str | None = None
     timer: asyncio.Task[None] | None = None
     started_at: float | None = None
@@ -38,7 +35,7 @@ class CoverRuntime:
 
     @property
     def moving(self) -> bool:
-        """Whether a travel timer is currently armed."""
+        """Whether a travel timer is currently armed for this cover."""
         return self.direction is not None
 
     def reset(self, reason: str | None = None) -> None:
@@ -50,6 +47,74 @@ class CoverRuntime:
         self.relays = None
         if reason is not None:
             self.last_reason = reason
+
+
+@dataclass(slots=True)
+class CoverRuntime:
+    """Live cover/shutter motion state for one panel entry.
+
+    ``lock`` serializes every relay decision so two presses can never interleave
+    and leave both direction relays of the same cover energized. Different
+    covers may travel at the same time because each keeps its own motion state.
+    """
+
+    lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+    motions: dict[str, CoverMotion] = field(default_factory=dict)
+
+    def get(self, cover_id: str) -> CoverMotion:
+        """Return (creating if needed) motion state for a cover id."""
+        motion = self.motions.get(cover_id)
+        if motion is None:
+            motion = CoverMotion(cover_id=cover_id)
+            self.motions[cover_id] = motion
+        return motion
+
+    def _primary(self) -> CoverMotion:
+        """Prefer a moving cover, else the first tracked cover, else cover_1."""
+        for motion in self.motions.values():
+            if motion.moving:
+                return motion
+        if self.motions:
+            return next(iter(self.motions.values()))
+        return self.get(COVER_DEFAULT_ID)
+
+    @property
+    def moving(self) -> bool:
+        """Whether any cover is currently travelling."""
+        return any(motion.moving for motion in self.motions.values())
+
+    @property
+    def direction(self) -> str | None:
+        """Direction of the primary (moving-or-first) cover."""
+        return self._primary().direction
+
+    @property
+    def timer(self) -> asyncio.Task[None] | None:
+        """Travel timer of the primary cover."""
+        return self._primary().timer
+
+    @property
+    def duration(self) -> float | None:
+        """Travel duration of the primary cover."""
+        return self._primary().duration
+
+    @property
+    def last_reason(self) -> str | None:
+        """Last halt/start reason across the primary cover."""
+        return self._primary().last_reason
+
+    @property
+    def relays(self) -> tuple[int, int] | None:
+        """Last energized pair of the primary cover."""
+        return self._primary().relays
+
+    def reset_all(self, reason: str | None = None) -> None:
+        """Clear every cover motion bookkeeping entry."""
+        if not self.motions:
+            self.get(COVER_DEFAULT_ID).reset(reason)
+            return
+        for motion in self.motions.values():
+            motion.reset(reason)
 
 
 @dataclass(slots=True)

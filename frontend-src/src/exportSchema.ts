@@ -3,9 +3,9 @@
 import type { Profile, ProfilesExport } from "./types";
 
 /** Must match custom_components/conx_dynamic_panel/const.py STORAGE_VERSION. */
-export const PROFILES_EXPORT_SCHEMA_VERSION = 1;
+export const PROFILES_EXPORT_SCHEMA_VERSION = 2;
 
-const MODES = new Set(["toggle", "radio_mandatory", "radio_optional", "radio_split"]);
+const MODES = new Set(["toggle", "radio_mandatory", "radio_optional", "radio_split", "cover"]);
 
 function normalizeRadioGroups(raw: unknown): Profile["radio_groups"] {
   const groups: NonNullable<Profile["radio_groups"]> = [];
@@ -136,8 +136,14 @@ function parseProfile(
         value.selected_button === null || value.selected_button === undefined
           ? null
           : Number(value.selected_button),
+      gang_count: Math.max(1, Math.min(4, Number(value.gang_count) || 4)),
       buttons,
       radio_groups: normalizeRadioGroups(value.radio_groups),
+      covers: Array.isArray(value.covers)
+        ? (value.covers as Profile["covers"])
+        : value.cover
+          ? [value.cover as NonNullable<Profile["covers"]>[number]]
+          : undefined,
     },
   };
 }

@@ -6,6 +6,13 @@ All notable changes to this private project will be documented here.
 
 ### Added
 
+- Multi-cover + gang count: profiles store `gang_count` (`1–4`) and `covers[]` (schema **v2**; migrates legacy `cover`). Up to `floor(n/2)` covers with per-cover fail-safe motors; different covers may run together when buttons do not overlap. Card/preview gang selector, add/remove cover blocks, optional `cover_id` on `cover_command`, EN/HE/RU.
+- Compact numeric inputs in the Lit card and HTML preview (travel times / settle no longer stretch full width).
+
+### Changed
+
+- L1–L4 chip rows and faceplate force LTR so **L1 is leftmost** under Hebrew RTL.
+
 - Profile mode `cover` for timed shutter/awning control. The installer maps any two of L1–L4 to open and close and sets a travel time per direction; the remaining buttons stay independent toggles. The whole engine lives in the coordinator, so physical presses, the card, services, and automations all share one code path.
   - **Hard mutual exclusion:** the engine never energizes both directions. A direction may only start after the opposite relay has been switched off and that write has succeeded; a failed write halts instead of starting. All decisions run under a per-entry `asyncio.Lock`.
   - Press the same direction while moving → full stop (both relays OFF, timer cancelled). Press the opposite direction while moving → always stop first, then either end there (`stop_only`, default) or wait `direction_settle_s` and reverse (`stop_then_reverse`).

@@ -8,7 +8,7 @@ DOMAIN: Final = "conx_dynamic_panel"
 MANUFACTURER: Final = "ConX"
 MODEL_ZEMISMART_4GANG: Final = "Zemismart 4 Gang"
 
-STORAGE_VERSION: Final = 1
+STORAGE_VERSION: Final = 2
 STORAGE_KEY: Final = f"{DOMAIN}_storage"
 
 CONF_PANEL_NAME: Final = "panel_name"
@@ -39,6 +39,9 @@ DEFAULT_AUTO_SYNC: Final = False
 DEFAULT_LOG_LEVEL: Final = "info"
 
 BUTTON_COUNT: Final = 4
+GANG_COUNT_MIN: Final = 1
+GANG_COUNT_MAX: Final = BUTTON_COUNT
+DEFAULT_GANG_COUNT: Final = BUTTON_COUNT
 
 MODE_TOGGLE: Final = "toggle"
 MODE_RADIO_MANDATORY: Final = "radio_mandatory"
@@ -64,6 +67,7 @@ COVER_SETTLE_MAX: Final = 5.0
 COVER_DEFAULT_SETTLE: Final = 0.5
 COVER_DEFAULT_OPEN_BUTTON: Final = 1
 COVER_DEFAULT_CLOSE_BUTTON: Final = 2
+COVER_DEFAULT_ID: Final = "cover_1"
 
 COVER_DIRECTION_OPEN: Final = "open"
 COVER_DIRECTION_CLOSE: Final = "close"
@@ -127,6 +131,7 @@ ATTR_SYNC: Final = "sync"
 ATTR_PAYLOAD: Final = "payload"
 ATTR_MODE: Final = "mode"
 ATTR_COMMAND: Final = "command"
+ATTR_COVER_ID: Final = "cover_id"
 
 SERVICE_SYNC: Final = "sync"
 SERVICE_ACTIVATE_PROFILE: Final = "activate_profile"

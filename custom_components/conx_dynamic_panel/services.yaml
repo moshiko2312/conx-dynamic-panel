@@ -86,9 +86,10 @@ execute_button:
 cover_command:
   name: Cover command
   description: >
-    Drive the cover/shutter of a cover-mode profile through the integration
+    Drive one cover/shutter of a cover-mode profile through the integration
     safety engine. open and close start a timed travel and stop immediately
-    de-energizes both direction relays.
+    de-energizes both direction relays for that cover. When multiple covers
+    are configured, pass cover_id to select which motor to drive.
   fields:
     entry_id:
       name: Entry ID
@@ -110,6 +111,12 @@ cover_command:
             - open
             - close
             - stop
+    cover_id:
+      name: Cover ID
+      description: Optional cover id when the profile has more than one cover.
+      required: false
+      selector:
+        text:
 
 reload:
   name: Reload
