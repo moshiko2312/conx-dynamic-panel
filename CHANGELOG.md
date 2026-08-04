@@ -4,6 +4,11 @@ All notable changes to this private project will be documented here.
 
 ## [Unreleased]
 
+### Changed
+
+- Profiles tab (step 1) now shows **profile chips + panel gang count** (`מספר גאנגים` / Panel gangs / Число кнопок) together so gang selection sits with profile context. Cover mode still repeats the gang picker for convenience when editing shutters; Appearance no longer hosts it.
+- Hero faceplate adapts to `gang_count`: only L1…Ln labels and LED rings render (Lit card + HTML preview), and bezel width/aspect scale with N so a 2-gang profile does not show empty L3/L4 slots.
+
 ### Added
 
 - Multi-cover + gang count: profiles store `gang_count` (`1–4`) and `covers[]` (schema **v2**; migrates legacy `cover`). Up to `floor(n/2)` covers with per-cover fail-safe motors; different covers may run together when buttons do not overlap. Card/preview gang selector, add/remove cover blocks, optional `cover_id` on `cover_command`, EN/HE/RU.
@@ -12,7 +17,7 @@ All notable changes to this private project will be documented here.
 ### Changed
 
 - Mode control moved from Appearance (step 2) to Buttons (step 3), above radio groups / cover editors. Segmented mode chips replace the `<select>` and now span the full grid width with larger tap targets (Lit card + HTML preview; EN/HE/RU).
-- Cover mode on a 4-gang panel always surfaces **Cover 1** plus a prominent **Cover 2** empty slot with **Add cover** (gang picker shown in the cover section; selecting Cover mode raises `gang_count` to 4 when lower). Preview migrated from legacy single `cover` to `covers[]` + multi-cover live controls.
+- Cover mode on a 4-gang panel always surfaces **Cover 1** plus a prominent **Cover 2** empty slot with **Add cover** (gang picker also available in the cover section; selecting Cover mode raises `gang_count` to 4 when lower). Preview migrated from legacy single `cover` to `covers[]` + multi-cover live controls.
 - L1–L4 chip rows and faceplate force LTR so **L1 is leftmost** under Hebrew RTL.
 
 - Profile mode `cover` for timed shutter/awning control. The installer maps any two of L1–L4 to open and close and sets a travel time per direction; the remaining buttons stay independent toggles. The whole engine lives in the coordinator, so physical presses, the card, services, and automations all share one code path.

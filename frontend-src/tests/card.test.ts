@@ -238,6 +238,67 @@ describe("custom elements", () => {
     expect(ringsStyle).toBeTruthy();
   });
 
+  it("shows the gang picker on the Profiles tab with profile chips", async () => {
+    const callWS = vi.fn().mockResolvedValue(panelPayload({ sync_status: "synced" }));
+    const el = await mountCard({ language: "he", callWS });
+    expect(el._activeTab).toBe("profiles");
+    const profilesPanel = el.shadowRoot?.querySelector(
+      ".tab-panel.active"
+    ) as HTMLElement;
+    expect(profilesPanel?.querySelector(".profile-chip")).toBeTruthy();
+    const gangHost = profilesPanel?.querySelector(
+      "[data-profiles-gang]"
+    ) as HTMLElement;
+    expect(gangHost).toBeTruthy();
+    expect(gangHost.querySelector("[data-gang-picker]")).toBeTruthy();
+    expect(profilesPanel?.textContent).toContain("מספר גאנגים");
+    // Appearance must not own the primary gang picker.
+    el._activeTab = "appearance";
+    await el.updateComplete;
+    const appearancePanel = el.shadowRoot?.querySelector(
+      ".tab-panel.active"
+    ) as HTMLElement;
+    expect(appearancePanel?.querySelector("[data-gang-picker]")).toBeFalsy();
+  });
+
+  it("adapts faceplate labels and rings to gang_count", async () => {
+    const callWS = vi.fn().mockResolvedValue(
+      panelPayload({
+        sync_status: "synced",
+        profiles: {
+          lighting: { ...sampleProfile, gang_count: 2 },
+        },
+      })
+    );
+    const el = await mountCard({ language: "en", callWS });
+    const faceplate = el.shadowRoot?.querySelector(".faceplate") as HTMLElement;
+    expect(faceplate.style.getPropertyValue("--conx-gang-count").trim()).toBe("2");
+    expect(el.shadowRoot?.querySelectorAll(".faceplate-label").length).toBe(2);
+    expect(el.shadowRoot?.querySelectorAll(".ring").length).toBe(2);
+    expect(
+      [...(el.shadowRoot?.querySelectorAll(".faceplate-label") || [])].map(
+        (node) => node.textContent?.trim()
+      )
+    ).toEqual(["Living room", "Kitchen"]);
+
+    const profilesPanel = el.shadowRoot?.querySelector(
+      "[data-profiles-gang]"
+    ) as HTMLElement;
+    const pick3 = profilesPanel.querySelector(
+      '[data-gang-picker] button.radio-member:nth-child(3)'
+    ) as HTMLButtonElement;
+    pick3.click();
+    await el.updateComplete;
+    expect(el._draft?.gang_count).toBe(3);
+    expect(el.shadowRoot?.querySelectorAll(".faceplate-label").length).toBe(3);
+    expect(el.shadowRoot?.querySelectorAll(".ring").length).toBe(3);
+    expect(
+      [...(el.shadowRoot?.querySelectorAll(".faceplate-label") || [])].map(
+        (node) => node.textContent?.trim()
+      )
+    ).toEqual(["Living room", "Kitchen", "Outdoor"]);
+  });
+
   it("maps LED color names to CSS preview colors", () => {
     expect(resolveLedPreviewColor("red")).toBe(COLOR_PREVIEW.red);
     expect(resolveLedPreviewColor("warm_yellow")).toBe(COLOR_PREVIEW.warm_yellow);

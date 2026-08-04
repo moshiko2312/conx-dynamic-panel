@@ -1882,6 +1882,9 @@ export class ConXDynamicPanelCard extends LitElement {
           `
         )}
       </div>
+      <div class="profile-gang" data-profiles-gang>
+        ${this._renderGangPicker()}
+      </div>
       <div class="profile-name-row">
         <label class="field">
           <span>${this.t("card.panel_name")}</span>
@@ -1980,7 +1983,6 @@ export class ConXDynamicPanelCard extends LitElement {
       return nothing;
     }
     return html`
-${this._renderGangPicker()}
           <div class="grid-2">
             <label class="field">
               <span>${this.t("card.color_on")}</span>
@@ -3681,6 +3683,17 @@ ${this._renderGangPicker()}
       width: max-content;
       max-width: 100%;
     }
+    .profile-gang {
+      margin: 4px 0 12px;
+    }
+    .profile-gang .gang-picker {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      width: 100%;
+      max-width: none;
+    }
+    .profile-gang .gang-picker .radio-member {
+      min-height: 42px;
+    }
     .cover-section .gang-picker {
       grid-template-columns: repeat(4, minmax(0, 1fr));
       width: 100%;
@@ -4197,10 +4210,11 @@ ${this._renderGangPicker()}
 
     .faceplate-bezel {
       position: relative;
-      min-width: 320px;
-      width: min(100%, 560px);
+      /* Scale width with gang count so 1–3 gang panels do not look empty. */
+      min-width: calc(80px * var(--conx-gang-count, 4));
+      width: min(100%, calc(140px * var(--conx-gang-count, 4)));
       margin: 0 auto;
-      aspect-ratio: 2.55 / 1;
+      aspect-ratio: calc(0.64 * var(--conx-gang-count, 4)) / 1;
       border-radius: 18px;
       padding: 5px;
       background:

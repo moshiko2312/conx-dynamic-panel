@@ -1077,7 +1077,7 @@ const Vt = "conx-dynamic-panel-lang", Xt = {}, qt = {
   "card.step_review": "Review & sync",
   "card.step_transfer": "Export / Import",
   "card.step_language_hint": "Choose the card language. Hebrew uses right-to-left layout.",
-  "card.step_profiles_hint": "Select the active profile for this panel, or create a new one.",
+  "card.step_profiles_hint": "Select the active profile and how many physical buttons (gangs) it uses.",
   "card.step_edit_hint": "Edit appearance and button labels. Draft changes stay local until you save or sync.",
   "card.step_preview_hint": "Live Zemismart faceplate: labels on top, LED rings bottom left→right.",
   "card.step_review_hint": "Review the draft, save it, then Sync to push settings to the physical panel.",
@@ -1209,7 +1209,7 @@ const Vt = "conx-dynamic-panel-lang", Xt = {}, qt = {
   "card.step_review": "סקירה וסנכרון",
   "card.step_transfer": "ייצוא / ייבוא",
   "card.step_language_hint": "בחרו שפת ממשק. בעברית הפריסה מימין לשמאל.",
-  "card.step_profiles_hint": "בחרו פרופיל פעיל לפאנל, או צרו חדש.",
+  "card.step_profiles_hint": "בחרו פרופיל פעיל ומספר גאנגים (מפסק) לפרופיל.",
   "card.step_edit_hint": "ערכו מראה ותוויות. שינויי טיוטה נשארים מקומיים עד שמירה או סנכרון.",
   "card.step_preview_hint": "תצוגה חיה בסגנון Zemismart: תוויות למעלה, טבעות LED משמאל לימין.",
   "card.step_review_hint": "סקרו את הטיוטה, שמרו, ואז סנכרנו לפאנל הפיזי.",
@@ -1341,7 +1341,7 @@ const Vt = "conx-dynamic-panel-lang", Xt = {}, qt = {
   "card.step_review": "Обзор и синхронизация",
   "card.step_transfer": "Экспорт / импорт",
   "card.step_language_hint": "Выберите язык карточки. Иврит использует RTL.",
-  "card.step_profiles_hint": "Выберите активный профиль или создайте новый.",
+  "card.step_profiles_hint": "Выберите активный профиль и число физических кнопок.",
   "card.step_edit_hint": "Редактируйте внешний вид и подписи. Черновик локальный до сохранения/синхронизации.",
   "card.step_preview_hint": "Живое превью Zemismart: подписи сверху, LED-кольца слева направо.",
   "card.step_review_hint": "Проверьте черновик, сохраните, затем синхронизируйте на панель.",
@@ -2802,6 +2802,9 @@ let _ = class extends T {
       }
     )}
       </div>
+      <div class="profile-gang" data-profiles-gang>
+        ${this._renderGangPicker()}
+      </div>
       <div class="profile-name-row">
         <label class="field">
           <span>${this.t("card.panel_name")}</span>
@@ -2889,7 +2892,6 @@ let _ = class extends T {
   }
   _renderAppearanceFields() {
     return !this._panel || !this._draft ? l : d`
-${this._renderGangPicker()}
           <div class="grid-2">
             <label class="field">
               <span>${this.t("card.color_on")}</span>
@@ -4498,6 +4500,17 @@ _.styles = Ft`
       width: max-content;
       max-width: 100%;
     }
+    .profile-gang {
+      margin: 4px 0 12px;
+    }
+    .profile-gang .gang-picker {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      width: 100%;
+      max-width: none;
+    }
+    .profile-gang .gang-picker .radio-member {
+      min-height: 42px;
+    }
     .cover-section .gang-picker {
       grid-template-columns: repeat(4, minmax(0, 1fr));
       width: 100%;
@@ -5014,10 +5027,11 @@ _.styles = Ft`
 
     .faceplate-bezel {
       position: relative;
-      min-width: 320px;
-      width: min(100%, 560px);
+      /* Scale width with gang count so 1–3 gang panels do not look empty. */
+      min-width: calc(80px * var(--conx-gang-count, 4));
+      width: min(100%, calc(140px * var(--conx-gang-count, 4)));
       margin: 0 auto;
-      aspect-ratio: 2.55 / 1;
+      aspect-ratio: calc(0.64 * var(--conx-gang-count, 4)) / 1;
       border-radius: 18px;
       padding: 5px;
       background:

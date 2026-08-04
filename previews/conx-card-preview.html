@@ -394,8 +394,12 @@
 
     .faceplate { width: 100%; }
     .faceplate-bezel {
-      position: relative; width: min(100%, 920px); margin: 0 auto;
-      aspect-ratio: 2.65 / 1; border-radius: 22px; padding: 7px;
+      position: relative;
+      min-width: calc(100px * var(--conx-gang-count, 4));
+      width: min(100%, calc(230px * var(--conx-gang-count, 4)));
+      margin: 0 auto;
+      aspect-ratio: calc(0.66 * var(--conx-gang-count, 4)) / 1;
+      border-radius: 22px; padding: 7px;
       background: linear-gradient(145deg, #f2f0ea 0%, #b8b0a4 36%, #ebe6dc 62%, #8a8378 100%);
       box-shadow: inset 0 1px 1px #fff, inset 0 -1px 2px rgba(0,0,0,.35), 0 16px 36px rgba(0,0,0,.35);
     }
@@ -405,7 +409,9 @@
       box-shadow: inset 0 0 0 1px rgba(0,0,0,.08);
     }
     .faceplate-labels {
-      display: grid; grid-template-columns: repeat(4, 1fr); align-items: center;
+      display: grid;
+      grid-template-columns: repeat(var(--conx-gang-count, 4), 1fr);
+      align-items: center;
       background: linear-gradient(180deg, #2a3038 0%, #1a1d22 100%); color: #f0f2f5; padding: 0 6px;
     }
     .faceplate-label {
@@ -418,7 +424,12 @@
       background: linear-gradient(180deg, #ffffff 0%, #f7f5f1 70%, #efebe4 100%);
       padding: 0 2% 11%;
     }
-    .faceplate-rings { display:grid; grid-template-columns:repeat(4,1fr); width:100%; place-items:center; }
+    .faceplate-rings {
+      display: grid;
+      grid-template-columns: repeat(var(--conx-gang-count, 4), 1fr);
+      width: 100%;
+      place-items: center;
+    }
     .ring {
       width: clamp(28px, 7vw, 48px); height: clamp(28px, 7vw, 48px);
       border-radius: 50%; border: 3px solid color-mix(in srgb, var(--ring-off) 70%, #9aa7b5);
@@ -596,6 +607,15 @@
       width: max-content;
       max-width: 100%;
     }
+    .profile-gang {
+      margin: 4px 0 12px;
+    }
+    .profile-gang .gang-picker {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      width: 100%;
+      max-width: none;
+    }
+    .profile-gang .gang-picker .radio-member { min-height: 42px; }
     .cover-section .gang-picker {
       grid-template-columns: repeat(4, minmax(0, 1fr));
       width: 100%;
@@ -1283,6 +1303,7 @@
           <section class="tab-panel active" role="tabpanel" id="panel-profiles" data-section="profiles" aria-labelledby="tab-profiles">
             <div class="section-body-inner">
               <div class="profile-list" id="profile-list"></div>
+              <div class="profile-gang" id="profile-gang" data-profiles-gang></div>
               <div class="profile-name-row">
                 <label class="field"><span data-i18n="card.panel_name">שם פאנל</span><input type="text" id="panel-name-input" autocomplete="off" /></label>
                 <label class="field"><span data-i18n="card.profile_name">Profile name</span><input type="text" id="profile-name-input" /></label>
@@ -1967,6 +1988,7 @@
       dirtyWarn: document.getElementById("dirty-warn"),
       notice: document.getElementById("notice"),
       profileList: document.getElementById("profile-list"),
+      profileGang: document.getElementById("profile-gang"),
       panelName: document.getElementById("panel-name"),
       panelNameInput: document.getElementById("panel-name-input"),
       profileName: document.getElementById("profile-name-input"),
@@ -2230,8 +2252,14 @@
     }
     function renderFaceplate() {
       syncHeroProfileName();
-      els.labels.innerHTML = state.draft.buttons.map((b) => `<div class="faceplate-label">${b.name || "L" + b.index}</div>`).join("");
-      els.rings.innerHTML = state.draft.buttons.map((b) => {
+      const gangCount = clampGangCount(state.draft.gang_count ?? 4);
+      state.draft.gang_count = gangCount;
+      const visible = state.draft.buttons.filter((b) => b.index <= gangCount);
+      if (els.faceplate) {
+        els.faceplate.style.setProperty("--conx-gang-count", String(gangCount));
+      }
+      els.labels.innerHTML = visible.map((b) => `<div class="faceplate-label">${b.name || "L" + b.index}</div>`).join("");
+      els.rings.innerHTML = visible.map((b) => {
         const on = isRingOn(b.index);
         return `<button type="button" class="ring ${on ? "on" : "off"}" data-ring="${b.index}" aria-label="Button ${b.index}"><span class="ring-glow"></span></button>`;
       }).join("");
@@ -2272,10 +2300,13 @@
     function radioGroupsSummaryLabel() {
       const groups = normalizeRadioGroups(state.draft.radio_groups);
       const grouped = groupedButtonSet(groups);
+      const gangCount = clampGangCount(state.draft.gang_count ?? 4);
       const parts = groups.map(
         (group, gIndex) => `${t("card.radio_group")} ${gIndex + 1}: ${groupSummaryLabel(group.buttons)}`
       );
-      parts.push(`${t("card.radio_toggle")}: ${groupSummaryLabel([1, 2, 3, 4].filter((i) => !grouped.has(i)))}`);
+      parts.push(`${t("card.radio_toggle")}: ${groupSummaryLabel(
+        Array.from({ length: gangCount }, (_, i) => i + 1).filter((i) => !grouped.has(i))
+      )}`);
       return parts.join(" · ");
     }
     function renderRadioGroupsEditor() {
@@ -2289,11 +2320,13 @@
       const open = state.radioGroupsOpen;
       const overlap = radioGroupOverlap(state.draft.radio_groups);
       const grouped = groupedButtonSet(state.draft.radio_groups);
+      const gangCount = clampGangCount(state.draft.gang_count ?? 4);
+      const gangIndexes = Array.from({ length: gangCount }, (_, i) => i + 1);
       const groupsHtml = state.draft.radio_groups.map((group, gIndex) => `
         <div class="radio-group-card" data-group="${gIndex}">
           <div class="radio-group-title">${t("card.radio_group")} ${gIndex + 1}</div>
-          <div class="radio-group-members" dir="ltr">
-            ${[1, 2, 3, 4].map((i) => radioMemberCell({
+          <div class="radio-group-members" dir="ltr" style="--conx-gang-count:${gangCount}">
+            ${gangIndexes.map((i) => radioMemberCell({
               index: i,
               checked: group.buttons.includes(i),
               groupIndex: gIndex,
@@ -2304,8 +2337,8 @@
       const summaryHtml = `
         <div class="radio-group-card is-summary" data-summary="ungrouped">
           <div class="radio-group-title">${t("card.radio_toggle")}</div>
-          <div class="radio-group-members" dir="ltr">
-            ${[1, 2, 3, 4].map((i) => radioMemberCell({
+          <div class="radio-group-members" dir="ltr" style="--conx-gang-count:${gangCount}">
+            ${gangIndexes.map((i) => radioMemberCell({
               index: i,
               checked: !grouped.has(i),
               groupIndex: null,
@@ -2389,10 +2422,47 @@
       state.draft.gang_count = clampGangCount(count);
       state.draft.covers = normalizeCovers(state.draft);
       delete state.draft.cover;
+      if (state.draft.radio_groups) {
+        state.draft.radio_groups = state.draft.radio_groups.map((group) => ({
+          ...group,
+          buttons: (group.buttons || []).filter((index) => index <= state.draft.gang_count),
+        }));
+      }
       markDirty(true);
+      renderProfilesGangPicker();
       renderCoverEditor();
       renderButtonsEditor();
+      renderRadioGroupsEditor();
       renderFaceplate();
+    }
+
+    function gangPickerHtml(gangCount) {
+      return `<label class="field">
+        <span>${t("card.gang_count")}</span>
+        <div class="gang-picker" role="radiogroup" dir="ltr" data-gang-picker>
+          ${[1, 2, 3, 4].map((count) => `
+            <button type="button" class="radio-member${gangCount === count ? " on" : ""}" role="radio"
+              aria-checked="${gangCount === count ? "true" : "false"}" data-gang-count="${count}">
+              <span class="radio-member-label">${count}</span>
+            </button>`).join("")}
+        </div>
+        <p class="radio-groups-hint">${t("card.gang_count_hint")}</p>
+      </label>`;
+    }
+
+    function bindGangPicker(root) {
+      if (!root) return;
+      root.querySelectorAll("[data-gang-count]").forEach((btn) => {
+        btn.addEventListener("click", () => setGangCount(Number(btn.dataset.gangCount)));
+      });
+    }
+
+    function renderProfilesGangPicker() {
+      if (!els.profileGang) return;
+      const gangCount = clampGangCount(state.draft.gang_count ?? 4);
+      state.draft.gang_count = gangCount;
+      els.profileGang.innerHTML = gangPickerHtml(gangCount);
+      bindGangPicker(els.profileGang);
     }
     /**
      * Assigning a button already used by the other direction swaps the pair, so
@@ -2458,6 +2528,7 @@
       }
       markDirty(true);
       renderModePicker();
+      renderProfilesGangPicker();
       renderFaceplate();
       renderButtonsEditor();
       renderRadioGroupsEditor();
@@ -2557,17 +2628,7 @@
       delete state.draft.cover;
       const maxCovers = maxCoversForGangs(gangCount);
       const slots = Array.from({ length: Math.max(maxCovers, covers.length) }, (_, i) => covers[i] || null);
-      const gangPicker = `<label class="field">
-        <span>${t("card.gang_count")}</span>
-        <div class="gang-picker" role="radiogroup" dir="ltr" data-gang-picker>
-          ${[1, 2, 3, 4].map((count) => `
-            <button type="button" class="radio-member${gangCount === count ? " on" : ""}" role="radio"
-              aria-checked="${gangCount === count ? "true" : "false"}" data-gang-count="${count}">
-              <span class="radio-member-label">${count}</span>
-            </button>`).join("")}
-        </div>
-        <p class="radio-groups-hint">${t("card.gang_count_hint")}</p>
-      </label>`;
+      const gangPicker = gangPickerHtml(gangCount);
       els.coverSection.innerHTML = `
         <div class="cover-head"><span class="menu-label">${t("card.cover")}</span></div>
         <p class="radio-groups-hint">${t("card.cover_hint")}</p>
@@ -2578,9 +2639,7 @@
             : renderEmptyCoverSlotHtml(index)
         ).join("")}
         <p class="cover-safety">${t("card.cover_safety")}</p>`;
-      els.coverSection.querySelectorAll("[data-gang-count]").forEach((btn) => {
-        btn.addEventListener("click", () => setGangCount(Number(btn.dataset.gangCount)));
-      });
+      bindGangPicker(els.coverSection);
       els.coverSection.querySelectorAll("[data-cover-add]").forEach((btn) => {
         btn.addEventListener("click", () => addCover());
       });
@@ -2661,7 +2720,9 @@
     }
     function renderButtonsEditor() {
       const openSet = state.expandedButtons;
-      els.buttonsEditor.innerHTML = `<div class="buttons-accordion">${state.draft.buttons.map((b) => {
+      const gangCount = clampGangCount(state.draft.gang_count ?? 4);
+      const visibleButtons = state.draft.buttons.filter((b) => b.index <= gangCount);
+      els.buttonsEditor.innerHTML = `<div class="buttons-accordion">${visibleButtons.map((b) => {
         const open = openSet.has(b.index);
         const label = (b.name || "").trim() || "—";
         const meta = buttonMetaLabel(b);
@@ -2910,6 +2971,7 @@
       renderButtonsEditor();
       renderRadioGroupsEditor();
       renderCoverEditor();
+      renderProfilesGangPicker();
       renderAutomationYaml();
     }
     function syncFormFromDraft() {
@@ -2932,6 +2994,7 @@
       els.dimmerField.classList.toggle("dimmed", !els.backlight.checked);
       els.childLock.checked = Boolean(d.child_lock);
       renderProfiles();
+      renderProfilesGangPicker();
       renderButtonsEditor();
       renderRadioGroupsEditor();
       renderCoverEditor();
