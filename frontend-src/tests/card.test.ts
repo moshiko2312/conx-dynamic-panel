@@ -912,21 +912,45 @@ describe("custom elements", () => {
     (modePicker.querySelector('[data-mode="mixed"]') as HTMLButtonElement).click();
     await el.updateComplete;
     expect(el._draft?.mode).toBe("mixed");
+    expect(el.shadowRoot?.querySelector("[data-mixed-roles]")).toBeTruthy();
     expect(el.shadowRoot?.querySelector("[data-mixed-hint]")).toBeTruthy();
-
-    const expand = el.shadowRoot?.querySelector(
-      '[data-button="1"] .button-edit-toggle'
-    ) as HTMLButtonElement;
-    expand.click();
-    await el.updateComplete;
+    // Roles are always visible — no accordion expand required.
+    const roleCards = [
+      ...(el.shadowRoot?.querySelectorAll("[data-mixed-role]") || []),
+    ];
+    expect(roleCards.length).toBe(el._draft?.gang_count || 4);
     const roleRow = el.shadowRoot?.querySelector(
       '[data-mixed-role="1"]'
     ) as HTMLElement;
     expect(roleRow).toBeTruthy();
+    expect(roleRow.querySelector('[data-role="toggle"]')).toBeTruthy();
+    expect(roleRow.querySelector('[data-role="momentary"]')).toBeTruthy();
+    expect(roleRow.querySelector('[data-role="radio"]')).toBeTruthy();
+    expect(roleRow.querySelector('[data-role="cover_open"]')).toBeTruthy();
+    expect(roleRow.querySelector('[data-role="cover_close"]')).toBeTruthy();
     (roleRow.querySelector('[data-role="momentary"]') as HTMLButtonElement).click();
     await el.updateComplete;
     expect(el._draft?.buttons[0].role).toBe("momentary");
     expect(roleRow.querySelector("[data-pulse-time]")).toBeTruthy();
+
+    (roleRow.querySelector('[data-role="cover_open"]') as HTMLButtonElement).click();
+    await el.updateComplete;
+    expect(el._draft?.buttons[0].role).toBe("cover_open");
+    expect(roleRow.querySelector("[data-cover-id]")).toBeTruthy();
+    expect(el.shadowRoot?.querySelector("[data-cover-editor]")).toBeTruthy();
+
+    (roleRow.querySelector('[data-role="radio"]') as HTMLButtonElement).click();
+    await el.updateComplete;
+    expect(el._draft?.buttons[0].role).toBe("radio");
+    expect(el.shadowRoot?.querySelector(".radio-groups-section")).toBeTruthy();
+  });
+
+  it("labels free-mix per-button roles in Hebrew", () => {
+    expect(localize("he", "card.mixed_roles")).toBe("תפקיד לכל כפתור");
+    expect(localize("he", "role.momentary")).toBe("רגעי");
+    expect(localize("he", "role.cover_open")).toBe("פתיחת תריס");
+    expect(localize("he", "role.cover_close")).toBe("סגירת תריס");
+    expect(localize("en", "card.mixed_roles")).toBe("Per-button roles");
   });
 
   it("opens a copyable automation example from the settings menu", async () => {

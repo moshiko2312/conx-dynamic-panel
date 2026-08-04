@@ -652,6 +652,63 @@
       text-align: center;
       line-height: 1.2;
     }
+    .mixed-roles-section {
+      display: grid;
+      gap: 12px;
+      margin: 4px 0 14px;
+      padding: 14px 12px 12px;
+      border-radius: 14px;
+      border: 1px solid var(--conx-border);
+      background: color-mix(in srgb, var(--conx-surface) 88%, transparent);
+    }
+    .mixed-roles-section[hidden] { display: none !important; }
+    .mixed-roles-head .menu-label {
+      margin-bottom: 0;
+      font-size: 1.05rem;
+      font-weight: 700;
+    }
+    .mixed-role-card {
+      display: grid;
+      gap: 8px;
+      padding: 12px 10px;
+      border-radius: 12px;
+      border: 1px solid var(--conx-border);
+      background: color-mix(in srgb, var(--conx-panel, var(--conx-surface)) 70%, transparent);
+    }
+    .mixed-role-card-head {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .mixed-role-l {
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      font-size: 1.05rem;
+      color: var(--conx-accent);
+    }
+    .mixed-role-name { opacity: .85; font-size: .95rem; }
+    .mixed-role-picker {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      width: 100%;
+    }
+    .mixed-role-picker .radio-member {
+      flex: 1 1 0;
+      min-width: min(100%, 5.25rem);
+      padding: 12px 8px;
+      min-height: 44px;
+    }
+    .mixed-role-picker .radio-member-label {
+      font-size: .9rem;
+      font-weight: 650;
+      text-align: center;
+      line-height: 1.2;
+    }
+    .mixed-pulse, .mixed-cover-id { width: max-content; max-width: 100%; }
+    .mixed-pulse input[type="number"] { width: 5.5rem; }
+    .mixed-cover-id select { min-width: 8rem; }
     .color-select { display:grid; grid-template-columns:18px 1fr; align-items:center; gap:8px; }
     .swatch { width:18px; height:18px; border-radius:50%; border:1px solid rgba(0,0,0,.25); }
     .toggle-row { display:grid; gap:10px; }
@@ -1362,6 +1419,7 @@
               <label class="field"><span data-i18n="card.mode">Mode</span>
                 <div class="mode-picker" id="mode-picker" role="radiogroup" data-mode-picker></div>
               </label>
+              <div class="mixed-roles-section" id="mixed-roles-section" hidden data-mixed-roles></div>
               <div class="radio-groups-section open" id="radio-groups-section-buttons" hidden>
                 <div class="radio-groups-head">
                   <div class="radio-groups-head-main">
@@ -1406,10 +1464,15 @@
       warm_white: "#ffe0b2", warm_yellow: "#ffc400",
     };
     const COLORS = Object.keys(COLOR_PREVIEW);
-    const STORAGE_KEY = "conx-card-preview-state-v10";
-    const LEGACY_KEYS = ["conx-card-preview-state-v2", "conx-card-preview-state-v3", "conx-card-preview-state-v4", "conx-card-preview-state-v5", "conx-card-preview-state-v6", "conx-card-preview-state-v7", "conx-card-preview-state-v8", "conx-card-preview-state-v9"];
+    const STORAGE_KEY = "conx-card-preview-state-v11";
+    const LEGACY_KEYS = ["conx-card-preview-state-v2", "conx-card-preview-state-v3", "conx-card-preview-state-v4", "conx-card-preview-state-v5", "conx-card-preview-state-v6", "conx-card-preview-state-v7", "conx-card-preview-state-v8", "conx-card-preview-state-v9", "conx-card-preview-state-v10"];
     const PROFILE_MODES = ["toggle", "radio_mandatory", "radio_optional", "radio_split", "mixed", "cover"];
+    const BUTTON_ROLES = ["toggle", "momentary", "radio", "cover_open", "cover_close"];
     const MULTI_BUTTON_MODES = new Set(["radio_mandatory", "radio_optional", "radio_split", "cover"]);
+    const MULTI_BUTTON_ROLES = new Set(["radio", "cover_open", "cover_close"]);
+    const PULSE_TIME_MIN = 0.1;
+    const PULSE_TIME_MAX = 600;
+    const DEFAULT_PULSE_TIME = 2;
     function isMultiButtonMode(mode) {
       return MULTI_BUTTON_MODES.has(mode);
     }
@@ -1420,6 +1483,17 @@
     function coerceModeForGangCount(mode, gangCount) {
       if (clampGangCount(gangCount) === 1 && isMultiButtonMode(mode)) return "toggle";
       return mode;
+    }
+    function rolesForGangCount(gangCount) {
+      if (clampGangCount(gangCount) > 1) return BUTTON_ROLES.slice();
+      return BUTTON_ROLES.filter((role) => !MULTI_BUTTON_ROLES.has(role));
+    }
+    function clampPulseTime(value, fallback = DEFAULT_PULSE_TIME) {
+      return clampNumber(value, PULSE_TIME_MIN, PULSE_TIME_MAX, fallback);
+    }
+    function normalizeButtonRole(value) {
+      const role = String(value || "").trim().toLowerCase();
+      return BUTTON_ROLES.includes(role) ? role : "toggle";
     }
     const COVER_TIME_MIN = 1;
     const COVER_TIME_MAX = 600;
@@ -1508,6 +1582,15 @@
         "card.automation_yaml_night": "Night",
         "mode.toggle": "Toggle", "mode.radio_mandatory": "Radio mandatory", "mode.radio_optional": "Radio optional",
         "mode.radio_split": "Radio split", "mode.mixed": "Free mix", "mode.cover": "Cover / shutter",
+        "card.mixed_hint": "Configure each button freely: toggle, momentary pulse, radio group, or cover open/close. Momentary turns ON then OFF after the pulse time; a re-press cancels and turns OFF.",
+        "card.mixed_roles": "Per-button roles",
+        "card.button_role": "Button role",
+        "card.pulse_time": "Pulse time",
+        "card.cover_id": "Cover",
+        "card.mixed_radio_hint": "Assign this button to a radio group in the Radio groups section below.",
+        "card.mixed_cover_hint": "Travel times and motor safety settings are in the Cover section below.",
+        "role.toggle": "Toggle", "role.momentary": "Momentary", "role.radio": "Radio",
+        "role.cover_open": "Cover open", "role.cover_close": "Cover close",
         "card.cover": "Cover / shutter",
         "card.cover_hint": "Pick which panel buttons drive the motor. Pressing a direction starts a timed travel; pressing again stops it. The integration never energizes both directions at once.",
         "card.cover_open_button": "Open button",
@@ -1597,6 +1680,15 @@
         "card.automation_yaml_night": "לילה",
         "mode.toggle": "החלפה", "mode.radio_mandatory": "רדיו חובה", "mode.radio_optional": "רדיו אופציונלי",
         "mode.radio_split": "רדיו ספליט", "mode.mixed": "מיקס חופשי", "mode.cover": "תריס",
+        "card.mixed_hint": "הגדירו כל כפתור בנפרד: טוגל, רגעי, קבוצת רדיו או פתיחה/סגירה של תריס. רגעי מדליק ואז מכבה אחרי זמן הפולס; לחיצה חוזרת מבטלת ומכבה.",
+        "card.mixed_roles": "תפקיד לכל כפתור",
+        "card.button_role": "תפקיד כפתור",
+        "card.pulse_time": "זמן פולס",
+        "card.cover_id": "תריס",
+        "card.mixed_radio_hint": "שייכו את הכפתור לקבוצת רדיו במקטע קבוצות רדיו למטה.",
+        "card.mixed_cover_hint": "זמני נסיעה והגדרות בטיחות של המנוע נמצאים במקטע תריס למטה.",
+        "role.toggle": "טוגל", "role.momentary": "רגעי", "role.radio": "רדיו",
+        "role.cover_open": "פתיחת תריס", "role.cover_close": "סגירת תריס",
         "card.cover": "תריס",
         "card.cover_hint": "בחרו אילו כפתורים בפאנל מפעילים את המנוע. לחיצה על כיוון מתחילה תנועה מתוזמנת, ולחיצה נוספת עוצרת אותה. האינטגרציה לעולם לא מפעילה את שני הכיוונים יחד.",
         "card.cover_open_button": "כפתור פתיחה",
@@ -1686,6 +1778,15 @@
         "card.automation_yaml_night": "Ночь",
         "mode.toggle": "Переключатель", "mode.radio_mandatory": "Радио (обязательно)", "mode.radio_optional": "Радио (опционально)",
         "mode.radio_split": "Радио сплит", "mode.mixed": "Свободный микс", "mode.cover": "Ролета / жалюзи",
+        "card.mixed_hint": "Настройте каждую кнопку отдельно: тоггл, импульс, радиогруппа или открытие/закрытие ролеты. Импульс включает, затем выключает по таймеру; повторное нажатие отменяет и выключает.",
+        "card.mixed_roles": "Роль каждой кнопки",
+        "card.button_role": "Роль кнопки",
+        "card.pulse_time": "Время импульса",
+        "card.cover_id": "Ролета",
+        "card.mixed_radio_hint": "Назначьте кнопку в секцию радиогрупп ниже.",
+        "card.mixed_cover_hint": "Время хода и безопасность мотора — в секции ролеты ниже.",
+        "role.toggle": "Тоггл", "role.momentary": "Импульс", "role.radio": "Радио",
+        "role.cover_open": "Открыть ролету", "role.cover_close": "Закрыть ролету",
         "card.cover": "Ролета / жалюзи",
         "card.cover_hint": "Выберите кнопки панели, управляющие мотором. Нажатие направления запускает движение по таймеру, повторное нажатие останавливает его. Интеграция никогда не включает оба направления одновременно.",
         "card.cover_open_button": "Кнопка открытия",
@@ -1722,11 +1823,18 @@
       return THEME_ALIASES[value] || "noir";
     }
 
-    function normalizeButton(b, index) {
+    function normalizeButton(b, index, gangCount = 4) {
+      const allowed = new Set(rolesForGangCount(gangCount));
+      let role = normalizeButtonRole(b && b.role);
+      if (!allowed.has(role)) role = "toggle";
+      const isCover = role === "cover_open" || role === "cover_close";
       return {
         index, name: (b && b.name) || ("Button " + index),
         action: (b && b.action) || "", entity: (b && b.entity) || "",
         radio_member: !b || b.radio_member !== false,
+        role,
+        pulse_time_s: clampPulseTime(b && b.pulse_time_s, DEFAULT_PULSE_TIME),
+        cover_id: isCover ? (String((b && b.cover_id) || "cover_1").trim() || "cover_1") : null,
       };
     }
     function normalizeRadioGroups(raw) {
@@ -1828,12 +1936,31 @@
     }
     function coverForButton(index, profile) {
       const d = profile || state.draft;
-      if (!d || d.mode !== "cover") return null;
+      if (!d) return null;
+      if (d.mode === "mixed") {
+        const button = (d.buttons || []).find((b) => b.index === index);
+        const role = button && button.role;
+        if (role !== "cover_open" && role !== "cover_close") return null;
+        const coverId = String((button && button.cover_id) || "cover_1");
+        return normalizeCovers(d).find((cover) => cover.id === coverId)
+          || normalizeCovers(d).find(
+            (cover) => cover.open_button === index || cover.close_button === index
+          )
+          || null;
+      }
+      if (d.mode !== "cover") return null;
       return normalizeCovers(d).find(
         (cover) => cover.open_button === index || cover.close_button === index
       ) || null;
     }
     function coverDirectionFor(index, profile) {
+      const d = profile || state.draft;
+      if (d && d.mode === "mixed") {
+        const button = (d.buttons || []).find((b) => b.index === index);
+        if (button && button.role === "cover_open") return "open";
+        if (button && button.role === "cover_close") return "close";
+        return null;
+      }
       const cover = coverForButton(index, profile);
       if (!cover) return null;
       if (cover.open_button === index) return "open";
@@ -1872,7 +1999,7 @@
       if (!PROFILE_MODES.includes(profile.mode)) profile.mode = "toggle";
       profile.gang_count = clampGangCount(profile.gang_count ?? 4);
       profile.mode = coerceModeForGangCount(profile.mode, profile.gang_count);
-      profile.buttons = [1,2,3,4].map((i) => normalizeButton((profile.buttons || []).find((x) => x.index === i), i));
+      profile.buttons = [1,2,3,4].map((i) => normalizeButton((profile.buttons || []).find((x) => x.index === i), i, profile.gang_count));
       profile.radio_groups = normalizeRadioGroups(profile.radio_groups);
       profile.covers = normalizeCovers(profile);
       delete profile.cover;
@@ -2017,6 +2144,7 @@
       profileName: document.getElementById("profile-name-input"),
       heroProfileName: document.getElementById("hero-profile-name"),
       modePicker: document.getElementById("mode-picker"),
+      mixedRolesSection: document.getElementById("mixed-roles-section"),
       colorOn: document.getElementById("color-on"),
       colorOff: document.getElementById("color-off"),
       swatchOn: document.getElementById("swatch-on"),
@@ -2175,7 +2303,9 @@
       return t("card.cover_state_" + live.direction);
     }
     function renderCoverState() {
-      const isCover = state.draft && state.draft.mode === "cover";
+      const isCover = state.draft && (
+        state.draft.mode === "cover" || draftHasMixedCover()
+      );
       if (!els.coverControl) return;
       els.coverControl.hidden = !isCover;
       if (!isCover) {
@@ -2213,22 +2343,24 @@
     }
     function isRingOn(index) {
       const d = state.draft;
-      if (d.mode === "cover") {
+      if (d.mode === "cover" || (d.mode === "mixed" && coverDirectionFor(index, d))) {
         const cover = coverForButton(index, d);
         const direction = coverDirectionFor(index, d);
         if (cover && direction) {
           const live = getCoverLive(cover.id);
           return live.active && live.direction === direction;
         }
-        return Boolean(d.ringOn[index]);
+        if (d.mode === "cover") return Boolean(d.ringOn[index]);
       }
       if (d.mode === "radio_split") return Boolean(d.ringOn[index]);
-      if (d.mode !== "toggle" && isRadioMember(index)) return d.selected_button === index;
+      if (d.mode !== "toggle" && d.mode !== "mixed" && isRadioMember(index)) {
+        return d.selected_button === index;
+      }
       return Boolean(d.ringOn[index]);
     }
     function handleFaceplatePress(index) {
       const d = state.draft;
-      if (d.mode === "cover") {
+      if (d.mode === "cover" || (d.mode === "mixed" && coverDirectionFor(index, d))) {
         const cover = coverForButton(index, d);
         const direction = coverDirectionFor(index, d);
         if (cover && direction) {
@@ -2332,10 +2464,152 @@
       )}`);
       return parts.join(" · ");
     }
+    function draftHasMixedRadio() {
+      if (!state.draft || state.draft.mode !== "mixed") return false;
+      const gangCount = clampGangCount(state.draft.gang_count ?? 4);
+      return (state.draft.buttons || []).some(
+        (b) => b.index <= gangCount && b.role === "radio"
+      );
+    }
+    function draftHasMixedCover() {
+      if (!state.draft || state.draft.mode !== "mixed") return false;
+      const gangCount = clampGangCount(state.draft.gang_count ?? 4);
+      return (state.draft.buttons || []).some(
+        (b) => b.index <= gangCount && (b.role === "cover_open" || b.role === "cover_close")
+      );
+    }
+    function setButtonRole(buttonIndex, role) {
+      if (!state.draft) return;
+      const gangCount = clampGangCount(state.draft.gang_count ?? 4);
+      const allowed = rolesForGangCount(gangCount);
+      if (!allowed.includes(role)) return;
+      const button = state.draft.buttons.find((b) => b.index === buttonIndex);
+      if (!button) return;
+      button.role = role;
+      if (role === "momentary") {
+        button.pulse_time_s = clampPulseTime(button.pulse_time_s, DEFAULT_PULSE_TIME);
+        button.cover_id = null;
+      } else if (role === "cover_open" || role === "cover_close") {
+        button.cover_id = String(button.cover_id || "cover_1").trim() || "cover_1";
+        state.draft.covers = normalizeCovers(state.draft);
+        const cover = state.draft.covers.find((c) => c.id === button.cover_id);
+        if (cover) {
+          if (role === "cover_open") cover.open_button = buttonIndex;
+          else cover.close_button = buttonIndex;
+        }
+      } else {
+        button.cover_id = null;
+      }
+      if (role === "radio") {
+        state.draft.radio_groups = normalizeRadioGroups(state.draft.radio_groups);
+        state.radioGroupsOpen = true;
+      } else if (state.draft.radio_groups) {
+        state.draft.radio_groups = state.draft.radio_groups.map((group) => ({
+          ...group,
+          buttons: (group.buttons || []).filter((n) => n !== buttonIndex),
+        }));
+      }
+      markDirty(true);
+      renderMixedRolesSection();
+      renderRadioGroupsEditor();
+      renderCoverEditor();
+      renderButtonsEditor();
+      renderFaceplate();
+    }
+    function setButtonCoverId(buttonIndex, coverId) {
+      const button = state.draft.buttons.find((b) => b.index === buttonIndex);
+      if (!button) return;
+      const role = button.role || "toggle";
+      if (role !== "cover_open" && role !== "cover_close") return;
+      state.draft.covers = normalizeCovers(state.draft);
+      const nextId = String(coverId || "").trim() || state.draft.covers[0]?.id || "cover_1";
+      button.cover_id = nextId;
+      const cover = state.draft.covers.find((c) => c.id === nextId);
+      if (cover) {
+        if (role === "cover_open") cover.open_button = buttonIndex;
+        else cover.close_button = buttonIndex;
+      }
+      markDirty(true);
+      renderMixedRolesSection();
+      renderCoverEditor();
+      renderButtonsEditor();
+    }
+    function renderMixedRolesSection() {
+      if (!els.mixedRolesSection) return;
+      const isMixed = state.draft && state.draft.mode === "mixed";
+      els.mixedRolesSection.hidden = !isMixed;
+      if (!isMixed) {
+        els.mixedRolesSection.innerHTML = "";
+        return;
+      }
+      const gangCount = clampGangCount(state.draft.gang_count ?? 4);
+      const roles = rolesForGangCount(gangCount);
+      const covers = normalizeCovers(state.draft);
+      state.draft.covers = covers;
+      const buttons = state.draft.buttons.filter((b) => b.index <= gangCount);
+      const unit = t("card.cover_seconds");
+      els.mixedRolesSection.innerHTML = `
+        <div class="mixed-roles-head"><span class="menu-label">${t("card.mixed_roles")}</span></div>
+        <p class="radio-groups-hint" data-mixed-hint>${t("card.mixed_hint")}</p>
+        ${buttons.map((button) => {
+          const role = normalizeButtonRole(button.role);
+          const label = (button.name || "").trim() || "—";
+          const coverId = String(button.cover_id || covers[0]?.id || "cover_1").trim() || "cover_1";
+          const chips = roles.map((item) => `
+            <button type="button" class="radio-member${role === item ? " on" : ""}" role="radio"
+              aria-checked="${role === item ? "true" : "false"}" data-role="${item}">
+              <span class="radio-member-label">${t("role." + item)}</span>
+            </button>`).join("");
+          const pulse = role === "momentary" ? `
+            <label class="field field-inline mixed-pulse">
+              <span>${t("card.pulse_time")} (${unit})</span>
+              <input type="number" data-pulse-time min="${PULSE_TIME_MIN}" max="${PULSE_TIME_MAX}" step="0.1"
+                value="${clampPulseTime(button.pulse_time_s, DEFAULT_PULSE_TIME)}" />
+            </label>` : "";
+          const radioHint = role === "radio"
+            ? `<p class="radio-groups-hint" data-mixed-radio-hint>${t("card.mixed_radio_hint")}</p>` : "";
+          const coverFields = (role === "cover_open" || role === "cover_close") ? `
+            <label class="field field-inline mixed-cover-id">
+              <span>${t("card.cover_id")}</span>
+              <select data-cover-id>
+                ${covers.map((c) => `<option value="${c.id}"${c.id === coverId ? " selected" : ""}>${c.id}</option>`).join("")}
+              </select>
+            </label>
+            <p class="radio-groups-hint" data-mixed-cover-hint>${t("card.mixed_cover_hint")}</p>` : "";
+          return `<div class="mixed-role-card" data-mixed-role="${button.index}">
+            <div class="mixed-role-card-head">
+              <span class="mixed-role-l" dir="ltr">L${button.index}</span>
+              <span class="mixed-role-name">${label}</span>
+            </div>
+            <span class="cover-label">${t("card.button_role")}</span>
+            <div class="mode-picker mixed-role-picker" role="radiogroup">${chips}</div>
+            ${pulse}${radioHint}${coverFields}
+          </div>`;
+        }).join("")}`;
+      els.mixedRolesSection.querySelectorAll("[data-mixed-role]").forEach((card) => {
+        const index = Number(card.dataset.mixedRole);
+        card.querySelectorAll("[data-role]").forEach((chip) => {
+          chip.addEventListener("click", () => setButtonRole(index, chip.dataset.role));
+        });
+        const pulseInput = card.querySelector("[data-pulse-time]");
+        if (pulseInput) {
+          pulseInput.addEventListener("change", () => {
+            const button = state.draft.buttons.find((b) => b.index === index);
+            if (!button) return;
+            button.pulse_time_s = clampPulseTime(pulseInput.value, DEFAULT_PULSE_TIME);
+            markDirty(true);
+          });
+        }
+        const coverSelect = card.querySelector("[data-cover-id]");
+        if (coverSelect) {
+          coverSelect.addEventListener("change", () => setButtonCoverId(index, coverSelect.value));
+        }
+      });
+    }
     function renderRadioGroupsEditor() {
       const hosts = (els.radioGroupsHosts || []).filter((host) => host.section && host.editor);
       if (!hosts.length) return;
-      const split = state.draft.mode === "radio_split";
+      const split = state.draft.mode === "radio_split" || draftHasMixedRadio();
       hosts.forEach((host) => { host.section.hidden = !split; });
       if (!split) return;
       state.radioGroupsOpen = normalizeRadioGroupsOpen(state.radioGroupsOpen);
@@ -2452,9 +2726,18 @@
           buttons: (group.buttons || []).filter((index) => index <= state.draft.gang_count),
         }));
       }
+      // Re-normalize button roles after gang count changes (1-gang drops multi roles).
+      state.draft.buttons = [1, 2, 3, 4].map((i) =>
+        normalizeButton(
+          (state.draft.buttons || []).find((x) => x.index === i),
+          i,
+          state.draft.gang_count
+        )
+      );
       markDirty(true);
       renderProfilesGangPicker();
       renderModePicker();
+      renderMixedRolesSection();
       renderCoverEditor();
       renderButtonsEditor();
       renderRadioGroupsEditor();
@@ -2542,9 +2825,11 @@
       state.draft.mode = mode;
       // Leaving cover mode must never leave a simulated motion running.
       coverHalt();
-      if (state.draft.mode === "radio_split") {
+      if (state.draft.mode === "radio_split" || state.draft.mode === "mixed") {
         state.draft.radio_groups = normalizeRadioGroups(state.draft.radio_groups);
-        state.radioGroupsOpen = defaultRadioGroupsOpen();
+        if (state.draft.mode === "radio_split") {
+          state.radioGroupsOpen = defaultRadioGroupsOpen();
+        }
       } else if (state.draft.mode === "cover") {
         const gangs = clampGangCount(state.draft.gang_count ?? 4);
         state.draft.gang_count = gangs < 4 ? 4 : gangs;
@@ -2557,6 +2842,7 @@
       renderModePicker();
       renderProfilesGangPicker();
       renderFaceplate();
+      renderMixedRolesSection();
       renderButtonsEditor();
       renderRadioGroupsEditor();
       renderCoverEditor();
@@ -2645,7 +2931,7 @@
       </div>`;
     }
     function renderCoverEditor() {
-      const isCover = state.draft && state.draft.mode === "cover";
+      const isCover = state.draft && (state.draft.mode === "cover" || draftHasMixedCover());
       if (!els.coverSection) return;
       els.coverSection.hidden = !isCover;
       renderCoverState();
@@ -2746,6 +3032,12 @@
       });
     }
     function buttonMetaLabel(button) {
+      if (state.draft && state.draft.mode === "mixed") {
+        const role = normalizeButtonRole(button.role);
+        const roleLabel = t("role." + role);
+        if (role === "cover_open" || role === "cover_close") return roleLabel;
+        return [button.action, button.entity, roleLabel].filter(Boolean).join(" · ") || "—";
+      }
       const direction = coverDirectionFor(button.index, state.draft);
       if (direction) return t(direction === "open" ? "card.cover_open" : "card.cover_close");
       return [button.action, button.entity].filter(Boolean).join(" · ") || "—";
@@ -2758,6 +3050,11 @@
         const open = openSet.has(b.index);
         const label = (b.name || "").trim() || "—";
         const meta = buttonMetaLabel(b);
+        const mixedRole = state.draft.mode === "mixed" ? normalizeButtonRole(b.role) : null;
+        const isCoverMapped = mixedRole === "cover_open" || mixedRole === "cover_close";
+        const actionFields = isCoverMapped ? "" : `
+            <label class="field"><span>${t("card.action")}</span><input type="text" data-field="action" value="${b.action || ""}" placeholder="light.toggle" /></label>
+            <label class="field"><span>${t("card.entity_id")}</span><input type="text" data-field="entity" value="${b.entity || ""}" placeholder="light.living_room" /></label>`;
         return `<div class="button-edit ${open ? "open" : ""}" data-button="${b.index}">
           <button type="button" class="button-edit-toggle" aria-expanded="${open}">
             <span class="button-edit-chevron" aria-hidden="true"></span>
@@ -2768,8 +3065,7 @@
           </button>
           <div class="button-edit-body"><div class="button-edit-fields">
             <label class="field"><span>${t("card.label")}</span><input type="text" data-field="name" value="${b.name}" /></label>
-            <label class="field"><span>${t("card.action")}</span><input type="text" data-field="action" value="${b.action || ""}" placeholder="light.toggle" /></label>
-            <label class="field"><span>${t("card.entity_id")}</span><input type="text" data-field="entity" value="${b.entity || ""}" placeholder="light.living_room" /></label>
+            ${actionFields}
             ${state.draft.mode === "radio_mandatory" || state.draft.mode === "radio_optional" ? `<label class="field"><span>${t("card.radio_member")}</span>
               <select data-field="radio_member">
                 <option value="true" ${b.radio_member !== false ? "selected" : ""}>${t("card.radio_member")}</option>
@@ -3000,6 +3296,7 @@
       if (!state.dirty) els.statusBadge.textContent = t("card.synced_demo");
       else { els.dirtyWarn.textContent = t("card.unsaved"); els.statusBadge.textContent = t("card.status") + ": pending"; }
       renderModePicker();
+      renderMixedRolesSection();
       renderButtonsEditor();
       renderRadioGroupsEditor();
       renderCoverEditor();
@@ -3027,6 +3324,7 @@
       els.childLock.checked = Boolean(d.child_lock);
       renderProfiles();
       renderProfilesGangPicker();
+      renderMixedRolesSection();
       renderButtonsEditor();
       renderRadioGroupsEditor();
       renderCoverEditor();

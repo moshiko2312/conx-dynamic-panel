@@ -4,6 +4,10 @@ All notable changes to this private project will be documented here.
 
 ## [Unreleased]
 
+### Changed
+
+- **Free mix discoverability:** Buttons tab now shows a full-width **Per-button roles / תפקיד לכל כפתור** section immediately under Mode (not buried in collapsed accordion rows). Each L1…Ln has role chips (toggle / momentary / radio / cover open / cover close), with pulse time for momentary, `cover_id` + Cover section for shutter roles, and Radio groups when any button is radio. Action/entity fields stay in the accordion for non-cover roles. Lit card + HTML preview parity.
+
 ### Added
 
 - Profile mode **`mixed` (Free mix / מיקס חופשי / Свободный микс)** with per-button `role`: `toggle`, `momentary`, `radio`, `cover_open`, `cover_close`. Momentary pulses ON then OFF after `pulse_time_s` (`0.1–600 s`, default `2`); re-press cancels the timer and forces OFF. Cover and radio reuse the existing fail-safe engines. Legacy global modes remain. Alias `momentary_mix` / `press_mode` migrate into `mixed` / `role`.

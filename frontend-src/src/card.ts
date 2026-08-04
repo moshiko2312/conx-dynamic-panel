@@ -808,11 +808,58 @@ export class ConXDynamicPanelCard extends LitElement {
       }
       if (role === "radio") {
         this._ensureRadioGroups(draft);
+        this._setRadioGroupsOpen(true);
       } else if (draft.radio_groups) {
         draft.radio_groups = draft.radio_groups.map((group) => ({
           ...group,
           buttons: group.buttons.filter((index) => index !== buttonIndex),
         }));
+      }
+    });
+  }
+
+  private _setButtonCoverId(buttonIndex: number, coverId: string): void {
+    this._patchDraft((draft) => {
+      const button = draft.buttons.find((item) => item.index === buttonIndex);
+      if (!button) {
+        return;
+      }
+      const role = button.role || "toggle";
+      if (role !== "cover_open" && role !== "cover_close") {
+        return;
+      }
+      draft.covers = normalizeCovers(draft);
+      const nextId =
+        String(coverId || "").trim() ||
+        draft.covers[0]?.id ||
+        "cover_1";
+      button.cover_id = nextId;
+      let cover = draft.covers.find((item) => item.id === nextId);
+      if (!cover) {
+        draft.covers = normalizeCovers({
+          ...draft,
+          covers: [
+            ...draft.covers,
+            {
+              id: nextId,
+              open_button: role === "cover_open" ? buttonIndex : 1,
+              close_button: role === "cover_close" ? buttonIndex : 2,
+              open_time_s: 20,
+              close_time_s: 20,
+              direction_settle_s: 0.5,
+              opposite_press: "stop_only",
+            },
+          ],
+        });
+        cover = draft.covers.find((item) => item.id === nextId);
+      }
+      if (!cover) {
+        return;
+      }
+      if (role === "cover_open") {
+        cover.open_button = buttonIndex;
+      } else {
+        cover.close_button = buttonIndex;
       }
     });
   }
@@ -2203,66 +2250,127 @@ export class ConXDynamicPanelCard extends LitElement {
     `;
   }
 
-  private _renderMixedHint() {
+  private _renderMixedRolesSection() {
     if (!this._draft || this._draft.mode !== "mixed") {
       return nothing;
     }
-    return html`<p class="radio-groups-hint" data-mixed-hint>
-      ${this.t("card.mixed_hint")}
-    </p>`;
-  }
-
-  private _renderButtonRoleEditor(buttonIndex: number, role: ButtonRole) {
     const roles = rolesForGangCount(this._gangCount()) as ButtonRole[];
-    const pulse =
-      this._draft?.buttons.find((item) => item.index === buttonIndex)
-        ?.pulse_time_s ?? DEFAULT_PULSE_TIME;
+    const covers = this._covers();
+    const buttons = this._draft.buttons.filter(
+      (button) => button.index <= this._gangCount()
+    );
     return html`
-      <div class="mixed-role-row" data-mixed-role=${buttonIndex}>
-        <span class="cover-label">${this.t("card.button_role")}</span>
-        <div class="mode-picker mixed-role-picker" role="radiogroup">
-          ${roles.map(
-            (item) => html`
-              <button
-                type="button"
-                class="radio-member ${role === item ? "on" : ""}"
-                role="radio"
-                aria-checked=${role === item ? "true" : "false"}
-                data-role=${item}
-                ?disabled=${this._busy}
-                @click=${() => this._setButtonRole(buttonIndex, item)}
-              >
-                <span class="radio-member-label">${this.t(`role.${item}`)}</span>
-              </button>
-            `
-          )}
+      <div class="mixed-roles-section" data-mixed-roles>
+        <div class="mixed-roles-head">
+          <span class="menu-label">${this.t("card.mixed_roles")}</span>
         </div>
-        ${role === "momentary"
-          ? html`
-              <label class="field field-inline mixed-pulse">
-                <span>${this.t("card.pulse_time")} (${this.t("card.cover_seconds")})</span>
-                <input
-                  type="number"
-                  data-pulse-time
-                  min=${PULSE_TIME_MIN}
-                  max=${PULSE_TIME_MAX}
-                  step="0.1"
-                  .value=${String(pulse)}
-                  ?disabled=${this._busy}
-                  @change=${(e: Event) => {
-                    const value = Number((e.target as HTMLInputElement).value);
-                    this._patchDraft((draft) => {
-                      const button = draft.buttons.find(
-                        (item) => item.index === buttonIndex
-                      );
-                      if (!button) return;
-                      button.pulse_time_s = clampPulseTime(value, DEFAULT_PULSE_TIME);
-                    });
-                  }}
-                />
-              </label>
-            `
-          : nothing}
+        <p class="radio-groups-hint" data-mixed-hint>
+          ${this.t("card.mixed_hint")}
+        </p>
+        ${buttons.map((button) => {
+          const role = (button.role || "toggle") as ButtonRole;
+          const pulse = button.pulse_time_s ?? DEFAULT_PULSE_TIME;
+          const coverId =
+            String(button.cover_id || covers[0]?.id || "cover_1").trim() ||
+            "cover_1";
+          const label = (button.name || "").trim() || "—";
+          return html`
+            <div class="mixed-role-card" data-mixed-role=${button.index}>
+              <div class="mixed-role-card-head">
+                <span class="mixed-role-l" dir="ltr">L${button.index}</span>
+                <span class="mixed-role-name">${label}</span>
+              </div>
+              <span class="cover-label">${this.t("card.button_role")}</span>
+              <div class="mode-picker mixed-role-picker" role="radiogroup">
+                ${roles.map(
+                  (item) => html`
+                    <button
+                      type="button"
+                      class="radio-member ${role === item ? "on" : ""}"
+                      role="radio"
+                      aria-checked=${role === item ? "true" : "false"}
+                      data-role=${item}
+                      ?disabled=${this._busy}
+                      @click=${() => this._setButtonRole(button.index, item)}
+                    >
+                      <span class="radio-member-label"
+                        >${this.t(`role.${item}`)}</span
+                      >
+                    </button>
+                  `
+                )}
+              </div>
+              ${role === "momentary"
+                ? html`
+                    <label class="field field-inline mixed-pulse">
+                      <span
+                        >${this.t("card.pulse_time")} (${this.t(
+                          "card.cover_seconds"
+                        )})</span
+                      >
+                      <input
+                        type="number"
+                        data-pulse-time
+                        min=${PULSE_TIME_MIN}
+                        max=${PULSE_TIME_MAX}
+                        step="0.1"
+                        .value=${String(pulse)}
+                        ?disabled=${this._busy}
+                        @change=${(e: Event) => {
+                          const value = Number(
+                            (e.target as HTMLInputElement).value
+                          );
+                          this._patchDraft((draft) => {
+                            const target = draft.buttons.find(
+                              (item) => item.index === button.index
+                            );
+                            if (!target) return;
+                            target.pulse_time_s = clampPulseTime(
+                              value,
+                              DEFAULT_PULSE_TIME
+                            );
+                          });
+                        }}
+                      />
+                    </label>
+                  `
+                : nothing}
+              ${role === "radio"
+                ? html`<p class="radio-groups-hint" data-mixed-radio-hint>
+                    ${this.t("card.mixed_radio_hint")}
+                  </p>`
+                : nothing}
+              ${role === "cover_open" || role === "cover_close"
+                ? html`
+                    <label class="field field-inline mixed-cover-id">
+                      <span>${this.t("card.cover_id")}</span>
+                      <div class="select-wrap">
+                        <select
+                          data-cover-id
+                          .value=${coverId}
+                          ?disabled=${this._busy || covers.length === 0}
+                          @change=${(e: Event) =>
+                            this._setButtonCoverId(
+                              button.index,
+                              (e.target as HTMLSelectElement).value
+                            )}
+                        >
+                          ${covers.map(
+                            (cover) => html`
+                              <option value=${cover.id}>${cover.id}</option>
+                            `
+                          )}
+                        </select>
+                      </div>
+                    </label>
+                    <p class="radio-groups-hint" data-mixed-cover-hint>
+                      ${this.t("card.mixed_cover_hint")}
+                    </p>
+                  `
+                : nothing}
+            </div>
+          `;
+        })}
       </div>
     `;
   }
@@ -2272,7 +2380,7 @@ export class ConXDynamicPanelCard extends LitElement {
       return nothing;
     }
     return html`
-      ${this._renderModePicker()} ${this._renderMixedHint()}
+      ${this._renderModePicker()} ${this._renderMixedRolesSection()}
       ${this._renderRadioGroupsEditor()}
       ${this._renderCoverEditor()}
           <div class="buttons-accordion">
@@ -2296,6 +2404,8 @@ export class ConXDynamicPanelCard extends LitElement {
                 this._draft?.mode === "mixed"
                   ? (button.role || "toggle")
                   : null;
+              const isCoverMapped =
+                mixedRole === "cover_open" || mixedRole === "cover_close";
               const behavior = mixedRole
                 ? this.t(`role.${mixedRole}`)
                 : coverDirection
@@ -2310,7 +2420,13 @@ export class ConXDynamicPanelCard extends LitElement {
                       : this.t("card.radio_toggle")
                     : "";
               const meta =
-                [action, entityId, behavior].filter(Boolean).join(" · ") || "—";
+                [
+                  isCoverMapped ? "" : action,
+                  isCoverMapped ? "" : entityId,
+                  behavior,
+                ]
+                  .filter(Boolean)
+                  .join(" · ") || "—";
               return html`
                 <div
                   class="button-edit ${open ? "open" : ""}"
@@ -2338,12 +2454,6 @@ export class ConXDynamicPanelCard extends LitElement {
                     <div class="button-edit-fields">
                       ${open
                         ? html`
-                            ${this._draft?.mode === "mixed"
-                              ? this._renderButtonRoleEditor(
-                                  button.index,
-                                  (button.role || "toggle") as ButtonRole
-                                )
-                              : nothing}
                             <label class="field">
                               <span>${this.t("card.label")}</span>
                               <input
@@ -2354,28 +2464,38 @@ export class ConXDynamicPanelCard extends LitElement {
                                   this._onButtonNameInput(button.index, e)}
                               />
                             </label>
-                            <label class="field">
-                              <span>${this.t("card.action")}</span>
-                              <input
-                                type="text"
-                                .value=${action}
-                                placeholder="light.toggle"
-                                ?disabled=${this._busy}
-                                @input=${(e: Event) =>
-                                  this._onButtonActionInput(button.index, e)}
-                              />
-                            </label>
-                            <label class="field">
-                              <span>${this.t("card.entity_id")}</span>
-                              <input
-                                type="text"
-                                .value=${entityId}
-                                placeholder="light.living_room"
-                                ?disabled=${this._busy}
-                                @input=${(e: Event) =>
-                                  this._onButtonEntityInput(button.index, e)}
-                              />
-                            </label>
+                            ${isCoverMapped
+                              ? nothing
+                              : html`
+                                  <label class="field">
+                                    <span>${this.t("card.action")}</span>
+                                    <input
+                                      type="text"
+                                      .value=${action}
+                                      placeholder="light.toggle"
+                                      ?disabled=${this._busy}
+                                      @input=${(e: Event) =>
+                                        this._onButtonActionInput(
+                                          button.index,
+                                          e
+                                        )}
+                                    />
+                                  </label>
+                                  <label class="field">
+                                    <span>${this.t("card.entity_id")}</span>
+                                    <input
+                                      type="text"
+                                      .value=${entityId}
+                                      placeholder="light.living_room"
+                                      ?disabled=${this._busy}
+                                      @input=${(e: Event) =>
+                                        this._onButtonEntityInput(
+                                          button.index,
+                                          e
+                                        )}
+                                    />
+                                  </label>
+                                `}
                             ${radioMode
                               ? html`
                                   <label class="field">
@@ -3894,29 +4014,72 @@ export class ConXDynamicPanelCard extends LitElement {
       min-height: 42px;
     }
 
-    .mixed-role-row {
+    .mixed-roles-section {
+      display: grid;
+      gap: 12px;
+      margin: 4px 0 14px;
+      padding: 14px 12px 12px;
+      border-radius: 14px;
+      border: 1px solid var(--conx-border, rgba(255, 255, 255, 0.12));
+      background: color-mix(in srgb, var(--conx-surface, #1a1d22) 88%, transparent);
+    }
+    .mixed-roles-head .menu-label {
+      margin-bottom: 0;
+      font-size: 1.05rem;
+      font-weight: 700;
+    }
+    .mixed-role-card {
       display: grid;
       gap: 8px;
-      margin-bottom: 12px;
+      padding: 12px 10px;
+      border-radius: 12px;
+      border: 1px solid var(--conx-border, rgba(255, 255, 255, 0.1));
+      background: color-mix(in srgb, var(--conx-panel, #121418) 70%, transparent);
+    }
+    .mixed-role-card-head {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .mixed-role-l {
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      font-size: 1.05rem;
+      color: var(--conx-accent, #d4af61);
+    }
+    .mixed-role-name {
+      opacity: 0.85;
+      font-size: 0.95rem;
     }
     .mixed-role-picker {
       display: flex;
       flex-wrap: wrap;
-      gap: 6px;
+      gap: 8px;
       width: 100%;
     }
     .mixed-role-picker .radio-member {
-      flex: 1 1 auto;
-      min-width: 4.5rem;
-      padding: 8px 6px;
-      min-height: 36px;
+      flex: 1 1 0;
+      min-width: min(100%, 5.25rem);
+      padding: 12px 8px;
+      min-height: 44px;
     }
-    .mixed-pulse {
+    .mixed-role-picker .radio-member-label {
+      font-size: 0.9rem;
+      font-weight: 650;
+      text-align: center;
+      line-height: 1.2;
+    }
+    .mixed-pulse,
+    .mixed-cover-id {
       width: max-content;
       max-width: 100%;
     }
     .mixed-pulse input[type="number"] {
       width: 5.5rem;
+    }
+    .mixed-cover-id .select-wrap {
+      min-width: 8rem;
     }
 
     .mode-picker {

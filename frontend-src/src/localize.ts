@@ -147,8 +147,14 @@ const EN: Record<string, string> = {
   "mode.cover": "Cover / shutter",
   "card.mixed_hint":
     "Configure each button freely: toggle, momentary pulse, radio group, or cover open/close. Momentary turns ON then OFF after the pulse time; a re-press cancels and turns OFF.",
+  "card.mixed_roles": "Per-button roles",
   "card.button_role": "Button role",
   "card.pulse_time": "Pulse time",
+  "card.cover_id": "Cover",
+  "card.mixed_radio_hint":
+    "Assign this button to a radio group in the Radio groups section below.",
+  "card.mixed_cover_hint":
+    "Travel times and motor safety settings are in the Cover section below.",
   "role.toggle": "Toggle",
   "role.momentary": "Momentary",
   "role.radio": "Radio",
@@ -300,13 +306,19 @@ const HE: Record<string, string> = {
   "mode.cover": "תריס",
   "card.mixed_hint":
     "הגדירו כל כפתור בנפרד: טוגל, רגעי, קבוצת רדיו או פתיחה/סגירה של תריס. רגעי מדליק ואז מכבה אחרי זמן הפולס; לחיצה חוזרת מבטלת ומכבה.",
+  "card.mixed_roles": "תפקיד לכל כפתור",
   "card.button_role": "תפקיד כפתור",
   "card.pulse_time": "זמן פולס",
+  "card.cover_id": "תריס",
+  "card.mixed_radio_hint":
+    "שייכו את הכפתור לקבוצת רדיו במקטע קבוצות רדיו למטה.",
+  "card.mixed_cover_hint":
+    "זמני נסיעה והגדרות בטיחות של המנוע נמצאים במקטע תריס למטה.",
   "role.toggle": "טוגל",
   "role.momentary": "רגעי",
   "role.radio": "רדיו",
-  "role.cover_open": "תריס פתיחה",
-  "role.cover_close": "תריס סגירה",
+  "role.cover_open": "פתיחת תריס",
+  "role.cover_close": "סגירת תריס",
 };
 
 const RU: Record<string, string> = {
@@ -453,13 +465,19 @@ const RU: Record<string, string> = {
   "mode.cover": "Ролета / жалюзи",
   "card.mixed_hint":
     "Настройте каждую кнопку отдельно: тоггл, импульс, радиогруппа или открытие/закрытие ролеты. Импульс включает, затем выключает по таймеру; повторное нажатие отменяет и выключает.",
+  "card.mixed_roles": "Роль каждой кнопки",
   "card.button_role": "Роль кнопки",
   "card.pulse_time": "Время импульса",
+  "card.cover_id": "Ролета",
+  "card.mixed_radio_hint":
+    "Назначьте кнопку в секцию радиогрупп ниже.",
+  "card.mixed_cover_hint":
+    "Время хода и безопасность мотора — в секции ролеты ниже.",
   "role.toggle": "Тоггл",
   "role.momentary": "Импульс",
   "role.radio": "Радио",
-  "role.cover_open": "Ролета открыть",
-  "role.cover_close": "Ролета закрыть",
+  "role.cover_open": "Открыть ролету",
+  "role.cover_close": "Закрыть ролету",
 };
 
 const TABLES: Record<CardLanguage, Record<string, string>> = {
