@@ -3,10 +3,10 @@
  * Copyright 2019 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const q = globalThis, gt = q.ShadowRoot && (q.ShadyCSS === void 0 || q.ShadyCSS.nativeShadow) && "adoptedStyleSheets" in Document.prototype && "replace" in CSSStyleSheet.prototype, ft = Symbol(), wt = /* @__PURE__ */ new WeakMap();
+const q = globalThis, gt = q.ShadowRoot && (q.ShadyCSS === void 0 || q.ShadyCSS.nativeShadow) && "adoptedStyleSheets" in Document.prototype && "replace" in CSSStyleSheet.prototype, mt = Symbol(), wt = /* @__PURE__ */ new WeakMap();
 let jt = class {
   constructor(t, r, i) {
-    if (this._$cssResult$ = !0, i !== ft) throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");
+    if (this._$cssResult$ = !0, i !== mt) throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");
     this.cssText = t, this.t = r;
   }
   get styleSheet() {
@@ -22,13 +22,13 @@ let jt = class {
     return this.cssText;
   }
 };
-const ie = (e) => new jt(typeof e == "string" ? e : e + "", void 0, ft), Ft = (e, ...t) => {
+const ie = (e) => new jt(typeof e == "string" ? e : e + "", void 0, mt), Ft = (e, ...t) => {
   const r = e.length === 1 ? e[0] : t.reduce((i, a, n) => i + ((s) => {
     if (s._$cssResult$ === !0) return s.cssText;
     if (typeof s == "number") return s;
     throw Error("Value passed to 'css' function must be a 'css' function result: " + s + ". Use 'unsafeCSS' to pass non-literal values, but take care to ensure page security.");
   })(a) + e[n + 1], e[0]);
-  return new jt(r, e, ft);
+  return new jt(r, e, mt);
 }, ae = (e, t) => {
   if (gt) e.adoptedStyleSheets = t.map((r) => r instanceof CSSStyleSheet ? r : r.styleSheet);
   else for (const r of t) {
@@ -73,7 +73,7 @@ const { is: ne, defineProperty: se, getOwnPropertyDescriptor: oe, getOwnProperty
       }
   }
   return r;
-} }, mt = (e, t) => !ne(e, t), Et = { attribute: !0, type: String, converter: K, reflect: !1, useDefault: !1, hasChanged: mt };
+} }, ft = (e, t) => !ne(e, t), Et = { attribute: !0, type: String, converter: K, reflect: !1, useDefault: !1, hasChanged: ft };
 Symbol.metadata ?? (Symbol.metadata = Symbol("metadata")), y.litPropertyMetadata ?? (y.litPropertyMetadata = /* @__PURE__ */ new WeakMap());
 let P = class extends HTMLElement {
   static addInitializer(t) {
@@ -202,7 +202,7 @@ let P = class extends HTMLElement {
     var s;
     if (t !== void 0) {
       const o = this.constructor;
-      if (a === !1 && (n = this[t]), i ?? (i = o.getPropertyOptions(t)), !((i.hasChanged ?? mt)(n, r) || i.useDefault && i.reflect && n === ((s = this._$Ej) == null ? void 0 : s.get(t)) && !this.hasAttribute(o._$Eu(t, i)))) return;
+      if (a === !1 && (n = this[t]), i ?? (i = o.getPropertyOptions(t)), !((i.hasChanged ?? ft)(n, r) || i.useDefault && i.reflect && n === ((s = this._$Ej) == null ? void 0 : s.get(t)) && !this.hasAttribute(o._$Eu(t, i)))) return;
       this.C(t, r, i);
     }
     this.isUpdatePending === !1 && (this._$ES = this._$EP());
@@ -286,7 +286,7 @@ P.elementStyles = [], P.shadowRootOptions = { mode: "open" }, P[U("elementProper
  */
 const j = globalThis, Ct = (e) => e, Q = j.trustedTypes, At = Q ? Q.createPolicy("lit-html", { createHTML: (e) => e }) : void 0, Ht = "$lit$", x = `lit$${Math.random().toFixed(9).slice(2)}$`, Yt = "?" + x, he = `<${Yt}>`, C = document, H = () => C.createComment(""), Y = (e) => e === null || typeof e != "object" && typeof e != "function", bt = Array.isArray, ue = (e) => bt(e) || typeof (e == null ? void 0 : e[Symbol.iterator]) == "function", at = `[ 	
 \f\r]`, L = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, Ot = /-->/g, Pt = />/g, k = RegExp(`>|${at}(?:([^\\s"'>=/]+)(${at}*=${at}*(?:[^ 	
-\f\r"'\`<>=]|("|')|))|$)`, "g"), zt = /'/g, Tt = /"/g, Gt = /^(?:script|style|textarea|title)$/i, _e = (e) => (t, ...r) => ({ _$litType$: e, strings: t, values: r }), d = _e(1), N = Symbol.for("lit-noChange"), l = Symbol.for("lit-nothing"), Rt = /* @__PURE__ */ new WeakMap(), S = C.createTreeWalker(C, 129);
+\f\r"'\`<>=]|("|')|))|$)`, "g"), zt = /'/g, Mt = /"/g, Gt = /^(?:script|style|textarea|title)$/i, _e = (e) => (t, ...r) => ({ _$litType$: e, strings: t, values: r }), d = _e(1), N = Symbol.for("lit-noChange"), l = Symbol.for("lit-nothing"), Tt = /* @__PURE__ */ new WeakMap(), S = C.createTreeWalker(C, 129);
 function Wt(e, t) {
   if (!bt(e) || !e.hasOwnProperty("raw")) throw Error("invalid template strings array");
   return At !== void 0 ? At.createHTML(t) : t;
@@ -296,8 +296,8 @@ const ge = (e, t) => {
   let a, n = t === 2 ? "<svg>" : t === 3 ? "<math>" : "", s = L;
   for (let o = 0; o < r; o++) {
     const c = e[o];
-    let p, u, h = -1, m = 0;
-    for (; m < c.length && (s.lastIndex = m, u = s.exec(c), u !== null); ) m = s.lastIndex, s === L ? u[1] === "!--" ? s = Ot : u[1] !== void 0 ? s = Pt : u[2] !== void 0 ? (Gt.test(u[2]) && (a = RegExp("</" + u[2], "g")), s = k) : u[3] !== void 0 && (s = k) : s === k ? u[0] === ">" ? (s = a ?? L, h = -1) : u[1] === void 0 ? h = -2 : (h = s.lastIndex - u[2].length, p = u[1], s = u[3] === void 0 ? k : u[3] === '"' ? Tt : zt) : s === Tt || s === zt ? s = k : s === Ot || s === Pt ? s = L : (s = k, a = void 0);
+    let p, u, h = -1, f = 0;
+    for (; f < c.length && (s.lastIndex = f, u = s.exec(c), u !== null); ) f = s.lastIndex, s === L ? u[1] === "!--" ? s = Ot : u[1] !== void 0 ? s = Pt : u[2] !== void 0 ? (Gt.test(u[2]) && (a = RegExp("</" + u[2], "g")), s = k) : u[3] !== void 0 && (s = k) : s === k ? u[0] === ">" ? (s = a ?? L, h = -1) : u[1] === void 0 ? h = -2 : (h = s.lastIndex - u[2].length, p = u[1], s = u[3] === void 0 ? k : u[3] === '"' ? Mt : zt) : s === Mt || s === zt ? s = k : s === Ot || s === Pt ? s = L : (s = k, a = void 0);
     const b = s === k && e[o + 1].startsWith("/>") ? " " : "";
     n += s === L ? c + he : h >= 0 ? (i.push(p), c.slice(0, h) + Ht + c.slice(h) + x + b) : c + x + (h === -2 ? o : b);
   }
@@ -316,15 +316,15 @@ class G {
     for (; (a = S.nextNode()) !== null && c.length < o; ) {
       if (a.nodeType === 1) {
         if (a.hasAttributes()) for (const h of a.getAttributeNames()) if (h.endsWith(Ht)) {
-          const m = u[s++], b = a.getAttribute(h).split(x), $ = /([.?@])?(.*)/.exec(m);
-          c.push({ type: 1, index: n, name: $[2], strings: b, ctor: $[1] === "." ? me : $[1] === "?" ? be : $[1] === "@" ? ve : et }), a.removeAttribute(h);
+          const f = u[s++], b = a.getAttribute(h).split(x), $ = /([.?@])?(.*)/.exec(f);
+          c.push({ type: 1, index: n, name: $[2], strings: b, ctor: $[1] === "." ? fe : $[1] === "?" ? be : $[1] === "@" ? ve : et }), a.removeAttribute(h);
         } else h.startsWith(x) && (c.push({ type: 6, index: n }), a.removeAttribute(h));
         if (Gt.test(a.tagName)) {
-          const h = a.textContent.split(x), m = h.length - 1;
-          if (m > 0) {
+          const h = a.textContent.split(x), f = h.length - 1;
+          if (f > 0) {
             a.textContent = Q ? Q.emptyScript : "";
-            for (let b = 0; b < m; b++) a.append(h[b], H()), S.nextNode(), c.push({ type: 2, index: ++n });
-            a.append(h[m], H());
+            for (let b = 0; b < f; b++) a.append(h[b], H()), S.nextNode(), c.push({ type: 2, index: ++n });
+            a.append(h[f], H());
           }
         }
       } else if (a.nodeType === 8) if (a.data === Yt) c.push({ type: 2, index: n });
@@ -347,7 +347,7 @@ function D(e, t, r = e, i) {
   const n = Y(t) ? void 0 : t._$litDirective$;
   return (a == null ? void 0 : a.constructor) !== n && ((o = a == null ? void 0 : a._$AO) == null || o.call(a, !1), n === void 0 ? a = void 0 : (a = new n(e), a._$AT(e, r, i)), i !== void 0 ? (r._$Co ?? (r._$Co = []))[i] = a : r._$Cl = a), a !== void 0 && (t = D(e, a._$AS(e, t.values), a, i)), t;
 }
-class fe {
+class me {
   constructor(t, r) {
     this._$AV = [], this._$AN = void 0, this._$AD = t, this._$AM = r;
   }
@@ -411,13 +411,13 @@ class V {
     const { values: r, _$litType$: i } = t, a = typeof i == "number" ? this._$AC(t) : (i.el === void 0 && (i.el = G.createElement(Wt(i.h, i.h[0]), this.options)), i);
     if (((n = this._$AH) == null ? void 0 : n._$AD) === a) this._$AH.p(r);
     else {
-      const s = new fe(a, this), o = s.u(this.options);
+      const s = new me(a, this), o = s.u(this.options);
       s.p(r), this.T(o), this._$AH = s;
     }
   }
   _$AC(t) {
-    let r = Rt.get(t.strings);
-    return r === void 0 && Rt.set(t.strings, r = new G(t)), r;
+    let r = Tt.get(t.strings);
+    return r === void 0 && Tt.set(t.strings, r = new G(t)), r;
   }
   k(t) {
     bt(this._$AH) || (this._$AH = [], this._$AR());
@@ -463,7 +463,7 @@ class et {
     t === l ? this.element.removeAttribute(this.name) : this.element.setAttribute(this.name, t ?? "");
   }
 }
-class me extends et {
+class fe extends et {
   constructor() {
     super(...arguments), this.type = 3;
   }
@@ -521,7 +521,7 @@ const ye = (e, t, r) => {
  * SPDX-License-Identifier: BSD-3-Clause
  */
 const E = globalThis;
-class R extends P {
+class T extends P {
   constructor() {
     super(...arguments), this.renderOptions = { host: this }, this._$Do = void 0;
   }
@@ -547,9 +547,9 @@ class R extends P {
   }
 }
 var Ut;
-R._$litElement$ = !0, R.finalized = !0, (Ut = E.litElementHydrateSupport) == null || Ut.call(E, { LitElement: R });
+T._$litElement$ = !0, T.finalized = !0, (Ut = E.litElementHydrateSupport) == null || Ut.call(E, { LitElement: T });
 const st = E.litElementPolyfillSupport;
-st == null || st({ LitElement: R });
+st == null || st({ LitElement: T });
 (E.litElementVersions ?? (E.litElementVersions = [])).push("4.2.2");
 /**
  * @license
@@ -566,7 +566,7 @@ const Jt = (e) => (t, r) => {
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const $e = { attribute: !0, type: String, converter: K, reflect: !1, hasChanged: mt }, we = (e = $e, t, r) => {
+const $e = { attribute: !0, type: String, converter: K, reflect: !1, hasChanged: ft }, we = (e = $e, t, r) => {
   const { kind: i, metadata: a } = r;
   let n = globalThis.litPropertyMetadata.get(a);
   if (n === void 0 && globalThis.litPropertyMetadata.set(a, n = /* @__PURE__ */ new Map()), i === "setter" && ((e = Object.create(e)).wrapped = !0), n.set(r.name, e), i === "accessor") {
@@ -598,7 +598,7 @@ function vt(e) {
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-function f(e) {
+function m(e) {
   return vt({ ...e, state: !0, attribute: !1 });
 }
 const F = 1, tt = 600, pt = 0, ht = 5, ot = {
@@ -606,7 +606,7 @@ const F = 1, tt = 600, pt = 0, ht = 5, ot = {
   close_time_s: 20,
   direction_settle_s: 0.5
 };
-async function Mt(e, t) {
+async function Rt(e, t) {
   return e.callWS({
     type: "conx_dynamic_panel/get_config",
     entry_id: t
@@ -677,14 +677,14 @@ async function ze(e, t, r, i = "merge") {
     mode: i
   });
 }
-async function Te(e, t, r) {
+async function Me(e, t, r) {
   return e.callWS({
     type: "conx_dynamic_panel/update_panel_name",
     entry_id: t,
     panel_name: r
   });
 }
-async function Re(e, t, r, i) {
+async function Te(e, t, r, i) {
   const a = {
     type: "conx_dynamic_panel/cover_command",
     entry_id: t,
@@ -702,7 +702,7 @@ function A(e) {
 function ut(e) {
   return Math.max(0, Math.floor(A(e) / 2));
 }
-function Me(e, t) {
+function Re(e, t) {
   const r = e * 2 + 1, i = e * 2 + 2;
   return i > t ? [1, t >= 2 ? 2 : 1] : [r, i];
 }
@@ -710,8 +710,8 @@ function Nt(e, t, r) {
   const i = Math.round(typeof e == "number" ? e : Number(e)), a = A(r);
   return !Number.isFinite(i) || i < 1 || i > a ? Math.min(t, a) : i;
 }
-function M(e, t = {}) {
-  const r = A(t.gangCount ?? 4), i = t.slot ?? 0, a = t.defaultId ?? `cover_${i + 1}`, [n, s] = Me(i, r), o = e || {}, c = Nt(o.open_button, n, r);
+function R(e, t = {}) {
+  const r = A(t.gangCount ?? 4), i = t.slot ?? 0, a = t.defaultId ?? `cover_${i + 1}`, [n, s] = Re(i, r), o = e || {}, c = Nt(o.open_button, n, r);
   let p = Nt(o.close_button, s, r);
   return p === c && (p = Array.from({ length: r }, (u, h) => h + 1).find((u) => u !== c) ?? Math.min(c + 1, r)), {
     id: String(o.id || "").trim() || a,
@@ -742,8 +742,8 @@ function z(e) {
   const t = A((e == null ? void 0 : e.gang_count) ?? 4), r = ut(t);
   let i = [];
   if (Array.isArray(e == null ? void 0 : e.covers) && e.covers.length ? i = e.covers.map(
-    (n, s) => M(n, { gangCount: t, defaultId: `cover_${s + 1}`, slot: s })
-  ) : e != null && e.cover ? i = [M(e.cover, { gangCount: t, defaultId: "cover_1", slot: 0 })] : r > 0 && (i = [M(void 0, { gangCount: t, defaultId: "cover_1", slot: 0 })]), r === 0)
+    (n, s) => R(n, { gangCount: t, defaultId: `cover_${s + 1}`, slot: s })
+  ) : e != null && e.cover ? i = [R(e.cover, { gangCount: t, defaultId: "cover_1", slot: 0 })] : r > 0 && (i = [R(void 0, { gangCount: t, defaultId: "cover_1", slot: 0 })]), r === 0)
     return [];
   i = i.slice(0, r);
   const a = /* @__PURE__ */ new Set();
@@ -1396,7 +1396,7 @@ function qe(e) {
   } catch {
   }
 }
-function T(e, t) {
+function M(e, t) {
   const r = W(e);
   return Ve[r][t] || qt[t] || t;
 }
@@ -1494,7 +1494,7 @@ function nr(e) {
 function X(e, t = Qt) {
   return e && (rr[e] || e) || t;
 }
-let _ = class extends R {
+let _ = class extends T {
   constructor() {
     super(...arguments), this._loading = !1, this._busy = !1, this._syncPulse = !1, this._pressedRing = null, this._splitPreviewOn = {}, this._theme = "noir", this._view = "editor", this._wizardStep = "transfer", this._importMode = "merge", this._serviceYaml = "", this._sections = {
       profiles: !0,
@@ -1604,7 +1604,7 @@ let _ = class extends R {
     );
   }
   t(e) {
-    return T(this._language, e);
+    return M(this._language, e);
   }
   get _dirty() {
     return !De(this._draft || null, this._saved || null);
@@ -1801,7 +1801,7 @@ let _ = class extends R {
     if (!(!this.hass || !((e = this._config) != null && e.entry_id))) {
       this._loading = !0, this._error = void 0;
       try {
-        const t = await Mt(this.hass, this._config.entry_id);
+        const t = await Rt(this.hass, this._config.entry_id);
         this._applyPanel(t);
       } catch (t) {
         this._error = t instanceof Error ? t.message : String(t);
@@ -1850,7 +1850,7 @@ let _ = class extends R {
   }
   _coverConfig(e, t) {
     const r = this._covers(e);
-    return t ? r.find((i) => i.id === t) || r[0] || M(void 0) : r[0] || M(void 0);
+    return t ? r.find((i) => i.id === t) || r[0] || R(void 0) : r[0] || R(void 0);
   }
   _isCoverButton(e) {
     var t;
@@ -1885,6 +1885,21 @@ let _ = class extends R {
         ...r,
         buttons: r.buttons.filter((i) => i <= t.gang_count)
       }))), t.selected_button != null && (t.selected_button < 1 || t.selected_button > t.gang_count) && (t.selected_button = null);
+    });
+  }
+  _setMode(e) {
+    this._patchDraft((t) => {
+      var r;
+      if (t.mode = e, t.mode === "cover")
+        t.covers = z(t), delete t.cover;
+      else if (t.mode === "radio_split")
+        this._ensureRadioGroups(t), this._setRadioGroupsOpen(!0);
+      else if (t.mode !== "toggle" && (t.selected_button == null || !t.buttons.some(
+        (i) => i.index === t.selected_button && i.radio_member !== !1
+      ))) {
+        const i = ((r = t.buttons.find((a) => a.radio_member !== !1)) == null ? void 0 : r.index) ?? 1;
+        t.selected_button = i;
+      }
     });
   }
   /**
@@ -1923,7 +1938,7 @@ let _ = class extends R {
         e.flatMap((o) => [o.open_button, o.close_button])
       ), a = this._gangIndexes(t).filter((o) => !i.has(o)), n = a[0] ?? 1, s = a[1] ?? Math.min(n + 1, t.gang_count);
       e.push(
-        M(
+        R(
           { open_button: n, close_button: s },
           {
             gangCount: t.gang_count,
@@ -1946,7 +1961,7 @@ let _ = class extends R {
     if (!(!this.hass || !this._config)) {
       this._busy = !0, this._error = void 0;
       try {
-        const r = await Re(
+        const r = await Te(
           this.hass,
           this._config.entry_id,
           e,
@@ -2100,7 +2115,7 @@ let _ = class extends R {
               @change=${(c) => {
       const p = Number(c.target.value);
       this._patchCovers((u) => {
-        const h = u.find((m) => m.id === e.id);
+        const h = u.find((f) => f.id === e.id);
         h && (h.direction_settle_s = Math.max(
           pt,
           Math.min(
@@ -2124,7 +2139,7 @@ let _ = class extends R {
               @change=${(c) => {
       const p = c.target.value;
       this._patchCovers((u) => {
-        const h = u.find((m) => m.id === e.id);
+        const h = u.find((f) => f.id === e.id);
         h && (h.opposite_press = p === "stop_then_reverse" ? "stop_then_reverse" : "stop_only");
       });
     }}
@@ -2254,7 +2269,7 @@ let _ = class extends R {
           this._config.entry_id,
           this._draft.id,
           this._draft
-        ), t = await Mt(this.hass, this._config.entry_id);
+        ), t = await Rt(this.hass, this._config.entry_id);
         this._applyPanel(t), this._saved = B(e), this._draft = B(e);
       } catch (e) {
         this._error = e instanceof Error ? e.message : String(e);
@@ -2807,7 +2822,7 @@ let _ = class extends R {
     }
     this._busy = !0, this._error = void 0;
     try {
-      const t = await Te(
+      const t = await Me(
         this.hass,
         this._config.entry_id,
         e
@@ -2819,35 +2834,36 @@ let _ = class extends R {
       this._busy = !1;
     }
   }
+  _renderModePicker() {
+    if (!this._panel || !this._draft)
+      return l;
+    const e = this._draft.mode;
+    return d`
+      <label class="field">
+        <span>${this.t("card.mode")}</span>
+        <div class="mode-picker" role="radiogroup" data-mode-picker>
+          ${this._panel.capabilities.modes.map(
+      (t) => d`
+              <button
+                type="button"
+                class="radio-member ${e === t ? "on" : ""}"
+                role="radio"
+                aria-checked=${e === t ? "true" : "false"}
+                data-mode=${t}
+                ?disabled=${this._busy}
+                @click=${() => this._setMode(t)}
+              >
+                <span class="radio-member-label">${this.t(`mode.${t}`)}</span>
+              </button>
+            `
+    )}
+        </div>
+      </label>
+    `;
+  }
   _renderAppearanceFields() {
     return !this._panel || !this._draft ? l : d`
 ${this._renderGangPicker()}
-<label class="field">
-            <span>${this.t("card.mode")}</span>
-            <div class="select-wrap">
-              <select
-                .value=${this._draft.mode}
-                ?disabled=${this._busy}
-                @change=${(e) => this._patchDraft((t) => {
-      var r;
-      if (t.mode = e.target.value, t.mode === "cover")
-        t.covers = z(t), delete t.cover;
-      else if (t.mode === "radio_split")
-        this._ensureRadioGroups(t), this._setRadioGroupsOpen(!0);
-      else if (t.mode !== "toggle" && (t.selected_button == null || !t.buttons.some(
-        (i) => i.index === t.selected_button && i.radio_member !== !1
-      ))) {
-        const i = ((r = t.buttons.find((a) => a.radio_member !== !1)) == null ? void 0 : r.index) ?? 1;
-        t.selected_button = i;
-      }
-    })}
-              >
-                ${this._panel.capabilities.modes.map(
-      (e) => d`<option value=${e}>${this.t(`mode.${e}`)}</option>`
-    )}
-              </select>
-            </div>
-          </label>
           <div class="grid-2">
             <label class="field">
               <span>${this.t("card.color_on")}</span>
@@ -2960,13 +2976,14 @@ ${this._renderGangPicker()}
   }
   _renderButtonsFields() {
     return !this._panel || !this._draft ? l : d`
-      ${this._renderRadioGroupsEditor()} ${this._renderCoverEditor()}
+      ${this._renderModePicker()} ${this._renderRadioGroupsEditor()}
+      ${this._renderCoverEditor()}
           <div class="buttons-accordion">
             ${this._draft.buttons.filter((e) => e.index <= this._gangCount()).map((e) => {
-      var u, h, m, b, $;
+      var u, h, f, b, $;
       const t = !!this._expandedButtons[e.index], r = String(
         ((h = (u = e.action) == null ? void 0 : u.target) == null ? void 0 : h.entity_id) || ""
-      ), i = (e.name || "").trim() || "—", a = ((m = e.action) == null ? void 0 : m.action) || "", n = ((b = this._draft) == null ? void 0 : b.mode) === "radio_mandatory" || (($ = this._draft) == null ? void 0 : $.mode) === "radio_optional", s = e.radio_member !== !1, o = this._coverDirectionFor(e.index), c = o ? this.t(
+      ), i = (e.name || "").trim() || "—", a = ((f = e.action) == null ? void 0 : f.action) || "", n = ((b = this._draft) == null ? void 0 : b.mode) === "radio_mandatory" || (($ = this._draft) == null ? void 0 : $.mode) === "radio_optional", s = e.radio_member !== !1, o = this._coverDirectionFor(e.index), c = o ? this.t(
         o === "open" ? "card.cover_open" : "card.cover_close"
       ) : n ? s ? this.t("card.radio_member") : this.t("card.radio_toggle") : "", p = [a, r, c].filter(Boolean).join(" · ") || "—";
       return d`
@@ -4456,6 +4473,23 @@ _.styles = Ft`
       max-width: 100%;
     }
 
+    .mode-picker {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      width: max-content;
+      max-width: 100%;
+    }
+    .mode-picker .radio-member {
+      flex: 0 1 auto;
+      padding: 8px 10px;
+      min-height: 34px;
+    }
+    .mode-picker .radio-member-label {
+      font-size: 0.72rem;
+      white-space: nowrap;
+    }
+
     .color-select {
       display: grid;
       grid-template-columns: 18px 1fr;
@@ -5338,79 +5372,79 @@ g([
   vt({ attribute: !1 })
 ], _.prototype, "hass", 2);
 g([
-  f()
+  m()
 ], _.prototype, "_config", 2);
 g([
-  f()
+  m()
 ], _.prototype, "_panel", 2);
 g([
-  f()
+  m()
 ], _.prototype, "_draft", 2);
 g([
-  f()
+  m()
 ], _.prototype, "_saved", 2);
 g([
-  f()
+  m()
 ], _.prototype, "_error", 2);
 g([
-  f()
+  m()
 ], _.prototype, "_notice", 2);
 g([
-  f()
+  m()
 ], _.prototype, "_loading", 2);
 g([
-  f()
+  m()
 ], _.prototype, "_busy", 2);
 g([
-  f()
+  m()
 ], _.prototype, "_syncPulse", 2);
 g([
-  f()
+  m()
 ], _.prototype, "_pressedRing", 2);
 g([
-  f()
+  m()
 ], _.prototype, "_splitPreviewOn", 2);
 g([
-  f()
+  m()
 ], _.prototype, "_uiLang", 2);
 g([
-  f()
+  m()
 ], _.prototype, "_theme", 2);
 g([
-  f()
+  m()
 ], _.prototype, "_view", 2);
 g([
-  f()
+  m()
 ], _.prototype, "_wizardStep", 2);
 g([
-  f()
+  m()
 ], _.prototype, "_importMode", 2);
 g([
-  f()
+  m()
 ], _.prototype, "_serviceYaml", 2);
 g([
-  f()
+  m()
 ], _.prototype, "_sections", 2);
 g([
-  f()
+  m()
 ], _.prototype, "_expandedButtons", 2);
 g([
-  f()
+  m()
 ], _.prototype, "_activeTab", 2);
 g([
-  f()
+  m()
 ], _.prototype, "_menuOpen", 2);
 g([
-  f()
+  m()
 ], _.prototype, "_automationOpen", 2);
 g([
-  f()
+  m()
 ], _.prototype, "_previewOpen", 2);
 g([
-  f()
+  m()
 ], _.prototype, "_panelNameDraft", 2);
 g([
-  f()
+  m()
 ], _.prototype, "_radioGroupsOpen", 2);
 _ = g([
   Jt("conx-dynamic-panel-card")
@@ -5420,7 +5454,7 @@ var sr = Object.defineProperty, or = Object.getOwnPropertyDescriptor, yt = (e, t
     (s = e[n]) && (a = (i ? s(t, r, a) : s(a)) || a);
   return i && a && sr(t, r, a), a;
 };
-let J = class extends R {
+let J = class extends T {
   setConfig(e) {
     this._config = e;
   }
@@ -5447,7 +5481,7 @@ let J = class extends R {
     return d`
       <div class="editor" dir=${e ? "rtl" : "ltr"}>
         <label>
-          ${T(this._language, "editor.entry_id")}
+          ${M(this._language, "editor.entry_id")}
           <input
             .value=${this._config.entry_id || ""}
             @input=${(t) => this._valueChanged({
@@ -5456,7 +5490,7 @@ let J = class extends R {
           />
         </label>
         <label>
-          ${T(this._language, "card.language")}
+          ${M(this._language, "card.language")}
           <select
             .value=${W(this._config.language || this._language)}
             @change=${(t) => this._valueChanged({
@@ -5469,7 +5503,7 @@ let J = class extends R {
           </select>
         </label>
         <label>
-          ${T(this._language, "card.theme")}
+          ${M(this._language, "card.theme")}
           <select
             .value=${rt(this._config.theme)}
             @change=${(t) => this._valueChanged({
@@ -5478,7 +5512,7 @@ let J = class extends R {
           >
             ${xt.map(
       (t) => d`<option value=${t.id}>
-                ${T(this._language, `theme.${t.id}`)}
+                ${M(this._language, `theme.${t.id}`)}
               </option>`
     )}
           </select>
@@ -5491,7 +5525,7 @@ let J = class extends R {
       compact: t.target.checked
     })}
           />
-          ${T(this._language, "card.compact")}
+          ${M(this._language, "card.compact")}
         </label>
       </div>
     `;
@@ -5529,7 +5563,7 @@ yt([
   vt({ attribute: !1 })
 ], J.prototype, "hass", 2);
 yt([
-  f()
+  m()
 ], J.prototype, "_config", 2);
 J = yt([
   Jt("conx-dynamic-panel-card-editor")

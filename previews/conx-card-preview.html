@@ -596,6 +596,22 @@
       width: max-content;
       max-width: 100%;
     }
+    .mode-picker {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      width: max-content;
+      max-width: 100%;
+    }
+    .mode-picker .radio-member {
+      flex: 0 1 auto;
+      padding: 8px 10px;
+      min-height: 34px;
+    }
+    .mode-picker .radio-member-label {
+      font-size: .72rem;
+      white-space: nowrap;
+    }
     .color-select { display:grid; grid-template-columns:18px 1fr; align-items:center; gap:8px; }
     .swatch { width:18px; height:18px; border-radius:50%; border:1px solid rgba(0,0,0,.25); }
     .toggle-row { display:grid; gap:10px; }
@@ -1236,15 +1252,6 @@
 
           <section class="tab-panel" role="tabpanel" id="panel-appearance" data-section="appearance" aria-labelledby="tab-appearance" hidden>
             <div class="section-body-inner">
-              <label class="field"><span data-i18n="card.mode">Mode</span>
-                <select id="mode-select">
-                  <option value="toggle" data-i18n-option="mode.toggle">Toggle</option>
-                  <option value="radio_mandatory" data-i18n-option="mode.radio_mandatory">Radio mandatory</option>
-                  <option value="radio_optional" data-i18n-option="mode.radio_optional">Radio optional</option>
-                  <option value="radio_split" data-i18n-option="mode.radio_split">Radio split</option>
-                  <option value="cover" data-i18n-option="mode.cover">Cover / shutter</option>
-                </select>
-              </label>
               <div class="grid-2">
                 <label class="field"><span data-i18n="card.color_on">Color ON</span>
                   <div class="color-select"><span class="swatch" id="swatch-on"></span><select id="color-on"></select></div>
@@ -1276,6 +1283,9 @@
 
           <section class="tab-panel" role="tabpanel" id="panel-buttons" data-section="buttons" aria-labelledby="tab-buttons" hidden>
             <div class="section-body-inner">
+              <label class="field"><span data-i18n="card.mode">Mode</span>
+                <div class="mode-picker" id="mode-picker" role="radiogroup" data-mode-picker></div>
+              </label>
               <div class="radio-groups-section open" id="radio-groups-section-buttons" hidden>
                 <div class="radio-groups-head">
                   <div class="radio-groups-head-main">
@@ -1875,7 +1885,7 @@
       panelNameInput: document.getElementById("panel-name-input"),
       profileName: document.getElementById("profile-name-input"),
       heroProfileName: document.getElementById("hero-profile-name"),
-      modeSelect: document.getElementById("mode-select"),
+      modePicker: document.getElementById("mode-picker"),
       colorOn: document.getElementById("color-on"),
       colorOff: document.getElementById("color-off"),
       swatchOn: document.getElementById("swatch-on"),
@@ -2280,6 +2290,38 @@
       input.dataset.bound = "1";
       input.addEventListener("change", () => patchCover((cover) => apply(cover, input.value)));
     }
+    function setMode(mode) {
+      if (!state.draft || !PROFILE_MODES.includes(mode)) return;
+      state.draft.mode = mode;
+      // Leaving cover mode must never leave a simulated motion running.
+      coverHalt();
+      if (state.draft.mode === "radio_split") {
+        state.draft.radio_groups = normalizeRadioGroups(state.draft.radio_groups);
+        state.radioGroupsOpen = defaultRadioGroupsOpen();
+      } else if (state.draft.mode === "cover") {
+        state.draft.cover = normalizeCover(state.draft.cover);
+      } else if (state.draft.mode !== "toggle" && !state.draft.selected_button) {
+        state.draft.selected_button = 1;
+      }
+      markDirty(true);
+      renderModePicker();
+      renderFaceplate();
+      renderButtonsEditor();
+      renderRadioGroupsEditor();
+      renderCoverEditor();
+    }
+    function renderModePicker() {
+      if (!els.modePicker || !state.draft) return;
+      const selected = PROFILE_MODES.includes(state.draft.mode) ? state.draft.mode : "toggle";
+      els.modePicker.innerHTML = PROFILE_MODES.map((mode) => `
+        <button type="button" class="radio-member${selected === mode ? " on" : ""}" role="radio"
+          aria-checked="${selected === mode ? "true" : "false"}" data-mode="${mode}">
+          <span class="radio-member-label">${t("mode." + mode)}</span>
+        </button>`).join("");
+      els.modePicker.querySelectorAll("[data-mode]").forEach((chip) => {
+        chip.addEventListener("click", () => setMode(chip.dataset.mode));
+      });
+    }
     function renderCoverEditor() {
       const isCover = state.draft && state.draft.mode === "cover";
       if (els.coverSection) els.coverSection.hidden = !isCover;
@@ -2587,6 +2629,7 @@
       applyTheme();
       if (!state.dirty) els.statusBadge.textContent = t("card.synced_demo");
       else { els.dirtyWarn.textContent = t("card.unsaved"); els.statusBadge.textContent = t("card.status") + ": pending"; }
+      renderModePicker();
       renderButtonsEditor();
       renderRadioGroupsEditor();
       renderCoverEditor();
@@ -2599,7 +2642,7 @@
       syncPanelNameUi();
       els.profileName.value = d.name || "";
       syncHeroProfileName();
-      els.modeSelect.value = PROFILE_MODES.includes(d.mode) ? d.mode : "toggle";
+      renderModePicker();
       els.colorOn.value = d.color_on || "cyan";
       els.colorOff.value = d.color_off || "blue";
       els.radar.value = d.radar || "30s";
@@ -2794,24 +2837,7 @@
         syncHeroProfileName();
         markDirty(true); renderProfiles();
       });
-      els.modeSelect.addEventListener("change", () => {
-        state.draft.mode = els.modeSelect.value;
-        // Leaving cover mode must never leave a simulated motion running.
-        coverHalt();
-        if (state.draft.mode === "radio_split") {
-          state.draft.radio_groups = normalizeRadioGroups(state.draft.radio_groups);
-          state.radioGroupsOpen = defaultRadioGroupsOpen();
-        } else if (state.draft.mode === "cover") {
-          state.draft.cover = normalizeCover(state.draft.cover);
-        } else if (state.draft.mode !== "toggle" && !state.draft.selected_button) {
-          state.draft.selected_button = 1;
-        }
-        markDirty(true);
-        renderFaceplate();
-        renderButtonsEditor();
-        renderRadioGroupsEditor();
-        renderCoverEditor();
-      });
+      // Mode picker chips are bound in renderModePicker().
       document.querySelectorAll("[data-cover-command]").forEach((btn) => {
         btn.addEventListener("click", () => {
           const command = btn.dataset.coverCommand;

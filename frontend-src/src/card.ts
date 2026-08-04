@@ -716,6 +716,30 @@ export class ConXDynamicPanelCard extends LitElement {
     });
   }
 
+  private _setMode(mode: Profile["mode"]): void {
+    this._patchDraft((draft) => {
+      draft.mode = mode;
+      if (draft.mode === "cover") {
+        draft.covers = normalizeCovers(draft);
+        delete draft.cover;
+      } else if (draft.mode === "radio_split") {
+        this._ensureRadioGroups(draft);
+        this._setRadioGroupsOpen(true);
+      } else if (
+        draft.mode !== "toggle" &&
+        (draft.selected_button == null ||
+          !draft.buttons.some(
+            (b) =>
+              b.index === draft.selected_button && b.radio_member !== false
+          ))
+      ) {
+        const firstMember =
+          draft.buttons.find((b) => b.radio_member !== false)?.index ?? 1;
+        draft.selected_button = firstMember;
+      }
+    });
+  }
+
   /**
    * Assign a panel button to a direction. Choosing the button already used by
    * the other direction swaps them, so the pair can never collapse onto one
@@ -1898,49 +1922,41 @@ export class ConXDynamicPanelCard extends LitElement {
     }
   }
 
+  private _renderModePicker() {
+    if (!this._panel || !this._draft) {
+      return nothing;
+    }
+    const selected = this._draft.mode;
+    return html`
+      <label class="field">
+        <span>${this.t("card.mode")}</span>
+        <div class="mode-picker" role="radiogroup" data-mode-picker>
+          ${this._panel.capabilities.modes.map(
+            (mode) => html`
+              <button
+                type="button"
+                class="radio-member ${selected === mode ? "on" : ""}"
+                role="radio"
+                aria-checked=${selected === mode ? "true" : "false"}
+                data-mode=${mode}
+                ?disabled=${this._busy}
+                @click=${() => this._setMode(mode as Profile["mode"])}
+              >
+                <span class="radio-member-label">${this.t(`mode.${mode}`)}</span>
+              </button>
+            `
+          )}
+        </div>
+      </label>
+    `;
+  }
+
   private _renderAppearanceFields() {
     if (!this._panel || !this._draft) {
       return nothing;
     }
     return html`
 ${this._renderGangPicker()}
-<label class="field">
-            <span>${this.t("card.mode")}</span>
-            <div class="select-wrap">
-              <select
-                .value=${this._draft.mode}
-                ?disabled=${this._busy}
-                @change=${(e: Event) =>
-                  this._patchDraft((draft) => {
-                    draft.mode = (e.target as HTMLSelectElement).value as Profile["mode"];
-                    if (draft.mode === "cover") {
-                      draft.covers = normalizeCovers(draft);
-                      delete draft.cover;
-                    } else if (draft.mode === "radio_split") {
-                      this._ensureRadioGroups(draft);
-                      this._setRadioGroupsOpen(true);
-                    } else if (
-                      draft.mode !== "toggle" &&
-                      (draft.selected_button == null ||
-                        !draft.buttons.some(
-                          (b) =>
-                            b.index === draft.selected_button &&
-                            b.radio_member !== false
-                        ))
-                    ) {
-                      const firstMember =
-                        draft.buttons.find((b) => b.radio_member !== false)?.index ??
-                        1;
-                      draft.selected_button = firstMember;
-                    }
-                  })}
-              >
-                ${this._panel.capabilities.modes.map(
-                  (mode) => html`<option value=${mode}>${this.t(`mode.${mode}`)}</option>`
-                )}
-              </select>
-            </div>
-          </label>
           <div class="grid-2">
             <label class="field">
               <span>${this.t("card.color_on")}</span>
@@ -2063,7 +2079,8 @@ ${this._renderGangPicker()}
       return nothing;
     }
     return html`
-      ${this._renderRadioGroupsEditor()} ${this._renderCoverEditor()}
+      ${this._renderModePicker()} ${this._renderRadioGroupsEditor()}
+      ${this._renderCoverEditor()}
           <div class="buttons-accordion">
             ${this._draft.buttons
               .filter((button) => button.index <= this._gangCount())
@@ -3639,6 +3656,23 @@ ${this._renderGangPicker()}
       gap: 6px;
       width: max-content;
       max-width: 100%;
+    }
+
+    .mode-picker {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      width: max-content;
+      max-width: 100%;
+    }
+    .mode-picker .radio-member {
+      flex: 0 1 auto;
+      padding: 8px 10px;
+      min-height: 34px;
+    }
+    .mode-picker .radio-member-label {
+      font-size: 0.72rem;
+      white-space: nowrap;
     }
 
     .color-select {

@@ -669,10 +669,57 @@ describe("custom elements", () => {
     expect(el.shadowRoot?.querySelector(".profile-list")).toBeTruthy();
     el._activeTab = "appearance";
     await el.updateComplete;
-    expect(el.shadowRoot?.querySelector(".dimmer-field")).toBeTruthy();
+    const appearancePanel = el.shadowRoot?.querySelector(
+      ".tab-panel.active"
+    ) as HTMLElement;
+    expect(appearancePanel?.querySelector(".dimmer-field")).toBeTruthy();
+    expect(appearancePanel?.querySelector("[data-mode-picker]")).toBeFalsy();
     el._activeTab = "buttons";
     await el.updateComplete;
-    expect(el.shadowRoot?.querySelector(".button-edit")).toBeTruthy();
+    const buttonsPanel = el.shadowRoot?.querySelector(
+      ".tab-panel.active"
+    ) as HTMLElement;
+    expect(buttonsPanel?.querySelector(".button-edit")).toBeTruthy();
+    expect(buttonsPanel?.querySelector("[data-mode-picker]")).toBeTruthy();
+  });
+
+  it("places mode picker at the top of the buttons tab as compact chips", async () => {
+    const callWS = vi.fn().mockResolvedValue(panelPayload({ sync_status: "synced" }));
+    const el = await mountCard({ language: "en", callWS });
+    el._activeTab = "buttons";
+    await el.updateComplete;
+    const buttonsPanel = el.shadowRoot?.querySelector(
+      ".tab-panel.active"
+    ) as HTMLElement;
+    const modePicker = buttonsPanel?.querySelector(
+      "[data-mode-picker]"
+    ) as HTMLElement;
+    expect(modePicker).toBeTruthy();
+    expect(buttonsPanel.querySelector("select")).toBeFalsy();
+    const chips = [
+      ...(modePicker.querySelectorAll("button.radio-member[data-mode]") || []),
+    ] as HTMLButtonElement[];
+    expect(chips.map((chip) => chip.dataset.mode)).toEqual([
+      "toggle",
+      "radio_mandatory",
+      "radio_optional",
+      "radio_split",
+      "cover",
+    ]);
+    expect(modePicker.querySelector('[data-mode="toggle"]')?.classList.contains("on")).toBe(
+      true
+    );
+    (modePicker.querySelector('[data-mode="cover"]') as HTMLButtonElement).click();
+    await el.updateComplete;
+    expect(el._draft?.mode).toBe("cover");
+    const coverEl = el.shadowRoot?.querySelector("[data-cover-editor]");
+    expect(coverEl).toBeTruthy();
+    const modeEl = el.shadowRoot?.querySelector("[data-mode-picker]");
+    expect(
+      modeEl &&
+        coverEl &&
+        Boolean(modeEl.compareDocumentPosition(coverEl) & Node.DOCUMENT_POSITION_FOLLOWING)
+    ).toBe(true);
   });
 
   it("opens a copyable automation example from the settings menu", async () => {
