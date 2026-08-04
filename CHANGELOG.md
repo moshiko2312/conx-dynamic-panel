@@ -6,6 +6,7 @@ All notable changes to this private project will be documented here.
 
 ### Changed
 
+- Unsaved-draft warning (`card.unsaved` / `.warn.unsaved-draft`) is centered, bold red, and larger than body text so dirty draft state is unmistakable on noir and ivory (Lit card + HTML preview). Other status/notice/error banners keep their existing styling.
 - Profiles tab (step 1) now shows **profile chips + panel gang count** (`מספר גאנגים` / Panel gangs / Число кнопок) together so gang selection sits with profile context. Cover mode still repeats the gang picker for convenience when editing shutters; Appearance no longer hosts it.
 - Hero faceplate adapts to `gang_count`: only L1…Ln labels and LED rings render (Lit card + HTML preview). Bezel width/aspect stay locked to the **4-gang footprint**; unused slots stay empty so 1–3 gang profiles do not shrink the switch.
 

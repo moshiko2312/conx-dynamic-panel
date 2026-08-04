@@ -673,6 +673,17 @@ describe("custom elements", () => {
     expect(el._dirty).toBe(true);
     expect(callWS.mock.calls.length).toBe(before);
     expect(el.shadowRoot?.textContent).toMatch(/unsaved draft changes/i);
+    const warn = el.shadowRoot?.querySelector(".warn.unsaved-draft") as HTMLElement;
+    expect(warn).toBeTruthy();
+    expect(warn.getAttribute("role")).toBe("status");
+    // Emphasized unsaved-draft styles live on `.warn.unsaved-draft` in card CSS
+    // (centered, bold, larger red) — jsdom does not resolve adoptedStyleSheets.
+    const ctor = el.constructor as { styles?: { cssText?: string } | Array<{ cssText?: string }> };
+    const sheets = Array.isArray(ctor.styles) ? ctor.styles : ctor.styles ? [ctor.styles] : [];
+    const sheetText = sheets.map((sheet) => sheet.cssText || String(sheet)).join("\n");
+    expect(sheetText).toMatch(/\.warn\.unsaved-draft\s*\{[^}]*text-align:\s*center/s);
+    expect(sheetText).toMatch(/\.warn\.unsaved-draft\s*\{[^}]*font-weight:\s*700/s);
+    expect(sheetText).toMatch(/\.warn\.unsaved-draft\s*\{[^}]*font-size:\s*1\.2rem/s);
   });
 
   it("opens export wizard from main editor and returns with back control", async () => {

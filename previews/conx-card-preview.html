@@ -50,9 +50,9 @@
       --label: #c8ced6;
       --chip-active-bg: rgba(212,175,97,.18);
       --chip-active-text: #f0f2f5;
-      --warn-bg: rgba(212,175,97,.14);
-      --warn-border: rgba(212,175,97,.38);
-      --warn-text: #e8d5a3;
+      --warn-bg: rgba(255,107,107,.16);
+      --warn-border: rgba(255,107,107,.42);
+      --warn-text: #ff6b6b;
       --notice-bg: rgba(212,175,97,.14);
       --notice-border: rgba(212,175,97,.38);
       --notice-text: #efe0b8;
@@ -99,9 +99,9 @@
       --label: #3d434c;
       --chip-active-bg: rgba(138,115,72,.12);
       --chip-active-text: #1a1c1f;
-      --warn-bg: #eef1f5;
-      --warn-border: #c4a574;
-      --warn-text: #5c4a28;
+      --warn-bg: rgba(198,40,40,.10);
+      --warn-border: rgba(198,40,40,.36);
+      --warn-text: #c62828;
       --notice-bg: rgba(138,115,72,.10);
       --notice-border: rgba(138,115,72,.32);
       --notice-text: #4a3a1e;
@@ -334,7 +334,16 @@
     .status-syncing { color: var(--accent); }
 
     .warn, .notice { padding:10px 12px; border-radius:12px; margin-bottom:10px; font-size:.9rem; border:1px solid transparent; display:none; }
-    .warn { background:var(--warn-bg); border-color:var(--warn-border); color:var(--warn-text); }
+    .warn {
+      background: var(--warn-bg);
+      border-color: var(--warn-border);
+      color: var(--warn-text);
+      text-align: center;
+      font-weight: 700;
+      font-size: 1.2rem;
+      line-height: 1.35;
+      letter-spacing: 0.01em;
+    }
     .warn.visible, .notice.visible { display:block; }
     .notice { background:var(--notice-bg); border-color:var(--notice-border); color:var(--notice-text); }
 
@@ -1253,7 +1262,7 @@
         </div>
       </div>
 
-      <div class="warn" id="dirty-warn"></div>
+      <div class="warn unsaved-draft" id="dirty-warn" role="status"></div>
       <div class="notice" id="notice"></div>
 
       <!-- HERO: panel preview -->

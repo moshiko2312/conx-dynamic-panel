@@ -3280,7 +3280,7 @@ let _ = class extends T {
           </div>
         </div>
 
-        ${this._dirty ? d`<div class="warn">${this.t("card.unsaved")}</div>` : l}
+        ${this._dirty ? d`<div class="warn unsaved-draft" role="status">${this.t("card.unsaved")}</div>` : l}
         ${this._notice ? d`<div class="notice">${this._notice}</div>` : l}
         ${this._error || this._panel.last_error ? d`<div class="error">${this._error || this._panel.last_error}</div>` : l}
 
@@ -3664,6 +3664,7 @@ _.styles = Ft`
       --accent-soft: rgba(212, 175, 97, 0.16);
       --accent-text: #1a1d22;
       --danger: #b42318;
+      --unsaved-warn-text: #ff6b6b;
       --btn-bg: #2a2f38;
       --btn-text: #f0f2f5;
       --btn-border: rgba(255, 255, 255, 0.16);
@@ -3712,6 +3713,7 @@ _.styles = Ft`
       --accent-soft: rgba(212, 175, 97, 0.16);
       --accent-text: #1a1d22;
       --danger: #b42318;
+      --unsaved-warn-text: #ff6b6b;
       --btn-bg: #2a2f38;
       --btn-text: #f0f2f5;
       --btn-primary-bg: #d4af61;
@@ -3734,6 +3736,7 @@ _.styles = Ft`
       --accent-soft: rgba(138, 115, 72, 0.12);
       --accent-text: #ffffff;
       --danger: #b42318;
+      --unsaved-warn-text: #c62828;
       --btn-bg: #e8ecf1;
       --btn-text: #1a1c1f;
       --btn-border: #c0c6d0;
@@ -4219,9 +4222,16 @@ _.styles = Ft`
       border: 1px solid transparent;
     }
 
-    .warn {
-      background: color-mix(in srgb, var(--warning-color, #ed6c02) 14%, transparent);
-      border-color: color-mix(in srgb, var(--warning-color, #ed6c02) 28%, transparent);
+    /* Unsaved-draft banner only — centered, bold, larger red for clarity */
+    .warn.unsaved-draft {
+      text-align: center;
+      font-weight: 700;
+      font-size: 1.2rem;
+      line-height: 1.35;
+      letter-spacing: 0.01em;
+      color: var(--unsaved-warn-text, #ff5252);
+      background: color-mix(in srgb, var(--unsaved-warn-text, #ff5252) 16%, transparent);
+      border-color: color-mix(in srgb, var(--unsaved-warn-text, #ff5252) 40%, transparent);
     }
 
     .error {
