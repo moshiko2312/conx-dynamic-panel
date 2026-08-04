@@ -12,16 +12,19 @@ from homeassistant.helpers import device_registry as dr
 
 from .const import (
     ATTR_BUTTON,
+    ATTR_COMMAND,
     ATTR_DEVICE_ID,
     ATTR_ENTRY_ID,
     ATTR_MODE,
     ATTR_PAYLOAD,
     ATTR_PROFILE_ID,
     ATTR_SYNC,
+    COVER_COMMANDS,
     DOMAIN,
     IMPORT_MODE_MERGE,
     IMPORT_MODES,
     SERVICE_ACTIVATE_PROFILE,
+    SERVICE_COVER_COMMAND,
     SERVICE_EXECUTE_BUTTON,
     SERVICE_EXPORT_PROFILES,
     SERVICE_IMPORT_PROFILES,
@@ -80,6 +83,13 @@ async def async_register_services(hass: HomeAssistant) -> None:
         coordinator = _get_coordinator(hass, call)
         await coordinator.async_execute_button(int(call.data[ATTR_BUTTON]))
 
+    async def handle_cover_command(call: ServiceCall) -> None:
+        coordinator = _get_coordinator(hass, call)
+        try:
+            await coordinator.async_cover_command(str(call.data[ATTR_COMMAND]))
+        except ValueError as err:
+            raise HomeAssistantError(str(err)) from err
+
     async def handle_reload(call: ServiceCall) -> None:
         entry_id = call.data.get(ATTR_ENTRY_ID)
         if entry_id:
@@ -136,6 +146,14 @@ async def async_register_services(hass: HomeAssistant) -> None:
     )
     hass.services.async_register(
         DOMAIN,
+        SERVICE_COVER_COMMAND,
+        handle_cover_command,
+        schema=ENTRY_SCHEMA.extend(
+            {vol.Required(ATTR_COMMAND): vol.In(list(COVER_COMMANDS))}
+        ),
+    )
+    hass.services.async_register(
+        DOMAIN,
         SERVICE_RELOAD,
         handle_reload,
         schema=vol.Schema({vol.Optional(ATTR_ENTRY_ID): cv.string}),
@@ -168,6 +186,7 @@ def async_unregister_services(hass: HomeAssistant) -> None:
         SERVICE_ACTIVATE_PROFILE,
         SERVICE_PULL_FROM_PANEL,
         SERVICE_EXECUTE_BUTTON,
+        SERVICE_COVER_COMMAND,
         SERVICE_RELOAD,
         SERVICE_EXPORT_PROFILES,
         SERVICE_IMPORT_PROFILES,

@@ -17,6 +17,7 @@ from ..const import (
     DEFAULT_BACKLIGHT_BRIGHTNESS,
     DEFAULT_COLORS,
     DEFAULT_RADAR,
+    MODE_COVER,
 )
 from ..exceptions import HardwareWriteError, MappingValidationError
 from ..models import (
@@ -234,6 +235,11 @@ class Zemismart4GangAdapter(PanelAdapter):
 
     async def _async_apply_relay_mode(self, profile: Profile) -> None:
         """Apply relay pattern required by the profile mode for radio members only."""
+        if profile.mode == MODE_COVER:
+            # A synced cover always lands de-energized: both direction relays OFF.
+            for index in profile.cover.relay_indexes():
+                await self.async_set_relay(index, False, suppress_event=True)
+            return
         # Toggle and radio_split leave relays as-is; exclusivity is enforced on press.
         if profile.mode in {"toggle", "radio_split"}:
             return

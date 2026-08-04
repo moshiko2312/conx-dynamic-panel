@@ -17,10 +17,38 @@ export interface RadioGroup {
   buttons: number[];
 }
 
+export type CoverOppositePress = "stop_only" | "stop_then_reverse";
+
+/** Cover/shutter wiring and travel timing enforced by the backend engine. */
+export interface CoverConfig {
+  /** 1-based panel button that drives the open direction. */
+  open_button: number;
+  /** 1-based panel button that drives the close direction. */
+  close_button: number;
+  open_time_s: number;
+  close_time_s: number;
+  /** Dead time between de-energizing one direction and energizing the other. */
+  direction_settle_s: number;
+  opposite_press: CoverOppositePress;
+}
+
+export interface CoverState {
+  active: boolean;
+  state: "idle" | "open" | "close";
+  direction: "open" | "close" | null;
+  duration: number | null;
+  reason: string | null;
+}
+
 export interface Profile {
   id: string;
   name: string;
-  mode: "toggle" | "radio_mandatory" | "radio_optional" | "radio_split";
+  mode:
+    | "toggle"
+    | "radio_mandatory"
+    | "radio_optional"
+    | "radio_split"
+    | "cover";
   color_on: string;
   color_off: string;
   radar: string;
@@ -32,6 +60,8 @@ export interface Profile {
   buttons: ButtonConfig[];
   /** Classic radio groups for radio_split (exactly one ON per group; ungrouped stay toggles). */
   radio_groups?: RadioGroup[];
+  /** Cover/shutter mapping and travel times, used when mode is cover. */
+  cover?: CoverConfig;
 }
 
 export interface PanelConfig {
@@ -48,9 +78,17 @@ export interface PanelConfig {
     radar: string[];
     modes: string[];
     button_count: number;
+    cover?: {
+      min_time_s: number;
+      max_time_s: number;
+      min_settle_s: number;
+      max_settle_s: number;
+      opposite_press: string[];
+    };
   };
   profiles: Record<string, Profile>;
   applied_snapshot: Record<string, unknown>;
+  cover_state?: CoverState;
 }
 
 export interface ProfilesExport {

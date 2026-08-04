@@ -10,11 +10,25 @@ from .const import (
     BACKLIGHT_BRIGHTNESS_MAX,
     BACKLIGHT_BRIGHTNESS_MIN,
     BUTTON_COUNT,
+    COVER_DEFAULT_CLOSE_BUTTON,
+    COVER_DEFAULT_CLOSE_TIME,
+    COVER_DEFAULT_OPEN_BUTTON,
+    COVER_DEFAULT_OPEN_TIME,
+    COVER_DEFAULT_SETTLE,
+    COVER_DIRECTION_CLOSE,
+    COVER_DIRECTION_OPEN,
+    COVER_OPPOSITE_MODES,
+    COVER_OPPOSITE_STOP_ONLY,
+    COVER_SETTLE_MAX,
+    COVER_SETTLE_MIN,
+    COVER_TIME_MAX,
+    COVER_TIME_MIN,
     DEFAULT_BACKLIGHT_BRIGHTNESS,
     DEFAULT_COLORS,
     DEFAULT_RADAR,
     MODE_TOGGLE,
     STORAGE_VERSION,
+    SUPPORTED_MODES,
     SYNC_PENDING,
     SYNC_SYNCED,
 )
@@ -28,8 +42,158 @@ def clamp_backlight_brightness(value: Any) -> int:
         return DEFAULT_BACKLIGHT_BRIGHTNESS
     return max(BACKLIGHT_BRIGHTNESS_MIN, min(BACKLIGHT_BRIGHTNESS_MAX, brightness))
 
-ButtonMode = Literal["toggle", "radio_mandatory", "radio_optional", "radio_split"]
+ButtonMode = Literal["toggle", "radio_mandatory", "radio_optional", "radio_split", "cover"]
 SyncStatus = Literal["synced", "pending", "syncing", "error", "out_of_sync"]
+CoverDirection = Literal["open", "close"]
+
+
+def clamp_cover_time(value: Any, default: float) -> float:
+    """Clamp a cover travel time to the supported seconds range."""
+    try:
+        seconds = float(value)
+    except (TypeError, ValueError):
+        return default
+    if seconds != seconds:  # NaN
+        return default
+    return max(COVER_TIME_MIN, min(COVER_TIME_MAX, seconds))
+
+
+def clamp_cover_settle(value: Any) -> float:
+    """Clamp the direction-change dead time to the supported seconds range."""
+    try:
+        seconds = float(value)
+    except (TypeError, ValueError):
+        return COVER_DEFAULT_SETTLE
+    if seconds != seconds:  # NaN
+        return COVER_DEFAULT_SETTLE
+    return max(COVER_SETTLE_MIN, min(COVER_SETTLE_MAX, seconds))
+
+
+def _clamp_button_index(value: Any, default: int) -> int:
+    try:
+        index = int(value)
+    except (TypeError, ValueError):
+        return default
+    if index < 1 or index > BUTTON_COUNT:
+        return default
+    return index
+
+
+@dataclass(slots=True)
+class CoverConfig:
+    """Cover/shutter wiring and travel timing for a cover-mode profile.
+
+    ``open_button`` and ``close_button`` are 1-based panel button indexes, so any
+    of L1–L4 can drive either direction. Times are the seconds a direction relay
+    stays energized before the engine forces it off.
+    """
+
+    open_button: int = COVER_DEFAULT_OPEN_BUTTON
+    close_button: int = COVER_DEFAULT_CLOSE_BUTTON
+    open_time_s: float = COVER_DEFAULT_OPEN_TIME
+    close_time_s: float = COVER_DEFAULT_CLOSE_TIME
+    direction_settle_s: float = COVER_DEFAULT_SETTLE
+    opposite_press: str = COVER_OPPOSITE_STOP_ONLY
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize cover config."""
+        return {
+            "open_button": self.open_button,
+            "close_button": self.close_button,
+            "open_time_s": self.open_time_s,
+            "close_time_s": self.close_time_s,
+            "direction_settle_s": self.direction_settle_s,
+            "opposite_press": self.opposite_press,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any] | None) -> CoverConfig:
+        """Deserialize cover config, clamping every value into safe ranges.
+
+        Button equality is preserved instead of repaired so that
+        :func:`validate_cover_config` can reject it explicitly.
+        """
+        data = data or {}
+        opposite = str(data.get("opposite_press") or COVER_OPPOSITE_STOP_ONLY)
+        if opposite not in COVER_OPPOSITE_MODES:
+            opposite = COVER_OPPOSITE_STOP_ONLY
+        return cls(
+            open_button=_clamp_button_index(
+                data.get("open_button"), COVER_DEFAULT_OPEN_BUTTON
+            ),
+            close_button=_clamp_button_index(
+                data.get("close_button"), COVER_DEFAULT_CLOSE_BUTTON
+            ),
+            open_time_s=clamp_cover_time(data.get("open_time_s"), COVER_DEFAULT_OPEN_TIME),
+            close_time_s=clamp_cover_time(
+                data.get("close_time_s"), COVER_DEFAULT_CLOSE_TIME
+            ),
+            direction_settle_s=clamp_cover_settle(data.get("direction_settle_s")),
+            opposite_press=opposite,
+        )
+
+    def direction_for(self, button_index: int) -> CoverDirection | None:
+        """Return the travel direction a button drives, if any."""
+        if button_index == self.open_button:
+            return COVER_DIRECTION_OPEN  # type: ignore[return-value]
+        if button_index == self.close_button:
+            return COVER_DIRECTION_CLOSE  # type: ignore[return-value]
+        return None
+
+    def button_for(self, direction: str) -> int:
+        """Return the panel button index driving a direction."""
+        return self.open_button if direction == COVER_DIRECTION_OPEN else self.close_button
+
+    def opposite_direction(self, direction: str) -> CoverDirection:
+        """Return the inverse travel direction."""
+        return (  # type: ignore[return-value]
+            COVER_DIRECTION_CLOSE
+            if direction == COVER_DIRECTION_OPEN
+            else COVER_DIRECTION_OPEN
+        )
+
+    def duration_for(self, direction: str) -> float:
+        """Return the travel time for a direction."""
+        return (
+            self.open_time_s if direction == COVER_DIRECTION_OPEN else self.close_time_s
+        )
+
+    def relay_indexes(self) -> tuple[int, int]:
+        """Return both direction relay indexes (open first)."""
+        return (self.open_button, self.close_button)
+
+
+def normalize_cover(raw: Any) -> CoverConfig:
+    """Normalize a stored/posted cover payload into a CoverConfig."""
+    if isinstance(raw, CoverConfig):
+        return CoverConfig.from_dict(raw.to_dict())
+    if isinstance(raw, dict):
+        return CoverConfig.from_dict(raw)
+    return CoverConfig()
+
+
+def validate_cover_config(cover: CoverConfig) -> None:
+    """Raise ValueError when a cover configuration is unsafe to run."""
+    if cover.open_button == cover.close_button:
+        raise ValueError("Cover open and close buttons must be different panel buttons")
+    for index in cover.relay_indexes():
+        if index < 1 or index > BUTTON_COUNT:
+            raise ValueError(f"Cover button {index} is outside 1-{BUTTON_COUNT}")
+    for label, seconds in (
+        ("open_time_s", cover.open_time_s),
+        ("close_time_s", cover.close_time_s),
+    ):
+        if not COVER_TIME_MIN <= seconds <= COVER_TIME_MAX:
+            raise ValueError(
+                f"Cover {label} must be between {COVER_TIME_MIN} and {COVER_TIME_MAX} seconds"
+            )
+    if not COVER_SETTLE_MIN <= cover.direction_settle_s <= COVER_SETTLE_MAX:
+        raise ValueError(
+            f"Cover direction_settle_s must be between {COVER_SETTLE_MIN} "
+            f"and {COVER_SETTLE_MAX} seconds"
+        )
+    if cover.opposite_press not in COVER_OPPOSITE_MODES:
+        raise ValueError(f"Unsupported cover opposite_press: {cover.opposite_press}")
 
 
 @dataclass(slots=True)
@@ -174,6 +338,7 @@ class Profile:
     selected_button: int | None = None
     buttons: list[ButtonConfig] = field(default_factory=list)
     radio_groups: list[RadioGroup] = field(default_factory=list)
+    cover: CoverConfig = field(default_factory=CoverConfig)
 
     def __post_init__(self) -> None:
         by_index = {button.index: button for button in self.buttons}
@@ -183,6 +348,7 @@ class Profile:
         ]
         self.backlight_brightness = clamp_backlight_brightness(self.backlight_brightness)
         self.radio_groups = normalize_radio_groups(self.radio_groups)
+        self.cover = normalize_cover(self.cover)
 
     def button_names(self) -> tuple[str, str, str, str]:
         """Return ordered button names."""
@@ -204,6 +370,10 @@ class Profile:
         """Return 1-based indexes of buttons that participate in radio mode."""
         members = [button.index for button in self.buttons if button.radio_member]
         return members or list(range(1, BUTTON_COUNT + 1))
+
+    def is_cover_button(self, index: int) -> bool:
+        """Return whether a button drives the cover motor in cover mode."""
+        return self.cover.direction_for(index) is not None
 
     def radio_group_for(self, index: int) -> RadioGroup | None:
         """Return the radio_split group containing a button, if any."""
@@ -227,6 +397,7 @@ class Profile:
             "selected_button": self.selected_button,
             "buttons": [button.to_dict() for button in self.buttons],
             "radio_groups": [group.to_dict() for group in self.radio_groups],
+            "cover": self.cover.to_dict(),
         }
 
     @classmethod
@@ -248,6 +419,7 @@ class Profile:
             selected_button=data.get("selected_button"),
             buttons=buttons,
             radio_groups=normalize_radio_groups(data.get("radio_groups")),
+            cover=normalize_cover(data.get("cover")),
         )
 
     def clone(self, new_id: str, new_name: str | None = None) -> Profile:
@@ -474,6 +646,13 @@ def capability_defaults() -> dict[str, Any]:
     return {
         "colors": list(DEFAULT_COLORS),
         "radar": list(DEFAULT_RADAR),
-        "modes": ["toggle", "radio_mandatory", "radio_optional", "radio_split"],
+        "modes": list(SUPPORTED_MODES),
         "button_count": BUTTON_COUNT,
+        "cover": {
+            "min_time_s": COVER_TIME_MIN,
+            "max_time_s": COVER_TIME_MAX,
+            "min_settle_s": COVER_SETTLE_MIN,
+            "max_settle_s": COVER_SETTLE_MAX,
+            "opposite_press": list(COVER_OPPOSITE_MODES),
+        },
     }

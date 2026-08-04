@@ -6,6 +6,14 @@ All notable changes to this private project will be documented here.
 
 ### Added
 
+- Profile mode `cover` for timed shutter/awning control. The installer maps any two of L1–L4 to open and close and sets a travel time per direction; the remaining buttons stay independent toggles. The whole engine lives in the coordinator, so physical presses, the card, services, and automations all share one code path.
+  - **Hard mutual exclusion:** the engine never energizes both directions. A direction may only start after the opposite relay has been switched off and that write has succeeded; a failed write halts instead of starting. All decisions run under a per-entry `asyncio.Lock`.
+  - Press the same direction while moving → full stop (both relays OFF, timer cancelled). Press the opposite direction while moving → always stop first, then either end there (`stop_only`, default) or wait `direction_settle_s` and reverse (`stop_then_reverse`).
+  - Both relays are forced OFF on stop, travel-timer expiry, relay write failure, unsafe cover config, profile activation/update/delete/import, sync, integration setup, and unload. Setup is included, so a restart mid-travel cannot inherit an energized relay. The last energized relay pair is remembered in runtime state, so a mid-travel profile switch still de-energizes the buttons actually wired to the motor.
+  - New `cover` profile block: `open_button`, `close_button`, `open_time_s` / `close_time_s` (`1–600 s`), `direction_settle_s` (`0–5 s`), `opposite_press`. Values are clamped on load and older stored profiles gain defaults without a storage schema bump.
+  - New service `conx_dynamic_panel.cover_command` and WebSocket command `conx_dynamic_panel/cover_command` (`open` / `close` / `stop`), plus a `conx_dynamic_panel_cover_state` bus event carrying direction, reason, mapped buttons, and duration.
+  - Card and HTML preview gain a **Cover / shutter** editor (button pickers that swap instead of colliding, travel times, direction-change delay, opposite-press policy) and a live **Cover control** row with Open / Stop / Close and the current state, in EN/HE/RU.
+  - `tests/test_cover_engine.py` uses an adapter fake that raises if both directions are ever energized, and covers repress-to-stop, opposite-press in both policies, timer expiry, rapid alternating presses, profile switch/update/sync/unload cancellation, failed energize, unsafe config, and non-cover buttons.
 - Hamburger menu entry **Automation example** opening a large centered modal with a copy-ready Home Assistant automation that switches profiles by time of day. Every branch calls `conx_dynamic_panel.activate_profile` with `sync: true`, and the card pre-fills the panel's own `entry_id` and profile ids (card + HTML preview, HE/EN/RU).
 - `examples/automations.yaml`: `conx_profile_by_time_of_day` automation matching the in-card example.
 - ConX brand icon and logo in `custom_components/conx_dynamic_panel/brand/` (`icon.png` 256x256, `icon@2x.png` 512x512, `logo.png` 664x256, `logo@2x.png` 1329x512). Home Assistant 2026.3+ serves these through `/api/brands/integration/conx_dynamic_panel/...` and prefers them over the public brands CDN, so the integrations UI shows ConX branding without a `home-assistant/brands` submission. Installed automatically by `scripts/install_local.sh` / `scripts/update_local.sh`.
@@ -21,12 +29,14 @@ All notable changes to this private project will be documented here.
 
 - `pytest` no longer collects iCloud Drive `"<name> 2.py"` conflict copies, which are gitignored but were left behind next to the real test modules and failed against current behavior.
 - `pyproject.toml` and `frontend-src/package-lock.json` now report `0.1.1`, matching `manifest.json` and `package.json`.
+- Suppression tracker drops a stale expectation when the observed transition does not match it, instead of keeping it around to swallow a later, unrelated physical press.
 
 ### Documentation
 
 - `README.md`: brand icon table with install behaviour per Home Assistant version, corrected radio-groups card UX description, refreshed repository tree, and troubleshooting rows for the generic integration icon and for automations that omit `sync: true`.
 - `docs/PRIVATE_DEPLOYMENT.md`: step-by-step install walkthrough (build → copy component → restart → add integration → map entities → card resource → card → hard refresh), a brand-icons section, an explicit draft-versus-sync explanation, guidance for switching profiles from automations, and an installer-facing card overview.
-- `AI_BUILD_SPEC.md`: brand-image requirements, including that the local `brand/` directory is the shipping path and that no `home-assistant/brands` pull request is to be opened.
+- `AI_BUILD_SPEC.md`: full cover-mode behavior contract and schema, plus brand-image requirements, including that the local `brand/` directory is the shipping path and that no `home-assistant/brands` pull request is to be opened.
+- `README.md`: cover-mode section with the press/stop/reverse table and the fail-safe list, the `cover_command` service, card UX notes, and a troubleshooting row for an unsafe cover mapping.
 - Documented honestly that Home Assistant older than 2026.3 has no supported local brand override and will keep showing the generic integration icon.
 
 ## [0.1.1] - 2026-08-03

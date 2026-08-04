@@ -38,18 +38,23 @@ class SuppressionTracker:
         )
 
     def should_suppress(self, entity_id: str, new_state: str) -> bool:
-        """Consume and suppress a matching expected transition."""
+        """Consume and suppress a matching expected transition.
+
+        A transition to a different state proves the expectation can no longer
+        arrive (a write that never produced an event, or hardware drift), so the
+        stale entry is dropped instead of swallowing a later physical press.
+        """
         self.cleanup()
-        expected = self._expected.get(entity_id)
+        expected = self._expected.pop(entity_id, None)
         if expected is None:
             return False
         if expected.expected_state != new_state:
             return False
-        if expected.expires_at < time.monotonic():
-            self._expected.pop(entity_id, None)
-            return False
+        return expected.expires_at >= time.monotonic()
+
+    def discard(self, entity_id: str) -> None:
+        """Drop any pending expectation for one entity."""
         self._expected.pop(entity_id, None)
-        return True
 
     def cleanup(self) -> None:
         """Remove expired entries lazily."""

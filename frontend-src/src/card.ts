@@ -1,7 +1,12 @@
 import { LitElement, css, html, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import {
+  COVER_SETTLE_MAX,
+  COVER_SETTLE_MIN,
+  COVER_TIME_MAX,
+  COVER_TIME_MIN,
   cloneProfile,
+  coverCommand,
   createProfile,
   deleteProfile,
   downloadJson,
@@ -9,6 +14,7 @@ import {
   exportProfiles,
   fetchConfig,
   importProfiles,
+  normalizeCover,
   profilesEqual,
   pullPanel,
   setActiveProfile,
@@ -39,7 +45,13 @@ import {
   persistTheme,
   resolveTheme,
 } from "./themes";
-import type { CardConfig, HomeAssistant, PanelConfig, Profile } from "./types";
+import type {
+  CardConfig,
+  CoverConfig,
+  HomeAssistant,
+  PanelConfig,
+  Profile,
+} from "./types";
 
 type SectionId =
   | "profiles"
@@ -614,6 +626,273 @@ export class ConXDynamicPanelCard extends LitElement {
     return parts.join(" · ");
   }
 
+  private _coverConfig(profile?: Profile): CoverConfig {
+    return normalizeCover((profile || this._draft)?.cover);
+  }
+
+  private _isCoverButton(buttonIndex: number): boolean {
+    if (this._draft?.mode !== "cover") {
+      return false;
+    }
+    const cover = this._coverConfig();
+    return cover.open_button === buttonIndex || cover.close_button === buttonIndex;
+  }
+
+  private _coverDirectionFor(buttonIndex: number): "open" | "close" | null {
+    if (this._draft?.mode !== "cover") {
+      return null;
+    }
+    const cover = this._coverConfig();
+    if (cover.open_button === buttonIndex) return "open";
+    if (cover.close_button === buttonIndex) return "close";
+    return null;
+  }
+
+  private _patchCover(mutate: (cover: CoverConfig) => void): void {
+    this._patchDraft((draft) => {
+      const cover = normalizeCover(draft.cover);
+      mutate(cover);
+      draft.cover = cover;
+    });
+  }
+
+  /**
+   * Assign a panel button to a direction. Choosing the button already used by
+   * the other direction swaps them, so the pair can never collapse onto one
+   * button and leave the motor without a stop path.
+   */
+  private _setCoverButton(direction: "open" | "close", buttonIndex: number): void {
+    this._patchCover((cover) => {
+      const previous =
+        direction === "open" ? cover.open_button : cover.close_button;
+      if (direction === "open") {
+        if (cover.close_button === buttonIndex) {
+          cover.close_button = previous;
+        }
+        cover.open_button = buttonIndex;
+      } else {
+        if (cover.open_button === buttonIndex) {
+          cover.open_button = previous;
+        }
+        cover.close_button = buttonIndex;
+      }
+    });
+  }
+
+  private _setCoverTime(direction: "open" | "close", value: number): void {
+    const seconds = Math.max(
+      COVER_TIME_MIN,
+      Math.min(COVER_TIME_MAX, Number.isFinite(value) ? value : COVER_TIME_MIN)
+    );
+    this._patchCover((cover) => {
+      if (direction === "open") {
+        cover.open_time_s = seconds;
+      } else {
+        cover.close_time_s = seconds;
+      }
+    });
+  }
+
+  private async _coverCommand(command: "open" | "close" | "stop"): Promise<void> {
+    if (!this.hass || !this._config) {
+      return;
+    }
+    this._busy = true;
+    this._error = undefined;
+    try {
+      const state = await coverCommand(this.hass, this._config.entry_id, command);
+      if (this._panel) {
+        this._panel = { ...this._panel, cover_state: state };
+      }
+    } catch (err) {
+      this._error = err instanceof Error ? err.message : String(err);
+    } finally {
+      this._busy = false;
+    }
+  }
+
+  private _coverStateLabel(): string {
+    const state = this._panel?.cover_state?.state || "idle";
+    return this.t(`card.cover_state_${state}`);
+  }
+
+  private _renderCoverButtonPicker(direction: "open" | "close") {
+    const cover = this._coverConfig();
+    const selected = direction === "open" ? cover.open_button : cover.close_button;
+    return html`
+      <div class="cover-buttons" role="radiogroup">
+        ${[1, 2, 3, 4].map(
+          (buttonIndex) => html`
+            <button
+              type="button"
+              class="radio-member ${selected === buttonIndex ? "on" : ""}"
+              role="radio"
+              aria-checked=${selected === buttonIndex ? "true" : "false"}
+              ?disabled=${this._busy}
+              @click=${() => this._setCoverButton(direction, buttonIndex)}
+            >
+              <span class="radio-member-label">L${buttonIndex}</span>
+            </button>
+          `
+        )}
+      </div>
+    `;
+  }
+
+  private _renderCoverEditor() {
+    if (!this._draft || this._draft.mode !== "cover") {
+      return nothing;
+    }
+    const cover = this._coverConfig();
+    const limits = this._panel?.capabilities.cover;
+    const minTime = limits?.min_time_s ?? COVER_TIME_MIN;
+    const maxTime = limits?.max_time_s ?? COVER_TIME_MAX;
+    const unit = this.t("card.cover_seconds");
+    return html`
+      <div class="cover-section" data-cover-editor>
+        <div class="cover-head">
+          <span class="menu-label">${this.t("card.cover")}</span>
+        </div>
+        <p class="radio-groups-hint">${this.t("card.cover_hint")}</p>
+        <div class="cover-grid">
+          <div class="cover-field">
+            <span class="cover-label">${this.t("card.cover_open_button")}</span>
+            ${this._renderCoverButtonPicker("open")}
+          </div>
+          <div class="cover-field">
+            <span class="cover-label">${this.t("card.cover_close_button")}</span>
+            ${this._renderCoverButtonPicker("close")}
+          </div>
+        </div>
+        <div class="grid-2">
+          <label class="field">
+            <span>${this.t("card.cover_open_time")} (${unit})</span>
+            <input
+              type="number"
+              data-cover-open-time
+              min=${minTime}
+              max=${maxTime}
+              step="0.5"
+              .value=${String(cover.open_time_s)}
+              ?disabled=${this._busy}
+              @change=${(e: Event) =>
+                this._setCoverTime("open", Number((e.target as HTMLInputElement).value))}
+            />
+          </label>
+          <label class="field">
+            <span>${this.t("card.cover_close_time")} (${unit})</span>
+            <input
+              type="number"
+              data-cover-close-time
+              min=${minTime}
+              max=${maxTime}
+              step="0.5"
+              .value=${String(cover.close_time_s)}
+              ?disabled=${this._busy}
+              @change=${(e: Event) =>
+                this._setCoverTime("close", Number((e.target as HTMLInputElement).value))}
+            />
+          </label>
+        </div>
+        <label class="field">
+          <span>${this.t("card.cover_settle")} (${unit})</span>
+          <input
+            type="number"
+            data-cover-settle
+            min=${limits?.min_settle_s ?? COVER_SETTLE_MIN}
+            max=${limits?.max_settle_s ?? COVER_SETTLE_MAX}
+            step="0.1"
+            .value=${String(cover.direction_settle_s)}
+            ?disabled=${this._busy}
+            @change=${(e: Event) => {
+              const value = Number((e.target as HTMLInputElement).value);
+              this._patchCover((draftCover) => {
+                draftCover.direction_settle_s = Math.max(
+                  COVER_SETTLE_MIN,
+                  Math.min(COVER_SETTLE_MAX, Number.isFinite(value) ? value : 0)
+                );
+              });
+            }}
+          />
+        </label>
+        <p class="radio-groups-hint">${this.t("card.cover_settle_hint")}</p>
+        <label class="field">
+          <span>${this.t("card.cover_opposite")}</span>
+          <div class="select-wrap">
+            <select
+              data-cover-opposite
+              .value=${cover.opposite_press}
+              ?disabled=${this._busy}
+              @change=${(e: Event) => {
+                const value = (e.target as HTMLSelectElement).value;
+                this._patchCover((draftCover) => {
+                  draftCover.opposite_press =
+                    value === "stop_then_reverse" ? "stop_then_reverse" : "stop_only";
+                });
+              }}
+            >
+              <option value="stop_only">${this.t("cover.stop_only")}</option>
+              <option value="stop_then_reverse">
+                ${this.t("cover.stop_then_reverse")}
+              </option>
+            </select>
+          </div>
+        </label>
+        ${cover.open_button === cover.close_button
+          ? html`<div class="radio-groups-error">
+              ${this.t("card.cover_same_button")}
+            </div>`
+          : nothing}
+        <p class="cover-safety">${this.t("card.cover_safety")}</p>
+      </div>
+    `;
+  }
+
+  /** Live open/close/stop, routed through the backend engine (never direct relays). */
+  private _renderCoverControl() {
+    if (this._saved?.mode !== "cover") {
+      return nothing;
+    }
+    const state = this._panel?.cover_state?.state || "idle";
+    return html`
+      <div class="cover-control" data-cover-control>
+        <div class="cover-control-head">
+          <span class="menu-label">${this.t("card.cover_live")}</span>
+          <span class="cover-state cover-state-${state}">${this._coverStateLabel()}</span>
+        </div>
+        <div class="cover-control-row">
+          <button
+            type="button"
+            class="btn"
+            data-cover-open
+            ?disabled=${this._busy}
+            @click=${() => this._coverCommand("open")}
+          >
+            ${this.t("card.cover_open")}
+          </button>
+          <button
+            type="button"
+            class="btn danger"
+            data-cover-stop
+            ?disabled=${this._busy}
+            @click=${() => this._coverCommand("stop")}
+          >
+            ${this.t("card.cover_stop")}
+          </button>
+          <button
+            type="button"
+            class="btn"
+            data-cover-close
+            ?disabled=${this._busy}
+            @click=${() => this._coverCommand("close")}
+          >
+            ${this.t("card.cover_close")}
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
   private async _guardDirty(): Promise<boolean> {
     if (!this._dirty) {
       return true;
@@ -984,6 +1263,17 @@ export class ConXDynamicPanelCard extends LitElement {
     if (!this._draft) {
       return false;
     }
+    if (this._draft.mode === "cover") {
+      const direction = this._coverDirectionFor(buttonIndex);
+      if (direction) {
+        // A direction ring is lit only while the engine reports that travel.
+        const live = this._panel?.cover_state;
+        if (live?.active) {
+          return live.direction === direction;
+        }
+        return Boolean(this._splitPreviewOn[buttonIndex]);
+      }
+    }
     if (this._draft.mode === "radio_split") {
       const entityId = this._buttonEntityId(buttonIndex);
       if (entityId) {
@@ -1017,6 +1307,23 @@ export class ConXDynamicPanelCard extends LitElement {
       }
     }, 180);
     if (!this._draft || this._draft.mode === "toggle") {
+      return;
+    }
+    if (this._draft.mode === "cover") {
+      const direction = this._coverDirectionFor(buttonIndex);
+      if (!direction) {
+        return;
+      }
+      const cover = this._coverConfig();
+      const opposite =
+        direction === "open" ? cover.close_button : cover.open_button;
+      // Preview mirrors the engine: pressing again stops, and the two
+      // directions are never lit together.
+      this._splitPreviewOn = {
+        ...this._splitPreviewOn,
+        [buttonIndex]: !this._splitPreviewOn[buttonIndex],
+        [opposite]: false,
+      };
       return;
     }
     if (this._draft.mode === "radio_split") {
@@ -1346,7 +1653,9 @@ export class ConXDynamicPanelCard extends LitElement {
                 @change=${(e: Event) =>
                   this._patchDraft((draft) => {
                     draft.mode = (e.target as HTMLSelectElement).value as Profile["mode"];
-                    if (draft.mode === "radio_split") {
+                    if (draft.mode === "cover") {
+                      draft.cover = normalizeCover(draft.cover);
+                    } else if (draft.mode === "radio_split") {
                       this._ensureRadioGroups(draft);
                       this._setRadioGroupsOpen(true);
                     } else if (
@@ -1493,7 +1802,7 @@ export class ConXDynamicPanelCard extends LitElement {
       return nothing;
     }
     return html`
-      ${this._renderRadioGroupsEditor()}
+      ${this._renderRadioGroupsEditor()} ${this._renderCoverEditor()}
           <div class="buttons-accordion">
             ${this._draft.buttons.map((button) => {
               const open = Boolean(this._expandedButtons[button.index]);
@@ -1508,11 +1817,18 @@ export class ConXDynamicPanelCard extends LitElement {
                 this._draft?.mode === "radio_mandatory" ||
                 this._draft?.mode === "radio_optional";
               const isMember = button.radio_member !== false;
-              const behavior = radioMode
-                ? isMember
-                  ? this.t("card.radio_member")
-                  : this.t("card.radio_toggle")
-                : "";
+              const coverDirection = this._coverDirectionFor(button.index);
+              const behavior = coverDirection
+                ? this.t(
+                    coverDirection === "open"
+                      ? "card.cover_open"
+                      : "card.cover_close"
+                  )
+                : radioMode
+                  ? isMember
+                    ? this.t("card.radio_member")
+                    : this.t("card.radio_toggle")
+                  : "";
               const meta =
                 [action, entityId, behavior].filter(Boolean).join(" · ") || "—";
               return html`
@@ -1641,8 +1957,17 @@ export class ConXDynamicPanelCard extends LitElement {
           <strong>${this.t("card.buttons")}</strong>
           ${this._draft.buttons.map((b) => b.name).join(" · ")}
         </div>
+        ${this._draft.mode === "cover"
+          ? html`<div data-cover-review>
+              <strong>${this.t("card.cover")}</strong>
+              ${this.t("card.cover_open_button")} L${this._coverConfig().open_button} ·
+              ${this.t("card.cover_close_button")} L${this._coverConfig().close_button} ·
+              ${this._coverConfig().open_time_s}${this.t("card.cover_seconds")} /
+              ${this._coverConfig().close_time_s}${this.t("card.cover_seconds")}
+            </div>`
+          : nothing}
       </div>
-      ${this._renderFaceplate()}
+      ${this._renderFaceplate()} ${this._renderCoverControl()}
       <div class="row actions">
         <button
           type="button"
@@ -2017,7 +2342,9 @@ export class ConXDynamicPanelCard extends LitElement {
             </label>
           </header>
           ${this._previewOpen
-            ? html`<div class="hero-body">${this._renderFaceplate()}</div>`
+            ? html`<div class="hero-body">
+                ${this._renderFaceplate()} ${this._renderCoverControl()}
+              </div>`
             : nothing}
         </section>
 
@@ -3157,6 +3484,86 @@ export class ConXDynamicPanelCard extends LitElement {
       color: var(--warn-text, var(--text));
       font-size: 0.85rem;
       font-weight: 600;
+    }
+
+    .cover-section {
+      margin: 4px 0 10px;
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: color-mix(in srgb, var(--surface-2, var(--surface)) 88%, transparent);
+    }
+    .cover-section .menu-label {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+    .cover-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .cover-field {
+      padding: 10px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--input-bg, var(--surface));
+    }
+    .cover-label {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--text-muted);
+    }
+    .cover-buttons {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 6px;
+    }
+    .cover-safety {
+      margin: 10px 0 0;
+      font-size: 0.8rem;
+      line-height: 1.45;
+      color: var(--text-muted);
+    }
+    .cover-control {
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: color-mix(in srgb, var(--surface-2, var(--surface)) 88%, transparent);
+    }
+    .cover-control-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .cover-state {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--text-muted);
+    }
+    .cover-state-open,
+    .cover-state-close {
+      color: var(--accent);
+    }
+    .cover-control-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    @media (max-width: 520px) {
+      .cover-grid {
+        grid-template-columns: 1fr;
+      }
     }
 
     @media (max-width: 520px) {

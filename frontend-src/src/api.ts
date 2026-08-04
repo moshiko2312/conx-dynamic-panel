@@ -1,4 +1,26 @@
-import type { HomeAssistant, PanelConfig, Profile, ProfilesExport } from "./types";
+import type {
+  CoverConfig,
+  CoverState,
+  HomeAssistant,
+  PanelConfig,
+  Profile,
+  ProfilesExport,
+} from "./types";
+
+/** Mirrors the backend CoverConfig defaults and clamping ranges. */
+export const COVER_TIME_MIN = 1;
+export const COVER_TIME_MAX = 600;
+export const COVER_SETTLE_MIN = 0;
+export const COVER_SETTLE_MAX = 5;
+
+export const DEFAULT_COVER: CoverConfig = {
+  open_button: 1,
+  close_button: 2,
+  open_time_s: 20,
+  close_time_s: 20,
+  direction_settle_s: 0.5,
+  opposite_press: "stop_only",
+};
 
 export async function fetchConfig(
   hass: HomeAssistant,
@@ -134,6 +156,70 @@ export async function updatePanelName(
   });
 }
 
+/** Ask the backend safety engine to open, close, or stop the cover. */
+export async function coverCommand(
+  hass: HomeAssistant,
+  entryId: string,
+  command: "open" | "close" | "stop"
+): Promise<CoverState> {
+  return hass.callWS<CoverState>({
+    type: "conx_dynamic_panel/cover_command",
+    entry_id: entryId,
+    command,
+  });
+}
+
+function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
+  const parsed = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+  return Math.max(min, Math.min(max, parsed));
+}
+
+/** Out-of-range button indexes fall back to the default, matching the backend. */
+function coverButton(value: unknown, fallback: number): number {
+  const parsed = Math.round(typeof value === "number" ? value : Number(value));
+  if (!Number.isFinite(parsed) || parsed < 1 || parsed > 4) {
+    return fallback;
+  }
+  return parsed;
+}
+
+/** Normalize a cover block so the editor always has complete, in-range values. */
+export function normalizeCover(raw: Partial<CoverConfig> | undefined): CoverConfig {
+  const source = raw || {};
+  const openButton = coverButton(source.open_button, DEFAULT_COVER.open_button);
+  let closeButton = coverButton(source.close_button, DEFAULT_COVER.close_button);
+  if (closeButton === openButton) {
+    closeButton = [1, 2, 3, 4].find((index) => index !== openButton) ?? 2;
+  }
+  return {
+    open_button: openButton,
+    close_button: closeButton,
+    open_time_s: clampNumber(
+      source.open_time_s,
+      COVER_TIME_MIN,
+      COVER_TIME_MAX,
+      DEFAULT_COVER.open_time_s
+    ),
+    close_time_s: clampNumber(
+      source.close_time_s,
+      COVER_TIME_MIN,
+      COVER_TIME_MAX,
+      DEFAULT_COVER.close_time_s
+    ),
+    direction_settle_s: clampNumber(
+      source.direction_settle_s,
+      COVER_SETTLE_MIN,
+      COVER_SETTLE_MAX,
+      DEFAULT_COVER.direction_settle_s
+    ),
+    opposite_press:
+      source.opposite_press === "stop_then_reverse" ? "stop_then_reverse" : "stop_only",
+  };
+}
+
 /** Normalize legacy/partial profiles so new fields always exist in the card draft. */
 export function normalizeProfile(profile: Profile): Profile {
   const cloned = structuredClone(profile);
@@ -167,6 +253,7 @@ export function normalizeProfile(profile: Profile): Profile {
     normalizedGroups.push({ id: `g${normalizedGroups.length + 1}`, buttons: [] });
   }
   cloned.radio_groups = normalizedGroups;
+  cloned.cover = normalizeCover(cloned.cover);
   return cloned;
 }
 

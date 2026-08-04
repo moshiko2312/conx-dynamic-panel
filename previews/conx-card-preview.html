@@ -935,6 +935,77 @@
     }
     .radio-groups-error[hidden] { display: none !important; }
 
+    .cover-section {
+      margin: 4px 0 10px;
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: color-mix(in srgb, var(--surface-2) 88%, transparent);
+    }
+    .cover-section[hidden] { display: none !important; }
+    .cover-section .menu-label {
+      display: block;
+      font-size: .72rem;
+      font-weight: 800;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+    .cover-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .cover-field {
+      padding: 10px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--input-bg);
+    }
+    .cover-label {
+      display: block;
+      margin-bottom: 8px;
+      font-size: .8rem;
+      font-weight: 700;
+      color: var(--text-muted);
+    }
+    .cover-buttons {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 6px;
+    }
+    .cover-safety {
+      margin: 10px 0 0;
+      font-size: .8rem;
+      line-height: 1.45;
+      color: var(--text-muted);
+    }
+    .cover-control {
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--input-bg);
+    }
+    .cover-control-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .cover-state { font-size: .8rem; font-weight: 700; color: var(--text-muted); }
+    .cover-state.moving { color: var(--accent); }
+    .cover-control-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+    @media (max-width: 520px) {
+      .cover-grid { grid-template-columns: 1fr; }
+    }
+
     @keyframes conx-pulse {
       0% { filter:brightness(1); }
       40% { filter:brightness(1.1); box-shadow: 0 0 0 6px var(--accent-soft); }
@@ -1079,6 +1150,17 @@
               </div>
             </div>
           </div>
+          <div class="cover-control" id="cover-control" hidden>
+            <div class="cover-control-head">
+              <span class="menu-label" data-i18n="card.cover_live">Cover control</span>
+              <span class="cover-state" id="cover-state"></span>
+            </div>
+            <div class="cover-control-row">
+              <button type="button" class="btn" data-cover-command="open" data-i18n="card.cover_open">Open</button>
+              <button type="button" class="btn danger" data-cover-command="stop" data-i18n="card.cover_stop">Stop</button>
+              <button type="button" class="btn" data-cover-command="close" data-i18n="card.cover_close">Close</button>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -1123,6 +1205,7 @@
                   <option value="radio_mandatory" data-i18n-option="mode.radio_mandatory">Radio mandatory</option>
                   <option value="radio_optional" data-i18n-option="mode.radio_optional">Radio optional</option>
                   <option value="radio_split" data-i18n-option="mode.radio_split">Radio split</option>
+                  <option value="cover" data-i18n-option="mode.cover">Cover / shutter</option>
                 </select>
               </label>
               <div class="grid-2">
@@ -1173,6 +1256,40 @@
                 </div>
                 <div class="radio-groups-error" id="radio-groups-error-buttons" hidden></div>
               </div>
+              <div class="cover-section" id="cover-section" hidden>
+                <span class="menu-label" data-i18n="card.cover">Cover / shutter</span>
+                <p class="radio-groups-hint" data-i18n="card.cover_hint"></p>
+                <div class="cover-grid">
+                  <div class="cover-field">
+                    <span class="cover-label" data-i18n="card.cover_open_button">Open button</span>
+                    <div class="cover-buttons" id="cover-open-buttons" role="radiogroup"></div>
+                  </div>
+                  <div class="cover-field">
+                    <span class="cover-label" data-i18n="card.cover_close_button">Close button</span>
+                    <div class="cover-buttons" id="cover-close-buttons" role="radiogroup"></div>
+                  </div>
+                </div>
+                <div class="grid-2">
+                  <label class="field"><span id="cover-open-time-label">Open travel time</span>
+                    <input type="number" id="cover-open-time" min="1" max="600" step="0.5" />
+                  </label>
+                  <label class="field"><span id="cover-close-time-label">Close travel time</span>
+                    <input type="number" id="cover-close-time" min="1" max="600" step="0.5" />
+                  </label>
+                </div>
+                <label class="field"><span id="cover-settle-label">Direction change delay</span>
+                  <input type="number" id="cover-settle" min="0" max="5" step="0.1" />
+                </label>
+                <p class="radio-groups-hint" data-i18n="card.cover_settle_hint"></p>
+                <label class="field"><span data-i18n="card.cover_opposite">Opposite direction press</span>
+                  <select id="cover-opposite">
+                    <option value="stop_only" data-i18n-option="cover.stop_only">Stop only</option>
+                    <option value="stop_then_reverse" data-i18n-option="cover.stop_then_reverse">Stop, then reverse</option>
+                  </select>
+                </label>
+                <div class="radio-groups-error" id="cover-same-button-error" hidden></div>
+                <p class="cover-safety" data-i18n="card.cover_safety"></p>
+              </div>
               <div id="buttons-editor"></div>
             </div>
           </section>
@@ -1199,9 +1316,18 @@
       warm_white: "#ffe0b2", warm_yellow: "#ffc400",
     };
     const COLORS = Object.keys(COLOR_PREVIEW);
-    const STORAGE_KEY = "conx-card-preview-state-v8";
-    const LEGACY_KEYS = ["conx-card-preview-state-v2", "conx-card-preview-state-v3", "conx-card-preview-state-v4", "conx-card-preview-state-v5", "conx-card-preview-state-v6", "conx-card-preview-state-v7"];
-    const PROFILE_MODES = ["toggle", "radio_mandatory", "radio_optional", "radio_split"];
+    const STORAGE_KEY = "conx-card-preview-state-v9";
+    const LEGACY_KEYS = ["conx-card-preview-state-v2", "conx-card-preview-state-v3", "conx-card-preview-state-v4", "conx-card-preview-state-v5", "conx-card-preview-state-v6", "conx-card-preview-state-v7", "conx-card-preview-state-v8"];
+    const PROFILE_MODES = ["toggle", "radio_mandatory", "radio_optional", "radio_split", "cover"];
+    const COVER_TIME_MIN = 1;
+    const COVER_TIME_MAX = 600;
+    const COVER_SETTLE_MIN = 0;
+    const COVER_SETTLE_MAX = 5;
+    const DEFAULT_COVER = {
+      open_button: 1, close_button: 2,
+      open_time_s: 20, close_time_s: 20,
+      direction_settle_s: 0.5, opposite_press: "stop_only",
+    };
     const TAB_IDS = ["profiles", "appearance", "buttons"];
     const THEME_ALIASES = {
       industrial: "ivory", light_soft: "ivory", light: "ivory",
@@ -1278,7 +1404,23 @@
         "card.automation_yaml_evening": "Evening",
         "card.automation_yaml_night": "Night",
         "mode.toggle": "Toggle", "mode.radio_mandatory": "Radio mandatory", "mode.radio_optional": "Radio optional",
-        "mode.radio_split": "Radio split",
+        "mode.radio_split": "Radio split", "mode.cover": "Cover / shutter",
+        "card.cover": "Cover / shutter",
+        "card.cover_hint": "Pick which panel buttons drive the motor. Pressing a direction starts a timed travel; pressing again stops it. The integration never energizes both directions at once.",
+        "card.cover_open_button": "Open button",
+        "card.cover_close_button": "Close button",
+        "card.cover_open_time": "Open travel time",
+        "card.cover_close_time": "Close travel time",
+        "card.cover_settle": "Direction change delay",
+        "card.cover_settle_hint": "Dead time between switching one direction off and the other on. Keep it above zero for motor relay safety.",
+        "card.cover_opposite": "Opposite direction press",
+        "card.cover_same_button": "Open and close must use different buttons.",
+        "card.cover_live": "Cover control",
+        "card.cover_open": "Open", "card.cover_close": "Close", "card.cover_stop": "Stop",
+        "card.cover_state_idle": "Stopped", "card.cover_state_open": "Opening", "card.cover_state_close": "Closing",
+        "card.cover_seconds": "s",
+        "card.cover_safety": "Safety: presses run through the integration. Both direction relays are forced off on stop, timer expiry, profile change, sync, and reload.",
+        "cover.stop_only": "Stop only", "cover.stop_then_reverse": "Stop, then reverse",
       },
       he: {
         "intro.sub": "תצוגה אינטראקטיבית של עיצוב הכרטיס החדש",
@@ -1345,7 +1487,23 @@
         "card.automation_yaml_evening": "ערב",
         "card.automation_yaml_night": "לילה",
         "mode.toggle": "החלפה", "mode.radio_mandatory": "רדיו חובה", "mode.radio_optional": "רדיו אופציונלי",
-        "mode.radio_split": "רדיו ספליט",
+        "mode.radio_split": "רדיו ספליט", "mode.cover": "תריס",
+        "card.cover": "תריס",
+        "card.cover_hint": "בחרו אילו כפתורים בפאנל מפעילים את המנוע. לחיצה על כיוון מתחילה תנועה מתוזמנת, ולחיצה נוספת עוצרת אותה. האינטגרציה לעולם לא מפעילה את שני הכיוונים יחד.",
+        "card.cover_open_button": "כפתור פתיחה",
+        "card.cover_close_button": "כפתור סגירה",
+        "card.cover_open_time": "זמן פתיחה",
+        "card.cover_close_time": "זמן סגירה",
+        "card.cover_settle": "השהיה בהחלפת כיוון",
+        "card.cover_settle_hint": "זמן מת בין כיבוי כיוון אחד להפעלת השני. מומלץ להשאיר מעל אפס לבטיחות ממסרי המנוע.",
+        "card.cover_opposite": "לחיצה על הכיוון ההפוך",
+        "card.cover_same_button": "פתיחה וסגירה חייבות להשתמש בכפתורים שונים.",
+        "card.cover_live": "שליטה בתריס",
+        "card.cover_open": "פתיחה", "card.cover_close": "סגירה", "card.cover_stop": "עצירה",
+        "card.cover_state_idle": "עצור", "card.cover_state_open": "נפתח", "card.cover_state_close": "נסגר",
+        "card.cover_seconds": "שנ׳",
+        "card.cover_safety": "בטיחות: הלחיצות עוברות דרך האינטגרציה. שני ממסרי הכיוון מכובים בעצירה, בתום הזמן, בהחלפת פרופיל, בסנכרון ובטעינה מחדש.",
+        "cover.stop_only": "עצירה בלבד", "cover.stop_then_reverse": "עצירה ואז כיוון הפוך",
       },
       ru: {
         "intro.sub": "Интерактивный превью обновлённой карточки",
@@ -1412,7 +1570,23 @@
         "card.automation_yaml_evening": "Вечер",
         "card.automation_yaml_night": "Ночь",
         "mode.toggle": "Переключатель", "mode.radio_mandatory": "Радио (обязательно)", "mode.radio_optional": "Радио (опционально)",
-        "mode.radio_split": "Радио сплит",
+        "mode.radio_split": "Радио сплит", "mode.cover": "Ролета / жалюзи",
+        "card.cover": "Ролета / жалюзи",
+        "card.cover_hint": "Выберите кнопки панели, управляющие мотором. Нажатие направления запускает движение по таймеру, повторное нажатие останавливает его. Интеграция никогда не включает оба направления одновременно.",
+        "card.cover_open_button": "Кнопка открытия",
+        "card.cover_close_button": "Кнопка закрытия",
+        "card.cover_open_time": "Время открытия",
+        "card.cover_close_time": "Время закрытия",
+        "card.cover_settle": "Задержка смены направления",
+        "card.cover_settle_hint": "Пауза между выключением одного направления и включением другого. Держите её выше нуля для безопасности реле мотора.",
+        "card.cover_opposite": "Нажатие противоположного направления",
+        "card.cover_same_button": "Открытие и закрытие должны использовать разные кнопки.",
+        "card.cover_live": "Управление ролетой",
+        "card.cover_open": "Открыть", "card.cover_close": "Закрыть", "card.cover_stop": "Стоп",
+        "card.cover_state_idle": "Остановлено", "card.cover_state_open": "Открывается", "card.cover_state_close": "Закрывается",
+        "card.cover_seconds": "с",
+        "card.cover_safety": "Безопасность: нажатия обрабатываются интеграцией. Оба реле направлений принудительно выключаются при остановке, истечении таймера, смене профиля, синхронизации и перезагрузке.",
+        "cover.stop_only": "Только стоп", "cover.stop_then_reverse": "Стоп, затем реверс",
       },
     };
 
@@ -1458,6 +1632,41 @@
       });
       return groups;
     }
+    function clampNumber(value, min, max, fallback) {
+      const parsed = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(parsed)) return fallback;
+      return Math.min(max, Math.max(min, parsed));
+    }
+    function coverButton(value, fallback) {
+      const parsed = Math.round(typeof value === "number" ? value : Number(value));
+      if (!Number.isFinite(parsed) || parsed < 1 || parsed > 4) return fallback;
+      return parsed;
+    }
+    /** Mirror of the backend CoverConfig normalization so the preview never shows unsafe values. */
+    function normalizeCover(raw) {
+      const source = raw && typeof raw === "object" ? raw : {};
+      const openButton = coverButton(source.open_button, DEFAULT_COVER.open_button);
+      let closeButton = coverButton(source.close_button, DEFAULT_COVER.close_button);
+      if (closeButton === openButton) {
+        closeButton = [1, 2, 3, 4].find((i) => i !== openButton) || 2;
+      }
+      return {
+        open_button: openButton,
+        close_button: closeButton,
+        open_time_s: clampNumber(source.open_time_s, COVER_TIME_MIN, COVER_TIME_MAX, DEFAULT_COVER.open_time_s),
+        close_time_s: clampNumber(source.close_time_s, COVER_TIME_MIN, COVER_TIME_MAX, DEFAULT_COVER.close_time_s),
+        direction_settle_s: clampNumber(source.direction_settle_s, COVER_SETTLE_MIN, COVER_SETTLE_MAX, DEFAULT_COVER.direction_settle_s),
+        opposite_press: source.opposite_press === "stop_then_reverse" ? "stop_then_reverse" : "stop_only",
+      };
+    }
+    function coverDirectionFor(index, profile) {
+      const d = profile || state.draft;
+      if (!d || d.mode !== "cover") return null;
+      const cover = normalizeCover(d.cover);
+      if (cover.open_button === index) return "open";
+      if (cover.close_button === index) return "close";
+      return null;
+    }
     function radioGroupOverlap(groups) {
       const ownership = {};
       for (const g of groups || []) {
@@ -1483,11 +1692,13 @@
         backlight: true, backlight_brightness: 100, child_lock: false, selected_button: null,
         ringOn: { 1: true, 2: false, 3: true, 4: false }, buttons: baseButtons,
         radio_groups: [{ id: "g1", buttons: [] }, { id: "g2", buttons: [] }],
+        cover: { ...DEFAULT_COVER },
         ...overrides,
       };
       if (!PROFILE_MODES.includes(profile.mode)) profile.mode = "toggle";
       profile.buttons = [1,2,3,4].map((i) => normalizeButton((profile.buttons || []).find((x) => x.index === i), i));
       profile.radio_groups = normalizeRadioGroups(profile.radio_groups);
+      profile.cover = normalizeCover(profile.cover);
       if (typeof profile.backlight_brightness !== "number") profile.backlight_brightness = 100;
       return profile;
     }
@@ -1640,6 +1851,19 @@
       themeSwatches: document.getElementById("theme-swatches"),
       childLock: document.getElementById("child-lock"),
       buttonsEditor: document.getElementById("buttons-editor"),
+      coverSection: document.getElementById("cover-section"),
+      coverOpenButtons: document.getElementById("cover-open-buttons"),
+      coverCloseButtons: document.getElementById("cover-close-buttons"),
+      coverOpenTime: document.getElementById("cover-open-time"),
+      coverCloseTime: document.getElementById("cover-close-time"),
+      coverOpenTimeLabel: document.getElementById("cover-open-time-label"),
+      coverCloseTimeLabel: document.getElementById("cover-close-time-label"),
+      coverSettle: document.getElementById("cover-settle"),
+      coverSettleLabel: document.getElementById("cover-settle-label"),
+      coverOpposite: document.getElementById("cover-opposite"),
+      coverSameButtonError: document.getElementById("cover-same-button-error"),
+      coverControl: document.getElementById("cover-control"),
+      coverState: document.getElementById("cover-state"),
       labels: document.getElementById("faceplate-labels"),
       rings: document.getElementById("faceplate-rings"),
       faceplate: document.getElementById("faceplate"),
@@ -1712,14 +1936,90 @@
       const btn = state.draft.buttons.find((b) => b.index === index);
       return !btn || btn.radio_member !== false;
     }
+    /**
+     * Preview mirror of the backend cover engine. The real card never drives relays
+     * itself: it calls the integration, which owns the timers and the guarantee that
+     * the two directions are never energized together. This simulation exists only so
+     * the preview shows the same observable behavior.
+     */
+    const coverLive = { active: false, direction: null, travelTimer: null, settleTimer: null };
+    function coverHalt() {
+      if (coverLive.travelTimer) clearTimeout(coverLive.travelTimer);
+      if (coverLive.settleTimer) clearTimeout(coverLive.settleTimer);
+      coverLive.travelTimer = null;
+      coverLive.settleTimer = null;
+      coverLive.active = false;
+      coverLive.direction = null;
+    }
+    function coverStart(direction) {
+      coverHalt();
+      const cover = normalizeCover(state.draft.cover);
+      const duration = direction === "open" ? cover.open_time_s : cover.close_time_s;
+      coverLive.active = true;
+      coverLive.direction = direction;
+      coverLive.travelTimer = setTimeout(() => {
+        coverHalt();
+        renderCoverState();
+        renderFaceplate();
+      }, duration * 1000);
+    }
+    function coverPress(direction) {
+      if (!state.draft || state.draft.mode !== "cover") return;
+      const cover = normalizeCover(state.draft.cover);
+      if (cover.open_button === cover.close_button) return;
+      if (!coverLive.active) {
+        coverStart(direction);
+      } else if (coverLive.direction === direction) {
+        coverHalt();
+      } else {
+        // Opposite direction: always stop both first, never cross-fade.
+        coverHalt();
+        if (cover.opposite_press === "stop_then_reverse") {
+          coverLive.settleTimer = setTimeout(() => {
+            coverLive.settleTimer = null;
+            coverStart(direction);
+            renderCoverState();
+            renderFaceplate();
+          }, cover.direction_settle_s * 1000);
+        }
+      }
+      renderCoverState();
+    }
+    function coverStateLabel() {
+      if (!coverLive.active || !coverLive.direction) return t("card.cover_state_idle");
+      return t("card.cover_state_" + coverLive.direction);
+    }
+    function renderCoverState() {
+      const isCover = state.draft && state.draft.mode === "cover";
+      if (els.coverControl) els.coverControl.hidden = !isCover;
+      if (els.coverState) {
+        els.coverState.textContent = coverStateLabel();
+        els.coverState.classList.toggle("moving", Boolean(coverLive.active));
+      }
+    }
     function isRingOn(index) {
       const d = state.draft;
+      if (d.mode === "cover") {
+        const direction = coverDirectionFor(index, d);
+        if (direction) return coverLive.active && coverLive.direction === direction;
+        return Boolean(d.ringOn[index]);
+      }
       if (d.mode === "radio_split") return Boolean(d.ringOn[index]);
       if (d.mode !== "toggle" && isRadioMember(index)) return d.selected_button === index;
       return Boolean(d.ringOn[index]);
     }
     function handleFaceplatePress(index) {
       const d = state.draft;
+      if (d.mode === "cover") {
+        const direction = coverDirectionFor(index, d);
+        if (direction) {
+          // Runtime motor action, not a draft edit — never marks the profile dirty.
+          coverPress(direction);
+          return false;
+        }
+        d.ringOn[index] = !d.ringOn[index];
+        return true;
+      }
       if (d.mode === "radio_split") {
         const group = findRadioGroup(index, d.radio_groups);
         if (!group) {
@@ -1902,6 +2202,82 @@
         });
       });
     }
+    function patchCover(mutate) {
+      const cover = normalizeCover(state.draft.cover);
+      mutate(cover);
+      state.draft.cover = normalizeCover(cover);
+      markDirty(true);
+      renderCoverEditor();
+      renderFaceplate();
+    }
+    /**
+     * Assigning a button already used by the other direction swaps the pair, so
+     * open and close can never collapse onto one button.
+     */
+    function setCoverButton(direction, index) {
+      patchCover((cover) => {
+        const previous = direction === "open" ? cover.open_button : cover.close_button;
+        if (direction === "open") {
+          if (cover.close_button === index) cover.close_button = previous;
+          cover.open_button = index;
+        } else {
+          if (cover.open_button === index) cover.open_button = previous;
+          cover.close_button = index;
+        }
+      });
+    }
+    function renderCoverButtonPicker(host, direction, cover) {
+      if (!host) return;
+      const selected = direction === "open" ? cover.open_button : cover.close_button;
+      host.innerHTML = [1, 2, 3, 4].map((i) => `
+        <button type="button" class="radio-member${selected === i ? " on" : ""}" role="radio"
+          aria-checked="${selected === i ? "true" : "false"}" data-cover-button="${i}">
+          <span class="radio-member-label">L${i}</span>
+        </button>`).join("");
+      host.querySelectorAll("[data-cover-button]").forEach((chip) => {
+        chip.addEventListener("click", () => setCoverButton(direction, Number(chip.dataset.coverButton)));
+      });
+    }
+    function bindCoverInput(input, apply) {
+      if (!input || input.dataset.bound) return;
+      input.dataset.bound = "1";
+      input.addEventListener("change", () => patchCover((cover) => apply(cover, input.value)));
+    }
+    function renderCoverEditor() {
+      const isCover = state.draft && state.draft.mode === "cover";
+      if (els.coverSection) els.coverSection.hidden = !isCover;
+      renderCoverState();
+      if (!isCover) return;
+      const cover = normalizeCover(state.draft.cover);
+      state.draft.cover = cover;
+      const unit = t("card.cover_seconds");
+      renderCoverButtonPicker(els.coverOpenButtons, "open", cover);
+      renderCoverButtonPicker(els.coverCloseButtons, "close", cover);
+      if (els.coverOpenTimeLabel) els.coverOpenTimeLabel.textContent = `${t("card.cover_open_time")} (${unit})`;
+      if (els.coverCloseTimeLabel) els.coverCloseTimeLabel.textContent = `${t("card.cover_close_time")} (${unit})`;
+      if (els.coverSettleLabel) els.coverSettleLabel.textContent = `${t("card.cover_settle")} (${unit})`;
+      if (els.coverOpenTime) els.coverOpenTime.value = String(cover.open_time_s);
+      if (els.coverCloseTime) els.coverCloseTime.value = String(cover.close_time_s);
+      if (els.coverSettle) els.coverSettle.value = String(cover.direction_settle_s);
+      if (els.coverOpposite) els.coverOpposite.value = cover.opposite_press;
+      if (els.coverSameButtonError) {
+        const clash = cover.open_button === cover.close_button;
+        els.coverSameButtonError.hidden = !clash;
+        els.coverSameButtonError.textContent = clash ? t("card.cover_same_button") : "";
+      }
+      bindCoverInput(els.coverOpenTime, (c, value) => {
+        c.open_time_s = clampNumber(value, COVER_TIME_MIN, COVER_TIME_MAX, DEFAULT_COVER.open_time_s);
+      });
+      bindCoverInput(els.coverCloseTime, (c, value) => {
+        c.close_time_s = clampNumber(value, COVER_TIME_MIN, COVER_TIME_MAX, DEFAULT_COVER.close_time_s);
+      });
+      bindCoverInput(els.coverSettle, (c, value) => {
+        c.direction_settle_s = clampNumber(value, COVER_SETTLE_MIN, COVER_SETTLE_MAX, DEFAULT_COVER.direction_settle_s);
+      });
+      bindCoverInput(els.coverOpposite, (c, value) => {
+        c.opposite_press = value === "stop_then_reverse" ? "stop_then_reverse" : "stop_only";
+      });
+    }
     function renderProfiles() {
       els.profileList.innerHTML = Object.values(state.profiles).map((p) => {
         const active = p.id === state.activeId ? "active" : "";
@@ -1922,12 +2298,17 @@
         });
       });
     }
+    function buttonMetaLabel(button) {
+      const direction = coverDirectionFor(button.index, state.draft);
+      if (direction) return t(direction === "open" ? "card.cover_open" : "card.cover_close");
+      return [button.action, button.entity].filter(Boolean).join(" · ") || "—";
+    }
     function renderButtonsEditor() {
       const openSet = state.expandedButtons;
       els.buttonsEditor.innerHTML = `<div class="buttons-accordion">${state.draft.buttons.map((b) => {
         const open = openSet.has(b.index);
         const label = (b.name || "").trim() || "—";
-        const meta = [b.action, b.entity].filter(Boolean).join(" · ") || "—";
+        const meta = buttonMetaLabel(b);
         return `<div class="button-edit ${open ? "open" : ""}" data-button="${b.index}">
           <button type="button" class="button-edit-toggle" aria-expanded="${open}">
             <span class="button-edit-chevron" aria-hidden="true"></span>
@@ -1968,7 +2349,7 @@
             const summaryTitle = row.querySelector(".button-edit-title");
             const summaryMeta = row.querySelector(".button-edit-meta");
             if (summaryTitle) summaryTitle.textContent = `${t("card.button")} ${index} · ${(btn.name || "").trim() || "—"}`;
-            if (summaryMeta) summaryMeta.textContent = [btn.action, btn.entity].filter(Boolean).join(" · ") || "—";
+            if (summaryMeta) summaryMeta.textContent = buttonMetaLabel(btn);
             renderFaceplate();
           });
         });
@@ -2171,10 +2552,13 @@
       else { els.dirtyWarn.textContent = t("card.unsaved"); els.statusBadge.textContent = t("card.status") + ": pending"; }
       renderButtonsEditor();
       renderRadioGroupsEditor();
+      renderCoverEditor();
       renderAutomationYaml();
     }
     function syncFormFromDraft() {
       const d = state.draft;
+      // Profile switches cancel any simulated travel, like the backend does.
+      coverHalt();
       syncPanelNameUi();
       els.profileName.value = d.name || "";
       syncHeroProfileName();
@@ -2193,6 +2577,7 @@
       renderProfiles();
       renderButtonsEditor();
       renderRadioGroupsEditor();
+      renderCoverEditor();
       renderFaceplate();
     }
     async function resetToDefaults() {
@@ -2374,9 +2759,13 @@
       });
       els.modeSelect.addEventListener("change", () => {
         state.draft.mode = els.modeSelect.value;
+        // Leaving cover mode must never leave a simulated motion running.
+        coverHalt();
         if (state.draft.mode === "radio_split") {
           state.draft.radio_groups = normalizeRadioGroups(state.draft.radio_groups);
           state.radioGroupsOpen = defaultRadioGroupsOpen();
+        } else if (state.draft.mode === "cover") {
+          state.draft.cover = normalizeCover(state.draft.cover);
         } else if (state.draft.mode !== "toggle" && !state.draft.selected_button) {
           state.draft.selected_button = 1;
         }
@@ -2384,6 +2773,16 @@
         renderFaceplate();
         renderButtonsEditor();
         renderRadioGroupsEditor();
+        renderCoverEditor();
+      });
+      document.querySelectorAll("[data-cover-command]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const command = btn.dataset.coverCommand;
+          if (command === "stop") coverHalt();
+          else coverPress(command);
+          renderCoverState();
+          renderFaceplate();
+        });
       });
       els.colorOn.addEventListener("change", () => { state.draft.color_on = els.colorOn.value; markDirty(true); applyRingColors(); });
       els.colorOff.addEventListener("change", () => { state.draft.color_off = els.colorOff.value; markDirty(true); applyRingColors(); });

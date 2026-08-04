@@ -9,7 +9,7 @@ from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 
-from .const import DOMAIN
+from .const import COVER_COMMANDS, DOMAIN
 from .coordinator import PanelCoordinator
 
 
@@ -35,6 +35,7 @@ async def async_register_websocket_api(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_export_profiles)
     websocket_api.async_register_command(hass, ws_import_profiles)
     websocket_api.async_register_command(hass, ws_update_panel_name)
+    websocket_api.async_register_command(hass, ws_cover_command)
 
 
 @websocket_api.websocket_command(
@@ -255,4 +256,24 @@ async def ws_update_panel_name(
     """Update the human-readable panel name without reloading the entry."""
     coordinator = _coordinator(hass, msg["entry_id"])
     result = await coordinator.async_update_panel_name(msg["panel_name"])
+    connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "conx_dynamic_panel/cover_command",
+        vol.Required("entry_id"): str,
+        vol.Required("command"): vol.In(list(COVER_COMMANDS)),
+    }
+)
+@websocket_api.async_response
+async def ws_cover_command(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Open, close, or stop the cover through the backend safety engine."""
+    coordinator = _coordinator(hass, msg["entry_id"])
+    try:
+        result = await coordinator.async_cover_command(msg["command"])
+    except ValueError as err:
+        raise HomeAssistantError(str(err)) from err
     connection.send_result(msg["id"], result)

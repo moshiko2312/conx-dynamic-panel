@@ -106,6 +106,7 @@ none
 - Radio mandatory mode.
 - Radio optional mode.
 - Radio split mode (per-group classic radio + independent toggles).
+- Cover mode: timed shutter control with mapped up/down buttons and hard mutual exclusion.
 - Draft configuration separated from applied hardware state.
 - Manual **Sync to Panel**.
 - Sync status: `synced`, `pending`, `syncing`, `error`, `out_of_sync`.
@@ -144,6 +145,24 @@ Classic radio among radio members: exactly one button remains ON. Re-pressing th
 ### Radio split
 
 Define multiple radio groups (for example buttons 1+4 in one group and 2+3 in another). Within a group exactly one button stays ON (classic radio; no self-toggle-off). Buttons not assigned to any group behave as independent toggles.
+
+### Cover
+
+Timed shutter/awning control. Choose which panel buttons are **Open** and **Close** (any two of L1–L4, they must differ) and set a travel time for each direction. Remaining buttons stay independent toggles.
+
+This mode drives a motor, so the entire engine lives in the integration. The card, services, and automations all call the backend; nothing writes the direction relays directly.
+
+| Situation | Result |
+|---|---|
+| Press a direction while stopped | That direction starts and a travel timer is armed |
+| Press the same direction while moving | Full stop: both relays OFF, timer cancelled |
+| Press the opposite direction while moving | Always stops first. `Stop only` (default) ends there; `Stop, then reverse` waits the direction-change delay and then starts the other direction |
+| Travel time elapses | Both relays forced OFF |
+| Profile change, sync, reload, unload, or any relay write failure | Both relays forced OFF |
+
+The two directions are never energized together: before a direction can start, the opposite relay is switched off and that write must succeed. **Direction change delay** (`0–5 s`, default `0.5 s`) is the dead time between the two, and it is worth keeping above zero for relay and motor life. Travel times accept `1–600 s`.
+
+Cover state changes fire `conx_dynamic_panel_cover_state` on the Home Assistant bus with the current direction, the reason, the mapped button pair, and the travel duration.
 
 ### Feedback-loop protection
 
@@ -202,8 +221,11 @@ conx_dynamic_panel.sync
 conx_dynamic_panel.activate_profile
 conx_dynamic_panel.pull_from_panel
 conx_dynamic_panel.execute_button
+conx_dynamic_panel.cover_command
 conx_dynamic_panel.reload
 ```
+
+`cover_command` takes `command: open | close | stop` and behaves exactly like a physical press on the mapped button, including repress-to-stop and the mutual-exclusion guarantees.
 
 Example:
 
@@ -317,13 +339,14 @@ python3 scripts/build_brand_images.py   # requires Pillow
 - **Hero faceplate** sits above three tabs: **Profiles** · **Appearance** · **Buttons**. The active profile name is centered in the preview header; panel name is editable on Profiles.
 - Profiles: 3-column chips, Create / Duplicate / Delete (no rename / no drag layout).
 - Appearance: mode, colors, radar, backlight + large brightness dimmer, child lock.
-- Buttons: collapsible per-button editors; when mode is **Radio split**, the whole **Radio groups** block has a single collapse switch in its header. Group 1 / Group 2 / Independent toggle have no switches of their own — membership is set by tapping the L1–L4 chips. Collapsing shows a one-line recap such as `Group 1: L1, L4 · Group 2: L2, L3 · Independent toggle: —`, and the open/closed choice is remembered in `localStorage`.
+- Buttons: collapsible per-button editors; when mode is **Cover**, a **Cover / shutter** block picks the open and close buttons (choosing a button already used by the other direction swaps the pair), the two travel times, the direction-change delay, and the opposite-press policy. A **Cover control** row under the faceplate sends Open / Stop / Close through the integration and shows the live state.
+- Buttons: when mode is **Radio split**, the whole **Radio groups** block has a single collapse switch in its header. Group 1 / Group 2 / Independent toggle have no switches of their own — membership is set by tapping the L1–L4 chips. Collapsing shows a one-line recap such as `Group 1: L1, L4 · Group 2: L2, L3 · Independent toggle: —`, and the open/closed choice is remembered in `localStorage`.
 - Faceplate is 1×4 L→R (not 2×2). LED rings follow draft `color_on` / `color_off`. CSS extension point: `--conx-faceplate-skin`.
 - **Export** downloads profiles JSON; **Import (merge)** / **Import (replace)** use the authenticated WebSocket API.
 
 ### HTML preview
 
-`previews/conx-card-preview.html` is a standalone interactive mock of the Lovelace card (no Home Assistant required). Use it to iterate on layout, themes, radio split, and i18n before rebuilding the Lit bundle. Demo state persists in `localStorage` (`conx-card-preview-state-v8`). The companion file `previews/conx-panel-wizard.html` exercises portable JSON import/export.
+`previews/conx-card-preview.html` is a standalone interactive mock of the Lovelace card (no Home Assistant required). Use it to iterate on layout, themes, radio split, cover mode, and i18n before rebuilding the Lit bundle. Demo state persists in `localStorage` (`conx-card-preview-state-v9`). Cover motion in the preview is a simulation of the backend engine, provided so the preview shows the same observable behavior; the real card never drives relays itself. The companion file `previews/conx-panel-wizard.html` exercises portable JSON import/export.
 
 Update an existing install without touching Home Assistant storage:
 
@@ -401,6 +424,7 @@ Update an existing install without touching Home Assistant storage:
 | Hebrew UI not RTL | Language not set to Hebrew | Use the on-card IL flag, set card `language: he`, or set HA language to Hebrew |
 | Import fails | Invalid JSON or missing profiles object | Export first for the expected schema; import requires a non-empty `profiles` map |
 | Automation switches the profile but the panel does not change | `activate_profile` called without `sync` | Pass `sync: true`; activation alone only updates the draft |
+| Cover buttons do nothing | Open and close mapped to the same button, or travel time outside `1–600 s` | The card shows "Open and close must use different buttons"; pick two different buttons and re-sync. The engine refuses to move on an unsafe config and forces both relays OFF |
 | Generic puzzle-piece integration icon | Home Assistant older than 2026.3, or cached brand image | On 2026.3+ restart Home Assistant and hard-refresh; older versions cannot load local brand images |
 
 See also `docs/PRIVATE_DEPLOYMENT.md` for install/update rules.

@@ -9,9 +9,23 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
 from .const import DOMAIN, STORAGE_KEY, STORAGE_VERSION
-from .models import PanelStorageData
+from .models import CoverConfig, PanelStorageData
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _ensure_cover_defaults(data: dict[str, Any]) -> None:
+    """Give pre-cover profiles a default cover block without touching other keys.
+
+    Cover support is additive: every field has a safe default, so stored profiles
+    stay valid and the storage schema version does not change.
+    """
+    profiles = data.get("profiles")
+    if not isinstance(profiles, dict):
+        return
+    for profile in profiles.values():
+        if isinstance(profile, dict) and not isinstance(profile.get("cover"), dict):
+            profile["cover"] = CoverConfig().to_dict()
 
 
 def _migrate(data: dict[str, Any]) -> dict[str, Any]:
@@ -21,6 +35,7 @@ def _migrate(data: dict[str, Any]) -> dict[str, Any]:
         raise ValueError(
             f"Unsupported storage schema version {version}; current is {STORAGE_VERSION}"
         )
+    _ensure_cover_defaults(data)
     # Future migrations append here while preserving profiles and snapshots.
     data["schema_version"] = STORAGE_VERSION
     return data

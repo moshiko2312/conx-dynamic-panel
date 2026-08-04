@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { profilesEqual, cloneProfile } from "../src/api";
+import { profilesEqual, cloneProfile, normalizeCover } from "../src/api";
 import {
   clearStoredLanguage,
   isRtl,
@@ -56,6 +56,14 @@ const sampleProfile: Profile = {
     { id: "g1", buttons: [] },
     { id: "g2", buttons: [] },
   ],
+  cover: {
+    open_button: 1,
+    close_button: 2,
+    open_time_s: 20,
+    close_time_s: 20,
+    direction_settle_s: 0.5,
+    opposite_press: "stop_only",
+  },
 };
 
 function panelPayload(overrides: Record<string, unknown> = {}) {
@@ -71,8 +79,21 @@ function panelPayload(overrides: Record<string, unknown> = {}) {
     capabilities: {
       colors: ALL_COLORS,
       radar: ["30s"],
-      modes: ["toggle", "radio_mandatory", "radio_optional", "radio_split"],
+      modes: [
+        "toggle",
+        "radio_mandatory",
+        "radio_optional",
+        "radio_split",
+        "cover",
+      ],
       button_count: 4,
+      cover: {
+        min_time_s: 1,
+        max_time_s: 600,
+        min_settle_s: 0,
+        max_settle_s: 5,
+        opposite_press: ["stop_only", "stop_then_reverse"],
+      },
     },
     profiles: { lighting: sampleProfile },
     applied_snapshot: {},
@@ -694,6 +715,191 @@ describe("custom elements", () => {
     await el.updateComplete;
     expect(el._automationOpen).toBe(false);
     expect(el.shadowRoot?.querySelector(".automation-panel")).toBeFalsy();
+  });
+});
+
+describe("cover mode", () => {
+  const coverProfile = (overrides: Record<string, unknown> = {}) => ({
+    ...sampleProfile,
+    mode: "cover",
+    cover: { ...sampleProfile.cover, open_button: 1, close_button: 3, ...overrides },
+  });
+
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    clearStoredLanguage();
+  });
+
+  it("normalizes partial cover payloads into safe values", () => {
+    expect(normalizeCover(undefined)).toEqual({
+      open_button: 1,
+      close_button: 2,
+      open_time_s: 20,
+      close_time_s: 20,
+      direction_settle_s: 0.5,
+      opposite_press: "stop_only",
+    });
+    const clamped = normalizeCover({
+      open_button: 9,
+      close_button: 9,
+      open_time_s: 5000,
+      close_time_s: 0,
+      direction_settle_s: 99,
+      opposite_press: "nonsense",
+    } as never);
+    expect(clamped.open_button).toBe(1);
+    // The pair can never collapse onto a single button.
+    expect(clamped.close_button).not.toBe(clamped.open_button);
+    expect(clamped.open_time_s).toBe(600);
+    expect(clamped.close_time_s).toBe(1);
+    expect(clamped.direction_settle_s).toBe(5);
+    expect(clamped.opposite_press).toBe("stop_only");
+  });
+
+  it("shows the cover editor only in cover mode", async () => {
+    const callWS = vi
+      .fn()
+      .mockResolvedValue(panelPayload({ profiles: { lighting: sampleProfile } }));
+    const el = await mountCard({ language: "en", callWS });
+    el._activeTab = "buttons";
+    await el.updateComplete;
+    expect(el.shadowRoot?.querySelector("[data-cover-editor]")).toBeFalsy();
+
+    el._patchDraft((draft: Profile) => {
+      draft.mode = "cover";
+    });
+    await el.updateComplete;
+    expect(el.shadowRoot?.querySelector("[data-cover-editor]")).toBeTruthy();
+  });
+
+  it("swaps directions instead of assigning one button to both", async () => {
+    const callWS = vi
+      .fn()
+      .mockResolvedValue(panelPayload({ profiles: { lighting: coverProfile() } }));
+    const el = await mountCard({ language: "en", callWS });
+    el._activeTab = "buttons";
+    await el.updateComplete;
+
+    const pickers = el.shadowRoot?.querySelectorAll(".cover-buttons");
+    expect(pickers?.length).toBe(2);
+    const closeChips = Array.from(
+      (pickers?.[1] as HTMLElement).querySelectorAll("button.radio-member")
+    ) as HTMLButtonElement[];
+
+    // Assign the close direction to L1, which the open direction already uses.
+    closeChips[0].click();
+    await el.updateComplete;
+    expect(el._draft?.cover?.close_button).toBe(1);
+    expect(el._draft?.cover?.open_button).toBe(3);
+    expect(el._draft?.cover?.open_button).not.toBe(el._draft?.cover?.close_button);
+  });
+
+  it("edits travel times and clamps them to the supported range", async () => {
+    const callWS = vi
+      .fn()
+      .mockResolvedValue(panelPayload({ profiles: { lighting: coverProfile() } }));
+    const el = await mountCard({ language: "en", callWS });
+    el._activeTab = "buttons";
+    await el.updateComplete;
+
+    const openTime = el.shadowRoot?.querySelector(
+      "input[data-cover-open-time]"
+    ) as HTMLInputElement;
+    openTime.value = "35";
+    openTime.dispatchEvent(new Event("change", { bubbles: true }));
+    await el.updateComplete;
+    expect(el._draft?.cover?.open_time_s).toBe(35);
+
+    const closeTime = el.shadowRoot?.querySelector(
+      "input[data-cover-close-time]"
+    ) as HTMLInputElement;
+    closeTime.value = "99999";
+    closeTime.dispatchEvent(new Event("change", { bubbles: true }));
+    await el.updateComplete;
+    expect(el._draft?.cover?.close_time_s).toBe(600);
+    // Editing a draft must never touch hardware.
+    expect(callWS).toHaveBeenCalledTimes(1);
+  });
+
+  it("stores the opposite-direction policy on the draft", async () => {
+    const callWS = vi
+      .fn()
+      .mockResolvedValue(panelPayload({ profiles: { lighting: coverProfile() } }));
+    const el = await mountCard({ language: "en", callWS });
+    el._activeTab = "buttons";
+    await el.updateComplete;
+    const select = el.shadowRoot?.querySelector(
+      "select[data-cover-opposite]"
+    ) as HTMLSelectElement;
+    select.value = "stop_then_reverse";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    await el.updateComplete;
+    expect(el._draft?.cover?.opposite_press).toBe("stop_then_reverse");
+  });
+
+  it("lights only the travelling direction ring", async () => {
+    const callWS = vi.fn().mockResolvedValue(
+      panelPayload({
+        profiles: { lighting: coverProfile() },
+        cover_state: {
+          active: true,
+          state: "close",
+          direction: "close",
+          duration: 20,
+          reason: "press",
+        },
+      })
+    );
+    const el = await mountCard({ language: "en", callWS });
+    const rings = [...(el.shadowRoot?.querySelectorAll(".ring") || [])];
+    expect(rings.map((ring) => ring.classList.contains("on"))).toEqual([
+      false,
+      false,
+      true,
+      false,
+    ]);
+  });
+
+  it("drives the cover through the integration websocket API", async () => {
+    const callWS = vi.fn().mockImplementation((msg: Record<string, unknown>) => {
+      if (msg.type === "conx_dynamic_panel/cover_command") {
+        return Promise.resolve({
+          active: true,
+          state: msg.command === "stop" ? "idle" : msg.command,
+          direction: msg.command === "stop" ? null : msg.command,
+          duration: 20,
+          reason: "command",
+        });
+      }
+      return Promise.resolve(panelPayload({ profiles: { lighting: coverProfile() } }));
+    });
+    const el = await mountCard({ language: "en", callWS });
+    const control = el.shadowRoot?.querySelector("[data-cover-control]");
+    expect(control).toBeTruthy();
+
+    (el.shadowRoot?.querySelector("[data-cover-open]") as HTMLButtonElement).click();
+    await el.updateComplete;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await el.updateComplete;
+    expect(callWS).toHaveBeenCalledWith({
+      type: "conx_dynamic_panel/cover_command",
+      entry_id: "abc",
+      command: "open",
+    });
+    expect(el._panel?.cover_state?.state).toBe("open");
+
+    (el.shadowRoot?.querySelector("[data-cover-stop]") as HTMLButtonElement).click();
+    await el.updateComplete;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await el.updateComplete;
+    expect(el._panel?.cover_state?.state).toBe("idle");
+  });
+
+  it("labels cover mode in Hebrew and Russian", () => {
+    expect(localize("he", "mode.cover")).toBe("תריס");
+    expect(localize("he", "card.cover_open")).toBe("פתיחה");
+    expect(localize("ru", "mode.cover")).toContain("Ролета");
+    expect(localize("en", "card.cover_stop")).toBe("Stop");
   });
 });
 

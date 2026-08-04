@@ -44,6 +44,30 @@ const EN: Record<string, string> = {
   "card.radio_groups_toggle": "Show radio groups",
   "card.radio_group": "Group",
   "card.radio_groups_overlap": "Each button can belong to only one radio group.",
+  "card.cover": "Cover / shutter",
+  "card.cover_hint":
+    "Pick which panel buttons drive the motor. Pressing a direction starts a timed travel; pressing again stops it. The integration never energizes both directions at once.",
+  "card.cover_open_button": "Open button",
+  "card.cover_close_button": "Close button",
+  "card.cover_open_time": "Open travel time",
+  "card.cover_close_time": "Close travel time",
+  "card.cover_settle": "Direction change delay",
+  "card.cover_settle_hint":
+    "Dead time between switching one direction off and the other on. Keep it above zero for motor relay safety.",
+  "card.cover_opposite": "Opposite direction press",
+  "card.cover_same_button": "Open and close must use different buttons.",
+  "card.cover_live": "Cover control",
+  "card.cover_open": "Open",
+  "card.cover_close": "Close",
+  "card.cover_stop": "Stop",
+  "card.cover_state_idle": "Stopped",
+  "card.cover_state_open": "Opening",
+  "card.cover_state_close": "Closing",
+  "card.cover_seconds": "s",
+  "card.cover_safety":
+    "Safety: presses run through the integration. Both direction relays are forced off on stop, timer expiry, profile change, sync, and reload.",
+  "cover.stop_only": "Stop only",
+  "cover.stop_then_reverse": "Stop, then reverse",
   "theme.noir": "Noir gray",
   "theme.ivory": "Ivory cool",
   "card.unsaved": "You have unsaved draft changes.",
@@ -111,6 +135,7 @@ const EN: Record<string, string> = {
   "mode.radio_mandatory": "Radio mandatory",
   "mode.radio_optional": "Radio optional",
   "mode.radio_split": "Radio split",
+  "mode.cover": "Cover / shutter",
 };
 
 const HE: Record<string, string> = {
@@ -154,6 +179,30 @@ const HE: Record<string, string> = {
   "card.radio_groups_toggle": "הצג קבוצות רדיו",
   "card.radio_group": "קבוצה",
   "card.radio_groups_overlap": "כל כפתור יכול להשתייך לקבוצת רדיו אחת בלבד.",
+  "card.cover": "תריס",
+  "card.cover_hint":
+    "בחרו אילו כפתורים בפאנל מפעילים את המנוע. לחיצה על כיוון מתחילה תנועה מתוזמנת, ולחיצה נוספת עוצרת אותה. האינטגרציה לעולם לא מפעילה את שני הכיוונים יחד.",
+  "card.cover_open_button": "כפתור פתיחה",
+  "card.cover_close_button": "כפתור סגירה",
+  "card.cover_open_time": "זמן פתיחה",
+  "card.cover_close_time": "זמן סגירה",
+  "card.cover_settle": "השהיה בהחלפת כיוון",
+  "card.cover_settle_hint":
+    "זמן מת בין כיבוי כיוון אחד להפעלת השני. מומלץ להשאיר מעל אפס לבטיחות ממסרי המנוע.",
+  "card.cover_opposite": "לחיצה על הכיוון ההפוך",
+  "card.cover_same_button": "פתיחה וסגירה חייבות להשתמש בכפתורים שונים.",
+  "card.cover_live": "שליטה בתריס",
+  "card.cover_open": "פתיחה",
+  "card.cover_close": "סגירה",
+  "card.cover_stop": "עצירה",
+  "card.cover_state_idle": "עצור",
+  "card.cover_state_open": "נפתח",
+  "card.cover_state_close": "נסגר",
+  "card.cover_seconds": "שנ׳",
+  "card.cover_safety":
+    "בטיחות: הלחיצות עוברות דרך האינטגרציה. שני ממסרי הכיוון מכובים בעצירה, בתום הזמן, בהחלפת פרופיל, בסנכרון ובטעינה מחדש.",
+  "cover.stop_only": "עצירה בלבד",
+  "cover.stop_then_reverse": "עצירה ואז כיוון הפוך",
   "theme.noir": "נואר אפור",
   "theme.ivory": "שנהב קר",
   "card.unsaved": "יש שינויי טיוטה שלא נשמרו.",
@@ -221,6 +270,7 @@ const HE: Record<string, string> = {
   "mode.radio_mandatory": "רדיו חובה",
   "mode.radio_optional": "רדיו אופציונלי",
   "mode.radio_split": "רדיו ספליט",
+  "mode.cover": "תריס",
 };
 
 const RU: Record<string, string> = {
@@ -264,6 +314,30 @@ const RU: Record<string, string> = {
   "card.radio_groups_toggle": "Показать радиогруппы",
   "card.radio_group": "Группа",
   "card.radio_groups_overlap": "Каждая кнопка может входить только в одну радиогруппу.",
+  "card.cover": "Ролета / жалюзи",
+  "card.cover_hint":
+    "Выберите кнопки панели, управляющие мотором. Нажатие направления запускает движение по таймеру, повторное нажатие останавливает его. Интеграция никогда не включает оба направления одновременно.",
+  "card.cover_open_button": "Кнопка открытия",
+  "card.cover_close_button": "Кнопка закрытия",
+  "card.cover_open_time": "Время открытия",
+  "card.cover_close_time": "Время закрытия",
+  "card.cover_settle": "Задержка смены направления",
+  "card.cover_settle_hint":
+    "Пауза между выключением одного направления и включением другого. Держите её выше нуля для безопасности реле мотора.",
+  "card.cover_opposite": "Нажатие противоположного направления",
+  "card.cover_same_button": "Открытие и закрытие должны использовать разные кнопки.",
+  "card.cover_live": "Управление ролетой",
+  "card.cover_open": "Открыть",
+  "card.cover_close": "Закрыть",
+  "card.cover_stop": "Стоп",
+  "card.cover_state_idle": "Остановлено",
+  "card.cover_state_open": "Открывается",
+  "card.cover_state_close": "Закрывается",
+  "card.cover_seconds": "с",
+  "card.cover_safety":
+    "Безопасность: нажатия обрабатываются интеграцией. Оба реле направлений принудительно выключаются при остановке, истечении таймера, смене профиля, синхронизации и перезагрузке.",
+  "cover.stop_only": "Только стоп",
+  "cover.stop_then_reverse": "Стоп, затем реверс",
   "theme.noir": "Нуар серый",
   "theme.ivory": "Слоновая кость холодная",
   "card.unsaved": "Есть несохранённые изменения черновика.",
@@ -331,6 +405,7 @@ const RU: Record<string, string> = {
   "mode.radio_mandatory": "Радио (обязательно)",
   "mode.radio_optional": "Радио (опционально)",
   "mode.radio_split": "Радио сплит",
+  "mode.cover": "Ролета / жалюзи",
 };
 
 const TABLES: Record<CardLanguage, Record<string, string>> = {

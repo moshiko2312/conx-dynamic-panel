@@ -44,12 +44,51 @@ MODE_TOGGLE: Final = "toggle"
 MODE_RADIO_MANDATORY: Final = "radio_mandatory"
 MODE_RADIO_OPTIONAL: Final = "radio_optional"
 MODE_RADIO_SPLIT: Final = "radio_split"
+MODE_COVER: Final = "cover"
 SUPPORTED_MODES: Final = (
     MODE_TOGGLE,
     MODE_RADIO_MANDATORY,
     MODE_RADIO_OPTIONAL,
     MODE_RADIO_SPLIT,
+    MODE_COVER,
 )
+
+# Cover (shutter) motor safety limits. Travel times are seconds of relay hold.
+COVER_TIME_MIN: Final = 1.0
+COVER_TIME_MAX: Final = 600.0
+COVER_DEFAULT_OPEN_TIME: Final = 20.0
+COVER_DEFAULT_CLOSE_TIME: Final = 20.0
+# Dead time enforced between de-energizing one direction and energizing the other.
+COVER_SETTLE_MIN: Final = 0.0
+COVER_SETTLE_MAX: Final = 5.0
+COVER_DEFAULT_SETTLE: Final = 0.5
+COVER_DEFAULT_OPEN_BUTTON: Final = 1
+COVER_DEFAULT_CLOSE_BUTTON: Final = 2
+
+COVER_DIRECTION_OPEN: Final = "open"
+COVER_DIRECTION_CLOSE: Final = "close"
+COVER_DIRECTIONS: Final = (COVER_DIRECTION_OPEN, COVER_DIRECTION_CLOSE)
+
+COVER_OPPOSITE_STOP_ONLY: Final = "stop_only"
+COVER_OPPOSITE_STOP_THEN_REVERSE: Final = "stop_then_reverse"
+COVER_OPPOSITE_MODES: Final = (
+    COVER_OPPOSITE_STOP_ONLY,
+    COVER_OPPOSITE_STOP_THEN_REVERSE,
+)
+
+COVER_COMMAND_OPEN: Final = "open"
+COVER_COMMAND_CLOSE: Final = "close"
+COVER_COMMAND_STOP: Final = "stop"
+COVER_COMMANDS: Final = (COVER_COMMAND_OPEN, COVER_COMMAND_CLOSE, COVER_COMMAND_STOP)
+
+# Reasons reported on the cover state event.
+COVER_REASON_PRESS: Final = "press"
+COVER_REASON_COMMAND: Final = "command"
+COVER_REASON_STOP_PRESS: Final = "stop_press"
+COVER_REASON_TRAVEL_COMPLETE: Final = "travel_complete"
+COVER_REASON_SAFETY: Final = "safety"
+COVER_REASON_ABORT: Final = "abort"
+COVER_REASON_ERROR: Final = "error"
 
 SYNC_SYNCED: Final = "synced"
 SYNC_PENDING: Final = "pending"
@@ -78,6 +117,7 @@ DEFAULT_COLORS: Final = (
 DEFAULT_RADAR: Final = ("none", "10s", "20s", "30s", "45s", "60s")
 
 EVENT_BUTTON_PRESS: Final = f"{DOMAIN}_button_press"
+EVENT_COVER_STATE: Final = f"{DOMAIN}_cover_state"
 
 ATTR_ENTRY_ID: Final = "entry_id"
 ATTR_DEVICE_ID: Final = "device_id"
@@ -86,11 +126,13 @@ ATTR_BUTTON: Final = "button"
 ATTR_SYNC: Final = "sync"
 ATTR_PAYLOAD: Final = "payload"
 ATTR_MODE: Final = "mode"
+ATTR_COMMAND: Final = "command"
 
 SERVICE_SYNC: Final = "sync"
 SERVICE_ACTIVATE_PROFILE: Final = "activate_profile"
 SERVICE_PULL_FROM_PANEL: Final = "pull_from_panel"
 SERVICE_EXECUTE_BUTTON: Final = "execute_button"
+SERVICE_COVER_COMMAND: Final = "cover_command"
 SERVICE_RELOAD: Final = "reload"
 SERVICE_EXPORT_PROFILES: Final = "export_profiles"
 SERVICE_IMPORT_PROFILES: Final = "import_profiles"

@@ -83,6 +83,34 @@ execute_button:
           max: 4
           mode: box
 
+cover_command:
+  name: Cover command
+  description: >
+    Drive the cover/shutter of a cover-mode profile through the integration
+    safety engine. open and close start a timed travel and stop immediately
+    de-energizes both direction relays.
+  fields:
+    entry_id:
+      name: Entry ID
+      required: false
+      selector:
+        text:
+    device_id:
+      name: Device
+      required: false
+      selector:
+        device:
+          integration: conx_dynamic_panel
+    command:
+      name: Command
+      required: true
+      selector:
+        select:
+          options:
+            - open
+            - close
+            - stop
+
 reload:
   name: Reload
   description: Reload one or all ConX Dynamic Panel entries.

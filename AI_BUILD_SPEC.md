@@ -246,6 +246,66 @@ Multiple independent radio groups via profile `radio_groups` (each `{ id, button
 - Physical OFF within a group: suppress and restore that member to ON (classic radio; no all-off).
 - Sync does not force a global single selected relay pattern.
 
+### Cover
+
+Timed shutter/awning control for a motor wired to two relays. This mode drives a
+motor, so the engine is fail-safe by construction and lives entirely in the
+backend coordinator. The card and every service call route through it; neither is
+allowed to write the direction relays itself.
+
+Profile block:
+
+```json
+"cover": {
+  "open_button": 1,
+  "close_button": 2,
+  "open_time_s": 20.0,
+  "close_time_s": 20.0,
+  "direction_settle_s": 0.5,
+  "opposite_press": "stop_only"
+}
+```
+
+- `open_button` / `close_button`: any of `1..4`, must differ. Configuration where
+  they are equal is rejected by `validate_cover_config` and the engine refuses to
+  move.
+- `open_time_s` / `close_time_s`: `1.0 .. 600.0` seconds, clamped on load.
+- `direction_settle_s`: `0.0 .. 5.0` seconds of dead time between de-energizing
+  one direction and energizing the other.
+- `opposite_press`: `stop_only` (default) or `stop_then_reverse`.
+
+Behavior contract:
+
+- **Mutual exclusion is absolute.** Only one direction relay is ever energized by
+  the engine. Every start de-energizes the opposite relay first and only proceeds
+  once that write succeeds; if it fails, the engine halts instead of starting.
+- **All decisions are serialized** by a per-entry `asyncio.Lock`, so concurrent
+  presses, commands, and timer expiries cannot interleave.
+- Press a direction while idle → start that direction and arm a travel timer for
+  the configured time.
+- Press the same direction while moving → stop (both relays OFF, timer
+  cancelled). No restart.
+- Press the opposite direction while moving → always stop first. With
+  `stop_only` that is the whole action. With `stop_then_reverse` the engine waits
+  `direction_settle_s` and then starts the other direction. The two directions are
+  never energized during the same step.
+- A direction relay reporting OFF is never treated as a start: it halts.
+- Travel timer expiry forces both relays OFF.
+- Buttons outside the configured pair keep behaving as independent toggles.
+- Both relays are forced OFF on: stop, timer expiry, relay write failure, invalid
+  cover configuration, profile activation, profile update, profile delete,
+  profile import, sync, integration setup, and unload. Setup included, so a
+  restart mid-travel cannot inherit an energized relay.
+- The last energized relay pair is remembered in runtime state, so a profile
+  switch mid-travel still de-energizes the buttons physically wired to the motor
+  even if the new profile maps different ones.
+- Sync of a cover profile writes both direction relays OFF rather than restoring
+  a stored ON state.
+- Every write uses transition suppression, so integration-generated changes never
+  re-enter the press handler.
+- State changes fire `conx_dynamic_panel_cover_state` with `state`
+  (`open` / `close` / `idle`), `reason`, the button pair, and the travel duration.
+
 ## Integration entities
 
 Implement per panel:
@@ -273,7 +333,11 @@ conx_dynamic_panel.execute_button
 conx_dynamic_panel.reload
 conx_dynamic_panel.export_profiles
 conx_dynamic_panel.import_profiles
+conx_dynamic_panel.cover_command
 ```
+
+`cover_command` takes `command: open | close | stop` and applies the same cover
+contract as a physical press.
 
 Portable profiles JSON (card download, WebSocket `export_profiles`, and service
 `export_profiles`) uses:

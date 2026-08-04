@@ -1,0 +1,510 @@
+"""Cover/shutter engine safety tests.
+
+Every test runs against a fake adapter that raises the moment both direction
+relays would be energized at the same time, so the mutual-exclusion contract is
+checked continuously and not only by explicit assertions.
+"""
+
+from __future__ import annotations
+
+import asyncio
+from types import SimpleNamespace
+from typing import Any
+from unittest.mock import AsyncMock
+
+import pytest
+
+from custom_components.conx_dynamic_panel.const import (
+    COVER_OPPOSITE_STOP_ONLY,
+    COVER_OPPOSITE_STOP_THEN_REVERSE,
+    MODE_COVER,
+    MODE_TOGGLE,
+)
+from custom_components.conx_dynamic_panel.coordinator import PanelCoordinator
+from custom_components.conx_dynamic_panel.models import (
+    ButtonAction,
+    CoverConfig,
+    EntityMapping,
+    HardwareState,
+    PanelStorageData,
+    Profile,
+    SyncResult,
+    validate_cover_config,
+)
+from custom_components.conx_dynamic_panel.runtime import CoverRuntime
+from custom_components.conx_dynamic_panel.suppression import SuppressionTracker
+
+OPEN_BUTTON = 1
+CLOSE_BUTTON = 3
+# COVER_TIME_MIN is one second, so the timer-expiry test uses the shortest
+# configuration a user could actually save.
+TRAVEL = 1.0
+
+
+class BothDirectionsEnergized(AssertionError):
+    """Raised when the engine would energize both cover relays at once."""
+
+
+class FakeStore:
+    def __init__(self) -> None:
+        self.data = PanelStorageData()
+        self.data.ensure_defaults()
+        self.saved = 0
+
+    async def async_save(self) -> None:
+        self.saved += 1
+
+
+class CoverAdapter:
+    """Adapter fake that enforces hard mutual exclusion on every write."""
+
+    def __init__(self) -> None:
+        self.relay_calls: list[tuple[int, bool]] = []
+        self.relays: dict[int, bool] = {1: False, 2: False, 3: False, 4: False}
+        self.fail_on: set[tuple[int, bool]] = set()
+        self.apply_result = SyncResult(success=True, confirmed_steps=["relays"])
+
+    async def async_set_relay(
+        self, index: int, state: bool, *, suppress_event: bool = True
+    ) -> None:
+        if (index, state) in self.fail_on:
+            raise RuntimeError(f"relay {index} write failed")
+        if state and index in (OPEN_BUTTON, CLOSE_BUTTON):
+            other = CLOSE_BUTTON if index == OPEN_BUTTON else OPEN_BUTTON
+            if self.relays[other]:
+                raise BothDirectionsEnergized(
+                    f"relay {index} turned on while relay {other} is still on"
+                )
+        self.relays[index] = state
+        self.relay_calls.append((index, state))
+
+    async def async_apply_profile(self, profile: Profile) -> SyncResult:
+        return self.apply_result
+
+    async def async_read_hardware_state(self) -> HardwareState:
+        return HardwareState(
+            names=("A", "B", "C", "D"),
+            relays=(False, False, False, False),
+            color_on="cyan",
+            color_off="blue",
+            radar="30s",
+            backlight=True,
+            child_lock=False,
+        )
+
+    def supported_colors(self) -> list[str]:
+        return ["cyan", "blue"]
+
+    def supported_radar(self) -> list[str]:
+        return ["30s"]
+
+
+def _runtime(adapter: CoverAdapter, store: FakeStore) -> Any:
+    mapping = EntityMapping(
+        panel_name="Salon",
+        adapter_type="zemismart_4gang",
+        relay_entities=("switch.l1", "switch.l2", "switch.l3", "switch.l4"),
+        name_entities=("text.n1", "text.n2", "text.n3", "text.n4"),
+        color_off_entity="select.off",
+        color_on_entity="select.on",
+        radar_entity="select.radar",
+        backlight_entity="switch.backlight",
+        child_lock_entity="switch.lock",
+    )
+    events: list[tuple[str, dict[str, Any]]] = []
+    hass = SimpleNamespace(
+        services=SimpleNamespace(
+            has_service=lambda domain, service: True,
+            async_call=AsyncMock(),
+        ),
+        bus=SimpleNamespace(
+            async_fire=lambda event, data=None: events.append((event, data or {}))
+        ),
+        async_create_task=lambda coro: asyncio.create_task(coro),
+    )
+    entry = SimpleNamespace(entry_id="entry-1", options={"auto_sync": False})
+    return SimpleNamespace(
+        hass=hass,
+        entry=entry,
+        mapping=mapping,
+        store=store,
+        adapter=adapter,
+        suppression=SuppressionTracker(),
+        sync_lock=asyncio.Lock(),
+        cover=CoverRuntime(),
+        unloading=False,
+        listeners=[],
+        update_callbacks=[],
+        auto_sync=False,
+        sync_timeout=30.0,
+        confirm_timeout=10.0,
+        async_notify=lambda: None,
+        events=events,
+    )
+
+
+def _cover_profile(
+    store: FakeStore,
+    *,
+    opposite_press: str = COVER_OPPOSITE_STOP_ONLY,
+    settle: float = 0.0,
+    open_time: float = 5.0,
+    close_time: float = 5.0,
+) -> Profile:
+    profile = store.data.active_profile()
+    assert profile is not None
+    profile.mode = MODE_COVER  # type: ignore[assignment]
+    profile.cover = CoverConfig(
+        open_button=OPEN_BUTTON,
+        close_button=CLOSE_BUTTON,
+        open_time_s=open_time,
+        close_time_s=close_time,
+        direction_settle_s=settle,
+        opposite_press=opposite_press,
+    )
+    return profile
+
+
+def _build(**kwargs: Any) -> tuple[PanelCoordinator, CoverAdapter, FakeStore, Profile, Any]:
+    store = FakeStore()
+    adapter = CoverAdapter()
+    runtime = _runtime(adapter, store)
+    coordinator = PanelCoordinator(runtime)  # type: ignore[arg-type]
+    profile = _cover_profile(store, **kwargs)
+    return coordinator, adapter, store, profile, runtime
+
+
+def _assert_all_cover_relays_off(adapter: CoverAdapter) -> None:
+    assert adapter.relays[OPEN_BUTTON] is False
+    assert adapter.relays[CLOSE_BUTTON] is False
+
+
+# ---------------------------------------------------------------------------
+# Starting travel
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_press_open_while_idle_starts_opening() -> None:
+    coordinator, adapter, _store, _profile, runtime = _build(open_time=5.0)
+    await coordinator._async_handle_physical_press(OPEN_BUTTON, True)
+    # The opposite relay is de-energized before the direction relay is energized.
+    assert adapter.relay_calls == [(CLOSE_BUTTON, False), (OPEN_BUTTON, True)]
+    assert runtime.cover.direction == "open"
+    assert runtime.cover.duration == 5.0
+    await coordinator._async_cover_abort("test")
+
+
+@pytest.mark.asyncio
+async def test_press_close_while_idle_starts_closing_with_close_time() -> None:
+    coordinator, adapter, _store, _profile, runtime = _build(
+        open_time=5.0, close_time=9.0
+    )
+    await coordinator._async_handle_physical_press(CLOSE_BUTTON, True)
+    assert adapter.relay_calls == [(OPEN_BUTTON, False), (CLOSE_BUTTON, True)]
+    assert runtime.cover.direction == "close"
+    assert runtime.cover.duration == 9.0
+    await coordinator._async_cover_abort("test")
+
+
+@pytest.mark.asyncio
+async def test_arbitrary_buttons_can_be_mapped_to_directions() -> None:
+    coordinator, adapter, store, profile, runtime = _build()
+    profile.cover = CoverConfig(
+        open_button=4, close_button=2, open_time_s=5.0, close_time_s=5.0
+    )
+    await coordinator._async_handle_physical_press(4, True)
+    assert adapter.relay_calls == [(2, False), (4, True)]
+    assert runtime.cover.direction == "open"
+    await coordinator._async_cover_abort("test")
+
+
+# ---------------------------------------------------------------------------
+# Stopping
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_repress_same_direction_stops_and_cancels_timer() -> None:
+    coordinator, adapter, _store, _profile, runtime = _build(open_time=5.0)
+    await coordinator._async_handle_physical_press(OPEN_BUTTON, True)
+    timer = runtime.cover.timer
+    adapter.relay_calls.clear()
+    # Re-pressing the moving direction toggles its latching relay OFF.
+    await coordinator._async_handle_physical_press(OPEN_BUTTON, False)
+    assert runtime.cover.moving is False
+    _assert_all_cover_relays_off(adapter)
+    assert set(adapter.relay_calls) == {(OPEN_BUTTON, False), (CLOSE_BUTTON, False)}
+    assert timer is not None
+    await asyncio.sleep(0)
+    assert timer.cancelled() or timer.done()
+
+
+@pytest.mark.asyncio
+async def test_relay_off_while_idle_triggers_safety_halt_without_motion() -> None:
+    coordinator, adapter, _store, _profile, runtime = _build()
+    await coordinator._async_handle_physical_press(OPEN_BUTTON, False)
+    assert runtime.cover.moving is False
+    _assert_all_cover_relays_off(adapter)
+    assert all(state is False for _index, state in adapter.relay_calls)
+
+
+@pytest.mark.asyncio
+async def test_travel_timer_expiry_forces_both_relays_off() -> None:
+    coordinator, adapter, _store, _profile, runtime = _build(open_time=TRAVEL)
+    await coordinator._async_handle_physical_press(OPEN_BUTTON, True)
+    assert runtime.cover.moving is True
+    await asyncio.sleep(TRAVEL + 0.3)
+    assert runtime.cover.moving is False
+    assert runtime.cover.last_reason == "travel_complete"
+    _assert_all_cover_relays_off(adapter)
+
+
+@pytest.mark.asyncio
+async def test_cover_command_stop_halts_travel() -> None:
+    coordinator, adapter, _store, _profile, runtime = _build(open_time=5.0)
+    await coordinator.async_cover_command("open")
+    assert runtime.cover.direction == "open"
+    result = await coordinator.async_cover_command("stop")
+    assert result["state"] == "idle"
+    _assert_all_cover_relays_off(adapter)
+
+
+# ---------------------------------------------------------------------------
+# Opposite direction
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_opposite_press_stop_only_does_not_start_reverse() -> None:
+    coordinator, adapter, _store, _profile, runtime = _build(
+        opposite_press=COVER_OPPOSITE_STOP_ONLY, open_time=5.0
+    )
+    await coordinator._async_handle_physical_press(OPEN_BUTTON, True)
+    adapter.relay_calls.clear()
+    await coordinator._async_handle_physical_press(CLOSE_BUTTON, True)
+    assert runtime.cover.moving is False
+    _assert_all_cover_relays_off(adapter)
+    assert all(state is False for _index, state in adapter.relay_calls)
+
+
+@pytest.mark.asyncio
+async def test_opposite_press_stop_then_reverse_stops_before_starting() -> None:
+    coordinator, adapter, _store, _profile, runtime = _build(
+        opposite_press=COVER_OPPOSITE_STOP_THEN_REVERSE,
+        settle=0.01,
+        open_time=5.0,
+        close_time=5.0,
+    )
+    await coordinator._async_handle_physical_press(OPEN_BUTTON, True)
+    adapter.relay_calls.clear()
+    await coordinator._async_handle_physical_press(CLOSE_BUTTON, True)
+    assert runtime.cover.direction == "close"
+    # The open relay is forced off before the close relay is ever energized.
+    first_close_on = adapter.relay_calls.index((CLOSE_BUTTON, True))
+    assert (OPEN_BUTTON, False) in adapter.relay_calls[:first_close_on]
+    assert adapter.relays[OPEN_BUTTON] is False
+    await coordinator._async_cover_abort("test")
+
+
+@pytest.mark.asyncio
+async def test_cover_command_open_while_closing_stops_only_by_default() -> None:
+    coordinator, adapter, _store, _profile, runtime = _build(close_time=5.0)
+    await coordinator.async_cover_command("close")
+    adapter.relay_calls.clear()
+    await coordinator.async_cover_command("open")
+    assert runtime.cover.moving is False
+    _assert_all_cover_relays_off(adapter)
+
+
+# ---------------------------------------------------------------------------
+# Cancellation and fail-safes
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_profile_switch_cancels_travel_and_de_energizes() -> None:
+    coordinator, adapter, _store, _profile, runtime = _build(open_time=5.0)
+    await coordinator._async_handle_physical_press(OPEN_BUTTON, True)
+    await coordinator.async_activate_profile("scenes")
+    assert runtime.cover.moving is False
+    _assert_all_cover_relays_off(adapter)
+    adapter.relay_calls.clear()
+    await asyncio.sleep(0.05)
+    assert adapter.relay_calls == []
+
+
+@pytest.mark.asyncio
+async def test_updating_active_profile_cancels_travel() -> None:
+    coordinator, adapter, store, profile, runtime = _build(open_time=5.0)
+    await coordinator._async_handle_physical_press(OPEN_BUTTON, True)
+    payload = profile.to_dict()
+    payload["cover"]["open_time_s"] = 30.0
+    await coordinator.async_update_profile(profile.id, payload)
+    assert runtime.cover.moving is False
+    _assert_all_cover_relays_off(adapter)
+    assert store.data.profiles[profile.id].cover.open_time_s == 30.0
+
+
+@pytest.mark.asyncio
+async def test_unload_stops_travel_and_forces_relays_off() -> None:
+    coordinator, adapter, _store, _profile, runtime = _build(open_time=5.0)
+    await coordinator._async_handle_physical_press(OPEN_BUTTON, True)
+    await coordinator.async_unload()
+    assert runtime.cover.moving is False
+    assert runtime.unloading is True
+    _assert_all_cover_relays_off(adapter)
+
+
+@pytest.mark.asyncio
+async def test_sync_stops_travel_before_writing_hardware() -> None:
+    coordinator, adapter, _store, _profile, runtime = _build(open_time=5.0)
+    await coordinator._async_handle_physical_press(OPEN_BUTTON, True)
+    await coordinator.async_sync()
+    assert runtime.cover.moving is False
+    _assert_all_cover_relays_off(adapter)
+
+
+@pytest.mark.asyncio
+async def test_setup_forces_cover_relays_off() -> None:
+    store = FakeStore()
+    adapter = CoverAdapter()
+    runtime = _runtime(adapter, store)
+    _cover_profile(store, open_time=5.0)
+    runtime.store.async_load = AsyncMock(return_value=store.data)
+    coordinator = PanelCoordinator(runtime)  # type: ignore[arg-type]
+    coordinator._attach_listeners = lambda: None  # type: ignore[method-assign]
+    await coordinator.async_setup()
+    assert set(adapter.relay_calls) == {(OPEN_BUTTON, False), (CLOSE_BUTTON, False)}
+
+
+@pytest.mark.asyncio
+async def test_failed_energize_forces_both_relays_off() -> None:
+    coordinator, adapter, _store, _profile, runtime = _build(open_time=5.0)
+    adapter.fail_on.add((OPEN_BUTTON, True))
+    await coordinator._async_handle_physical_press(OPEN_BUTTON, True)
+    assert runtime.cover.moving is False
+    _assert_all_cover_relays_off(adapter)
+
+
+@pytest.mark.asyncio
+async def test_unsafe_cover_config_refuses_to_move() -> None:
+    coordinator, adapter, _store, profile, runtime = _build()
+    profile.cover = CoverConfig(open_button=2, close_button=2)
+    await coordinator._async_handle_physical_press(2, True)
+    assert runtime.cover.moving is False
+    assert all(state is False for _index, state in adapter.relay_calls)
+
+
+@pytest.mark.asyncio
+async def test_rapid_alternating_presses_never_energize_both() -> None:
+    coordinator, adapter, _store, _profile, runtime = _build(
+        opposite_press=COVER_OPPOSITE_STOP_THEN_REVERSE,
+        open_time=1.0,
+        close_time=1.0,
+        settle=0.0,
+    )
+    # The adapter fake raises if the engine ever overlaps the two directions.
+    await asyncio.gather(
+        *[
+            coordinator._async_handle_physical_press(
+                OPEN_BUTTON if index % 2 == 0 else CLOSE_BUTTON, True
+            )
+            for index in range(8)
+        ]
+    )
+    await coordinator._async_cover_abort("test")
+    _assert_all_cover_relays_off(adapter)
+
+
+# ---------------------------------------------------------------------------
+# Other buttons and other modes
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_non_cover_button_still_executes_its_action() -> None:
+    coordinator, adapter, _store, profile, runtime = _build()
+    profile.buttons[1].action = ButtonAction(
+        action="light.toggle", target={"entity_id": "light.x"}
+    )
+    await coordinator._async_handle_physical_press(2, True)
+    runtime.hass.services.async_call.assert_awaited_once()
+    assert adapter.relay_calls == []
+
+
+@pytest.mark.asyncio
+async def test_execute_button_service_drives_cover_button() -> None:
+    coordinator, adapter, _store, _profile, runtime = _build(open_time=5.0)
+    await coordinator.async_execute_button(OPEN_BUTTON)
+    assert runtime.cover.direction == "open"
+    runtime.hass.services.async_call.assert_not_awaited()
+    await coordinator._async_cover_abort("test")
+
+
+@pytest.mark.asyncio
+async def test_toggle_mode_is_unaffected_by_cover_config() -> None:
+    coordinator, adapter, store, profile, runtime = _build()
+    profile.mode = MODE_TOGGLE  # type: ignore[assignment]
+    profile.buttons[0].action = ButtonAction(action="light.toggle", target={})
+    await coordinator._async_handle_physical_press(OPEN_BUTTON, True)
+    runtime.hass.services.async_call.assert_awaited_once()
+    assert adapter.relay_calls == []
+    assert runtime.cover.moving is False
+
+
+@pytest.mark.asyncio
+async def test_cover_command_rejects_non_cover_profile() -> None:
+    coordinator, _adapter, _store, profile, _runtime = _build()
+    profile.mode = MODE_TOGGLE  # type: ignore[assignment]
+    with pytest.raises(ValueError, match="not in cover mode"):
+        await coordinator.async_cover_command("open")
+
+
+@pytest.mark.asyncio
+async def test_update_profile_rejects_same_button_for_both_directions() -> None:
+    coordinator, _adapter, _store, profile, _runtime = _build()
+    payload = profile.to_dict()
+    payload["cover"]["close_button"] = payload["cover"]["open_button"]
+    with pytest.raises(ValueError, match="must be different"):
+        await coordinator.async_update_profile(profile.id, payload)
+
+
+def test_validate_cover_config_rejects_shared_button() -> None:
+    with pytest.raises(ValueError, match="must be different"):
+        validate_cover_config(CoverConfig(open_button=2, close_button=2))
+
+
+def test_cover_config_clamps_out_of_range_values() -> None:
+    cover = CoverConfig.from_dict(
+        {
+            "open_button": 9,
+            "close_button": "2",
+            "open_time_s": 9999,
+            "close_time_s": -5,
+            "direction_settle_s": 99,
+            "opposite_press": "nonsense",
+        }
+    )
+    assert cover.open_button == 1
+    assert cover.close_button == 2
+    assert cover.open_time_s == 600.0
+    assert cover.close_time_s == 1.0
+    assert cover.direction_settle_s == 5.0
+    assert cover.opposite_press == COVER_OPPOSITE_STOP_ONLY
+
+
+def test_cover_state_payload_reports_idle_by_default() -> None:
+    store = FakeStore()
+    adapter = CoverAdapter()
+    runtime = _runtime(adapter, store)
+    coordinator = PanelCoordinator(runtime)  # type: ignore[arg-type]
+    _cover_profile(store)
+    payload = coordinator.cover_state_payload()
+    assert payload == {
+        "active": True,
+        "state": "idle",
+        "direction": None,
+        "duration": None,
+        "reason": None,
+    }
