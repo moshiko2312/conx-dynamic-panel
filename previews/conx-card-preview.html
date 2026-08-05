@@ -2478,12 +2478,15 @@
             return;
           }
           const button = (d.buttons || []).find((b) => b.index === index);
+          // Always read this button's draft pulse_time_s (mixed-role momentary).
           const pulseMs = clampPulseTime(button && button.pulse_time_s, DEFAULT_PULSE_TIME) * 1000;
           d.ringOn[index] = true;
           state.momentaryTimers[index] = setTimeout(() => {
             delete state.momentaryTimers[index];
-            d.ringOn[index] = false;
-            render();
+            // Prefer live draft in case profiles were switched mid-pulse.
+            if (state.draft) state.draft.ringOn[index] = false;
+            // Must refresh faceplate DOM — there is no top-level render().
+            renderFaceplate();
           }, pulseMs);
           return;
         }
