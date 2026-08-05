@@ -2393,43 +2393,57 @@
         if (d.mode === "cover") return Boolean(d.ringOn[index]);
       }
       if (d.mode === "radio_split") return Boolean(d.ringOn[index]);
-      if (d.mode !== "toggle" && d.mode !== "mixed" && isRadioMember(index)) {
-        return d.selected_button === index;
+      if (d.mode !== "toggle" && isRadioMember(index)) {
+        // Faceplate LED preview (ringOn) — not draft.selected_button.
+        return Boolean(d.ringOn[index]);
       }
       return Boolean(d.ringOn[index]);
     }
+    function syncRadioRingPreview(draft) {
+      if (!draft || draft.mode === "toggle" || draft.mode === "radio_split" || draft.mode === "cover") {
+        return;
+      }
+      const selected = draft.selected_button;
+      for (const button of draft.buttons || []) {
+        if (button.radio_member === false) continue;
+        draft.ringOn[button.index] = button.index === selected;
+      }
+    }
     function handleFaceplatePress(index) {
       const d = state.draft;
+      // Faceplate presses are LED preview only — never mark the draft dirty.
       if (d.mode === "cover" || (d.mode === "mixed" && coverDirectionFor(index, d))) {
         const cover = coverForButton(index, d);
         const direction = coverDirectionFor(index, d);
         if (cover && direction) {
           // Runtime motor action, not a draft edit — never marks the profile dirty.
           coverPress(direction, cover.id);
-          return false;
+          return;
         }
         d.ringOn[index] = !d.ringOn[index];
-        return true;
+        return;
       }
       if (d.mode === "radio_split") {
         const group = findRadioGroup(index, d.radio_groups);
         if (!group) {
           d.ringOn[index] = !d.ringOn[index];
-          return true;
+          return;
         }
         // Classic radio within group: re-pressing selected does nothing.
-        if (d.ringOn[index]) return false;
+        if (d.ringOn[index]) return;
         for (const i of group.buttons) d.ringOn[i] = i === index;
-        return true;
+        return;
       }
       if (d.mode === "toggle" || !isRadioMember(index)) {
         d.ringOn[index] = !d.ringOn[index];
-        return true;
+        return;
       }
-      // Classic radio (mandatory/optional): exactly one on; no self-toggle-off.
-      if (d.selected_button === index) return false;
-      d.selected_button = index;
-      return true;
+      // Classic radio (mandatory/optional/mixed): preview only — do not touch selected_button.
+      if (d.ringOn[index]) return;
+      const members = (d.buttons || [])
+        .filter((b) => b.radio_member !== false)
+        .map((b) => b.index);
+      for (const i of members) d.ringOn[i] = i === index;
     }
     function syncPanelNameUi() {
       const name = (typeof state.panelName === "string" && state.panelName.trim())
@@ -2464,7 +2478,7 @@
           const index = Number(btn.dataset.ring);
           btn.classList.add("pressed");
           setTimeout(() => btn.classList.remove("pressed"), 180);
-          if (handleFaceplatePress(index)) markDirty(true);
+          handleFaceplatePress(index);
           renderFaceplate();
         });
       });
@@ -2887,6 +2901,7 @@
       } else if (state.draft.mode !== "toggle" && !state.draft.selected_button) {
         state.draft.selected_button = 1;
       }
+      syncRadioRingPreview(state.draft);
       markDirty(true);
       renderModePicker();
       renderProfilesGangPicker();

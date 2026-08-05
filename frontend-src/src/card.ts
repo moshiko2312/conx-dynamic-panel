@@ -156,6 +156,8 @@ export class ConXDynamicPanelCard extends LitElement {
   @state() private _syncPulse = false;
   @state() private _pressedRing: number | null = null;
   @state() private _splitPreviewOn: Record<number, boolean> = {};
+  /** Faceplate-only radio LED preview; never written into the draft. */
+  @state() private _radioPreviewSelected: number | null = null;
   @state() private _uiLang?: CardLanguage;
   @state() private _theme: CardThemeId = "noir";
   /** Main editor vs export/import wizard view. */
@@ -651,9 +653,17 @@ export class ConXDynamicPanelCard extends LitElement {
     const profile = activeId ? panel.profiles[activeId] : undefined;
     this._saved = profile ? cloneProfile(profile) : undefined;
     this._draft = profile ? cloneProfile(profile) : undefined;
+    this._clearFaceplatePreview();
     if (this._draft?.mode === "radio_split") {
       this._radioGroupsOpen = loadStoredRadioGroupsOpen() ?? true;
     }
+  }
+
+  /** Reset local LED preview so presses never leak into draft dirty state. */
+  private _clearFaceplatePreview(): void {
+    this._splitPreviewOn = {};
+    this._radioPreviewSelected = null;
+    this._pressedRing = null;
   }
 
   private _setRadioGroupsOpen(open: boolean): void {
@@ -773,6 +783,7 @@ export class ConXDynamicPanelCard extends LitElement {
     ) {
       return;
     }
+    this._clearFaceplatePreview();
     this._patchDraft((draft) => {
       draft.mode = mode;
       if (draft.mode === "cover") {
@@ -1408,6 +1419,7 @@ export class ConXDynamicPanelCard extends LitElement {
   private _discard(): void {
     if (this._saved) {
       this._draft = cloneProfile(this._saved);
+      this._clearFaceplatePreview();
     }
   }
 
@@ -1756,7 +1768,9 @@ export class ConXDynamicPanelCard extends LitElement {
     }
     const radioMode = this._draft.mode !== "toggle";
     if (radioMode && this._isRadioMember(buttonIndex)) {
-      return this._draft.selected_button === buttonIndex;
+      const selected =
+        this._radioPreviewSelected ?? this._draft.selected_button;
+      return selected === buttonIndex;
     }
     const entityId = this._buttonEntityId(buttonIndex);
     if (entityId) {
@@ -1776,6 +1790,8 @@ export class ConXDynamicPanelCard extends LitElement {
         this._pressedRing = null;
       }
     }, 180);
+    // Faceplate presses are local LED preview only — never mutate the draft
+    // (mutating selected_button previously flipped _dirty / Save Draft).
     if (!this._draft || this._draft.mode === "toggle") {
       return;
     }
@@ -1818,13 +1834,13 @@ export class ConXDynamicPanelCard extends LitElement {
     if (!this._isRadioMember(buttonIndex)) {
       return;
     }
-    // Classic radio: exactly one on; re-pressing selected does not turn it off.
-    if (this._draft.selected_button === buttonIndex) {
+    // Classic radio preview: exactly one on; re-pressing selected does nothing.
+    const selected =
+      this._radioPreviewSelected ?? this._draft.selected_button;
+    if (selected === buttonIndex) {
       return;
     }
-    this._patchDraft((draft) => {
-      draft.selected_button = buttonIndex;
-    });
+    this._radioPreviewSelected = buttonIndex;
   }
 
   private _ringOnColor(): string {

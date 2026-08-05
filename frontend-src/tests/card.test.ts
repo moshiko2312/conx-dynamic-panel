@@ -456,9 +456,51 @@ describe("custom elements", () => {
     el._onRingPress(2);
     await el.updateComplete;
     expect(el._draft?.selected_button).toBe(2);
+    expect(el._dirty).toBe(false);
     el._onRingPress(4);
     await el.updateComplete;
-    expect(el._draft?.selected_button).toBe(4);
+    // Faceplate preview only — draft selected_button stays at the saved value.
+    expect(el._draft?.selected_button).toBe(2);
+    expect(el._radioPreviewSelected).toBe(4);
+    expect(el._dirty).toBe(false);
+    expect(el._isRingOn(4)).toBe(true);
+    expect(el._isRingOn(2)).toBe(false);
+  });
+
+  it("does not mark dirty after save draft then faceplate press", async () => {
+    const savedProfile = {
+      ...panelPayload().profiles.lighting,
+      mode: "radio_optional",
+      selected_button: 1,
+    };
+    const callWS = vi
+      .fn()
+      .mockResolvedValueOnce(panelPayload({ sync_status: "synced" }))
+      .mockResolvedValueOnce(savedProfile)
+      .mockResolvedValueOnce(
+        panelPayload({
+          sync_status: "pending",
+          profiles: { lighting: savedProfile },
+        })
+      );
+    const el = await mountCard({ language: "en", callWS });
+    el._activeTab = "buttons";
+    await el.updateComplete;
+    (el.shadowRoot?.querySelector('[data-mode="radio_optional"]') as HTMLButtonElement).click();
+    await el.updateComplete;
+    expect(el._dirty).toBe(true);
+    await el._saveDraft();
+    await el.updateComplete;
+    expect(el._dirty).toBe(false);
+
+    el._onRingPress(3);
+    await el.updateComplete;
+    expect(el._dirty).toBe(false);
+    expect(el.shadowRoot?.querySelector(".unsaved-draft")).toBeFalsy();
+    expect(el._draft?.selected_button).not.toBe(3);
+    expect(el._radioPreviewSelected).toBe(3);
+    // Sync is still pending for hardware labels — not required for press preview.
+    expect(el.shadowRoot?.querySelector("[data-sync-needed]")).toBeTruthy();
   });
 
   it("shows radio groups editor only in buttons section for radio_split", async () => {
