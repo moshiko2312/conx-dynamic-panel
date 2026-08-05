@@ -3,6 +3,7 @@ import type {
   CoverState,
   HomeAssistant,
   PanelConfig,
+  PanelRuntimeUpdate,
   Profile,
   ProfilesExport,
 } from "./types";
@@ -173,6 +174,21 @@ export async function coverCommand(
     msg.cover_id = coverId;
   }
   return hass.callWS<CoverState>(msg);
+}
+
+/** Subscribe to coordinator runtime pushes (sync/cover/relays; never drafts). */
+export async function subscribeRuntime(
+  hass: HomeAssistant,
+  entryId: string,
+  onUpdate: (update: PanelRuntimeUpdate) => void
+): Promise<() => void> {
+  if (!hass.connection?.subscribeMessage) {
+    return () => undefined;
+  }
+  return hass.connection.subscribeMessage<PanelRuntimeUpdate>(onUpdate, {
+    type: "conx_dynamic_panel/subscribe",
+    entry_id: entryId,
+  });
 }
 
 function clampNumber(value: unknown, min: number, max: number, fallback: number): number {

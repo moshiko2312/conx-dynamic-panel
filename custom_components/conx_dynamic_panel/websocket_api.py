@@ -24,6 +24,7 @@ def _coordinator(hass: HomeAssistant, entry_id: str) -> PanelCoordinator:
 async def async_register_websocket_api(hass: HomeAssistant) -> None:
     """Register websocket commands."""
     websocket_api.async_register_command(hass, ws_get_config)
+    websocket_api.async_register_command(hass, ws_subscribe)
     websocket_api.async_register_command(hass, ws_list_profiles)
     websocket_api.async_register_command(hass, ws_create_profile)
     websocket_api.async_register_command(hass, ws_update_profile)
@@ -51,6 +52,30 @@ async def ws_get_config(
     """Return panel configuration payload."""
     coordinator = _coordinator(hass, msg["entry_id"])
     connection.send_result(msg["id"], coordinator.get_config_payload())
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "conx_dynamic_panel/subscribe",
+        vol.Required("entry_id"): str,
+    }
+)
+@callback
+def ws_subscribe(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Push live runtime updates (sync/cover/relays) without touching drafts."""
+    coordinator = _coordinator(hass, msg["entry_id"])
+
+    @callback
+    def _push() -> None:
+        connection.send_message(
+            websocket_api.event_message(msg["id"], coordinator.get_runtime_payload())
+        )
+
+    connection.subscriptions[msg["id"]] = coordinator.runtime.async_add_listener(_push)
+    connection.send_result(msg["id"])
+    _push()
 
 
 @websocket_api.websocket_command(

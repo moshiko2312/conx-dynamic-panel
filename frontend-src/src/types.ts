@@ -98,6 +98,17 @@ export interface Profile {
   cover?: CoverConfig;
 }
 
+/** Live runtime fields pushed by conx_dynamic_panel/subscribe (never drafts). */
+export interface PanelRuntimeUpdate {
+  entry_id?: string;
+  sync_status?: string;
+  last_sync?: string | null;
+  last_error?: string | null;
+  auto_sync?: boolean;
+  relay_entities?: string[];
+  cover_state?: CoverState;
+}
+
 export interface PanelConfig {
   entry_id: string;
   panel_name: string;
@@ -131,6 +142,8 @@ export interface PanelConfig {
   };
   profiles: Record<string, Profile>;
   applied_snapshot: Record<string, unknown>;
+  /** Mapped L1–L4 switch entity IDs for live faceplate rings via hass.states. */
+  relay_entities?: string[];
   cover_state?: CoverState;
 }
 
@@ -154,10 +167,18 @@ export interface HassEntity {
   attributes?: Record<string, unknown>;
 }
 
+export interface HassConnection {
+  subscribeMessage: <T>(
+    callback: (message: T) => void,
+    subscribeMessage: Record<string, unknown>
+  ) => Promise<() => void>;
+}
+
 export interface HomeAssistant {
   language?: string;
   locale?: { language?: string };
   callWS: <T>(msg: Record<string, unknown>) => Promise<T>;
+  connection?: HassConnection;
   themes?: Record<string, unknown>;
   states?: Record<string, HassEntity>;
 }

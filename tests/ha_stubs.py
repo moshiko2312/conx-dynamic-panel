@@ -275,3 +275,14 @@ def install() -> None:
     websocket_api.require_admin = require_admin
     websocket_api.async_register_command = lambda *args, **kwargs: None
     websocket_api.ActiveConnection = type("ActiveConnection", (), {})
+    websocket_api.event_message = lambda msg_id, event: {
+        "id": msg_id,
+        "type": "event",
+        "event": event,
+    }
+    websocket_api.result_message = lambda msg_id, result=None: {
+        "id": msg_id,
+        "type": "result",
+        "success": True,
+        "result": result,
+    }

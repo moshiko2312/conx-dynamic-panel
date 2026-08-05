@@ -1159,6 +1159,18 @@ class PanelCoordinator:
         self.runtime.async_notify()
         return self.get_config_payload()
 
+    def get_runtime_payload(self) -> dict[str, Any]:
+        """Return live runtime fields for card refresh (never includes drafts)."""
+        return {
+            "entry_id": self.runtime.entry.entry_id,
+            "sync_status": self.data.sync_status,
+            "last_sync": self.data.last_sync,
+            "last_error": self.data.last_error,
+            "auto_sync": self.runtime.auto_sync,
+            "relay_entities": list(self.runtime.mapping.relay_entities),
+            "cover_state": self.cover_state_payload(),
+        }
+
     def get_config_payload(self) -> dict[str, Any]:
         """Return frontend configuration payload."""
         colors = self.runtime.adapter.supported_colors()
@@ -1178,5 +1190,6 @@ class PanelCoordinator:
             "capabilities": defaults,
             "profiles": {key: profile.to_dict() for key, profile in self.data.profiles.items()},
             "applied_snapshot": self.data.applied_snapshot,
+            "relay_entities": list(self.runtime.mapping.relay_entities),
             "cover_state": self.cover_state_payload(),
         }

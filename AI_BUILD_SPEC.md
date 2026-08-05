@@ -397,6 +397,7 @@ Implement authenticated commands under `conx_dynamic_panel/*`:
 
 ```text
 conx_dynamic_panel/get_config
+conx_dynamic_panel/subscribe
 conx_dynamic_panel/list_profiles
 conx_dynamic_panel/create_profile
 conx_dynamic_panel/update_profile
@@ -408,6 +409,8 @@ conx_dynamic_panel/pull
 conx_dynamic_panel/export_profiles
 conx_dynamic_panel/import_profiles
 ```
+
+`subscribe` pushes live runtime fields (`sync_status`, `cover_state`, `relay_entities`, …) on coordinator notify. It must never include profile drafts. The card mirrors mapped relays via `hass.states` for faceplate LEDs.
 
 Require admin permission for configuration-changing commands. Validate payloads with current Home Assistant schema tools.
 

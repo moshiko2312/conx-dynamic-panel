@@ -140,6 +140,7 @@ function panelPayload(overrides: Record<string, unknown> = {}) {
     },
     profiles: { lighting: sampleProfile },
     applied_snapshot: {},
+    relay_entities: ["switch.l1", "switch.l2", "switch.l3", "switch.l4"],
     ...overrides,
   };
 }
@@ -576,6 +577,8 @@ describe("custom elements", () => {
     const callWS = vi.fn().mockResolvedValue(
       panelPayload({
         sync_status: "synced",
+        // No mapped relays → faceplate uses local optimistic pulse only.
+        relay_entities: [],
         profiles: { lighting: mixedProfile },
       })
     );
@@ -598,6 +601,95 @@ describe("custom elements", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("faceplate rings follow live mapped relay hass.states without dirty", async () => {
+    const mixedProfile: Profile = {
+      ...sampleProfile,
+      mode: "mixed",
+      selected_button: null,
+      buttons: sampleProfile.buttons.map((button, index) => ({
+        ...button,
+        role: index === 0 ? "momentary" : "toggle",
+        pulse_time_s: 2,
+        radio_member: true,
+      })),
+    };
+    const states: Record<string, { state: string }> = {
+      "switch.l1": { state: "off" },
+      "switch.l2": { state: "off" },
+      "switch.l3": { state: "off" },
+      "switch.l4": { state: "off" },
+    };
+    const subscribers: Array<(msg: Record<string, unknown>) => void> = [];
+    const callWS = vi.fn().mockResolvedValue(
+      panelPayload({
+        sync_status: "synced",
+        profiles: { lighting: mixedProfile },
+      })
+    );
+    const el = await mountCard({
+      language: "en",
+      callWS,
+      states,
+      connection: {
+        subscribeMessage: vi.fn(async (cb: (msg: Record<string, unknown>) => void) => {
+          subscribers.push(cb);
+          cb({
+            sync_status: "synced",
+            relay_entities: ["switch.l1", "switch.l2", "switch.l3", "switch.l4"],
+            cover_state: { active: false, state: "idle", direction: null, duration: null, reason: null },
+          });
+          return () => undefined;
+        }),
+      },
+    });
+    const before = JSON.stringify(el._draft);
+    expect(el._dirty).toBe(false);
+    expect(el._isRingOn(1)).toBe(false);
+
+    // Physical / engine momentary ON → OFF via hass.states (no draft mutation).
+    el.hass = { ...el.hass, states: { ...states, "switch.l1": { state: "on" } } };
+    await el.updateComplete;
+    expect(el._isRingOn(1)).toBe(true);
+    expect(el._dirty).toBe(false);
+    expect(JSON.stringify(el._draft)).toBe(before);
+
+    el.hass = { ...el.hass, states: { ...states, "switch.l1": { state: "off" } } };
+    await el.updateComplete;
+    expect(el._isRingOn(1)).toBe(false);
+    expect(el._dirty).toBe(false);
+    expect(JSON.stringify(el._draft)).toBe(before);
+
+    // Runtime push updates sync badge without touching draft.
+    subscribers[0]?.({ sync_status: "out_of_sync" });
+    await el.updateComplete;
+    expect(el._panel?.sync_status).toBe("out_of_sync");
+    expect(el._dirty).toBe(false);
+    expect(JSON.stringify(el._draft)).toBe(before);
+  });
+
+  it("toggle faceplate follows live relay and stays clean", async () => {
+    const callWS = vi.fn().mockResolvedValue(panelPayload({ sync_status: "synced" }));
+    const states: Record<string, { state: string }> = {
+      "switch.l1": { state: "off" },
+      "switch.l2": { state: "on" },
+      "switch.l3": { state: "off" },
+      "switch.l4": { state: "off" },
+    };
+    const el = await mountCard({ language: "en", callWS, states });
+    expect(el._isRingOn(1)).toBe(false);
+    expect(el._isRingOn(2)).toBe(true);
+    expect(el._dirty).toBe(false);
+
+    el.hass = {
+      ...el.hass,
+      states: { ...states, "switch.l2": { state: "off" }, "switch.l1": { state: "on" } },
+    };
+    await el.updateComplete;
+    expect(el._isRingOn(1)).toBe(true);
+    expect(el._isRingOn(2)).toBe(false);
+    expect(el._dirty).toBe(false);
   });
 
   it("editor edit dirty → save clean → press stays clean", async () => {

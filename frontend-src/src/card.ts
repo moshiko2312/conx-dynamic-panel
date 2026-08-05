@@ -1,5 +1,6 @@
 import { LitElement, css, html, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import type { PropertyValues } from "lit";
 import {
   COVER_SETTLE_MAX,
   COVER_SETTLE_MIN,
@@ -28,6 +29,7 @@ import {
   pullPanel,
   rolesForGangCount,
   setActiveProfile,
+  subscribeRuntime,
   syncPanel,
   updatePanelName,
   updateProfile,
@@ -61,6 +63,7 @@ import type {
   CoverConfig,
   HomeAssistant,
   PanelConfig,
+  PanelRuntimeUpdate,
   Profile,
 } from "./types";
 
@@ -187,6 +190,11 @@ export class ConXDynamicPanelCard extends LitElement {
   @state() private _radioGroupsOpen = true;
 
   private _importInput?: HTMLInputElement;
+  /** Unsubscribe from conx_dynamic_panel/subscribe runtime pushes. */
+  private _unsubRuntime?: () => void;
+  private _runtimeEntryId?: string;
+  /** Last observed live relay on/off per button (for clearing stale optimistic LEDs). */
+  private _lastLiveRelays: Record<number, boolean | null> = {};
 
   public static getConfigElement() {
     return document.createElement("conx-dynamic-panel-card-editor");
@@ -218,6 +226,12 @@ export class ConXDynamicPanelCard extends LitElement {
     }
     this._theme = resolveTheme(this._config?.theme, loadStoredTheme());
     this._ensureFonts();
+    void this._ensureRuntimeSubscription();
+  }
+
+  disconnectedCallback(): void {
+    this._teardownRuntimeSubscription();
+    super.disconnectedCallback();
   }
 
   private _stepLabel(step: WizardStep): string {
@@ -316,7 +330,7 @@ export class ConXDynamicPanelCard extends LitElement {
     document.head.appendChild(link);
   }
 
-  protected updated(changed: Map<string, unknown>): void {
+  protected updated(changed: Map<string | number | symbol, unknown>): void {
     if (
       (changed.has("hass") || changed.has("_config")) &&
       this.hass &&
@@ -325,6 +339,24 @@ export class ConXDynamicPanelCard extends LitElement {
       !this._loading
     ) {
       void this._load();
+    }
+    if (changed.has("hass") || changed.has("_config") || changed.has("_panel")) {
+      void this._ensureRuntimeSubscription();
+    }
+  }
+
+  protected willUpdate(changed: PropertyValues): void {
+    // Touch mapped relay states so Lovelace keeps delivering hass updates and
+    // Lit re-renders rings when physical / momentary relays change.
+    if (changed.has("hass") && this._panel?.relay_entities?.length) {
+      for (const entityId of this._panel.relay_entities) {
+        void this.hass?.states?.[entityId]?.state;
+      }
+      // Reconcile before paint; defer state writes that would re-enter updated().
+      const next = this._previewAfterLiveReconcile();
+      if (next) {
+        this._splitPreviewOn = next;
+      }
     }
   }
 
@@ -641,6 +673,7 @@ export class ConXDynamicPanelCard extends LitElement {
     try {
       const panel = await fetchConfig(this.hass, this._config.entry_id);
       this._applyPanel(panel);
+      void this._ensureRuntimeSubscription();
     } catch (err) {
       this._error = err instanceof Error ? err.message : String(err);
     } finally {
@@ -661,6 +694,96 @@ export class ConXDynamicPanelCard extends LitElement {
     }
   }
 
+  /** Merge coordinator runtime push — never overwrites draft / saved profiles. */
+  private _applyRuntime(update: PanelRuntimeUpdate): void {
+    if (!this._panel) {
+      return;
+    }
+    if (update.entry_id && update.entry_id !== this._panel.entry_id) {
+      return;
+    }
+    this._panel = {
+      ...this._panel,
+      sync_status: update.sync_status ?? this._panel.sync_status,
+      last_sync:
+        update.last_sync !== undefined ? update.last_sync : this._panel.last_sync,
+      last_error:
+        update.last_error !== undefined ? update.last_error : this._panel.last_error,
+      auto_sync: update.auto_sync ?? this._panel.auto_sync,
+      relay_entities: update.relay_entities ?? this._panel.relay_entities,
+      cover_state: update.cover_state ?? this._panel.cover_state,
+    };
+    this._reconcilePreviewWithLiveRelays();
+  }
+
+  private _teardownRuntimeSubscription(): void {
+    if (this._unsubRuntime) {
+      this._unsubRuntime();
+      this._unsubRuntime = undefined;
+    }
+    this._runtimeEntryId = undefined;
+  }
+
+  private async _ensureRuntimeSubscription(): Promise<void> {
+    const entryId = this._config?.entry_id;
+    if (!this.hass || !entryId || !this._panel) {
+      return;
+    }
+    if (this._unsubRuntime && this._runtimeEntryId === entryId) {
+      return;
+    }
+    this._teardownRuntimeSubscription();
+    this._runtimeEntryId = entryId;
+    try {
+      this._unsubRuntime = await subscribeRuntime(this.hass, entryId, (update) => {
+        this._applyRuntime(update);
+      });
+    } catch {
+      this._runtimeEntryId = undefined;
+      this._unsubRuntime = undefined;
+    }
+  }
+
+  /**
+   * When a mapped relay actually changes in hass.states, drop optimistic
+   * faceplate bits for that button so physical / momentary pulses win.
+   * Stable OFF must not wipe an in-progress faceplate preview.
+   * Returns a new preview map when something changed, else null.
+   */
+  private _previewAfterLiveReconcile(): Record<number, boolean> | null {
+    const relays = this._panel?.relay_entities;
+    if (!relays?.length) {
+      return null;
+    }
+    let changed = false;
+    const next = { ...this._splitPreviewOn };
+    for (let index = 1; index <= relays.length; index++) {
+      const live = this._liveRelayOn(index);
+      const prev = Object.prototype.hasOwnProperty.call(this._lastLiveRelays, index)
+        ? this._lastLiveRelays[index]
+        : null;
+      this._lastLiveRelays[index] = live;
+      if (live === null || live === prev) {
+        continue;
+      }
+      if (Object.prototype.hasOwnProperty.call(next, index)) {
+        delete next[index];
+        changed = true;
+      }
+      if (!live) {
+        this._clearMomentaryPreviewTimer(index);
+      }
+    }
+    return changed ? next : null;
+  }
+
+  private _reconcilePreviewWithLiveRelays(): void {
+    const next = this._previewAfterLiveReconcile();
+    if (next) {
+      this._splitPreviewOn = next;
+    }
+  }
+
   /** Reset local LED preview so presses never leak into draft dirty state. */
   private _clearFaceplatePreview(): void {
     for (const handle of Object.values(this._momentaryPreviewTimers)) {
@@ -670,6 +793,7 @@ export class ConXDynamicPanelCard extends LitElement {
     this._splitPreviewOn = {};
     this._radioPreviewSelected = null;
     this._pressedRing = null;
+    this._lastLiveRelays = {};
   }
 
   private _clearMomentaryPreviewTimer(buttonIndex: number): void {
@@ -1791,6 +1915,15 @@ export class ConXDynamicPanelCard extends LitElement {
     return entityId?.trim() || null;
   }
 
+  private _relayEntityId(buttonIndex: number): string | null {
+    const relays = this._panel?.relay_entities;
+    if (!relays || buttonIndex < 1 || buttonIndex > relays.length) {
+      return null;
+    }
+    const entityId = relays[buttonIndex - 1];
+    return entityId?.trim() || null;
+  }
+
   private _entityIsOn(entityId: string): boolean | null {
     const state = this.hass?.states?.[entityId]?.state;
     if (state === undefined || state === null) {
@@ -1801,6 +1934,19 @@ export class ConXDynamicPanelCard extends LitElement {
       return null;
     }
     return ["on", "open", "home", "playing", "active"].includes(normalized);
+  }
+
+  /** Live mapped relay state for a 1-based button index, or null if unknown. */
+  private _liveRelayOn(buttonIndex: number): boolean | null {
+    const entityId = this._relayEntityId(buttonIndex);
+    if (!entityId) {
+      return null;
+    }
+    return this._entityIsOn(entityId);
+  }
+
+  private _hasOptimisticRing(buttonIndex: number): boolean {
+    return Object.prototype.hasOwnProperty.call(this._splitPreviewOn, buttonIndex);
   }
 
   private _toggleLocalRing(buttonIndex: number): void {
@@ -1814,9 +1960,17 @@ export class ConXDynamicPanelCard extends LitElement {
     if (!this._draft) {
       return false;
     }
+    const liveRelay = this._liveRelayOn(buttonIndex);
+    const hasOptimistic = this._hasOptimisticRing(buttonIndex);
+    const optimistic = Boolean(this._splitPreviewOn[buttonIndex]);
+    const pulseArmed = this._momentaryPreviewTimers[buttonIndex] != null;
+
     const direction = this._coverDirectionFor(buttonIndex);
     if (direction) {
-      // A direction ring is lit only while the engine reports that travel.
+      // Prefer live direction relay, then coordinator cover_state, then preview.
+      if (liveRelay !== null) {
+        return liveRelay;
+      }
       const cover = this._coverForButton(buttonIndex);
       const live = this._panel?.cover_state;
       if (live?.active && cover) {
@@ -1829,9 +1983,35 @@ export class ConXDynamicPanelCard extends LitElement {
         }
         return false;
       }
-      return Boolean(this._splitPreviewOn[buttonIndex]);
+      return hasOptimistic ? optimistic : false;
     }
-    // radio_split, or mixed role=radio: LED from entity or local group preview.
+
+    // Mixed momentary: armed faceplate pulse, else live relay, else preview.
+    if (
+      this._draft.mode === "mixed" &&
+      this._buttonRole(buttonIndex) === "momentary"
+    ) {
+      if (pulseArmed) {
+        return optimistic;
+      }
+      if (liveRelay !== null) {
+        return liveRelay;
+      }
+      return hasOptimistic ? optimistic : false;
+    }
+
+    // Live mapped relay wins for toggle / radio / radio_split (physical presses).
+    if (liveRelay !== null && !hasOptimistic) {
+      return liveRelay;
+    }
+    if (hasOptimistic) {
+      return optimistic;
+    }
+    if (liveRelay !== null) {
+      return liveRelay;
+    }
+
+    // radio_split, or mixed role=radio: action entity then local group preview.
     // Do NOT treat mixed toggle/momentary as classic radio (that poisoned LEDs
     // and previously mutated selected_button → false Save Draft).
     if (
@@ -1844,16 +2024,6 @@ export class ConXDynamicPanelCard extends LitElement {
         if (on !== null) {
           return on;
         }
-      }
-      return Boolean(this._splitPreviewOn[buttonIndex]);
-    }
-    // Mixed momentary: local pulse preview wins (action entity may stay latched).
-    if (
-      this._draft.mode === "mixed" &&
-      this._buttonRole(buttonIndex) === "momentary"
-    ) {
-      if (Object.prototype.hasOwnProperty.call(this._splitPreviewOn, buttonIndex)) {
-        return Boolean(this._splitPreviewOn[buttonIndex]);
       }
       return false;
     }
@@ -1872,9 +2042,6 @@ export class ConXDynamicPanelCard extends LitElement {
       if (on !== null) {
         return on;
       }
-    }
-    if (Object.prototype.hasOwnProperty.call(this._splitPreviewOn, buttonIndex)) {
-      return Boolean(this._splitPreviewOn[buttonIndex]);
     }
     // No live entity / local preview: sample both LED colors.
     return buttonIndex % 2 === 1;
