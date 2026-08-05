@@ -280,6 +280,8 @@ Validation: cover open/close must be paired and exclusive; radio groups may only
 
 **Draft vs Sync for presses:** physical press routing (mode, roles, actions, radio exclusivity, momentary pulse, cover) uses the **saved active profile draft** in storage — not the applied snapshot and not an unsaved editor buffer. **Save Draft** makes role/action changes live for presses. **Sync** pushes labels, colors, radar, backlight, child lock, and mode relay safety to hardware. With `auto_sync`, a successful draft save also syncs hardware. Unsaved card edits never affect presses.
 
+On Save Draft / profile activation, the coordinator persists the new draft first, then aborts cover/momentary engines against that saved profile so newly assigned pulse/cover roles start from OFF (a latched ON leftover would otherwise swallow the next physical press). Mixed-mode unused cover timing templates are not live motors and must not force L1/L2 OFF.
+
 ### Cover
 
 Timed shutter/awning control for motors wired to relay pairs. The engine is

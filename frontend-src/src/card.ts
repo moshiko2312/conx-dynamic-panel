@@ -2616,35 +2616,7 @@ export class ConXDynamicPanelCard extends LitElement {
         </div>
       </div>
       ${this._renderFaceplate()} ${this._renderCoverControl()}
-      <div class="row actions">
-        <button
-          type="button"
-          class="btn primary"
-          ?disabled=${this._busy || !this._dirty}
-          @click=${this._saveDraft}
-        >
-          ${this.t("card.save")}
-        </button>
-        <button
-          type="button"
-          class="btn"
-          ?disabled=${this._busy || !this._dirty}
-          @click=${this._discard}
-        >
-          ${this.t("card.discard")}
-        </button>
-        <button
-          type="button"
-          class="btn primary sync-btn"
-          ?disabled=${this._busy}
-          @click=${this._sync}
-        >
-          ${this.t("card.sync")}
-        </button>
-        <button type="button" class="btn" ?disabled=${this._busy} @click=${this._pull}>
-          ${this.t("card.pull")}
-        </button>
-      </div>
+      ${this._renderActionButtons("review")}
     `;
   }
 
@@ -2776,22 +2748,25 @@ export class ConXDynamicPanelCard extends LitElement {
           </div>
         </div>
 
-        ${this._dirty
-          ? html`<div class="warn unsaved-draft" role="status">${this.t("card.unsaved")}</div>`
-          : nothing}
-        ${!this._dirty &&
-        (this._panel.sync_status === "pending" ||
-          this._panel.sync_status === "out_of_sync")
-          ? html`<div class="notice sync-needed" role="status" data-sync-needed>
-              ${this.t("card.sync_needed")}
-            </div>`
-          : nothing}
-        ${this._notice
-          ? html`<div class="notice">${this._notice}</div>`
-          : nothing}
-        ${this._error || this._panel.last_error
-          ? html`<div class="error">${this._error || this._panel.last_error}</div>`
-          : nothing}
+        <div class="status-action-bar" data-status-action-bar>
+          ${this._dirty
+            ? html`<div class="warn unsaved-draft" role="status">${this.t("card.unsaved")}</div>`
+            : nothing}
+          ${!this._dirty &&
+          (this._panel.sync_status === "pending" ||
+            this._panel.sync_status === "out_of_sync")
+            ? html`<div class="notice sync-needed" role="status" data-sync-needed>
+                ${this.t("card.sync_needed")}
+              </div>`
+            : nothing}
+          ${this._notice
+            ? html`<div class="notice">${this._notice}</div>`
+            : nothing}
+          ${this._error || this._panel.last_error
+            ? html`<div class="error">${this._error || this._panel.last_error}</div>`
+            : nothing}
+          ${this._renderActionButtons("top")}
+        </div>
 
         ${this._renderMainEditor()}
         ${this._menuOpen ? this._renderSettingsMenu() : nothing}
@@ -3047,36 +3022,44 @@ export class ConXDynamicPanelCard extends LitElement {
           </div>
         </div>
 
-        <div class="actions-dock">
-          <div class="actions-grid">
-            <button
-              type="button"
-              class="btn primary"
-              ?disabled=${this._busy || !this._dirty}
-              @click=${this._saveDraft}
-            >
-              ${this.t("card.save")}
-            </button>
-            <button
-              type="button"
-              class="btn"
-              ?disabled=${this._busy || !this._dirty}
-              @click=${this._discard}
-            >
-              ${this.t("card.discard")}
-            </button>
-            <button
-              type="button"
-              class="btn primary sync-btn"
-              ?disabled=${this._busy}
-              @click=${this._sync}
-            >
-              ${this.t("card.sync")}
-            </button>
-            <button type="button" class="btn" ?disabled=${this._busy} @click=${this._pull}>
-              ${this.t("card.pull")}
-            </button>
-          </div>
+      </div>
+    `;
+  }
+
+  private _renderActionButtons(placement: "top" | "review" = "top") {
+    return html`
+      <div
+        class="actions-dock ${placement === "top" ? "actions-dock-top" : ""}"
+        data-actions=${placement}
+      >
+        <div class="actions-grid">
+          <button
+            type="button"
+            class="btn primary"
+            ?disabled=${this._busy || !this._dirty}
+            @click=${this._saveDraft}
+          >
+            ${this.t("card.save")}
+          </button>
+          <button
+            type="button"
+            class="btn"
+            ?disabled=${this._busy || !this._dirty}
+            @click=${this._discard}
+          >
+            ${this.t("card.discard")}
+          </button>
+          <button
+            type="button"
+            class="btn primary sync-btn"
+            ?disabled=${this._busy}
+            @click=${this._sync}
+          >
+            ${this.t("card.sync")}
+          </button>
+          <button type="button" class="btn" ?disabled=${this._busy} @click=${this._pull}>
+            ${this.t("card.pull")}
+          </button>
         </div>
       </div>
     `;
@@ -4998,11 +4981,40 @@ export class ConXDynamicPanelCard extends LitElement {
       min-height: 50px;
       justify-content: center;
     }
-    .actions-dock { margin-top: 12px; }
+    .status-action-bar {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      display: grid;
+      gap: 8px;
+      margin: 0 0 12px;
+      padding: 0 0 4px;
+      background: linear-gradient(
+        to bottom,
+        var(--card-background-color, var(--ha-card-background, var(--surface, #12141a))) 70%,
+        transparent
+      );
+    }
+    .actions-dock { margin-top: 0; }
+    .actions-dock-top {
+      border-radius: 14px;
+      border: 1px solid var(--border, var(--divider-color, #333));
+      background: var(--surface-2, color-mix(in srgb, var(--card-background-color, #1a1d24) 92%, #000));
+      padding: 10px;
+    }
     .actions-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 8px;
+      margin: 0;
+    }
+    .actions-grid .btn {
+      width: 100%;
+      justify-content: center;
+      min-height: 42px;
+    }
+    @media (max-width: 720px) {
+      .actions-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
     .btn.success {
       background: var(--btn-success-bg, #1f8a4c);

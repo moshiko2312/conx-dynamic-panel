@@ -6,10 +6,12 @@ All notable changes to this private project will be documented here.
 
 ### Fixed
 
+- **Save Draft left free-mix presses dead:** `async_update_profile` aborted engines against the *previous* draft, so a newly assigned momentary/cover role could stay latched ON — the next physical press produced no state change and looked unresponsive. Save now stores first, then resets pulse/cover relays on the saved active profile. Unused mixed cover timing templates no longer count as live motors (so Save/Sync no longer force L1/L2 OFF for non-cover roles).
 - **Free mix presses felt dead:** unsaved editor drafts never drive the panel — presses use the last **saved** active profile. The red unsaved banner now states this; a post-save sync notice clarifies that Sync is for labels/colors while press behavior already follows the saved draft. Radio-group membership in mixed mode auto-promotes to `role=radio` and prunes non-radio members so toggle/momentary buttons cannot sit in a conflicting group. Role chip `radio` is labeled **Radio group / קבוצת רדיו** (not a phantom “relay” role); empty actions show a clear “relay-only” hint.
 
 ### Changed
 
+- Draft action buttons (Save / Discard / Sync / Pull) move into a **sticky top status bar** under the unsaved/sync banners so Save stays reachable without scrolling (Lit card + HTML preview; footer dock removed).
 - **Free mix discoverability:** Buttons tab now shows a full-width **Per-button roles / תפקיד לכל כפתור** section immediately under Mode (not buried in collapsed accordion rows). Each L1…Ln has role chips (toggle / momentary / radio / cover open / cover close), with pulse time for momentary, `cover_id` + Cover section for shutter roles, and Radio groups when any button is radio. Action/entity fields stay in the accordion for non-cover roles. Lit card + HTML preview parity.
 
 ### Added

@@ -37,6 +37,7 @@ from .const import (
     DEFAULT_RADAR,
     GANG_COUNT_MAX,
     GANG_COUNT_MIN,
+    MODE_COVER,
     MODE_MIXED,
     MODE_MOMENTARY_MIX_ALIAS,
     MODE_TOGGLE,
@@ -669,9 +670,37 @@ class Profile:
         ]
         return members or list(range(1, self.gang_count + 1))
 
+    def active_covers(self) -> list[CoverConfig]:
+        """Return covers that are live for the engine.
+
+        Cover mode uses every stored cover. Mixed mode only uses covers that are
+        actually wired by ``cover_open`` / ``cover_close`` button roles — unused
+        timing templates must not claim L1/L2 or get forced OFF on Save Draft.
+        """
+        if self.mode == MODE_COVER:
+            return list(self.covers)
+        if self.mode != MODE_MIXED:
+            return []
+        bound_ids = {
+            ((button.cover_id or COVER_DEFAULT_ID).strip() or COVER_DEFAULT_ID)
+            for button in self.visible_buttons()
+            if button.is_cover_role
+        }
+        if not bound_ids:
+            return []
+        return [cover for cover in self.covers if cover.id in bound_ids]
+
     def cover_for_button(self, index: int) -> CoverConfig | None:
         """Return the cover driven by a button, if any."""
-        for cover in self.covers:
+        if self.mode == MODE_MIXED:
+            button = self.button_by_index(index)
+            if button is None or not button.is_cover_role:
+                return None
+            cover_id = (button.cover_id or COVER_DEFAULT_ID).strip() or COVER_DEFAULT_ID
+            cover = self.cover_by_id(cover_id)
+            if cover is not None:
+                return cover
+        for cover in self.active_covers() if self.mode == MODE_MIXED else self.covers:
             if cover.direction_for(index) is not None:
                 return cover
         return None
@@ -688,9 +717,9 @@ class Profile:
         return self.cover_for_button(index) is not None
 
     def all_cover_relay_indexes(self) -> list[int]:
-        """Return every direction relay used by any cover on this profile."""
+        """Return every direction relay used by active covers on this profile."""
         indexes: list[int] = []
-        for cover in self.covers:
+        for cover in self.active_covers():
             for index in cover.relay_indexes():
                 if index not in indexes:
                     indexes.append(index)

@@ -279,6 +279,140 @@ async def test_mixed_toggle_without_action_still_fires_press_event() -> None:
 
 
 @pytest.mark.asyncio
+async def test_save_mixed_draft_press_uses_new_roles_and_actions() -> None:
+    """Save Draft must activate mixed roles/actions for the next physical press.
+
+    Regression: abort-before-store left latched relays ON after assigning
+    momentary, so the next press produced no state change and looked dead.
+    Unused mixed cover templates must also not force L1/L2 OFF on save.
+    """
+    store = FakeStore()
+    adapter = FakeAdapter()
+    runtime = _runtime(adapter, store)
+    coordinator = PanelCoordinator(runtime)  # type: ignore[arg-type]
+    profile = store.data.active_profile()
+    assert profile is not None
+    assert profile.mode == MODE_TOGGLE
+
+    payload = profile.to_dict()
+    payload["mode"] = MODE_MIXED
+    payload["buttons"] = [
+        {
+            "index": 1,
+            "name": "Pulse",
+            "role": BUTTON_ROLE_MOMENTARY,
+            "pulse_time_s": 0.05,
+            "action": {
+                "action": "light.toggle",
+                "target": {"entity_id": "light.gate"},
+                "data": {},
+            },
+        },
+        {
+            "index": 2,
+            "name": "Scene A",
+            "role": BUTTON_ROLE_TOGGLE,
+            "action": {
+                "action": "switch.toggle",
+                "target": {"entity_id": "switch.lamp"},
+                "data": {},
+            },
+        },
+        {
+            "index": 3,
+            "name": "Scene B",
+            "role": BUTTON_ROLE_RADIO,
+            "action": {
+                "action": "switch.toggle",
+                "target": {"entity_id": "switch.other"},
+                "data": {},
+            },
+        },
+        {
+            "index": 4,
+            "name": "Scene C",
+            "role": BUTTON_ROLE_RADIO,
+            "action": {
+                "action": "switch.toggle",
+                "target": {"entity_id": "switch.third"},
+                "data": {},
+            },
+        },
+    ]
+    payload["radio_groups"] = [
+        {"id": "g1", "buttons": [3, 4]},
+        {"id": "g2", "buttons": []},
+    ]
+
+    saved = await coordinator.async_update_profile(profile.id, payload)
+    assert saved.mode == MODE_MIXED
+    assert saved.buttons[0].role == BUTTON_ROLE_MOMENTARY
+    assert saved.active_covers() == []
+    # Momentary L1 starts safe OFF; unused cover templates must not touch L2–L4.
+    assert (1, False) in adapter.relay_calls
+    assert (2, False) not in adapter.relay_calls
+    assert (3, False) not in adapter.relay_calls
+    assert (4, False) not in adapter.relay_calls
+
+    adapter.relay_calls.clear()
+    runtime.hass.services.async_call.reset_mock()
+    await coordinator._async_handle_physical_press(1, True)
+    assert runtime.hass.services.async_call.await_count == 1
+    assert 1 in runtime.momentary.timers
+
+    runtime.hass.services.async_call.reset_mock()
+    await coordinator._async_handle_physical_press(2, True)
+    assert runtime.hass.services.async_call.await_count == 1
+
+    runtime.hass.services.async_call.reset_mock()
+    adapter.relay_calls.clear()
+    await coordinator._async_handle_physical_press(3, True)
+    assert runtime.hass.services.async_call.await_count == 1
+    assert (4, False) in adapter.relay_calls
+
+    # Re-save while already mixed: still must not force unused cover relays OFF.
+    adapter.relay_calls.clear()
+    await coordinator.async_update_profile(saved.id, saved.to_dict())
+    assert (2, False) not in adapter.relay_calls
+    assert (3, False) not in adapter.relay_calls
+    assert (4, False) not in adapter.relay_calls
+    runtime.hass.services.async_call.reset_mock()
+    await coordinator._async_handle_physical_press(2, True)
+    assert runtime.hass.services.async_call.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_save_momentary_forces_latched_relay_off() -> None:
+    """Newly saved momentary roles must start OFF so the next press is an ON."""
+    store = FakeStore()
+    adapter = FakeAdapter()
+    runtime = _runtime(adapter, store)
+    coordinator = PanelCoordinator(runtime)  # type: ignore[arg-type]
+    profile = store.data.active_profile()
+    assert profile is not None
+    profile.mode = MODE_MIXED  # type: ignore[assignment]
+    profile.buttons[0].role = BUTTON_ROLE_TOGGLE  # type: ignore[assignment]
+    store.data.profiles[profile.id] = profile
+
+    payload = profile.to_dict()
+    payload["buttons"][0]["role"] = BUTTON_ROLE_MOMENTARY
+    payload["buttons"][0]["pulse_time_s"] = 0.05
+    payload["buttons"][0]["action"] = {
+        "action": "light.toggle",
+        "target": {"entity_id": "light.gate"},
+        "data": {},
+    }
+    await coordinator.async_update_profile(profile.id, payload)
+    assert (1, False) in adapter.relay_calls
+
+    adapter.relay_calls.clear()
+    runtime.hass.services.async_call.reset_mock()
+    await coordinator._async_handle_physical_press(1, True)
+    assert runtime.hass.services.async_call.await_count == 1
+    assert 1 in runtime.momentary.timers
+
+
+@pytest.mark.asyncio
 async def test_momentary_abort_on_profile_switch() -> None:
     store = FakeStore()
     adapter = FakeAdapter()

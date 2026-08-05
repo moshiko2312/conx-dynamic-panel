@@ -626,11 +626,10 @@ class PanelCoordinator:
     async def _async_cover_abort(self, reason: str) -> None:
         """Stop every cover and de-energize all known direction relays."""
         profile = self.data.active_profile()
-        covers = (
-            list(profile.covers)
-            if profile is not None and profile.mode in {MODE_COVER, MODE_MIXED}
-            else []
-        )
+        # Mixed mode may keep unused cover timing templates; only role-bound
+        # covers are live. Forcing template L1/L2 OFF on every Save Draft was
+        # fighting non-cover roles and leaving stale suppressions.
+        covers = list(profile.active_covers()) if profile is not None else []
         state = self.runtime.cover
         if (
             not covers
@@ -902,10 +901,15 @@ class PanelCoordinator:
         """Activate a profile, optionally syncing immediately."""
         if profile_id not in self.data.profiles:
             raise ProfileNotFoundError(profile_id)
-        if profile_id != self.data.active_profile_id:
+        changed = profile_id != self.data.active_profile_id
+        if changed:
+            # Stop engines on the outgoing profile, then switch and safe-start
+            # the incoming one so latched leftovers cannot swallow the first press.
             await self._async_cover_abort(COVER_REASON_ABORT)
             await self._async_momentary_abort()
-        self.data.active_profile_id = profile_id
+            self.data.active_profile_id = profile_id
+            await self._async_cover_abort(COVER_REASON_ABORT)
+            await self._async_momentary_abort()
         self.data.refresh_pending_status()
         await self.runtime.store.async_save()
         self.runtime.async_notify()
@@ -933,11 +937,14 @@ class PanelCoordinator:
         payload["id"] = profile_id
         profile = Profile.from_dict(payload)
         self._validate_profile_actions(profile)
+        # Persist first, then reset engines against the *saved* active profile.
+        # Abort-before-store used the previous draft, so a newly assigned
+        # momentary/cover role could stay latched ON — the next physical press
+        # produced no state change and looked dead.
+        self.data.profiles[profile_id] = profile
         if profile_id == self.data.active_profile_id:
-            # Button mapping or travel times may have changed under a moving motor.
             await self._async_cover_abort(COVER_REASON_ABORT)
             await self._async_momentary_abort()
-        self.data.profiles[profile_id] = profile
         self.data.refresh_pending_status()
         await self._async_after_draft_change()
         return profile

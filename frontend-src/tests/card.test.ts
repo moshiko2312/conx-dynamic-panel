@@ -1017,6 +1017,25 @@ describe("custom elements", () => {
     expect(el._dirty).toBe(false);
     expect(el.shadowRoot?.querySelector("[data-sync-needed]")).toBeTruthy();
     expect(el.shadowRoot?.querySelector(".unsaved-draft")).toBeFalsy();
+    expect(el.shadowRoot?.querySelector("[data-status-action-bar]")).toBeTruthy();
+    expect(el.shadowRoot?.querySelector('[data-actions="top"]')).toBeTruthy();
+  });
+
+  it("keeps draft actions in the sticky top status bar", async () => {
+    const callWS = vi.fn().mockResolvedValue(panelPayload({ sync_status: "synced" }));
+    const el = await mountCard({ language: "he", callWS });
+    const top = el.shadowRoot?.querySelector('[data-actions="top"]') as HTMLElement;
+    expect(top).toBeTruthy();
+    const labels = [...(top.querySelectorAll(".btn") || [])].map((btn) =>
+      (btn.textContent || "").trim()
+    );
+    expect(labels).toEqual([
+      "שמור טיוטה",
+      "בטל שינויים",
+      "סנכרון לפאנל",
+      "משיכה מהפאנל",
+    ]);
+    expect(el.shadowRoot?.querySelector(".actions-dock-footer")).toBeFalsy();
   });
 
   it("opens a copyable automation example from the settings menu", async () => {
