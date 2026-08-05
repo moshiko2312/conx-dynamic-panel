@@ -146,7 +146,13 @@ export function resolveLedPreviewColor(
 
 @customElement("conx-dynamic-panel-card")
 export class ConXDynamicPanelCard extends LitElement {
-  @property({ attribute: false }) public hass!: HomeAssistant;
+  /**
+   * Lovelace often mutates hass.states then reassigns the *same* object
+   * reference. Default Lit !== would skip the update and freeze faceplate
+   * rings — always treat hass assignment as a change.
+   */
+  @property({ attribute: false, hasChanged: () => true })
+  public hass!: HomeAssistant;
 
   @state() private _config?: CardConfig;
   @state() private _panel?: PanelConfig;
@@ -159,6 +165,8 @@ export class ConXDynamicPanelCard extends LitElement {
   @state() private _syncPulse = false;
   @state() private _pressedRing: number | null = null;
   @state() private _splitPreviewOn: Record<number, boolean> = {};
+  /** Latest relay on/off from subscribe / get_config (parallel to relay_entities). */
+  @state() private _runtimeRelayStates: Array<boolean | null> = [];
   /** Faceplate-only momentary auto-off timers (browser setTimeout handles). */
   private _momentaryPreviewTimers: Record<number, number> = {};
   /** Faceplate-only radio LED preview; never written into the draft. */
@@ -231,6 +239,7 @@ export class ConXDynamicPanelCard extends LitElement {
 
   disconnectedCallback(): void {
     this._teardownRuntimeSubscription();
+    this._clearFaceplatePreview();
     super.disconnectedCallback();
   }
 
@@ -346,13 +355,14 @@ export class ConXDynamicPanelCard extends LitElement {
   }
 
   protected willUpdate(changed: PropertyValues): void {
-    // Touch mapped relay states so Lovelace keeps delivering hass updates and
-    // Lit re-renders rings when physical / momentary relays change.
-    if (changed.has("hass") && this._panel?.relay_entities?.length) {
-      for (const entityId of this._panel.relay_entities) {
-        void this.hass?.states?.[entityId]?.state;
-      }
-      // Reconcile before paint; defer state writes that would re-enter updated().
+    // Reconcile faceplate preview with live relays before paint.
+    if (
+      (changed.has("hass") ||
+        changed.has("_panel") ||
+        changed.has("_runtimeRelayStates") ||
+        changed.has("_draft")) &&
+      this._panel?.relay_entities?.length
+    ) {
       const next = this._previewAfterLiveReconcile();
       if (next) {
         this._splitPreviewOn = next;
@@ -684,6 +694,7 @@ export class ConXDynamicPanelCard extends LitElement {
   private _applyPanel(panel: PanelConfig): void {
     this._panel = panel;
     this._panelNameDraft = panel.panel_name;
+    this._runtimeRelayStates = panel.relay_states ? [...panel.relay_states] : [];
     const activeId = panel.active_profile_id;
     const profile = activeId ? panel.profiles[activeId] : undefined;
     this._saved = profile ? cloneProfile(profile) : undefined;
@@ -692,6 +703,7 @@ export class ConXDynamicPanelCard extends LitElement {
     if (this._draft?.mode === "radio_split") {
       this._radioGroupsOpen = loadStoredRadioGroupsOpen() ?? true;
     }
+    this._syncMomentaryFromRuntime(panel.momentary_active);
   }
 
   /** Merge coordinator runtime push — never overwrites draft / saved profiles. */
@@ -711,8 +723,14 @@ export class ConXDynamicPanelCard extends LitElement {
         update.last_error !== undefined ? update.last_error : this._panel.last_error,
       auto_sync: update.auto_sync ?? this._panel.auto_sync,
       relay_entities: update.relay_entities ?? this._panel.relay_entities,
+      relay_states: update.relay_states ?? this._panel.relay_states,
+      momentary_active: update.momentary_active ?? this._panel.momentary_active,
       cover_state: update.cover_state ?? this._panel.cover_state,
     };
+    if (update.relay_states) {
+      this._runtimeRelayStates = [...update.relay_states];
+    }
+    this._syncMomentaryFromRuntime(update.momentary_active);
     this._reconcilePreviewWithLiveRelays();
   }
 
@@ -744,11 +762,20 @@ export class ConXDynamicPanelCard extends LitElement {
     }
   }
 
+  private _isMomentaryButton(buttonIndex: number): boolean {
+    return (
+      this._draft?.mode === "mixed" &&
+      this._buttonRole(buttonIndex) === "momentary"
+    );
+  }
+
   /**
-   * When a mapped relay actually changes in hass.states, drop optimistic
-   * faceplate bits for that button so physical / momentary pulses win.
-   * Stable OFF must not wipe an in-progress faceplate preview.
-   * Returns a new preview map when something changed, else null.
+   * When a mapped relay flips, keep faceplate preview aligned:
+   * - Momentary ON (physical/engine): arm a matching UI pulse timer so the ring
+   *   auto-clears even when entity OFF updates are slow or hass binding lags.
+   * - Momentary OFF: clear timer + optimistic ON.
+   * - Other roles: drop stale optimistic bits so live relay wins.
+   * Stable unchanged OFF must not wipe an in-progress card-press preview.
    */
   private _previewAfterLiveReconcile(): Record<number, boolean> | null {
     const relays = this._panel?.relay_entities;
@@ -766,12 +793,28 @@ export class ConXDynamicPanelCard extends LitElement {
       if (live === null || live === prev) {
         continue;
       }
+      if (this._isMomentaryButton(index)) {
+        if (live) {
+          if (this._momentaryPreviewTimers[index] == null) {
+            next[index] = true;
+            this._armMomentaryUiPulse(index, next);
+            changed = true;
+          } else if (!next[index]) {
+            next[index] = true;
+            changed = true;
+          }
+        } else {
+          this._clearMomentaryPreviewTimer(index);
+          if (next[index]) {
+            next[index] = false;
+            changed = true;
+          }
+        }
+        continue;
+      }
       if (Object.prototype.hasOwnProperty.call(next, index)) {
         delete next[index];
         changed = true;
-      }
-      if (!live) {
-        this._clearMomentaryPreviewTimer(index);
       }
     }
     return changed ? next : null;
@@ -781,6 +824,41 @@ export class ConXDynamicPanelCard extends LitElement {
     const next = this._previewAfterLiveReconcile();
     if (next) {
       this._splitPreviewOn = next;
+    }
+  }
+
+  /** Backend armed a pulse — mirror with a UI timer if the ring is not pulsing yet. */
+  private _syncMomentaryFromRuntime(active?: number[]): void {
+    if (!active || !this._draft) {
+      return;
+    }
+    const armed = new Set(active);
+    for (const index of armed) {
+      if (!this._isMomentaryButton(index)) {
+        continue;
+      }
+      if (this._momentaryPreviewTimers[index] == null) {
+        this._splitPreviewOn = {
+          ...this._splitPreviewOn,
+          [index]: true,
+        };
+        this._armMomentaryUiPulse(index);
+      }
+    }
+    for (const index of Object.keys(this._momentaryPreviewTimers).map(Number)) {
+      if (armed.has(index)) {
+        continue;
+      }
+      // Only clear when live relay is already OFF (backend finished).
+      if (this._liveRelayOn(index) === false) {
+        this._clearMomentaryPreviewTimer(index);
+        if (this._splitPreviewOn[index]) {
+          this._splitPreviewOn = {
+            ...this._splitPreviewOn,
+            [index]: false,
+          };
+        }
+      }
     }
   }
 
@@ -804,6 +882,39 @@ export class ConXDynamicPanelCard extends LitElement {
     }
   }
 
+  /**
+   * Arm UI auto-OFF after pulse_time_s. Does not toggle-cancel.
+   * Optional `preview` mutates an in-progress reconcile map instead of state.
+   */
+  private _armMomentaryUiPulse(
+    buttonIndex: number,
+    preview?: Record<number, boolean>
+  ): void {
+    this._clearMomentaryPreviewTimer(buttonIndex);
+    const button = this._draft?.buttons.find((item) => item.index === buttonIndex);
+    const pulseMs =
+      clampPulseTime(button?.pulse_time_s, DEFAULT_PULSE_TIME) * 1000;
+    if (preview) {
+      preview[buttonIndex] = true;
+    } else {
+      this._splitPreviewOn = {
+        ...this._splitPreviewOn,
+        [buttonIndex]: true,
+      };
+    }
+    this._momentaryPreviewTimers[buttonIndex] = window.setTimeout(() => {
+      delete this._momentaryPreviewTimers[buttonIndex];
+      // Prefer live OFF; if entity still reports ON, keep ring on until it clears.
+      if (this._liveRelayOn(buttonIndex) === true) {
+        return;
+      }
+      this._splitPreviewOn = {
+        ...this._splitPreviewOn,
+        [buttonIndex]: false,
+      };
+    }, pulseMs);
+  }
+
   /** Local faceplate pulse: ON now, auto-OFF after pulse_time_s; re-press cancels. */
   private _pulseMomentaryPreview(buttonIndex: number): void {
     this._clearMomentaryPreviewTimer(buttonIndex);
@@ -814,20 +925,7 @@ export class ConXDynamicPanelCard extends LitElement {
       };
       return;
     }
-    const button = this._draft?.buttons.find((item) => item.index === buttonIndex);
-    const pulseMs =
-      clampPulseTime(button?.pulse_time_s, DEFAULT_PULSE_TIME) * 1000;
-    this._splitPreviewOn = {
-      ...this._splitPreviewOn,
-      [buttonIndex]: true,
-    };
-    this._momentaryPreviewTimers[buttonIndex] = window.setTimeout(() => {
-      delete this._momentaryPreviewTimers[buttonIndex];
-      this._splitPreviewOn = {
-        ...this._splitPreviewOn,
-        [buttonIndex]: false,
-      };
-    }, pulseMs);
+    this._armMomentaryUiPulse(buttonIndex);
   }
 
   private _setRadioGroupsOpen(open: boolean): void {
@@ -1938,11 +2036,18 @@ export class ConXDynamicPanelCard extends LitElement {
 
   /** Live mapped relay state for a 1-based button index, or null if unknown. */
   private _liveRelayOn(buttonIndex: number): boolean | null {
+    // hass.states first (Lovelace); subscribe relay_states as fallback / lag fill.
     const entityId = this._relayEntityId(buttonIndex);
-    if (!entityId) {
-      return null;
+    if (entityId) {
+      const fromHass = this._entityIsOn(entityId);
+      if (fromHass !== null) {
+        return fromHass;
+      }
     }
-    return this._entityIsOn(entityId);
+    const fromRuntime =
+      this._runtimeRelayStates[buttonIndex - 1] ??
+      this._panel?.relay_states?.[buttonIndex - 1];
+    return fromRuntime === undefined ? null : fromRuntime;
   }
 
   private _hasOptimisticRing(buttonIndex: number): boolean {
@@ -1986,16 +2091,17 @@ export class ConXDynamicPanelCard extends LitElement {
       return hasOptimistic ? optimistic : false;
     }
 
-    // Mixed momentary: armed faceplate pulse, else live relay, else preview.
-    if (
-      this._draft.mode === "mixed" &&
-      this._buttonRole(buttonIndex) === "momentary"
-    ) {
-      if (pulseArmed) {
-        return optimistic;
+    // Mixed momentary: ON if live ON, or local/runtime pulse still armed.
+    // Never prefer a cleared optimistic while the timer is still armed.
+    if (this._isMomentaryButton(buttonIndex)) {
+      if (liveRelay === true) {
+        return true;
       }
-      if (liveRelay !== null) {
-        return liveRelay;
+      if (pulseArmed || (hasOptimistic && optimistic)) {
+        return true;
+      }
+      if (liveRelay === false) {
+        return false;
       }
       return hasOptimistic ? optimistic : false;
     }

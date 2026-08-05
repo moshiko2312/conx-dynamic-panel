@@ -1159,6 +1159,21 @@ class PanelCoordinator:
         self.runtime.async_notify()
         return self.get_config_payload()
 
+    def _relay_states_payload(self) -> list[bool | None]:
+        """Return on/off/unknown for each mapped relay (card faceplate source)."""
+        states: list[bool | None] = []
+        hass_states = getattr(self.hass, "states", None)
+        for entity_id in self.runtime.mapping.relay_entities:
+            if hass_states is None:
+                states.append(None)
+                continue
+            state = hass_states.get(entity_id)
+            if state is None or state.state in {STATE_UNKNOWN, STATE_UNAVAILABLE}:
+                states.append(None)
+            else:
+                states.append(state.state == "on")
+        return states
+
     def get_runtime_payload(self) -> dict[str, Any]:
         """Return live runtime fields for card refresh (never includes drafts)."""
         return {
@@ -1168,6 +1183,8 @@ class PanelCoordinator:
             "last_error": self.data.last_error,
             "auto_sync": self.runtime.auto_sync,
             "relay_entities": list(self.runtime.mapping.relay_entities),
+            "relay_states": self._relay_states_payload(),
+            "momentary_active": sorted(self.runtime.momentary.timers),
             "cover_state": self.cover_state_payload(),
         }
 
@@ -1191,5 +1208,7 @@ class PanelCoordinator:
             "profiles": {key: profile.to_dict() for key, profile in self.data.profiles.items()},
             "applied_snapshot": self.data.applied_snapshot,
             "relay_entities": list(self.runtime.mapping.relay_entities),
+            "relay_states": self._relay_states_payload(),
+            "momentary_active": sorted(self.runtime.momentary.timers),
             "cover_state": self.cover_state_payload(),
         }

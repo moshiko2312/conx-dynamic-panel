@@ -106,6 +106,10 @@ export interface PanelRuntimeUpdate {
   last_error?: string | null;
   auto_sync?: boolean;
   relay_entities?: string[];
+  /** Parallel to relay_entities: true=on, false=off, null=unknown. */
+  relay_states?: Array<boolean | null>;
+  /** 1-based button indexes with an armed backend momentary OFF timer. */
+  momentary_active?: number[];
   cover_state?: CoverState;
 }
 
@@ -144,6 +148,10 @@ export interface PanelConfig {
   applied_snapshot: Record<string, unknown>;
   /** Mapped L1–L4 switch entity IDs for live faceplate rings via hass.states. */
   relay_entities?: string[];
+  /** Parallel to relay_entities from get_config / subscribe. */
+  relay_states?: Array<boolean | null>;
+  /** 1-based button indexes with an armed backend momentary OFF timer. */
+  momentary_active?: number[];
   cover_state?: CoverState;
 }
 

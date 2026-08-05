@@ -410,7 +410,13 @@ conx_dynamic_panel/export_profiles
 conx_dynamic_panel/import_profiles
 ```
 
-`subscribe` pushes live runtime fields (`sync_status`, `cover_state`, `relay_entities`, …) on coordinator notify. It must never include profile drafts. The card mirrors mapped relays via `hass.states` for faceplate LEDs.
+`subscribe` pushes live runtime fields (`sync_status`, `cover_state`, `relay_entities`, `relay_states`, `momentary_active`, …) on coordinator notify. It must never include profile drafts.
+
+Card faceplate LED requirements:
+
+- Re-render on mapped relay `hass.states` changes even when Lovelace reuses the same `hass` object reference (`hasChanged: () => true` on `hass`).
+- For momentary buttons, arm a matching UI pulse timer from `pulse_time_s` on card press **and** on physical/runtime ON (`momentary_active` / relay ON), and clear when the relay goes OFF or the timer elapses.
+- Live ring updates must never mark the draft dirty.
 
 Require admin permission for configuration-changing commands. Validate payloads with current Home Assistant schema tools.
 

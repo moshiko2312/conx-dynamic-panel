@@ -61,6 +61,14 @@ class FakeAdapter:
         return self.hardware
 
 
+class _FakeStates:
+    def __init__(self, mapping: dict[str, SimpleNamespace]) -> None:
+        self._mapping = mapping
+
+    def get(self, entity_id: str) -> SimpleNamespace | None:
+        return self._mapping.get(entity_id)
+
+
 def _runtime(adapter: FakeAdapter, store: FakeStore) -> Any:
     mapping = EntityMapping(
         panel_name="Kitchen",
@@ -101,6 +109,14 @@ def _runtime(adapter: FakeAdapter, store: FakeStore) -> Any:
         async_create_task=lambda coro: asyncio.create_task(coro),
         loop=loop,
         data={},
+        states=_FakeStates(
+            {
+                "switch.l1": SimpleNamespace(state="off"),
+                "switch.l2": SimpleNamespace(state="on"),
+                "switch.l3": SimpleNamespace(state="off"),
+                "switch.l4": SimpleNamespace(state="unavailable"),
+            }
+        ),
     )
     entry = SimpleNamespace(entry_id="entry-1", options={"auto_sync": False})
     return SimpleNamespace(
@@ -135,11 +151,26 @@ def test_get_config_payload_includes_relay_entities() -> None:
         "switch.l3",
         "switch.l4",
     ]
+    assert payload["relay_states"] == [False, True, False, None]
+    assert payload["momentary_active"] == []
     runtime_payload = coordinator.get_runtime_payload()
     assert "profiles" not in runtime_payload
     assert runtime_payload["relay_entities"] == payload["relay_entities"]
+    assert runtime_payload["relay_states"] == [False, True, False, None]
     assert "cover_state" in runtime_payload
     assert runtime_payload["sync_status"] == store.data.sync_status
+
+
+def test_runtime_payload_includes_momentary_active() -> None:
+    store = FakeStore()
+    runtime = _runtime(FakeAdapter(), store)
+    coordinator = PanelCoordinator(runtime)  # type: ignore[arg-type]
+    handle = SimpleNamespace(cancelled=lambda: False, cancel=lambda: None)
+    runtime.momentary.timers[1] = handle  # type: ignore[assignment]
+    runtime.momentary.tokens[1] = object()
+    payload = coordinator.get_runtime_payload()
+    assert payload["momentary_active"] == [1]
+    assert payload["relay_states"][1] is True
 
 
 def test_ws_subscribe_pushes_runtime_without_drafts() -> None:

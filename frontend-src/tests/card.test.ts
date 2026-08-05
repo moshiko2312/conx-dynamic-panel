@@ -638,6 +638,8 @@ describe("custom elements", () => {
           cb({
             sync_status: "synced",
             relay_entities: ["switch.l1", "switch.l2", "switch.l3", "switch.l4"],
+            relay_states: [false, false, false, false],
+            momentary_active: [],
             cover_state: { active: false, state: "idle", direction: null, duration: null, reason: null },
           });
           return () => undefined;
@@ -667,6 +669,194 @@ describe("custom elements", () => {
     expect(el._panel?.sync_status).toBe("out_of_sync");
     expect(el._dirty).toBe(false);
     expect(JSON.stringify(el._draft)).toBe(before);
+  });
+
+  it("shouldUpdate on same hass reference when mapped relay state mutates", async () => {
+    const mixedProfile: Profile = {
+      ...sampleProfile,
+      mode: "mixed",
+      selected_button: null,
+      buttons: sampleProfile.buttons.map((button, index) => ({
+        ...button,
+        role: index === 0 ? "momentary" : "toggle",
+        pulse_time_s: 0.5,
+        radio_member: true,
+      })),
+    };
+    // Mutable states object — mirrors Lovelace reusing the same hass reference.
+    const states: Record<string, { state: string }> = {
+      "switch.l1": { state: "off" },
+      "switch.l2": { state: "off" },
+      "switch.l3": { state: "off" },
+      "switch.l4": { state: "off" },
+    };
+    const hass = {
+      language: "en",
+      callWS: vi.fn().mockResolvedValue(
+        panelPayload({
+          sync_status: "synced",
+          profiles: { lighting: mixedProfile },
+        })
+      ),
+      states,
+    };
+    const el = await mountCard(hass);
+    expect(el._isRingOn(1)).toBe(false);
+    const before = JSON.stringify(el._draft);
+
+    // Mutate in place, reassign same hass object (Lit default !== would skip).
+    states["switch.l1"] = { state: "on" };
+    el.hass = hass;
+    await el.updateComplete;
+    expect(el._isRingOn(1)).toBe(true);
+    expect(el._dirty).toBe(false);
+    expect(JSON.stringify(el._draft)).toBe(before);
+
+    states["switch.l1"] = { state: "off" };
+    el.hass = hass;
+    await el.updateComplete;
+    expect(el._isRingOn(1)).toBe(false);
+    expect(el._dirty).toBe(false);
+  });
+
+  it("momentary UI pulse survives live ON reconcile and clears on timer/OFF", async () => {
+    const mixedProfile: Profile = {
+      ...sampleProfile,
+      mode: "mixed",
+      selected_button: null,
+      buttons: sampleProfile.buttons.map((button, index) => ({
+        ...button,
+        role: index === 0 ? "momentary" : "toggle",
+        pulse_time_s: 0.4,
+        radio_member: true,
+      })),
+    };
+    const states: Record<string, { state: string }> = {
+      "switch.l1": { state: "off" },
+      "switch.l2": { state: "off" },
+      "switch.l3": { state: "off" },
+      "switch.l4": { state: "off" },
+    };
+    const el = await mountCard({
+      language: "en",
+      callWS: vi.fn().mockResolvedValue(
+        panelPayload({
+          sync_status: "synced",
+          profiles: { lighting: mixedProfile },
+        })
+      ),
+      states,
+    });
+    const before = JSON.stringify(el._draft);
+
+    vi.useFakeTimers();
+    try {
+      // Card press arms local pulse.
+      el._onRingPress(1);
+      await el.updateComplete;
+      expect(el._isRingOn(1)).toBe(true);
+
+      // Backend relay ON must not extinguish the ring (old reconcile bug).
+      el.hass = {
+        ...el.hass,
+        states: { ...states, "switch.l1": { state: "on" } },
+      };
+      await el.updateComplete;
+      expect(el._isRingOn(1)).toBe(true);
+      expect(el._dirty).toBe(false);
+
+      await vi.advanceTimersByTimeAsync(400);
+      await el.updateComplete;
+      // Live still ON → ring stays on via liveRelay.
+      expect(el._isRingOn(1)).toBe(true);
+
+      el.hass = {
+        ...el.hass,
+        states: { ...states, "switch.l1": { state: "off" } },
+      };
+      await el.updateComplete;
+      expect(el._isRingOn(1)).toBe(false);
+      expect(JSON.stringify(el._draft)).toBe(before);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("subscribe momentary_active arms UI pulse for physical press without dirty", async () => {
+    const mixedProfile: Profile = {
+      ...sampleProfile,
+      mode: "mixed",
+      selected_button: null,
+      buttons: sampleProfile.buttons.map((button, index) => ({
+        ...button,
+        role: index === 0 ? "momentary" : "toggle",
+        pulse_time_s: 0.3,
+        radio_member: true,
+      })),
+    };
+    const subscribers: Array<(msg: Record<string, unknown>) => void> = [];
+    const states: Record<string, { state: string }> = {
+      "switch.l1": { state: "off" },
+      "switch.l2": { state: "off" },
+      "switch.l3": { state: "off" },
+      "switch.l4": { state: "off" },
+    };
+    const el = await mountCard({
+      language: "en",
+      callWS: vi.fn().mockResolvedValue(
+        panelPayload({
+          sync_status: "synced",
+          profiles: { lighting: mixedProfile },
+        })
+      ),
+      states,
+      connection: {
+        subscribeMessage: vi.fn(async (cb: (msg: Record<string, unknown>) => void) => {
+          subscribers.push(cb);
+          cb({
+            sync_status: "synced",
+            relay_entities: ["switch.l1", "switch.l2", "switch.l3", "switch.l4"],
+            relay_states: [false, false, false, false],
+            momentary_active: [],
+          });
+          return () => undefined;
+        }),
+      },
+    });
+    const before = JSON.stringify(el._draft);
+
+    vi.useFakeTimers();
+    try {
+      // Physical press path: runtime says L1 ON + pulse armed (hass may lag).
+      subscribers[0]?.({
+        sync_status: "synced",
+        relay_states: [true, false, false, false],
+        momentary_active: [1],
+      });
+      // Also reflect entity ON the way HA eventually will.
+      el.hass = {
+        ...el.hass,
+        states: { ...states, "switch.l1": { state: "on" } },
+      };
+      await el.updateComplete;
+      expect(el._isRingOn(1)).toBe(true);
+      expect(el._dirty).toBe(false);
+
+      await vi.advanceTimersByTimeAsync(300);
+      el.hass = {
+        ...el.hass,
+        states: { ...states, "switch.l1": { state: "off" } },
+      };
+      subscribers[0]?.({
+        relay_states: [false, false, false, false],
+        momentary_active: [],
+      });
+      await el.updateComplete;
+      expect(el._isRingOn(1)).toBe(false);
+      expect(JSON.stringify(el._draft)).toBe(before);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("toggle faceplate follows live relay and stays clean", async () => {
