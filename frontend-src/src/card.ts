@@ -334,8 +334,9 @@ export class ConXDynamicPanelCard extends LitElement {
     const link = document.createElement("link");
     link.id = id;
     link.rel = "stylesheet";
+    // Match standalone HTML preview (Manrope + Cormorant Garamond).
     link.href =
-      "https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Sora:wght@500;600;700&display=swap";
+      "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap";
     document.head.appendChild(link);
   }
 
@@ -3144,6 +3145,10 @@ export class ConXDynamicPanelCard extends LitElement {
         class="conx-card theme-${this._theme} ${this._view === "export" ? "export-open" : "editor-open"} ${this._menuOpen ? "menu-open" : ""} ${compact ? "compact" : ""} ${this._syncPulse ? "syncing-pulse" : ""}"
       >
         <div class="atmosphere"></div>
+        <div class="panel-title">
+          <div class="brand" dir="ltr" lang="en">ConX</div>
+          <div class="title">${this._panel.panel_name || this.t("card.title")}</div>
+        </div>
         <div class="header" dir="ltr">
           <div class="header-side">
             <div class="badge status-${this._panel.sync_status}">
@@ -3687,16 +3692,9 @@ export class ConXDynamicPanelCard extends LitElement {
       position: absolute;
       inset: 0;
       background:
-        radial-gradient(circle at 12% 0%, var(--conx-atm-1), transparent 42%),
-        radial-gradient(circle at 88% 100%, var(--conx-atm-2), transparent 40%),
-        repeating-linear-gradient(
-          -18deg,
-          transparent,
-          transparent 10px,
-          color-mix(in srgb, #0b1218 2.5%, transparent) 10px,
-          color-mix(in srgb, #0b1218 2.5%, transparent) 11px
-        );
-      opacity: 0.55;
+        radial-gradient(ellipse at 18% 0%, var(--conx-atm-1), transparent 44%),
+        radial-gradient(ellipse at 88% 16%, var(--conx-atm-2), transparent 42%);
+      opacity: 1;
     }
 
     .theme-picker {
@@ -3708,47 +3706,52 @@ export class ConXDynamicPanelCard extends LitElement {
       display: none;
     }
     .theme-swatches {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 16px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
     }
     .theme-swatch {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 7px;
-      padding: 0;
-      border: 0;
-      background: transparent;
-      color: var(--text-muted);
+      gap: 8px;
+      padding: 14px 10px;
+      border-radius: 14px;
       cursor: pointer;
-      min-width: 72px;
       font: inherit;
+      border: 1px solid var(--btn-border, var(--border));
+      background: var(--btn-bg);
+      color: var(--text-muted);
     }
     .theme-swatch:hover {
       color: var(--text);
     }
     .theme-swatch.active {
+      border-color: var(--accent);
+      background: var(--accent-soft);
       color: var(--text);
     }
     .theme-swatch-face {
       display: block;
-      width: 36px;
-      height: 36px;
+      width: 42px;
+      height: 42px;
       border-radius: 50%;
       background: var(--swatch);
       border: 2px solid var(--border);
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
     }
     .theme-swatch.active .theme-swatch-face {
-      border-color: var(--swatch-accent, var(--conx-accent));
-      box-shadow: 0 0 0 3px color-mix(in srgb, var(--swatch-accent, var(--conx-accent)) 40%, transparent);
+      border-color: var(--swatch-accent, var(--accent));
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--swatch-accent, var(--accent)) 40%, transparent);
     }
     .theme-swatch-name {
-      font-size: 0.72rem;
-      font-weight: 600;
+      font-size: 0.78rem;
+      font-weight: 700;
       line-height: 1.25;
-      text-align: start;
+      text-align: center;
+    }
+    .theme-swatch.active .theme-swatch-name {
+      color: var(--text);
     }
     .dimmer-field input[type="range"] {
       width: 100%;
@@ -3763,13 +3766,42 @@ export class ConXDynamicPanelCard extends LitElement {
       gap: 8px;
     }
 
+    .panel-title,
     .header,
+    .status-action-bar,
     .warn,
     .error,
     .notice,
+    .hero-preview,
+    .settings-tabs,
+    .actions-dock,
+    .layout-hint,
     .layout {
       position: relative;
       z-index: 1;
+    }
+
+    .panel-title {
+      text-align: center;
+      margin: 0 0 14px;
+      padding: 0 8px;
+    }
+
+    .panel-title .brand {
+      font-family: var(--conx-display);
+      font-size: 1.75rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      line-height: 1;
+      color: var(--accent);
+    }
+
+    .panel-title .title {
+      font-family: var(--conx-display);
+      font-size: 1.35rem;
+      font-weight: 600;
+      margin-top: 6px;
+      color: var(--text);
     }
 
 
@@ -4007,7 +4039,6 @@ export class ConXDynamicPanelCard extends LitElement {
       letter-spacing: 0.04em;
       line-height: 1;
       color: var(--conx-accent);
-      text-shadow: 0 1px 0 var(--conx-bevel-light);
     }
 
     .title {
@@ -4021,6 +4052,15 @@ export class ConXDynamicPanelCard extends LitElement {
       opacity: 0.72;
       margin-top: 2px;
       font-size: 0.92rem;
+    }
+
+    @media (max-width: 520px) {
+      .panel-title .brand {
+        font-size: 1.5rem;
+      }
+      .panel-title .title {
+        font-size: 1.2rem;
+      }
     }
 
     .header-side {
@@ -4866,29 +4906,30 @@ export class ConXDynamicPanelCard extends LitElement {
       font: inherit;
       color: var(--btn-text);
       cursor: pointer;
-      border-radius: 11px;
-      border: 1px solid var(--border);
+      border-radius: 999px;
+      border: 1px solid var(--btn-border, var(--border));
       background: var(--btn-bg);
-      padding: 8px 12px;
+      padding: 9px 14px;
+      font-weight: 700;
+      min-height: 42px;
       box-shadow:
         inset 0 1px 0 var(--bevel-light),
         0 2px 6px rgba(0, 0, 0, 0.18);
-      transition: transform 120ms ease, filter 120ms ease;
+      transition: filter 120ms ease;
     }
 
     .btn:hover:not(:disabled) {
-      transform: translateY(-1px);
-      filter: brightness(1.04);
+      filter: brightness(1.06);
     }
 
     .btn:active:not(:disabled) {
-      transform: translateY(1px);
+      filter: brightness(0.98);
     }
 
     .btn.primary {
       background: var(--btn-primary-bg);
       color: var(--btn-primary-text);
-      border-color: color-mix(in srgb, var(--accent) 55%, #000);
+      border-color: var(--btn-primary-bg);
       font-weight: 700;
     }
 
@@ -4899,9 +4940,9 @@ export class ConXDynamicPanelCard extends LitElement {
     }
 
     .btn:disabled {
-      opacity: 0.55;
+      opacity: 0.5;
       cursor: not-allowed;
-      transform: none;
+      filter: none;
     }
 
     .buttons-accordion {
@@ -5015,42 +5056,33 @@ export class ConXDynamicPanelCard extends LitElement {
       margin-bottom: 0;
     }
 
-    /* Product-photo faceplate: N equal columns, fixed landscape bezel. */
+    /* Product-photo faceplate: N equal columns, fixed landscape bezel (matches HTML preview). */
     .faceplate {
-      padding: 14px;
-      border-radius: 16px;
-      background: var(--faceplate-well);
-      box-shadow:
-        inset 0 2px 8px rgba(0, 0, 0, 0.28),
-        inset 0 1px 0 rgba(255, 255, 255, 0.06);
-      --conx-faceplate-skin: none; /* future: url(...) photo overlay */
       width: 100%;
       overflow-x: auto;
-      padding: 4px 2px 8px;
     }
 
     .faceplate-bezel {
       position: relative;
-      /* Landscape footprint stays similar across gang counts (photos). */
-      min-width: calc(80px * 4);
-      width: min(100%, calc(140px * 4));
+      /* Landscape footprint stays similar across gang counts (product photos). */
+      min-width: calc(100px * 4);
+      width: min(100%, calc(230px * 4));
       margin: 0 auto;
-      aspect-ratio: calc(0.64 * 4) / 1;
-      border-radius: 18px;
-      padding: 5px;
-      background:
-        linear-gradient(145deg, #f4f6f8 0%, #b7c0c8 38%, #eceff2 62%, #8e99a3 100%);
+      aspect-ratio: calc(0.66 * 4) / 1;
+      border-radius: 22px;
+      padding: 7px;
+      background: linear-gradient(145deg, #f2f0ea 0%, #b8b0a4 36%, #ebe6dc 62%, #8a8378 100%);
       box-shadow:
         inset 0 1px 1px #fff,
-        inset 0 -1px 2px color-mix(in srgb, #000 35%, transparent),
-        0 8px 18px color-mix(in srgb, #0b1218 18%, transparent);
+        inset 0 -1px 2px rgba(0, 0, 0, 0.35),
+        0 16px 36px rgba(0, 0, 0, 0.35);
     }
 
     .faceplate-skin {
       position: absolute;
-      inset: 5px;
-      border-radius: 14px;
-      background-image: var(--conx-faceplate-skin);
+      inset: 7px;
+      border-radius: 16px;
+      background-image: var(--conx-faceplate-skin, none);
       background-size: cover;
       background-position: center;
       opacity: 0;
@@ -5062,41 +5094,40 @@ export class ConXDynamicPanelCard extends LitElement {
       position: relative;
       z-index: 1;
       height: 100%;
-      border-radius: 14px;
+      border-radius: 16px;
       overflow: hidden;
       display: grid;
       grid-template-rows: 24% 76%;
       background: #fff;
-      box-shadow: inset 0 0 0 1px color-mix(in srgb, #000 8%, transparent);
+      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
     }
 
     .faceplate-labels {
       display: grid;
       grid-template-columns: repeat(var(--conx-gang-count, 4), 1fr);
       align-items: center;
-      background: #0a0a0a;
-      color: #f5f5f5;
-      padding: 0 4px;
+      background: linear-gradient(180deg, #2a3038 0%, #1a1d22 100%);
+      color: #f0f2f5;
+      padding: 0 6px;
     }
 
     .faceplate-label {
       text-align: center;
-      font-size: clamp(0.62rem, 2.1vw, 0.9rem);
-      font-weight: 500;
-      letter-spacing: 0.01em;
+      font-size: clamp(0.85rem, 2.4vw, 1.2rem);
+      font-weight: 600;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      padding: 0 4px;
+      padding: 0 6px;
+      font-family: var(--conx-font);
     }
 
     .faceplate-touch {
       display: flex;
       align-items: flex-end;
       justify-content: stretch;
-      background:
-        linear-gradient(180deg, #ffffff 0%, #f7f8fa 70%, #eef1f4 100%);
-      padding: 0 2% 10%;
+      background: linear-gradient(180deg, #ffffff 0%, #f7f5f1 70%, #efebe4 100%);
+      padding: 0 2% 11%;
     }
 
     .faceplate-rings {
@@ -5107,18 +5138,17 @@ export class ConXDynamicPanelCard extends LitElement {
     }
 
     .ring {
-      width: clamp(18px, 5.2vw, 28px);
-      height: clamp(18px, 5.2vw, 28px);
+      width: clamp(28px, 7vw, 48px);
+      height: clamp(28px, 7vw, 48px);
       border-radius: 50%;
-      border: 2.5px solid
+      border: 3px solid
         color-mix(in srgb, var(--ring-off, var(--conx-ring-off)) 70%, #9aa7b5);
       background: transparent;
       padding: 0;
       cursor: pointer;
       position: relative;
       box-shadow:
-        0 0 5px color-mix(in srgb, var(--ring-off, var(--conx-ring-off)) 40%, transparent),
-        inset 0 0 0 1px color-mix(in srgb, #fff 40%, transparent);
+        0 0 8px color-mix(in srgb, var(--ring-off, var(--conx-ring-off)) 40%, transparent);
       transition:
         border-color 160ms ease,
         box-shadow 160ms ease,
@@ -5128,24 +5158,24 @@ export class ConXDynamicPanelCard extends LitElement {
     .ring.on {
       border-color: var(--ring-on, var(--conx-ring));
       box-shadow:
-        0 0 12px color-mix(in srgb, var(--ring-on, var(--conx-ring)) 75%, transparent),
-        0 0 4px color-mix(in srgb, var(--ring-on, var(--conx-ring)) 90%, transparent),
-        inset 0 0 5px color-mix(in srgb, var(--ring-on, var(--conx-ring)) 45%, transparent);
+        0 0 18px color-mix(in srgb, var(--ring-on, var(--conx-ring)) 75%, transparent),
+        0 0 6px color-mix(in srgb, var(--ring-on, var(--conx-ring)) 90%, transparent);
     }
 
     .ring.pressed {
-      transform: scale(0.9);
+      transform: scale(0.92);
     }
 
     .ring-glow {
       position: absolute;
-      inset: 4px;
+      inset: 6px;
       border-radius: 50%;
       background: color-mix(
         in srgb,
         var(--ring-off, var(--conx-ring-off)) 14%,
         transparent
       );
+      pointer-events: none;
     }
 
     .ring.on .ring-glow {
@@ -5181,55 +5211,96 @@ export class ConXDynamicPanelCard extends LitElement {
     .header {
       display: flex;
       justify-content: flex-end;
-      margin-bottom: 10px;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 14px;
+      direction: ltr;
     }
     .header-side {
       display: flex;
       align-items: center;
       gap: 10px;
+      flex-shrink: 0;
+      flex-direction: row;
       direction: ltr;
     }
     .menu-btn {
-      width: 42px;
-      height: 42px;
-      border-radius: 12px;
+      width: 46px;
+      height: 46px;
+      border-radius: 14px;
       border: 1px solid var(--btn-border, var(--border));
-      background: var(--btn-bg);
-      display: inline-grid;
-      place-items: center;
-      gap: 4px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 55%),
+        var(--btn-bg);
+      color: var(--text);
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08) inset, 0 2px 6px rgba(0, 0, 0, 0.2);
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
       cursor: pointer;
-      padding: 10px 9px;
+      padding: 0;
+    }
+    ha-card.conx-card[data-theme="ivory"] .menu-btn {
+      background: linear-gradient(180deg, #ffffff, var(--btn-bg));
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset, 0 2px 6px rgba(20, 28, 40, 0.08);
+    }
+    .menu-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
     }
     .menu-btn span {
       display: block;
       width: 18px;
       height: 2px;
       border-radius: 2px;
-      background: var(--text);
+      background: currentColor;
     }
     .conx-layer {
+      /* Absolute inside ha-card (overflow clip); preview uses viewport-fixed siblings. */
       position: absolute;
       inset: 0;
-      z-index: 20;
-      display: grid;
-      place-items: center;
+      z-index: 80;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       padding: 16px;
-      background: rgba(8, 12, 18, 0.55);
+      background: rgba(8, 10, 14, 0.55);
+      opacity: 1;
       backdrop-filter: blur(2px);
     }
+    ha-card.conx-card[data-theme="ivory"] .conx-layer {
+      background: rgba(20, 28, 40, 0.42);
+    }
     .conx-panel {
-      width: min(100%, 420px);
-      max-height: min(86vh, 720px);
+      width: min(400px, 100%);
+      max-height: calc(100% - 32px);
       overflow: auto;
+      display: flex;
+      flex-direction: column;
+      padding: 14px 14px 16px;
       border-radius: 18px;
       border: 1px solid var(--border);
       background: var(--surface-2, var(--surface));
-      box-shadow: var(--card-shadow);
-      padding: 14px;
+      color: var(--text);
+      box-shadow:
+        0 22px 56px rgba(8, 10, 14, 0.48),
+        inset 0 1px 0 var(--conx-bevel-light);
+      animation: conx-panel-in 180ms ease;
+    }
+    @keyframes conx-panel-in {
+      from {
+        transform: scale(0.96) translateY(8px);
+        opacity: 0.85;
+      }
+      to {
+        transform: scale(1) translateY(0);
+        opacity: 1;
+      }
     }
     .conx-panel.wide { width: min(100%, 560px); }
-    .conx-panel.xwide { width: min(100%, 760px); max-height: min(90vh, 860px); }
+    .conx-panel.xwide { width: min(100%, 760px); max-height: min(90%, 860px); }
     .automation-hint {
       margin: 0 0 12px;
       color: var(--text-muted);
@@ -5304,76 +5375,142 @@ export class ConXDynamicPanelCard extends LitElement {
       gap: 6px;
     }
     .hero-preview {
+      border-radius: 18px;
+      border: 1px solid var(--border);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 40%),
+        var(--surface-2);
+      overflow: hidden;
+      margin-bottom: 14px;
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset;
+    }
+    ha-card.conx-card[data-theme="ivory"] .hero-preview {
+      background: linear-gradient(180deg, #ffffff, var(--surface-2));
+      box-shadow: none;
+    }
+    .hero-preview .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      position: relative;
+    }
+    .hero-preview .section-head-main,
+    .hero-preview .section-head > .switch {
+      position: relative;
+      z-index: 1;
+      flex: 0 1 auto;
+      min-width: 0;
+    }
+    .hero-preview .section-title {
+      font-family: var(--conx-display);
+      font-size: 1.35rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    .hero-profile-name {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 0;
+      text-align: center;
+      font-family: var(--conx-display);
+      font-weight: 600;
+      font-size: clamp(1.05rem, 2.8vw, 1.45rem);
+      letter-spacing: 0.01em;
+      line-height: 1.15;
+      color: var(--accent);
+      max-width: min(46%, 280px);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      pointer-events: none;
+    }
+    .hero-body {
+      padding: 18px 16px 22px;
+      background: var(--faceplate-well);
+    }
+    .hero-preview.closed .hero-body {
+      display: none;
+    }
+    .hero-preview.closed .section-head {
+      border-bottom: 0;
+    }
+    .layout-hint {
+      margin: 0 0 10px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+    .settings-tabs {
       border-radius: 16px;
       border: 1px solid var(--border);
       background: var(--surface-2);
       overflow: hidden;
-      margin-bottom: 10px;
-    }
-    .hero-preview .section-head {
-      display: grid;
-      grid-template-columns: 1fr auto auto;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 12px;
-      border-bottom: 1px solid var(--border);
-    }
-    .hero-profile-name {
-      font-family: var(--conx-display);
-      font-weight: 700;
-      font-size: 1.05rem;
-      text-align: center;
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .hero-body {
-      padding: 16px;
-      background: var(--faceplate-well);
-    }
-    .layout-hint {
-      margin: 0 0 10px;
-      font-size: 0.85rem;
-      color: var(--text-muted);
     }
     .tab-bar {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 6px;
-      margin-bottom: 10px;
+      gap: 0;
+      border-bottom: 1px solid var(--border);
+      background: color-mix(in srgb, var(--surface) 70%, var(--surface-2));
+      margin-bottom: 0;
     }
     .tab-btn {
+      appearance: none;
       display: flex;
       flex-direction: column;
       align-items: center;
+      justify-content: center;
       gap: 2px;
-      border-radius: 14px;
-      border: 1px solid var(--btn-border, var(--border));
-      background: var(--btn-bg);
+      border: 0;
+      border-radius: 0;
+      border-bottom: 2px solid transparent;
+      background: transparent;
       color: var(--text-muted);
+      font: inherit;
+      font-weight: 700;
+      min-height: 54px;
       padding: 10px 8px;
       cursor: pointer;
-      font: inherit;
+      transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+    }
+    .tab-btn:hover {
+      color: var(--text);
+      background: var(--accent-soft);
     }
     .tab-btn.active {
-      border-color: var(--accent);
-      background: var(--accent-soft);
       color: var(--text);
+      border-bottom-color: var(--accent);
+      background: color-mix(in srgb, var(--accent-soft) 55%, transparent);
     }
     .tab-step {
       font-size: 0.68rem;
       font-weight: 800;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
+      color: var(--accent);
+    }
+    .tab-btn:not(.active) .tab-step {
+      color: var(--text-muted);
+      opacity: 0.8;
     }
     .tab-label {
       font-family: var(--conx-display);
-      font-size: 1.02rem;
+      font-size: 1.05rem;
       font-weight: 600;
     }
-    .tab-panel { display: none; padding: 4px 0 8px; }
-    .tab-panel.active { display: block; }
+    .tab-panels {
+      padding: 0;
+    }
+    .tab-panel {
+      display: none;
+      padding: 16px;
+    }
+    .tab-panel.active {
+      display: block;
+    }
     .profile-list {
       display: grid !important;
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -5457,13 +5594,24 @@ export class ConXDynamicPanelCard extends LitElement {
       min-height: 28px;
     }
     .dimmer-pct {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       min-width: 3.4em;
-      text-align: end;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.92rem;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      color: var(--accent-text);
+      background: var(--accent);
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.18) inset, 0 2px 8px rgba(0, 0, 0, 0.22);
       font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
     }
     .dimmer-field input[type="range"] {
       width: 100%;
-      height: 28px;
+      height: 44px;
       accent-color: var(--accent);
     }
     .single-layout {

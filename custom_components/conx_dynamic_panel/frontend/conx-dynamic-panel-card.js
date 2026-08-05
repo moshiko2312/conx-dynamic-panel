@@ -284,9 +284,9 @@ R.elementStyles = [], R.shadowRootOptions = { mode: "open" }, R[F("elementProper
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const H = globalThis, Ne = (e) => e, te = H.trustedTypes, De = te ? te.createPolicy("lit-html", { createHTML: (e) => e }) : void 0, Qe = "$lit$", $ = `lit$${Math.random().toFixed(9).slice(2)}$`, et = "?" + $, St = `<${et}>`, O = document, Y = () => O.createComment(""), W = (e) => e === null || typeof e != "object" && typeof e != "function", we = Array.isArray, Pt = (e) => we(e) || typeof (e == null ? void 0 : e[Symbol.iterator]) == "function", ne = `[ 	
-\f\r]`, B = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, Be = /-->/g, Ue = />/g, P = RegExp(`>|${ne}(?:([^\\s"'>=/]+)(${ne}*=${ne}*(?:[^ 	
-\f\r"'\`<>=]|("|')|))|$)`, "g"), je = /'/g, Fe = /"/g, tt = /^(?:script|style|textarea|title)$/i, Ct = (e) => (t, ...r) => ({ _$litType$: e, strings: t, values: r }), l = Ct(1), N = Symbol.for("lit-noChange"), p = Symbol.for("lit-nothing"), He = /* @__PURE__ */ new WeakMap(), C = O.createTreeWalker(O, 129);
+const H = globalThis, Ne = (e) => e, te = H.trustedTypes, De = te ? te.createPolicy("lit-html", { createHTML: (e) => e }) : void 0, Qe = "$lit$", $ = `lit$${Math.random().toFixed(9).slice(2)}$`, et = "?" + $, St = `<${et}>`, A = document, Y = () => A.createComment(""), W = (e) => e === null || typeof e != "object" && typeof e != "function", we = Array.isArray, Ct = (e) => we(e) || typeof (e == null ? void 0 : e[Symbol.iterator]) == "function", ne = `[ 	
+\f\r]`, B = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, Be = /-->/g, Ue = />/g, C = RegExp(`>|${ne}(?:([^\\s"'>=/]+)(${ne}*=${ne}*(?:[^ 	
+\f\r"'\`<>=]|("|')|))|$)`, "g"), je = /'/g, Fe = /"/g, tt = /^(?:script|style|textarea|title)$/i, Pt = (e) => (t, ...r) => ({ _$litType$: e, strings: t, values: r }), l = Pt(1), N = Symbol.for("lit-noChange"), p = Symbol.for("lit-nothing"), He = /* @__PURE__ */ new WeakMap(), P = A.createTreeWalker(A, 129);
 function rt(e, t) {
   if (!we(e) || !e.hasOwnProperty("raw")) throw Error("invalid template strings array");
   return De !== void 0 ? De.createHTML(t) : t;
@@ -297,8 +297,8 @@ const Et = (e, t) => {
   for (let o = 0; o < r; o++) {
     const c = e[o];
     let d, u, h = -1, f = 0;
-    for (; f < c.length && (n.lastIndex = f, u = n.exec(c), u !== null); ) f = n.lastIndex, n === B ? u[1] === "!--" ? n = Be : u[1] !== void 0 ? n = Ue : u[2] !== void 0 ? (tt.test(u[2]) && (a = RegExp("</" + u[2], "g")), n = P) : u[3] !== void 0 && (n = P) : n === P ? u[0] === ">" ? (n = a ?? B, h = -1) : u[1] === void 0 ? h = -2 : (h = n.lastIndex - u[2].length, d = u[1], n = u[3] === void 0 ? P : u[3] === '"' ? Fe : je) : n === Fe || n === je ? n = P : n === Be || n === Ue ? n = B : (n = P, a = void 0);
-    const b = n === P && e[o + 1].startsWith("/>") ? " " : "";
+    for (; f < c.length && (n.lastIndex = f, u = n.exec(c), u !== null); ) f = n.lastIndex, n === B ? u[1] === "!--" ? n = Be : u[1] !== void 0 ? n = Ue : u[2] !== void 0 ? (tt.test(u[2]) && (a = RegExp("</" + u[2], "g")), n = C) : u[3] !== void 0 && (n = C) : n === C ? u[0] === ">" ? (n = a ?? B, h = -1) : u[1] === void 0 ? h = -2 : (h = n.lastIndex - u[2].length, d = u[1], n = u[3] === void 0 ? C : u[3] === '"' ? Fe : je) : n === Fe || n === je ? n = C : n === Be || n === Ue ? n = B : (n = C, a = void 0);
+    const b = n === C && e[o + 1].startsWith("/>") ? " " : "";
     s += n === B ? c + St : h >= 0 ? (i.push(d), c.slice(0, h) + Qe + c.slice(h) + $ + b) : c + $ + (h === -2 ? o : b);
   }
   return [rt(e, s + (e[r] || "<?>") + (t === 2 ? "</svg>" : t === 3 ? "</math>" : "")), i];
@@ -309,21 +309,21 @@ class J {
     this.parts = [];
     let s = 0, n = 0;
     const o = t.length - 1, c = this.parts, [d, u] = Et(t, r);
-    if (this.el = J.createElement(d, i), C.currentNode = this.el.content, r === 2 || r === 3) {
+    if (this.el = J.createElement(d, i), P.currentNode = this.el.content, r === 2 || r === 3) {
       const h = this.el.content.firstChild;
       h.replaceWith(...h.childNodes);
     }
-    for (; (a = C.nextNode()) !== null && c.length < o; ) {
+    for (; (a = P.nextNode()) !== null && c.length < o; ) {
       if (a.nodeType === 1) {
         if (a.hasAttributes()) for (const h of a.getAttributeNames()) if (h.endsWith(Qe)) {
           const f = u[n++], b = a.getAttribute(h).split($), k = /([.?@])?(.*)/.exec(f);
-          c.push({ type: 1, index: s, name: k[2], strings: b, ctor: k[1] === "." ? At : k[1] === "?" ? Rt : k[1] === "@" ? zt : ie }), a.removeAttribute(h);
+          c.push({ type: 1, index: s, name: k[2], strings: b, ctor: k[1] === "." ? Ot : k[1] === "?" ? Rt : k[1] === "@" ? zt : ie }), a.removeAttribute(h);
         } else h.startsWith($) && (c.push({ type: 6, index: s }), a.removeAttribute(h));
         if (tt.test(a.tagName)) {
           const h = a.textContent.split($), f = h.length - 1;
           if (f > 0) {
             a.textContent = te ? te.emptyScript : "";
-            for (let b = 0; b < f; b++) a.append(h[b], Y()), C.nextNode(), c.push({ type: 2, index: ++s });
+            for (let b = 0; b < f; b++) a.append(h[b], Y()), P.nextNode(), c.push({ type: 2, index: ++s });
             a.append(h[f], Y());
           }
         }
@@ -336,7 +336,7 @@ class J {
     }
   }
   static createElement(t, r) {
-    const i = O.createElement("template");
+    const i = A.createElement("template");
     return i.innerHTML = t, i;
   }
 }
@@ -347,7 +347,7 @@ function D(e, t, r = e, i) {
   const s = W(t) ? void 0 : t._$litDirective$;
   return (a == null ? void 0 : a.constructor) !== s && ((o = a == null ? void 0 : a._$AO) == null || o.call(a, !1), s === void 0 ? a = void 0 : (a = new s(e), a._$AT(e, r, i)), i !== void 0 ? (r._$Co ?? (r._$Co = []))[i] = a : r._$Cl = a), a !== void 0 && (t = D(e, a._$AS(e, t.values), a, i)), t;
 }
-class Ot {
+class At {
   constructor(t, r) {
     this._$AV = [], this._$AN = void 0, this._$AD = t, this._$AM = r;
   }
@@ -358,17 +358,17 @@ class Ot {
     return this._$AM._$AU;
   }
   u(t) {
-    const { el: { content: r }, parts: i } = this._$AD, a = ((t == null ? void 0 : t.creationScope) ?? O).importNode(r, !0);
-    C.currentNode = a;
-    let s = C.nextNode(), n = 0, o = 0, c = i[0];
+    const { el: { content: r }, parts: i } = this._$AD, a = ((t == null ? void 0 : t.creationScope) ?? A).importNode(r, !0);
+    P.currentNode = a;
+    let s = P.nextNode(), n = 0, o = 0, c = i[0];
     for (; c !== void 0; ) {
       if (n === c.index) {
         let d;
         c.type === 2 ? d = new q(s, s.nextSibling, this, t) : c.type === 1 ? d = new c.ctor(s, c.name, c.strings, this, t) : c.type === 6 && (d = new Mt(s, this, t)), this._$AV.push(d), c = i[++o];
       }
-      n !== (c == null ? void 0 : c.index) && (s = C.nextNode(), n++);
+      n !== (c == null ? void 0 : c.index) && (s = P.nextNode(), n++);
     }
-    return C.currentNode = O, a;
+    return P.currentNode = A, a;
   }
   p(t) {
     let r = 0;
@@ -395,7 +395,7 @@ class q {
     return this._$AB;
   }
   _$AI(t, r = this) {
-    t = D(this, t, r), W(t) ? t === p || t == null || t === "" ? (this._$AH !== p && this._$AR(), this._$AH = p) : t !== this._$AH && t !== N && this._(t) : t._$litType$ !== void 0 ? this.$(t) : t.nodeType !== void 0 ? this.T(t) : Pt(t) ? this.k(t) : this._(t);
+    t = D(this, t, r), W(t) ? t === p || t == null || t === "" ? (this._$AH !== p && this._$AR(), this._$AH = p) : t !== this._$AH && t !== N && this._(t) : t._$litType$ !== void 0 ? this.$(t) : t.nodeType !== void 0 ? this.T(t) : Ct(t) ? this.k(t) : this._(t);
   }
   O(t) {
     return this._$AA.parentNode.insertBefore(t, this._$AB);
@@ -404,14 +404,14 @@ class q {
     this._$AH !== t && (this._$AR(), this._$AH = this.O(t));
   }
   _(t) {
-    this._$AH !== p && W(this._$AH) ? this._$AA.nextSibling.data = t : this.T(O.createTextNode(t)), this._$AH = t;
+    this._$AH !== p && W(this._$AH) ? this._$AA.nextSibling.data = t : this.T(A.createTextNode(t)), this._$AH = t;
   }
   $(t) {
     var s;
     const { values: r, _$litType$: i } = t, a = typeof i == "number" ? this._$AC(t) : (i.el === void 0 && (i.el = J.createElement(rt(i.h, i.h[0]), this.options)), i);
     if (((s = this._$AH) == null ? void 0 : s._$AD) === a) this._$AH.p(r);
     else {
-      const n = new Ot(a, this), o = n.u(this.options);
+      const n = new At(a, this), o = n.u(this.options);
       n.p(r), this.T(o), this._$AH = n;
     }
   }
@@ -463,7 +463,7 @@ class ie {
     t === p ? this.element.removeAttribute(this.name) : this.element.setAttribute(this.name, t ?? "");
   }
 }
-class At extends ie {
+class Ot extends ie {
   constructor() {
     super(...arguments), this.type = 3;
   }
@@ -707,7 +707,7 @@ function G(e, t, r, i) {
 function v(e) {
   return Math.round(G(e, 1, 4, 4));
 }
-const Vt = /* @__PURE__ */ new Set([
+const Xt = /* @__PURE__ */ new Set([
   "radio_mandatory",
   "radio_optional",
   "radio_split",
@@ -718,7 +718,7 @@ const Vt = /* @__PURE__ */ new Set([
   "radio",
   "cover_open",
   "cover_close"
-], Xt = /* @__PURE__ */ new Set(["radio", "cover_open", "cover_close"]);
+], Vt = /* @__PURE__ */ new Set(["radio", "cover_open", "cover_close"]);
 function Q(e, t = M) {
   return G(e, at, st, t);
 }
@@ -727,10 +727,10 @@ function qt(e, t) {
   return me.includes(r) ? r : String(t || "").trim().toLowerCase() === "momentary" ? "momentary" : "toggle";
 }
 function ge(e) {
-  return v(e) > 1 ? [...me] : me.filter((t) => !Xt.has(t));
+  return v(e) > 1 ? [...me] : me.filter((t) => !Vt.has(t));
 }
 function nt(e) {
-  return Vt.has(e);
+  return Xt.has(e);
 }
 function Ge(e, t) {
   return v(t) > 1 ? [...e] : e.filter((r) => !nt(r));
@@ -1481,7 +1481,7 @@ const ot = "conx-dynamic-panel-lang", ct = {}, lt = {
   { id: "en", label: "English", flag: "GB" },
   { id: "ru", label: "Русский", flag: "RU" }
 ];
-function V(e) {
+function X(e) {
   const t = (e || "en").toLowerCase();
   return t.startsWith("he") || t.startsWith("iw") ? "he" : t.startsWith("ru") ? "ru" : "en";
 }
@@ -1504,11 +1504,11 @@ function ur(e) {
   }
 }
 function z(e, t) {
-  const r = V(e);
+  const r = X(e);
   return pr[r][t] || lt[t] || t;
 }
 function dt(e) {
-  return V(e) === "he";
+  return X(e) === "he";
 }
 const pt = "conx-dynamic-panel-theme", _r = {
   industrial: "ivory",
@@ -1537,7 +1537,7 @@ const pt = "conx-dynamic-panel-theme", _r = {
 function ae(e) {
   return e ? mr.has(e) ? e : _r[e] || "noir" : "noir";
 }
-function Ve() {
+function Xe() {
   var e, t;
   try {
     const r = (t = (e = globalThis.localStorage) == null ? void 0 : e.getItem) == null ? void 0 : t.call(e, pt);
@@ -1553,7 +1553,7 @@ function gr(e) {
   } catch {
   }
 }
-function Xe(e, t) {
+function Ve(e, t) {
   return e ? ae(e) : t || "noir";
 }
 var fr = Object.defineProperty, br = Object.getOwnPropertyDescriptor, m = (e, t, r, i) => {
@@ -1561,7 +1561,7 @@ var fr = Object.defineProperty, br = Object.getOwnPropertyDescriptor, m = (e, t,
     (n = e[s]) && (a = (i ? n(t, r, a) : n(a)) || a);
   return i && a && fr(t, r, a), a;
 };
-const A = [
+const O = [
   "language",
   "profiles",
   "edit",
@@ -1626,11 +1626,11 @@ let _ = class extends T {
   setConfig(e) {
     if (!e.entry_id)
       throw new Error("entry_id is required");
-    this._config = e, e.language && (this._uiLang = V(e.language)), this._theme = Xe(e.theme, Ve());
+    this._config = e, e.language && (this._uiLang = X(e.language)), this._theme = Ve(e.theme, Xe());
   }
   connectedCallback() {
     var e;
-    super.connectedCallback(), this._uiLang || (this._uiLang = hr() || void 0), this._theme = Xe((e = this._config) == null ? void 0 : e.theme, Ve()), this._ensureFonts(), this._ensureRuntimeSubscription();
+    super.connectedCallback(), this._uiLang || (this._uiLang = hr() || void 0), this._theme = Ve((e = this._config) == null ? void 0 : e.theme, Xe()), this._ensureFonts(), this._ensureRuntimeSubscription();
   }
   disconnectedCallback() {
     this._teardownRuntimeSubscription(), this._clearFaceplatePreview(), super.disconnectedCallback();
@@ -1642,15 +1642,15 @@ let _ = class extends T {
     this._wizardStep = e, this._notice = void 0;
   }
   _wizardIndex() {
-    return A.indexOf(this._wizardStep);
+    return O.indexOf(this._wizardStep);
   }
   _wizardNext() {
     const e = this._wizardIndex();
-    e < A.length - 1 && this._goToStep(A[e + 1]);
+    e < O.length - 1 && this._goToStep(O[e + 1]);
   }
   _wizardBack() {
     const e = this._wizardIndex();
-    e > 0 && this._goToStep(A[e - 1]);
+    e > 0 && this._goToStep(O[e - 1]);
   }
   _buildServiceYaml(e) {
     if (!this._panel || !this._config)
@@ -1701,7 +1701,7 @@ let _ = class extends T {
     if (document.getElementById(e))
       return;
     const t = document.createElement("link");
-    t.id = e, t.rel = "stylesheet", t.href = "https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Sora:wght@500;600;700&display=swap", document.head.appendChild(t);
+    t.id = e, t.rel = "stylesheet", t.href = "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap", document.head.appendChild(t);
   }
   updated(e) {
     var t;
@@ -1716,7 +1716,7 @@ let _ = class extends T {
   }
   get _language() {
     var e, t, r;
-    return this._uiLang ? this._uiLang : V(
+    return this._uiLang ? this._uiLang : X(
       ((t = (e = this.hass) == null ? void 0 : e.locale) == null ? void 0 : t.language) || ((r = this.hass) == null ? void 0 : r.language) || "en"
     );
   }
@@ -3094,7 +3094,7 @@ let _ = class extends T {
     const e = this._wizardIndex();
     return l`
       <nav class="wizard-steps" aria-label=${this.t("card.wizard")}>
-        ${A.map((t, r) => {
+        ${O.map((t, r) => {
       const i = t === this._wizardStep, a = r < e;
       return l`
             <button
@@ -3127,7 +3127,7 @@ let _ = class extends T {
         <button
           type="button"
           class="btn primary"
-          ?disabled=${this._busy || e >= A.length - 1}
+          ?disabled=${this._busy || e >= O.length - 1}
           @click=${this._wizardNext}
         >
           ${this.t("card.wizard_next")}
@@ -3521,10 +3521,10 @@ let _ = class extends T {
       ${this._renderCoverEditor()}
           <div class="buttons-accordion">
             ${this._draft.buttons.filter((e) => e.index <= this._gangCount()).map((e) => {
-      var b, k, Ce, Ee, Oe, Ae;
+      var b, k, Pe, Ee, Ae, Oe;
       const t = !!this._expandedButtons[e.index], r = String(
         ((k = (b = e.action) == null ? void 0 : b.target) == null ? void 0 : k.entity_id) || ""
-      ), i = (e.name || "").trim() || "—", a = ((Ce = e.action) == null ? void 0 : Ce.action) || "", s = ((Ee = this._draft) == null ? void 0 : Ee.mode) === "radio_mandatory" || ((Oe = this._draft) == null ? void 0 : Oe.mode) === "radio_optional", n = e.radio_member !== !1, o = this._coverDirectionFor(e.index), c = ((Ae = this._draft) == null ? void 0 : Ae.mode) === "mixed" ? e.role || "toggle" : null, d = c === "cover_open" || c === "cover_close", u = c ? this.t(`role.${c}`) : o ? this.t(
+      ), i = (e.name || "").trim() || "—", a = ((Pe = e.action) == null ? void 0 : Pe.action) || "", s = ((Ee = this._draft) == null ? void 0 : Ee.mode) === "radio_mandatory" || ((Ae = this._draft) == null ? void 0 : Ae.mode) === "radio_optional", n = e.radio_member !== !1, o = this._coverDirectionFor(e.index), c = ((Oe = this._draft) == null ? void 0 : Oe.mode) === "mixed" ? e.role || "toggle" : null, d = c === "cover_open" || c === "cover_close", u = c ? this.t(`role.${c}`) : o ? this.t(
         o === "open" ? "card.cover_open" : "card.cover_close"
       ) : s ? n ? this.t("card.radio_member") : this.t("card.radio_toggle") : "", h = !d && !a, f = [
         d ? "" : a,
@@ -3763,6 +3763,10 @@ let _ = class extends T {
         class="conx-card theme-${this._theme} ${this._view === "export" ? "export-open" : "editor-open"} ${this._menuOpen ? "menu-open" : ""} ${t ? "compact" : ""} ${this._syncPulse ? "syncing-pulse" : ""}"
       >
         <div class="atmosphere"></div>
+        <div class="panel-title">
+          <div class="brand" dir="ltr" lang="en">ConX</div>
+          <div class="title">${this._panel.panel_name || this.t("card.title")}</div>
+        </div>
         <div class="header" dir="ltr">
           <div class="header-side">
             <div class="badge status-${this._panel.sync_status}">
@@ -4278,16 +4282,9 @@ _.styles = Ke`
       position: absolute;
       inset: 0;
       background:
-        radial-gradient(circle at 12% 0%, var(--conx-atm-1), transparent 42%),
-        radial-gradient(circle at 88% 100%, var(--conx-atm-2), transparent 40%),
-        repeating-linear-gradient(
-          -18deg,
-          transparent,
-          transparent 10px,
-          color-mix(in srgb, #0b1218 2.5%, transparent) 10px,
-          color-mix(in srgb, #0b1218 2.5%, transparent) 11px
-        );
-      opacity: 0.55;
+        radial-gradient(ellipse at 18% 0%, var(--conx-atm-1), transparent 44%),
+        radial-gradient(ellipse at 88% 16%, var(--conx-atm-2), transparent 42%);
+      opacity: 1;
     }
 
     .theme-picker {
@@ -4299,47 +4296,52 @@ _.styles = Ke`
       display: none;
     }
     .theme-swatches {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 16px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
     }
     .theme-swatch {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 7px;
-      padding: 0;
-      border: 0;
-      background: transparent;
-      color: var(--text-muted);
+      gap: 8px;
+      padding: 14px 10px;
+      border-radius: 14px;
       cursor: pointer;
-      min-width: 72px;
       font: inherit;
+      border: 1px solid var(--btn-border, var(--border));
+      background: var(--btn-bg);
+      color: var(--text-muted);
     }
     .theme-swatch:hover {
       color: var(--text);
     }
     .theme-swatch.active {
+      border-color: var(--accent);
+      background: var(--accent-soft);
       color: var(--text);
     }
     .theme-swatch-face {
       display: block;
-      width: 36px;
-      height: 36px;
+      width: 42px;
+      height: 42px;
       border-radius: 50%;
       background: var(--swatch);
       border: 2px solid var(--border);
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
     }
     .theme-swatch.active .theme-swatch-face {
-      border-color: var(--swatch-accent, var(--conx-accent));
-      box-shadow: 0 0 0 3px color-mix(in srgb, var(--swatch-accent, var(--conx-accent)) 40%, transparent);
+      border-color: var(--swatch-accent, var(--accent));
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--swatch-accent, var(--accent)) 40%, transparent);
     }
     .theme-swatch-name {
-      font-size: 0.72rem;
-      font-weight: 600;
+      font-size: 0.78rem;
+      font-weight: 700;
       line-height: 1.25;
-      text-align: start;
+      text-align: center;
+    }
+    .theme-swatch.active .theme-swatch-name {
+      color: var(--text);
     }
     .dimmer-field input[type="range"] {
       width: 100%;
@@ -4354,13 +4356,42 @@ _.styles = Ke`
       gap: 8px;
     }
 
+    .panel-title,
     .header,
+    .status-action-bar,
     .warn,
     .error,
     .notice,
+    .hero-preview,
+    .settings-tabs,
+    .actions-dock,
+    .layout-hint,
     .layout {
       position: relative;
       z-index: 1;
+    }
+
+    .panel-title {
+      text-align: center;
+      margin: 0 0 14px;
+      padding: 0 8px;
+    }
+
+    .panel-title .brand {
+      font-family: var(--conx-display);
+      font-size: 1.75rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      line-height: 1;
+      color: var(--accent);
+    }
+
+    .panel-title .title {
+      font-family: var(--conx-display);
+      font-size: 1.35rem;
+      font-weight: 600;
+      margin-top: 6px;
+      color: var(--text);
     }
 
 
@@ -4598,7 +4629,6 @@ _.styles = Ke`
       letter-spacing: 0.04em;
       line-height: 1;
       color: var(--conx-accent);
-      text-shadow: 0 1px 0 var(--conx-bevel-light);
     }
 
     .title {
@@ -4612,6 +4642,15 @@ _.styles = Ke`
       opacity: 0.72;
       margin-top: 2px;
       font-size: 0.92rem;
+    }
+
+    @media (max-width: 520px) {
+      .panel-title .brand {
+        font-size: 1.5rem;
+      }
+      .panel-title .title {
+        font-size: 1.2rem;
+      }
     }
 
     .header-side {
@@ -5457,29 +5496,30 @@ _.styles = Ke`
       font: inherit;
       color: var(--btn-text);
       cursor: pointer;
-      border-radius: 11px;
-      border: 1px solid var(--border);
+      border-radius: 999px;
+      border: 1px solid var(--btn-border, var(--border));
       background: var(--btn-bg);
-      padding: 8px 12px;
+      padding: 9px 14px;
+      font-weight: 700;
+      min-height: 42px;
       box-shadow:
         inset 0 1px 0 var(--bevel-light),
         0 2px 6px rgba(0, 0, 0, 0.18);
-      transition: transform 120ms ease, filter 120ms ease;
+      transition: filter 120ms ease;
     }
 
     .btn:hover:not(:disabled) {
-      transform: translateY(-1px);
-      filter: brightness(1.04);
+      filter: brightness(1.06);
     }
 
     .btn:active:not(:disabled) {
-      transform: translateY(1px);
+      filter: brightness(0.98);
     }
 
     .btn.primary {
       background: var(--btn-primary-bg);
       color: var(--btn-primary-text);
-      border-color: color-mix(in srgb, var(--accent) 55%, #000);
+      border-color: var(--btn-primary-bg);
       font-weight: 700;
     }
 
@@ -5490,9 +5530,9 @@ _.styles = Ke`
     }
 
     .btn:disabled {
-      opacity: 0.55;
+      opacity: 0.5;
       cursor: not-allowed;
-      transform: none;
+      filter: none;
     }
 
     .buttons-accordion {
@@ -5606,42 +5646,33 @@ _.styles = Ke`
       margin-bottom: 0;
     }
 
-    /* Product-photo faceplate: N equal columns, fixed landscape bezel. */
+    /* Product-photo faceplate: N equal columns, fixed landscape bezel (matches HTML preview). */
     .faceplate {
-      padding: 14px;
-      border-radius: 16px;
-      background: var(--faceplate-well);
-      box-shadow:
-        inset 0 2px 8px rgba(0, 0, 0, 0.28),
-        inset 0 1px 0 rgba(255, 255, 255, 0.06);
-      --conx-faceplate-skin: none; /* future: url(...) photo overlay */
       width: 100%;
       overflow-x: auto;
-      padding: 4px 2px 8px;
     }
 
     .faceplate-bezel {
       position: relative;
-      /* Landscape footprint stays similar across gang counts (photos). */
-      min-width: calc(80px * 4);
-      width: min(100%, calc(140px * 4));
+      /* Landscape footprint stays similar across gang counts (product photos). */
+      min-width: calc(100px * 4);
+      width: min(100%, calc(230px * 4));
       margin: 0 auto;
-      aspect-ratio: calc(0.64 * 4) / 1;
-      border-radius: 18px;
-      padding: 5px;
-      background:
-        linear-gradient(145deg, #f4f6f8 0%, #b7c0c8 38%, #eceff2 62%, #8e99a3 100%);
+      aspect-ratio: calc(0.66 * 4) / 1;
+      border-radius: 22px;
+      padding: 7px;
+      background: linear-gradient(145deg, #f2f0ea 0%, #b8b0a4 36%, #ebe6dc 62%, #8a8378 100%);
       box-shadow:
         inset 0 1px 1px #fff,
-        inset 0 -1px 2px color-mix(in srgb, #000 35%, transparent),
-        0 8px 18px color-mix(in srgb, #0b1218 18%, transparent);
+        inset 0 -1px 2px rgba(0, 0, 0, 0.35),
+        0 16px 36px rgba(0, 0, 0, 0.35);
     }
 
     .faceplate-skin {
       position: absolute;
-      inset: 5px;
-      border-radius: 14px;
-      background-image: var(--conx-faceplate-skin);
+      inset: 7px;
+      border-radius: 16px;
+      background-image: var(--conx-faceplate-skin, none);
       background-size: cover;
       background-position: center;
       opacity: 0;
@@ -5653,41 +5684,40 @@ _.styles = Ke`
       position: relative;
       z-index: 1;
       height: 100%;
-      border-radius: 14px;
+      border-radius: 16px;
       overflow: hidden;
       display: grid;
       grid-template-rows: 24% 76%;
       background: #fff;
-      box-shadow: inset 0 0 0 1px color-mix(in srgb, #000 8%, transparent);
+      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
     }
 
     .faceplate-labels {
       display: grid;
       grid-template-columns: repeat(var(--conx-gang-count, 4), 1fr);
       align-items: center;
-      background: #0a0a0a;
-      color: #f5f5f5;
-      padding: 0 4px;
+      background: linear-gradient(180deg, #2a3038 0%, #1a1d22 100%);
+      color: #f0f2f5;
+      padding: 0 6px;
     }
 
     .faceplate-label {
       text-align: center;
-      font-size: clamp(0.62rem, 2.1vw, 0.9rem);
-      font-weight: 500;
-      letter-spacing: 0.01em;
+      font-size: clamp(0.85rem, 2.4vw, 1.2rem);
+      font-weight: 600;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      padding: 0 4px;
+      padding: 0 6px;
+      font-family: var(--conx-font);
     }
 
     .faceplate-touch {
       display: flex;
       align-items: flex-end;
       justify-content: stretch;
-      background:
-        linear-gradient(180deg, #ffffff 0%, #f7f8fa 70%, #eef1f4 100%);
-      padding: 0 2% 10%;
+      background: linear-gradient(180deg, #ffffff 0%, #f7f5f1 70%, #efebe4 100%);
+      padding: 0 2% 11%;
     }
 
     .faceplate-rings {
@@ -5698,18 +5728,17 @@ _.styles = Ke`
     }
 
     .ring {
-      width: clamp(18px, 5.2vw, 28px);
-      height: clamp(18px, 5.2vw, 28px);
+      width: clamp(28px, 7vw, 48px);
+      height: clamp(28px, 7vw, 48px);
       border-radius: 50%;
-      border: 2.5px solid
+      border: 3px solid
         color-mix(in srgb, var(--ring-off, var(--conx-ring-off)) 70%, #9aa7b5);
       background: transparent;
       padding: 0;
       cursor: pointer;
       position: relative;
       box-shadow:
-        0 0 5px color-mix(in srgb, var(--ring-off, var(--conx-ring-off)) 40%, transparent),
-        inset 0 0 0 1px color-mix(in srgb, #fff 40%, transparent);
+        0 0 8px color-mix(in srgb, var(--ring-off, var(--conx-ring-off)) 40%, transparent);
       transition:
         border-color 160ms ease,
         box-shadow 160ms ease,
@@ -5719,24 +5748,24 @@ _.styles = Ke`
     .ring.on {
       border-color: var(--ring-on, var(--conx-ring));
       box-shadow:
-        0 0 12px color-mix(in srgb, var(--ring-on, var(--conx-ring)) 75%, transparent),
-        0 0 4px color-mix(in srgb, var(--ring-on, var(--conx-ring)) 90%, transparent),
-        inset 0 0 5px color-mix(in srgb, var(--ring-on, var(--conx-ring)) 45%, transparent);
+        0 0 18px color-mix(in srgb, var(--ring-on, var(--conx-ring)) 75%, transparent),
+        0 0 6px color-mix(in srgb, var(--ring-on, var(--conx-ring)) 90%, transparent);
     }
 
     .ring.pressed {
-      transform: scale(0.9);
+      transform: scale(0.92);
     }
 
     .ring-glow {
       position: absolute;
-      inset: 4px;
+      inset: 6px;
       border-radius: 50%;
       background: color-mix(
         in srgb,
         var(--ring-off, var(--conx-ring-off)) 14%,
         transparent
       );
+      pointer-events: none;
     }
 
     .ring.on .ring-glow {
@@ -5772,55 +5801,96 @@ _.styles = Ke`
     .header {
       display: flex;
       justify-content: flex-end;
-      margin-bottom: 10px;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 14px;
+      direction: ltr;
     }
     .header-side {
       display: flex;
       align-items: center;
       gap: 10px;
+      flex-shrink: 0;
+      flex-direction: row;
       direction: ltr;
     }
     .menu-btn {
-      width: 42px;
-      height: 42px;
-      border-radius: 12px;
+      width: 46px;
+      height: 46px;
+      border-radius: 14px;
       border: 1px solid var(--btn-border, var(--border));
-      background: var(--btn-bg);
-      display: inline-grid;
-      place-items: center;
-      gap: 4px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 55%),
+        var(--btn-bg);
+      color: var(--text);
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08) inset, 0 2px 6px rgba(0, 0, 0, 0.2);
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
       cursor: pointer;
-      padding: 10px 9px;
+      padding: 0;
+    }
+    ha-card.conx-card[data-theme="ivory"] .menu-btn {
+      background: linear-gradient(180deg, #ffffff, var(--btn-bg));
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset, 0 2px 6px rgba(20, 28, 40, 0.08);
+    }
+    .menu-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
     }
     .menu-btn span {
       display: block;
       width: 18px;
       height: 2px;
       border-radius: 2px;
-      background: var(--text);
+      background: currentColor;
     }
     .conx-layer {
+      /* Absolute inside ha-card (overflow clip); preview uses viewport-fixed siblings. */
       position: absolute;
       inset: 0;
-      z-index: 20;
-      display: grid;
-      place-items: center;
+      z-index: 80;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       padding: 16px;
-      background: rgba(8, 12, 18, 0.55);
+      background: rgba(8, 10, 14, 0.55);
+      opacity: 1;
       backdrop-filter: blur(2px);
     }
+    ha-card.conx-card[data-theme="ivory"] .conx-layer {
+      background: rgba(20, 28, 40, 0.42);
+    }
     .conx-panel {
-      width: min(100%, 420px);
-      max-height: min(86vh, 720px);
+      width: min(400px, 100%);
+      max-height: calc(100% - 32px);
       overflow: auto;
+      display: flex;
+      flex-direction: column;
+      padding: 14px 14px 16px;
       border-radius: 18px;
       border: 1px solid var(--border);
       background: var(--surface-2, var(--surface));
-      box-shadow: var(--card-shadow);
-      padding: 14px;
+      color: var(--text);
+      box-shadow:
+        0 22px 56px rgba(8, 10, 14, 0.48),
+        inset 0 1px 0 var(--conx-bevel-light);
+      animation: conx-panel-in 180ms ease;
+    }
+    @keyframes conx-panel-in {
+      from {
+        transform: scale(0.96) translateY(8px);
+        opacity: 0.85;
+      }
+      to {
+        transform: scale(1) translateY(0);
+        opacity: 1;
+      }
     }
     .conx-panel.wide { width: min(100%, 560px); }
-    .conx-panel.xwide { width: min(100%, 760px); max-height: min(90vh, 860px); }
+    .conx-panel.xwide { width: min(100%, 760px); max-height: min(90%, 860px); }
     .automation-hint {
       margin: 0 0 12px;
       color: var(--text-muted);
@@ -5895,76 +5965,142 @@ _.styles = Ke`
       gap: 6px;
     }
     .hero-preview {
+      border-radius: 18px;
+      border: 1px solid var(--border);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 40%),
+        var(--surface-2);
+      overflow: hidden;
+      margin-bottom: 14px;
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset;
+    }
+    ha-card.conx-card[data-theme="ivory"] .hero-preview {
+      background: linear-gradient(180deg, #ffffff, var(--surface-2));
+      box-shadow: none;
+    }
+    .hero-preview .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      position: relative;
+    }
+    .hero-preview .section-head-main,
+    .hero-preview .section-head > .switch {
+      position: relative;
+      z-index: 1;
+      flex: 0 1 auto;
+      min-width: 0;
+    }
+    .hero-preview .section-title {
+      font-family: var(--conx-display);
+      font-size: 1.35rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    .hero-profile-name {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 0;
+      text-align: center;
+      font-family: var(--conx-display);
+      font-weight: 600;
+      font-size: clamp(1.05rem, 2.8vw, 1.45rem);
+      letter-spacing: 0.01em;
+      line-height: 1.15;
+      color: var(--accent);
+      max-width: min(46%, 280px);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      pointer-events: none;
+    }
+    .hero-body {
+      padding: 18px 16px 22px;
+      background: var(--faceplate-well);
+    }
+    .hero-preview.closed .hero-body {
+      display: none;
+    }
+    .hero-preview.closed .section-head {
+      border-bottom: 0;
+    }
+    .layout-hint {
+      margin: 0 0 10px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+    .settings-tabs {
       border-radius: 16px;
       border: 1px solid var(--border);
       background: var(--surface-2);
       overflow: hidden;
-      margin-bottom: 10px;
-    }
-    .hero-preview .section-head {
-      display: grid;
-      grid-template-columns: 1fr auto auto;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 12px;
-      border-bottom: 1px solid var(--border);
-    }
-    .hero-profile-name {
-      font-family: var(--conx-display);
-      font-weight: 700;
-      font-size: 1.05rem;
-      text-align: center;
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .hero-body {
-      padding: 16px;
-      background: var(--faceplate-well);
-    }
-    .layout-hint {
-      margin: 0 0 10px;
-      font-size: 0.85rem;
-      color: var(--text-muted);
     }
     .tab-bar {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 6px;
-      margin-bottom: 10px;
+      gap: 0;
+      border-bottom: 1px solid var(--border);
+      background: color-mix(in srgb, var(--surface) 70%, var(--surface-2));
+      margin-bottom: 0;
     }
     .tab-btn {
+      appearance: none;
       display: flex;
       flex-direction: column;
       align-items: center;
+      justify-content: center;
       gap: 2px;
-      border-radius: 14px;
-      border: 1px solid var(--btn-border, var(--border));
-      background: var(--btn-bg);
+      border: 0;
+      border-radius: 0;
+      border-bottom: 2px solid transparent;
+      background: transparent;
       color: var(--text-muted);
+      font: inherit;
+      font-weight: 700;
+      min-height: 54px;
       padding: 10px 8px;
       cursor: pointer;
-      font: inherit;
+      transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+    }
+    .tab-btn:hover {
+      color: var(--text);
+      background: var(--accent-soft);
     }
     .tab-btn.active {
-      border-color: var(--accent);
-      background: var(--accent-soft);
       color: var(--text);
+      border-bottom-color: var(--accent);
+      background: color-mix(in srgb, var(--accent-soft) 55%, transparent);
     }
     .tab-step {
       font-size: 0.68rem;
       font-weight: 800;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
+      color: var(--accent);
+    }
+    .tab-btn:not(.active) .tab-step {
+      color: var(--text-muted);
+      opacity: 0.8;
     }
     .tab-label {
       font-family: var(--conx-display);
-      font-size: 1.02rem;
+      font-size: 1.05rem;
       font-weight: 600;
     }
-    .tab-panel { display: none; padding: 4px 0 8px; }
-    .tab-panel.active { display: block; }
+    .tab-panels {
+      padding: 0;
+    }
+    .tab-panel {
+      display: none;
+      padding: 16px;
+    }
+    .tab-panel.active {
+      display: block;
+    }
     .profile-list {
       display: grid !important;
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -6048,13 +6184,24 @@ _.styles = Ke`
       min-height: 28px;
     }
     .dimmer-pct {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       min-width: 3.4em;
-      text-align: end;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.92rem;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      color: var(--accent-text);
+      background: var(--accent);
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.18) inset, 0 2px 8px rgba(0, 0, 0, 0.22);
       font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
     }
     .dimmer-field input[type="range"] {
       width: 100%;
-      height: 28px;
+      height: 44px;
       accent-color: var(--accent);
     }
     .single-layout {
@@ -6155,12 +6302,12 @@ m([
 _ = m([
   it("conx-dynamic-panel-card")
 ], _);
-var wr = Object.defineProperty, kr = Object.getOwnPropertyDescriptor, Pe = (e, t, r, i) => {
+var wr = Object.defineProperty, kr = Object.getOwnPropertyDescriptor, Ce = (e, t, r, i) => {
   for (var a = i > 1 ? void 0 : i ? kr(t, r) : t, s = e.length - 1, n; s >= 0; s--)
     (n = e[s]) && (a = (i ? n(t, r, a) : n(a)) || a);
   return i && a && wr(t, r, a), a;
 };
-let X = class extends T {
+let V = class extends T {
   setConfig(e) {
     this._config = e;
   }
@@ -6198,7 +6345,7 @@ let X = class extends T {
         <label>
           ${z(this._language, "card.language")}
           <select
-            .value=${V(this._config.language || this._language)}
+            .value=${X(this._config.language || this._language)}
             @change=${(t) => this._valueChanged({
       language: t.target.value
     })}
@@ -6237,7 +6384,7 @@ let X = class extends T {
     `;
   }
 };
-X.styles = Ke`
+V.styles = Ke`
     .editor {
       display: flex;
       flex-direction: column;
@@ -6265,15 +6412,15 @@ X.styles = Ke`
       color: inherit;
     }
   `;
-Pe([
+Ce([
   ke({ attribute: !1 })
-], X.prototype, "hass", 2);
-Pe([
+], V.prototype, "hass", 2);
+Ce([
   g()
-], X.prototype, "_config", 2);
-X = Pe([
+], V.prototype, "_config", 2);
+V = Ce([
   it("conx-dynamic-panel-card-editor")
-], X);
+], V);
 window.customCards = window.customCards || [];
 window.customCards.push({
   type: "conx-dynamic-panel-card",

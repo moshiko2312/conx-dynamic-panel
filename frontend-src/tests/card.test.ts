@@ -278,6 +278,37 @@ describe("custom elements", () => {
     expect(ringsStyle).toBeTruthy();
   });
 
+  it("matches HTML preview chrome: brand title, fonts, settings tabs, bezel metrics", async () => {
+    const callWS = vi.fn().mockResolvedValue(
+      panelPayload({ panel_name: "Living Room Panel", sync_status: "synced" })
+    );
+    const el = await mountCard({ language: "en", callWS });
+    const brand = el.shadowRoot?.querySelector(".panel-title .brand");
+    const title = el.shadowRoot?.querySelector(".panel-title .title");
+    expect(brand?.textContent?.trim()).toBe("ConX");
+    expect(title?.textContent?.trim()).toBe("Living Room Panel");
+    expect(el.shadowRoot?.querySelector(".settings-tabs")).toBeTruthy();
+    expect(el.shadowRoot?.querySelector(".tab-bar")?.parentElement?.classList.contains("settings-tabs")).toBe(
+      true
+    );
+    expect(el.shadowRoot?.querySelector(".hero-profile-name")).toBeTruthy();
+
+    const Card = customElements.get("conx-dynamic-panel-card") as unknown as {
+      styles: { cssText: string } | Array<{ cssText: string }>;
+    };
+    const cssText = Array.isArray(Card.styles)
+      ? Card.styles.map((part) => part.cssText).join("\n")
+      : Card.styles.cssText;
+    expect(cssText).toContain('font-family: var(--conx-font)');
+    expect(cssText).toContain("linear-gradient(145deg, #f2f0ea 0%, #b8b0a4 36%");
+    expect(cssText).toContain("border-radius: 999px");
+
+    const fontLink = document.getElementById("conx-dynamic-panel-fonts") as HTMLLinkElement | null;
+    expect(fontLink?.href).toContain("Manrope");
+    expect(fontLink?.href).toContain("Cormorant");
+    expect(fontLink?.href).not.toContain("Outfit");
+  });
+
   it("shows the gang picker on the Profiles tab with profile chips", async () => {
     const callWS = vi.fn().mockResolvedValue(panelPayload({ sync_status: "synced" }));
     const el = await mountCard({ language: "he", callWS });
@@ -327,13 +358,19 @@ describe("custom elements", () => {
     const cssText = Array.isArray(Card.styles)
       ? Card.styles.map((part) => part.cssText).join("\n")
       : Card.styles.cssText;
-    expect(cssText).toContain("min-width: calc(80px * 4)");
-    expect(cssText).toContain("aspect-ratio: calc(0.64 * 4) / 1");
+    expect(cssText).toContain("min-width: calc(100px * 4)");
+    expect(cssText).toContain("aspect-ratio: calc(0.66 * 4) / 1");
+    expect(cssText).toContain("width: clamp(28px, 7vw, 48px)");
     expect(cssText).toContain(
       "grid-template-columns: repeat(var(--conx-gang-count, 4), 1fr);"
     );
+    expect(cssText).toContain(".settings-tabs");
+    expect(cssText).toContain("border-bottom: 2px solid transparent");
     expect(cssText).not.toContain(
-      "min-width: calc(80px * var(--conx-gang-count"
+      "min-width: calc(80px * 4)"
+    );
+    expect(cssText).not.toContain(
+      "min-width: calc(100px * var(--conx-gang-count"
     );
     expect(cssText).not.toContain(
       ".faceplate-labels {\n      display: grid;\n      grid-template-columns: repeat(4, 1fr);"
