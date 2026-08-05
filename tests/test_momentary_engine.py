@@ -83,6 +83,10 @@ def _runtime(adapter: FakeAdapter, store: FakeStore) -> Any:
         backlight_entity="switch.backlight",
         child_lock_entity="switch.lock",
     )
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
     hass = SimpleNamespace(
         services=SimpleNamespace(
             has_service=lambda domain, service: True,
@@ -90,6 +94,7 @@ def _runtime(adapter: FakeAdapter, store: FakeStore) -> Any:
         ),
         bus=SimpleNamespace(async_fire=lambda *args, **kwargs: None),
         async_create_task=lambda coro: asyncio.create_task(coro),
+        loop=loop,
     )
     entry = SimpleNamespace(entry_id="entry-1", options={"auto_sync": False})
     return SimpleNamespace(
@@ -169,6 +174,85 @@ async def test_momentary_press_turns_off_after_pulse() -> None:
     assert (1, False) in adapter.relay_calls
     assert 1 not in runtime.momentary.timers
     assert runtime.hass.services.async_call.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_momentary_off_via_mocked_call_later() -> None:
+    """Pulse expiry must force relay OFF through hass.loop.call_later."""
+    store = FakeStore()
+    adapter = FakeAdapter()
+    runtime = _runtime(adapter, store)
+    coordinator = PanelCoordinator(runtime)  # type: ignore[arg-type]
+    profile = _mixed_profile(store)
+    profile.buttons[0].pulse_time_s = 0.5
+
+    scheduled: list[tuple[float, Any]] = []
+
+    def fake_call_later(delay: float, callback: Any, *args: Any) -> Any:
+        scheduled.append((delay, callback))
+        handle = SimpleNamespace(
+            cancelled=lambda: False,
+            cancel=lambda: None,
+        )
+        return handle
+
+    runtime.hass.loop.call_later = fake_call_later  # type: ignore[method-assign]
+
+    await coordinator._async_handle_physical_press(1, True)
+    assert runtime.hass.services.async_call.await_count == 1
+    assert 1 in runtime.momentary.timers
+    assert len(scheduled) == 1
+    assert scheduled[0][0] == 0.5
+
+    # Fire the scheduled callback as the event loop would after pulse_time_s.
+    scheduled[0][1]()
+    await asyncio.sleep(0)
+    assert (1, False) in adapter.relay_calls
+    assert 1 not in runtime.momentary.timers
+
+
+@pytest.mark.asyncio
+async def test_momentary_timer_armed_before_slow_action() -> None:
+    """A slow HA action must not delay arming the auto-off timer."""
+    store = FakeStore()
+    adapter = FakeAdapter()
+    runtime = _runtime(adapter, store)
+    coordinator = PanelCoordinator(runtime)  # type: ignore[arg-type]
+    profile = _mixed_profile(store)
+    # Long pulse so expiry cannot race the in-flight action assertion.
+    profile.buttons[0].pulse_time_s = 5.0
+
+    started = asyncio.Event()
+    release = asyncio.Event()
+    scheduled: list[tuple[float, Any]] = []
+
+    def fake_call_later(delay: float, callback: Any, *args: Any) -> Any:
+        scheduled.append((delay, callback))
+        return SimpleNamespace(cancelled=lambda: False, cancel=lambda: None)
+
+    runtime.hass.loop.call_later = fake_call_later  # type: ignore[method-assign]
+
+    async def slow_action(*_args: Any, **_kwargs: Any) -> None:
+        started.set()
+        await release.wait()
+
+    runtime.hass.services.async_call = AsyncMock(side_effect=slow_action)
+
+    press_task = asyncio.create_task(coordinator._async_handle_physical_press(1, True))
+    await started.wait()
+    # Timer must already be armed while the action is still in flight.
+    assert 1 in runtime.momentary.timers
+    assert 1 in runtime.momentary.tokens
+    assert len(scheduled) == 1
+    assert scheduled[0][0] == 5.0
+    release.set()
+    await press_task
+    assert adapter.relay_calls == []
+
+    scheduled[0][1]()
+    await asyncio.sleep(0)
+    assert (1, False) in adapter.relay_calls
+    assert runtime.momentary.timers == {}
 
 
 @pytest.mark.asyncio

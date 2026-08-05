@@ -156,6 +156,8 @@ export class ConXDynamicPanelCard extends LitElement {
   @state() private _syncPulse = false;
   @state() private _pressedRing: number | null = null;
   @state() private _splitPreviewOn: Record<number, boolean> = {};
+  /** Faceplate-only momentary auto-off timers (browser setTimeout handles). */
+  private _momentaryPreviewTimers: Record<number, number> = {};
   /** Faceplate-only radio LED preview; never written into the draft. */
   @state() private _radioPreviewSelected: number | null = null;
   @state() private _uiLang?: CardLanguage;
@@ -661,9 +663,47 @@ export class ConXDynamicPanelCard extends LitElement {
 
   /** Reset local LED preview so presses never leak into draft dirty state. */
   private _clearFaceplatePreview(): void {
+    for (const handle of Object.values(this._momentaryPreviewTimers)) {
+      window.clearTimeout(handle);
+    }
+    this._momentaryPreviewTimers = {};
     this._splitPreviewOn = {};
     this._radioPreviewSelected = null;
     this._pressedRing = null;
+  }
+
+  private _clearMomentaryPreviewTimer(buttonIndex: number): void {
+    const handle = this._momentaryPreviewTimers[buttonIndex];
+    if (handle != null) {
+      window.clearTimeout(handle);
+      delete this._momentaryPreviewTimers[buttonIndex];
+    }
+  }
+
+  /** Local faceplate pulse: ON now, auto-OFF after pulse_time_s; re-press cancels. */
+  private _pulseMomentaryPreview(buttonIndex: number): void {
+    this._clearMomentaryPreviewTimer(buttonIndex);
+    if (this._splitPreviewOn[buttonIndex]) {
+      this._splitPreviewOn = {
+        ...this._splitPreviewOn,
+        [buttonIndex]: false,
+      };
+      return;
+    }
+    const button = this._draft?.buttons.find((item) => item.index === buttonIndex);
+    const pulseMs =
+      clampPulseTime(button?.pulse_time_s, DEFAULT_PULSE_TIME) * 1000;
+    this._splitPreviewOn = {
+      ...this._splitPreviewOn,
+      [buttonIndex]: true,
+    };
+    this._momentaryPreviewTimers[buttonIndex] = window.setTimeout(() => {
+      delete this._momentaryPreviewTimers[buttonIndex];
+      this._splitPreviewOn = {
+        ...this._splitPreviewOn,
+        [buttonIndex]: false,
+      };
+    }, pulseMs);
   }
 
   private _setRadioGroupsOpen(open: boolean): void {
@@ -1807,6 +1847,16 @@ export class ConXDynamicPanelCard extends LitElement {
       }
       return Boolean(this._splitPreviewOn[buttonIndex]);
     }
+    // Mixed momentary: local pulse preview wins (action entity may stay latched).
+    if (
+      this._draft.mode === "mixed" &&
+      this._buttonRole(buttonIndex) === "momentary"
+    ) {
+      if (Object.prototype.hasOwnProperty.call(this._splitPreviewOn, buttonIndex)) {
+        return Boolean(this._splitPreviewOn[buttonIndex]);
+      }
+      return false;
+    }
     if (
       (this._draft.mode === "radio_mandatory" ||
         this._draft.mode === "radio_optional") &&
@@ -1893,7 +1943,12 @@ export class ConXDynamicPanelCard extends LitElement {
         this._splitPreviewOn = next;
         return;
       }
-      // toggle / momentary: local LED only — never selected_button / dirty.
+      if (role === "momentary") {
+        // Local pulse preview mirrors backend: ON → auto-OFF after pulse_time_s.
+        this._pulseMomentaryPreview(buttonIndex);
+        return;
+      }
+      // toggle: local LED only — never selected_button / dirty.
       this._toggleLocalRing(buttonIndex);
       return;
     }

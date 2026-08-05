@@ -561,6 +561,45 @@ describe("custom elements", () => {
     expect(JSON.stringify(el._draft)).toBe(before);
   });
 
+  it("mixed momentary faceplate auto-offs after pulse_time_s", async () => {
+    const mixedProfile: Profile = {
+      ...sampleProfile,
+      mode: "mixed",
+      selected_button: null,
+      buttons: sampleProfile.buttons.map((button, index) => ({
+        ...button,
+        role: index === 0 ? "momentary" : "toggle",
+        pulse_time_s: 0.5,
+        radio_member: true,
+      })),
+    };
+    const callWS = vi.fn().mockResolvedValue(
+      panelPayload({
+        sync_status: "synced",
+        profiles: { lighting: mixedProfile },
+      })
+    );
+    // Mount with real timers first — fake timers before load can hang Lit updates.
+    const el = await mountCard({ language: "en", callWS });
+    const before = JSON.stringify(el._draft);
+
+    vi.useFakeTimers();
+    try {
+      el._onRingPress(1);
+      await el.updateComplete;
+      expect(el._isRingOn(1)).toBe(true);
+      expect(el._dirty).toBe(false);
+
+      await vi.advanceTimersByTimeAsync(500);
+      await el.updateComplete;
+      expect(el._isRingOn(1)).toBe(false);
+      expect(el._dirty).toBe(false);
+      expect(JSON.stringify(el._draft)).toBe(before);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("editor edit dirty → save clean → press stays clean", async () => {
     const callWS = vi
       .fn()

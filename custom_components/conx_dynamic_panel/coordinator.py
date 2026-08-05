@@ -186,10 +186,10 @@ class PanelCoordinator:
             hardware = await self.runtime.adapter.async_read_hardware_state()
         except Exception:  # noqa: BLE001
             return
-        if (
-            self._hardware_differs_from_snapshot(hardware)
-            and self.data.sync_status not in {SYNC_SYNCING, SYNC_ERROR}
-        ):
+        if self._hardware_differs_from_snapshot(hardware) and self.data.sync_status not in {
+            SYNC_SYNCING,
+            SYNC_ERROR,
+        }:
             self.data.sync_status = SYNC_OUT_OF_SYNC  # type: ignore[assignment]
             self.runtime.async_notify()
 
@@ -284,9 +284,7 @@ class PanelCoordinator:
     # radio / pulse helpers so safety contracts stay identical.
     # ------------------------------------------------------------------
 
-    async def _async_mixed_press(
-        self, profile: Profile, index: int, turned_on: bool
-    ) -> None:
+    async def _async_mixed_press(self, profile: Profile, index: int, turned_on: bool) -> None:
         """Route a physical press by the button's mixed-mode role."""
         role = profile.button_role(index)
         if role in {BUTTON_ROLE_COVER_OPEN, BUTTON_ROLE_COVER_CLOSE}:
@@ -304,7 +302,8 @@ class PanelCoordinator:
     # Momentary (timed pulse) engine — used by mixed role=momentary
     #
     # Press contract:
-    #   * Physical ON → run HA action once, arm OFF after pulse_time_s.
+    #   * Physical ON → arm OFF after pulse_time_s immediately, then run
+    #     the HA action once (action I/O must not delay/cancel the pulse).
     #   * Re-press while ON/timer armed → cancel timer and force OFF
     #     (fail-safe; no second action). On latching panels the re-press
     #     arrives as physical OFF; an ON while a timer is already armed
@@ -312,60 +311,71 @@ class PanelCoordinator:
     #   * Timer expiry → force OFF with transition suppression (no action).
     # ------------------------------------------------------------------
 
-    async def _async_momentary_press(
-        self, profile: Profile, index: int, turned_on: bool
-    ) -> None:
+    async def _async_momentary_press(self, profile: Profile, index: int, turned_on: bool) -> None:
         """Handle a physical press for a momentary-role button."""
         button = profile.button_by_index(index)
         if button is None or button.role != BUTTON_ROLE_MOMENTARY:
             await self._async_execute_button_action(profile, index, turned_on)
             return
 
+        run_action = False
+        force_off = False
         async with self.runtime.momentary.lock:
             armed = index in self.runtime.momentary.timers
             if not turned_on:
+                # Latching re-press: relay is already going OFF — drop the pulse.
                 self.runtime.momentary.cancel_timer(index)
                 return
             if armed:
                 self.runtime.momentary.cancel_timer(index)
-                await self.runtime.adapter.async_set_relay(
-                    index, False, suppress_event=True
-                )
-                return
-            await self._async_execute_button_action(profile, index, True)
-            duration = button.pulse_time_s
-            self.runtime.momentary.timers[index] = self.hass.async_create_task(
-                self._async_momentary_pulse_timer(profile.id, index, duration)
-            )
+                force_off = True
+            else:
+                # Arm before any action I/O so a slow/hung service cannot
+                # leave the relay latched ON without an OFF timer.
+                self._arm_momentary_timer(profile.id, index, button.pulse_time_s)
+                run_action = True
 
-    async def _async_momentary_pulse_timer(
-        self, profile_id: str, index: int, duration: float
-    ) -> None:
+        if force_off:
+            try:
+                await self.runtime.adapter.async_set_relay(index, False, suppress_event=True)
+            except Exception as err:  # noqa: BLE001
+                _LOGGER.error("Momentary re-press failed to turn off button %s: %s", index, err)
+            self.runtime.async_notify()
+            return
+        if run_action:
+            await self._async_execute_button_action(profile, index, True)
+
+    def _arm_momentary_timer(self, profile_id: str, index: int, duration: float) -> None:
+        """Schedule relay OFF after ``duration`` seconds. Caller holds the lock."""
+        self.runtime.momentary.cancel_timer(index)
+        token: object = object()
+        self.runtime.momentary.tokens[index] = token
+        loop = getattr(self.hass, "loop", None) or asyncio.get_running_loop()
+
+        @callback
+        def _fire(_now: Any = None) -> None:
+            # Never block the loop; the async OFF path validates ``token``.
+            self.hass.async_create_task(self._async_momentary_pulse_off(profile_id, index, token))
+
+        self.runtime.momentary.timers[index] = loop.call_later(duration, _fire)
+
+    async def _async_momentary_pulse_off(self, profile_id: str, index: int, token: object) -> None:
         """Turn a momentary relay OFF after the configured pulse time."""
-        try:
-            await asyncio.sleep(duration)
-        except asyncio.CancelledError:
-            raise
         async with self.runtime.momentary.lock:
-            timer = self.runtime.momentary.timers.get(index)
-            current = asyncio.current_task()
-            if timer is not current:
+            # Stale expiry after cancel / re-arm must not touch hardware.
+            if self.runtime.momentary.tokens.get(index) is not token:
                 return
-            self.runtime.momentary.timers.pop(index, None)
-            profile = self.data.active_profile()
-            if (
-                profile is None
-                or profile.id != profile_id
-                or profile.mode != MODE_MIXED
-                or not profile.is_momentary_button(index)
-            ):
-                await self.runtime.adapter.async_set_relay(
-                    index, False, suppress_event=True
-                )
-                return
-            await self.runtime.adapter.async_set_relay(
-                index, False, suppress_event=True
+            self.runtime.momentary.cancel_timer(index)
+        try:
+            await self.runtime.adapter.async_set_relay(index, False, suppress_event=True)
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.error(
+                "Momentary pulse OFF failed for button %s (profile %s): %s",
+                index,
+                profile_id,
+                err,
             )
+        self.runtime.async_notify()
 
     async def _async_momentary_abort(self) -> None:
         """Cancel all pulse timers and force momentary-role relays OFF.
@@ -382,13 +392,9 @@ class PanelCoordinator:
                 indexes.update(profile.momentary_button_indexes())
             for index in sorted(indexes):
                 try:
-                    await self.runtime.adapter.async_set_relay(
-                        index, False, suppress_event=True
-                    )
+                    await self.runtime.adapter.async_set_relay(index, False, suppress_event=True)
                 except Exception as err:  # noqa: BLE001
-                    _LOGGER.error(
-                        "Momentary abort failed to turn off button %s: %s", index, err
-                    )
+                    _LOGGER.error("Momentary abort failed to turn off button %s: %s", index, err)
 
     async def _async_radio_split(self, profile: Profile, index: int, turned_on: bool) -> None:
         """Handle radio_split: exclusivity only within the button's group."""
@@ -746,10 +752,7 @@ class PanelCoordinator:
                 profile is not None
                 and (
                     profile.mode == MODE_COVER
-                    or (
-                        profile.mode == MODE_MIXED
-                        and bool(profile.all_cover_relay_indexes())
-                    )
+                    or (profile.mode == MODE_MIXED and bool(profile.all_cover_relay_indexes()))
                 )
             ),
             "state": (selected or {}).get("state", "idle"),

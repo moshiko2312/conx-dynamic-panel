@@ -23,19 +23,22 @@ type UnloadCallback = Callable[[], Coroutine[Any, Any, None] | None]
 class MomentaryRuntime:
     """Live timed-pulse state for momentary_mix buttons on one panel entry.
 
-    Each momentary button may have at most one armed OFF timer. ``lock``
-    serializes press/timer/abort decisions so a re-press cannot race the
-    expiry handler.
+    Each momentary button may have at most one armed OFF timer handle
+    (``asyncio.TimerHandle`` from ``loop.call_later``). ``tokens`` identify
+    the active pulse so a late expiry cannot kill a newer press. ``lock``
+    serializes press/timer/abort decisions.
     """
 
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
-    timers: dict[int, asyncio.Task[None]] = field(default_factory=dict)
+    timers: dict[int, asyncio.TimerHandle] = field(default_factory=dict)
+    tokens: dict[int, object] = field(default_factory=dict)
 
     def cancel_timer(self, index: int) -> None:
         """Cancel and drop the pulse timer for one button, if any."""
-        timer = self.timers.pop(index, None)
-        if timer is not None and not timer.done():
-            timer.cancel()
+        handle = self.timers.pop(index, None)
+        self.tokens.pop(index, None)
+        if handle is not None and not handle.cancelled():
+            handle.cancel()
 
     def cancel_all(self) -> None:
         """Cancel every armed pulse timer without touching hardware."""
