@@ -2381,26 +2381,42 @@
         });
       });
     }
+    function buttonRole(index, profile) {
+      const d = profile || state.draft;
+      const button = (d.buttons || []).find((b) => b.index === index);
+      return (button && button.role) || "toggle";
+    }
     function isRingOn(index) {
       const d = state.draft;
-      if (d.mode === "cover" || (d.mode === "mixed" && coverDirectionFor(index, d))) {
+      const direction = coverDirectionFor(index, d);
+      if (direction) {
         const cover = coverForButton(index, d);
-        const direction = coverDirectionFor(index, d);
-        if (cover && direction) {
+        if (cover) {
           const live = getCoverLive(cover.id);
-          return live.active && live.direction === direction;
+          if (live.active) return live.direction === direction;
         }
-        if (d.mode === "cover") return Boolean(d.ringOn[index]);
+        return Boolean(d.ringOn[index]);
       }
-      if (d.mode === "radio_split") return Boolean(d.ringOn[index]);
-      if (d.mode !== "toggle" && isRadioMember(index)) {
-        // Faceplate LED preview (ringOn) — not draft.selected_button.
+      // radio_split or mixed role=radio: local ringOn only (never selected_button).
+      // Mixed toggle/momentary must NOT use classic radio exclusivity.
+      if (d.mode === "radio_split" || (d.mode === "mixed" && buttonRole(index, d) === "radio")) {
+        return Boolean(d.ringOn[index]);
+      }
+      if (
+        (d.mode === "radio_mandatory" || d.mode === "radio_optional") &&
+        isRadioMember(index)
+      ) {
         return Boolean(d.ringOn[index]);
       }
       return Boolean(d.ringOn[index]);
     }
     function syncRadioRingPreview(draft) {
-      if (!draft || draft.mode === "toggle" || draft.mode === "radio_split" || draft.mode === "cover") {
+      // Only classic radio modes seed ringOn from selected_button.
+      // Mixed mode keeps per-role LEDs independent so momentary cannot poison toggle.
+      if (
+        !draft ||
+        (draft.mode !== "radio_mandatory" && draft.mode !== "radio_optional")
+      ) {
         return;
       }
       const selected = draft.selected_button;
@@ -2411,11 +2427,12 @@
     }
     function handleFaceplatePress(index) {
       const d = state.draft;
-      // Faceplate presses are LED preview only — never mark the draft dirty.
-      if (d.mode === "cover" || (d.mode === "mixed" && coverDirectionFor(index, d))) {
+      // Faceplate presses are LED preview only — never mark the draft dirty
+      // and never mutate selected_button / buttons[] / mode.
+      const direction = coverDirectionFor(index, d);
+      if (direction) {
         const cover = coverForButton(index, d);
-        const direction = coverDirectionFor(index, d);
-        if (cover && direction) {
+        if (cover) {
           // Runtime motor action, not a draft edit — never marks the profile dirty.
           coverPress(direction, cover.id);
           return;
@@ -2434,11 +2451,27 @@
         for (const i of group.buttons) d.ringOn[i] = i === index;
         return;
       }
+      if (d.mode === "mixed") {
+        const role = buttonRole(index, d);
+        if (role === "radio") {
+          const group = findRadioGroup(index, d.radio_groups);
+          if (!group) {
+            d.ringOn[index] = !d.ringOn[index];
+            return;
+          }
+          if (d.ringOn[index]) return;
+          for (const i of group.buttons) d.ringOn[i] = i === index;
+          return;
+        }
+        // toggle / momentary: independent LED preview only.
+        d.ringOn[index] = !d.ringOn[index];
+        return;
+      }
       if (d.mode === "toggle" || !isRadioMember(index)) {
         d.ringOn[index] = !d.ringOn[index];
         return;
       }
-      // Classic radio (mandatory/optional/mixed): preview only — do not touch selected_button.
+      // Classic radio (mandatory/optional): preview only — do not touch selected_button.
       if (d.ringOn[index]) return;
       const members = (d.buttons || [])
         .filter((b) => b.radio_member !== false)
@@ -2461,8 +2494,9 @@
     }
     function renderFaceplate() {
       syncHeroProfileName();
+      // Display clamp only — do not write gang_count back into the draft on render
+      // (that would diverge draft from saved without a real editor edit).
       const gangCount = clampGangCount(state.draft.gang_count ?? 4);
-      state.draft.gang_count = gangCount;
       const visible = state.draft.buttons.filter((b) => b.index <= gangCount);
       if (els.faceplate) {
         els.faceplate.style.setProperty("--conx-gang-count", String(gangCount));
@@ -2831,7 +2865,6 @@
     function renderProfilesGangPicker() {
       if (!els.profileGang) return;
       const gangCount = clampGangCount(state.draft.gang_count ?? 4);
-      state.draft.gang_count = gangCount;
       els.profileGang.innerHTML = gangPickerHtml(gangCount);
       bindGangPicker(els.profileGang);
     }
@@ -3004,10 +3037,7 @@
         return;
       }
       const gangCount = clampGangCount(state.draft.gang_count ?? 4);
-      state.draft.gang_count = gangCount;
       const covers = normalizeCovers(state.draft);
-      state.draft.covers = covers;
-      delete state.draft.cover;
       const maxCovers = maxCoversForGangs(gangCount);
       const slots = Array.from({ length: Math.max(maxCovers, covers.length) }, (_, i) => covers[i] || null);
       const gangPicker = gangPickerHtml(gangCount);

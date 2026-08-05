@@ -715,17 +715,26 @@ export class ConXDynamicPanelCard extends LitElement {
     return covers[0] || normalizeCover(undefined);
   }
 
+  private _buttonRole(buttonIndex: number): ButtonRole {
+    const button = this._draft?.buttons.find((item) => item.index === buttonIndex);
+    return (button?.role || "toggle") as ButtonRole;
+  }
+
   private _isCoverButton(buttonIndex: number): boolean {
-    if (this._draft?.mode !== "cover") {
-      return false;
-    }
-    return this._covers().some(
-      (cover) => cover.open_button === buttonIndex || cover.close_button === buttonIndex
-    );
+    return this._coverDirectionFor(buttonIndex) != null;
   }
 
   private _coverDirectionFor(buttonIndex: number): "open" | "close" | null {
-    if (this._draft?.mode !== "cover") {
+    if (!this._draft) {
+      return null;
+    }
+    if (this._draft.mode === "mixed") {
+      const role = this._buttonRole(buttonIndex);
+      if (role === "cover_open") return "open";
+      if (role === "cover_close") return "close";
+      return null;
+    }
+    if (this._draft.mode !== "cover") {
       return null;
     }
     for (const cover of this._covers()) {
@@ -736,6 +745,27 @@ export class ConXDynamicPanelCard extends LitElement {
   }
 
   private _coverForButton(buttonIndex: number): CoverConfig | null {
+    if (!this._draft) {
+      return null;
+    }
+    if (this._draft.mode === "mixed") {
+      const button = this._draft.buttons.find((item) => item.index === buttonIndex);
+      const role = (button?.role || "toggle") as ButtonRole;
+      if (role !== "cover_open" && role !== "cover_close") {
+        return null;
+      }
+      const coverId =
+        String(button?.cover_id || this._covers()[0]?.id || "cover_1").trim() ||
+        "cover_1";
+      return (
+        this._covers().find((cover) => cover.id === coverId) ||
+        this._covers().find(
+          (cover) =>
+            cover.open_button === buttonIndex || cover.close_button === buttonIndex
+        ) ||
+        null
+      );
+    }
     return (
       this._covers().find(
         (cover) => cover.open_button === buttonIndex || cover.close_button === buttonIndex
@@ -1733,30 +1763,41 @@ export class ConXDynamicPanelCard extends LitElement {
     return ["on", "open", "home", "playing", "active"].includes(normalized);
   }
 
+  private _toggleLocalRing(buttonIndex: number): void {
+    this._splitPreviewOn = {
+      ...this._splitPreviewOn,
+      [buttonIndex]: !this._splitPreviewOn[buttonIndex],
+    };
+  }
+
   private _isRingOn(buttonIndex: number): boolean {
     if (!this._draft) {
       return false;
     }
-    if (this._draft.mode === "cover") {
-      const direction = this._coverDirectionFor(buttonIndex);
-      if (direction) {
-        // A direction ring is lit only while the engine reports that travel.
-        const cover = this._coverForButton(buttonIndex);
-        const live = this._panel?.cover_state;
-        if (live?.active && cover) {
-          const item = live.covers?.find((entry) => entry.id === cover.id);
-          if (item) {
-            return item.direction === direction;
-          }
-          if (live.cover_id === cover.id || !live.covers?.length) {
-            return live.direction === direction;
-          }
-          return false;
+    const direction = this._coverDirectionFor(buttonIndex);
+    if (direction) {
+      // A direction ring is lit only while the engine reports that travel.
+      const cover = this._coverForButton(buttonIndex);
+      const live = this._panel?.cover_state;
+      if (live?.active && cover) {
+        const item = live.covers?.find((entry) => entry.id === cover.id);
+        if (item) {
+          return item.direction === direction;
         }
-        return Boolean(this._splitPreviewOn[buttonIndex]);
+        if (live.cover_id === cover.id || !live.covers?.length) {
+          return live.direction === direction;
+        }
+        return false;
       }
+      return Boolean(this._splitPreviewOn[buttonIndex]);
     }
-    if (this._draft.mode === "radio_split") {
+    // radio_split, or mixed role=radio: LED from entity or local group preview.
+    // Do NOT treat mixed toggle/momentary as classic radio (that poisoned LEDs
+    // and previously mutated selected_button → false Save Draft).
+    if (
+      this._draft.mode === "radio_split" ||
+      (this._draft.mode === "mixed" && this._buttonRole(buttonIndex) === "radio")
+    ) {
       const entityId = this._buttonEntityId(buttonIndex);
       if (entityId) {
         const on = this._entityIsOn(entityId);
@@ -1766,8 +1807,11 @@ export class ConXDynamicPanelCard extends LitElement {
       }
       return Boolean(this._splitPreviewOn[buttonIndex]);
     }
-    const radioMode = this._draft.mode !== "toggle";
-    if (radioMode && this._isRadioMember(buttonIndex)) {
+    if (
+      (this._draft.mode === "radio_mandatory" ||
+        this._draft.mode === "radio_optional") &&
+      this._isRadioMember(buttonIndex)
+    ) {
       const selected =
         this._radioPreviewSelected ?? this._draft.selected_button;
       return selected === buttonIndex;
@@ -1779,7 +1823,10 @@ export class ConXDynamicPanelCard extends LitElement {
         return on;
       }
     }
-    // No live entity state: show a mixed sample so both LED colors are visible.
+    if (Object.prototype.hasOwnProperty.call(this._splitPreviewOn, buttonIndex)) {
+      return Boolean(this._splitPreviewOn[buttonIndex]);
+    }
+    // No live entity / local preview: sample both LED colors.
     return buttonIndex % 2 === 1;
   }
 
@@ -1792,14 +1839,11 @@ export class ConXDynamicPanelCard extends LitElement {
     }, 180);
     // Faceplate presses are local LED preview only — never mutate the draft
     // (mutating selected_button previously flipped _dirty / Save Draft).
-    if (!this._draft || this._draft.mode === "toggle") {
+    if (!this._draft) {
       return;
     }
-    if (this._draft.mode === "cover") {
-      const direction = this._coverDirectionFor(buttonIndex);
-      if (!direction) {
-        return;
-      }
+    const direction = this._coverDirectionFor(buttonIndex);
+    if (direction) {
       const cover = this._coverForButton(buttonIndex);
       if (!cover) {
         return;
@@ -1831,7 +1875,35 @@ export class ConXDynamicPanelCard extends LitElement {
       this._splitPreviewOn = next;
       return;
     }
+    if (this._draft.mode === "mixed") {
+      const role = this._buttonRole(buttonIndex);
+      if (role === "radio") {
+        const group = this._radioGroupFor(buttonIndex);
+        const next = { ...this._splitPreviewOn };
+        if (!group) {
+          // Ungrouped mixed radio matches backend: independent toggle.
+          next[buttonIndex] = !next[buttonIndex];
+        } else if (next[buttonIndex]) {
+          return;
+        } else {
+          for (const index of group.buttons) {
+            next[index] = index === buttonIndex;
+          }
+        }
+        this._splitPreviewOn = next;
+        return;
+      }
+      // toggle / momentary: local LED only — never selected_button / dirty.
+      this._toggleLocalRing(buttonIndex);
+      return;
+    }
+    if (this._draft.mode === "toggle") {
+      this._toggleLocalRing(buttonIndex);
+      return;
+    }
+    // Classic radio_mandatory / radio_optional
     if (!this._isRadioMember(buttonIndex)) {
+      this._toggleLocalRing(buttonIndex);
       return;
     }
     // Classic radio preview: exactly one on; re-pressing selected does nothing.

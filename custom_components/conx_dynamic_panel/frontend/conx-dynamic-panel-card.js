@@ -3,7 +3,7 @@
  * Copyright 2019 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const K = globalThis, xe = K.ShadowRoot && (K.ShadyCSS === void 0 || K.ShadyCSS.nativeShadow) && "adoptedStyleSheets" in Document.prototype && "replace" in CSSStyleSheet.prototype, ye = Symbol(), Me = /* @__PURE__ */ new WeakMap();
+const K = globalThis, xe = K.ShadowRoot && (K.ShadyCSS === void 0 || K.ShadyCSS.nativeShadow) && "adoptedStyleSheets" in Document.prototype && "replace" in CSSStyleSheet.prototype, ye = Symbol(), Re = /* @__PURE__ */ new WeakMap();
 let Ze = class {
   constructor(e, r, i) {
     if (this._$cssResult$ = !0, i !== ye) throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");
@@ -14,7 +14,7 @@ let Ze = class {
     const r = this.t;
     if (xe && e === void 0) {
       const i = r !== void 0 && r.length === 1;
-      i && (e = Me.get(r)), e === void 0 && ((this.o = e = new CSSStyleSheet()).replaceSync(this.cssText), i && Me.set(r, e));
+      i && (e = Re.get(r)), e === void 0 && ((this.o = e = new CSSStyleSheet()).replaceSync(this.cssText), i && Re.set(r, e));
     }
     return e;
   }
@@ -45,7 +45,7 @@ const mt = (t) => new Ze(typeof t == "string" ? t : t + "", void 0, ye), Ke = (t
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const { is: bt, defineProperty: vt, getOwnPropertyDescriptor: xt, getOwnPropertyNames: yt, getOwnPropertySymbols: $t, getPrototypeOf: wt } = Object, w = globalThis, Re = w.trustedTypes, kt = Re ? Re.emptyScript : "", ae = w.reactiveElementPolyfillSupport, U = (t, e) => t, Q = { toAttribute(t, e) {
+const { is: bt, defineProperty: vt, getOwnPropertyDescriptor: xt, getOwnPropertyNames: yt, getOwnPropertySymbols: $t, getPrototypeOf: wt } = Object, w = globalThis, Me = w.trustedTypes, kt = Me ? Me.emptyScript : "", ae = w.reactiveElementPolyfillSupport, j = (t, e) => t, Q = { toAttribute(t, e) {
   switch (e) {
     case Boolean:
       t = t ? kt : null;
@@ -103,13 +103,13 @@ let z = class extends HTMLElement {
     return this.elementProperties.get(e) ?? Ne;
   }
   static _$Ei() {
-    if (this.hasOwnProperty(U("elementProperties"))) return;
+    if (this.hasOwnProperty(j("elementProperties"))) return;
     const e = wt(this);
     e.finalize(), e.l !== void 0 && (this.l = [...e.l]), this.elementProperties = new Map(e.elementProperties);
   }
   static finalize() {
-    if (this.hasOwnProperty(U("finalized"))) return;
-    if (this.finalized = !0, this._$Ei(), this.hasOwnProperty(U("properties"))) {
+    if (this.hasOwnProperty(j("finalized"))) return;
+    if (this.finalized = !0, this._$Ei(), this.hasOwnProperty(j("properties"))) {
       const r = this.properties, i = [...yt(r), ...$t(r)];
       for (const a of i) this.createProperty(a, r[a]);
     }
@@ -278,15 +278,15 @@ let z = class extends HTMLElement {
   firstUpdated(e) {
   }
 };
-z.elementStyles = [], z.shadowRootOptions = { mode: "open" }, z[U("elementProperties")] = /* @__PURE__ */ new Map(), z[U("finalized")] = /* @__PURE__ */ new Map(), ae == null || ae({ ReactiveElement: z }), (w.reactiveElementVersions ?? (w.reactiveElementVersions = [])).push("2.1.2");
+z.elementStyles = [], z.shadowRootOptions = { mode: "open" }, z[j("elementProperties")] = /* @__PURE__ */ new Map(), z[j("finalized")] = /* @__PURE__ */ new Map(), ae == null || ae({ ReactiveElement: z }), (w.reactiveElementVersions ?? (w.reactiveElementVersions = [])).push("2.1.2");
 /**
  * @license
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const j = globalThis, Le = (t) => t, ee = j.trustedTypes, De = ee ? ee.createPolicy("lit-html", { createHTML: (t) => t }) : void 0, Qe = "$lit$", $ = `lit$${Math.random().toFixed(9).slice(2)}$`, et = "?" + $, St = `<${et}>`, P = document, Y = () => P.createComment(""), W = (t) => t === null || typeof t != "object" && typeof t != "function", we = Array.isArray, Ct = (t) => we(t) || typeof (t == null ? void 0 : t[Symbol.iterator]) == "function", oe = `[ 	
-\f\r]`, D = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, Be = /-->/g, Ie = />/g, C = RegExp(`>|${oe}(?:([^\\s"'>=/]+)(${oe}*=${oe}*(?:[^ 	
-\f\r"'\`<>=]|("|')|))|$)`, "g"), Ue = /'/g, je = /"/g, tt = /^(?:script|style|textarea|title)$/i, Et = (t) => (e, ...r) => ({ _$litType$: t, strings: e, values: r }), d = Et(1), N = Symbol.for("lit-noChange"), p = Symbol.for("lit-nothing"), Fe = /* @__PURE__ */ new WeakMap(), E = P.createTreeWalker(P, 129);
+const F = globalThis, Le = (t) => t, ee = F.trustedTypes, De = ee ? ee.createPolicy("lit-html", { createHTML: (t) => t }) : void 0, Qe = "$lit$", $ = `lit$${Math.random().toFixed(9).slice(2)}$`, et = "?" + $, St = `<${et}>`, P = document, Y = () => P.createComment(""), W = (t) => t === null || typeof t != "object" && typeof t != "function", we = Array.isArray, Ct = (t) => we(t) || typeof (t == null ? void 0 : t[Symbol.iterator]) == "function", oe = `[ 	
+\f\r]`, D = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, Be = /-->/g, Ue = />/g, C = RegExp(`>|${oe}(?:([^\\s"'>=/]+)(${oe}*=${oe}*(?:[^ 	
+\f\r"'\`<>=]|("|')|))|$)`, "g"), je = /'/g, Fe = /"/g, tt = /^(?:script|style|textarea|title)$/i, Et = (t) => (e, ...r) => ({ _$litType$: t, strings: e, values: r }), d = Et(1), N = Symbol.for("lit-noChange"), p = Symbol.for("lit-nothing"), Ie = /* @__PURE__ */ new WeakMap(), E = P.createTreeWalker(P, 129);
 function rt(t, e) {
   if (!we(t) || !t.hasOwnProperty("raw")) throw Error("invalid template strings array");
   return De !== void 0 ? De.createHTML(e) : e;
@@ -297,7 +297,7 @@ const At = (t, e) => {
   for (let n = 0; n < r; n++) {
     const c = t[n];
     let l, u, h = -1, f = 0;
-    for (; f < c.length && (s.lastIndex = f, u = s.exec(c), u !== null); ) f = s.lastIndex, s === D ? u[1] === "!--" ? s = Be : u[1] !== void 0 ? s = Ie : u[2] !== void 0 ? (tt.test(u[2]) && (a = RegExp("</" + u[2], "g")), s = C) : u[3] !== void 0 && (s = C) : s === C ? u[0] === ">" ? (s = a ?? D, h = -1) : u[1] === void 0 ? h = -2 : (h = s.lastIndex - u[2].length, l = u[1], s = u[3] === void 0 ? C : u[3] === '"' ? je : Ue) : s === je || s === Ue ? s = C : s === Be || s === Ie ? s = D : (s = C, a = void 0);
+    for (; f < c.length && (s.lastIndex = f, u = s.exec(c), u !== null); ) f = s.lastIndex, s === D ? u[1] === "!--" ? s = Be : u[1] !== void 0 ? s = Ue : u[2] !== void 0 ? (tt.test(u[2]) && (a = RegExp("</" + u[2], "g")), s = C) : u[3] !== void 0 && (s = C) : s === C ? u[0] === ">" ? (s = a ?? D, h = -1) : u[1] === void 0 ? h = -2 : (h = s.lastIndex - u[2].length, l = u[1], s = u[3] === void 0 ? C : u[3] === '"' ? Fe : je) : s === Fe || s === je ? s = C : s === Be || s === Ue ? s = D : (s = C, a = void 0);
     const b = s === C && t[n + 1].startsWith("/>") ? " " : "";
     o += s === D ? c + St : h >= 0 ? (i.push(l), c.slice(0, h) + Qe + c.slice(h) + $ + b) : c + $ + (h === -2 ? n : b);
   }
@@ -317,7 +317,7 @@ class J {
       if (a.nodeType === 1) {
         if (a.hasAttributes()) for (const h of a.getAttributeNames()) if (h.endsWith(Qe)) {
           const f = u[s++], b = a.getAttribute(h).split($), k = /([.?@])?(.*)/.exec(f);
-          c.push({ type: 1, index: o, name: k[2], strings: b, ctor: k[1] === "." ? Ot : k[1] === "?" ? zt : k[1] === "@" ? Mt : re }), a.removeAttribute(h);
+          c.push({ type: 1, index: o, name: k[2], strings: b, ctor: k[1] === "." ? Ot : k[1] === "?" ? zt : k[1] === "@" ? Rt : re }), a.removeAttribute(h);
         } else h.startsWith($) && (c.push({ type: 6, index: o }), a.removeAttribute(h));
         if (tt.test(a.tagName)) {
           const h = a.textContent.split($), f = h.length - 1;
@@ -416,8 +416,8 @@ class q {
     }
   }
   _$AC(e) {
-    let r = Fe.get(e.strings);
-    return r === void 0 && Fe.set(e.strings, r = new J(e)), r;
+    let r = Ie.get(e.strings);
+    return r === void 0 && Ie.set(e.strings, r = new J(e)), r;
   }
   k(e) {
     we(this._$AH) || (this._$AH = [], this._$AR());
@@ -479,7 +479,7 @@ class zt extends re {
     this.element.toggleAttribute(this.name, !!e && e !== p);
   }
 }
-class Mt extends re {
+class Rt extends re {
   constructor(e, r, i, a, o) {
     super(e, r, i, a, o), this.type = 5;
   }
@@ -504,9 +504,9 @@ class Tt {
     L(this, e);
   }
 }
-const se = j.litHtmlPolyfillSupport;
-se == null || se(J, q), (j.litHtmlVersions ?? (j.litHtmlVersions = [])).push("3.3.3");
-const Rt = (t, e, r) => {
+const se = F.litHtmlPolyfillSupport;
+se == null || se(J, q), (F.litHtmlVersions ?? (F.litHtmlVersions = [])).push("3.3.3");
+const Mt = (t, e, r) => {
   const i = (r == null ? void 0 : r.renderBefore) ?? e;
   let a = i._$litPart$;
   if (a === void 0) {
@@ -532,7 +532,7 @@ class T extends z {
   }
   update(e) {
     const r = this.render();
-    this.hasUpdated || (this.renderOptions.isConnected = this.isConnected), super.update(e), this._$Do = Rt(r, this.renderRoot, this.renderOptions);
+    this.hasUpdated || (this.renderOptions.isConnected = this.isConnected), super.update(e), this._$Do = Mt(r, this.renderRoot, this.renderOptions);
   }
   connectedCallback() {
     var e;
@@ -601,7 +601,7 @@ function ke(t) {
 function m(t) {
   return ke({ ...t, state: !0, attribute: !1 });
 }
-const F = 1, te = 600, he = 0, ue = 5, ce = {
+const I = 1, te = 600, he = 0, ue = 5, ce = {
   open_time_s: 20,
   close_time_s: 20,
   direction_settle_s: 0.5
@@ -627,14 +627,14 @@ async function Bt(t, e, r) {
     profile: r
   });
 }
-async function It(t, e, r) {
+async function Ut(t, e, r) {
   await t.callWS({
     type: "conx_dynamic_panel/delete_profile",
     entry_id: e,
     profile_id: r
   });
 }
-async function Ut(t, e, r, i, a) {
+async function jt(t, e, r, i, a) {
   return t.callWS({
     type: "conx_dynamic_panel/duplicate_profile",
     entry_id: e,
@@ -651,13 +651,13 @@ async function de(t, e, r, i = !1) {
     sync: i
   });
 }
-async function jt(t, e) {
+async function Ft(t, e) {
   return t.callWS({
     type: "conx_dynamic_panel/sync",
     entry_id: e
   });
 }
-async function Ft(t, e) {
+async function It(t, e) {
   return t.callWS({
     type: "conx_dynamic_panel/pull",
     entry_id: e
@@ -741,7 +741,7 @@ function Ye(t, e, r) {
   const i = Math.round(typeof t == "number" ? t : Number(t)), a = v(r);
   return !Number.isFinite(i) || i < 1 || i > a ? Math.min(e, a) : i;
 }
-function R(t, e = {}) {
+function M(t, e = {}) {
   const r = v(e.gangCount ?? 4), i = e.slot ?? 0, a = e.defaultId ?? `cover_${i + 1}`, [o, s] = qt(i, r), n = t || {}, c = Ye(n.open_button, o, r);
   let l = Ye(n.close_button, s, r);
   return l === c && (l = Array.from({ length: r }, (u, h) => h + 1).find((u) => u !== c) ?? Math.min(c + 1, r)), {
@@ -750,13 +750,13 @@ function R(t, e = {}) {
     close_button: l,
     open_time_s: H(
       n.open_time_s,
-      F,
+      I,
       te,
       ce.open_time_s
     ),
     close_time_s: H(
       n.close_time_s,
-      F,
+      I,
       te,
       ce.close_time_s
     ),
@@ -773,8 +773,8 @@ function x(t) {
   const e = v((t == null ? void 0 : t.gang_count) ?? 4), r = be(e);
   let i = [];
   if (Array.isArray(t == null ? void 0 : t.covers) && t.covers.length ? i = t.covers.map(
-    (o, s) => R(o, { gangCount: e, defaultId: `cover_${s + 1}`, slot: s })
-  ) : t != null && t.cover ? i = [R(t.cover, { gangCount: e, defaultId: "cover_1", slot: 0 })] : r > 0 && (i = [R(void 0, { gangCount: e, defaultId: "cover_1", slot: 0 })]), r === 0)
+    (o, s) => M(o, { gangCount: e, defaultId: `cover_${s + 1}`, slot: s })
+  ) : t != null && t.cover ? i = [M(t.cover, { gangCount: e, defaultId: "cover_1", slot: 0 })] : r > 0 && (i = [M(void 0, { gangCount: e, defaultId: "cover_1", slot: 0 })]), r === 0)
     return [];
   i = i.slice(0, r);
   const a = /* @__PURE__ */ new Set();
@@ -869,7 +869,7 @@ function tr(t) {
 `)}
 `;
 }
-const I = 2, rr = /* @__PURE__ */ new Set([
+const U = 2, rr = /* @__PURE__ */ new Set([
   "toggle",
   "radio_mandatory",
   "radio_optional",
@@ -979,13 +979,13 @@ function Je(t, e) {
 function or(t) {
   if (!y(t))
     return { ok: !1, error: "Root must be a JSON object" };
-  const e = t.schema_version ?? I, r = Number(e);
+  const e = t.schema_version ?? U, r = Number(e);
   if (!Number.isInteger(r) || r < 1)
     return { ok: !1, error: "schema_version must be a positive integer" };
-  if (r > I)
+  if (r > U)
     return {
       ok: !1,
-      error: `Unsupported schema_version ${r}; current is ${I}`
+      error: `Unsupported schema_version ${r}; current is ${U}`
     };
   const i = ar(t.profiles);
   if (!i.ok)
@@ -997,7 +997,7 @@ function or(t) {
   } : {
     ok: !0,
     payload: {
-      schema_version: I,
+      schema_version: U,
       active_profile_id: a,
       profiles: i.profiles
     }
@@ -1005,7 +1005,7 @@ function or(t) {
 }
 function sr(t, e) {
   return {
-    schema_version: I,
+    schema_version: U,
     active_profile_id: e,
     profiles: structuredClone(t)
   };
@@ -1495,7 +1495,7 @@ function hr(t) {
   } catch {
   }
 }
-function M(t, e) {
+function R(t, e) {
   const r = V(t);
   return lr[r][e] || dt[e] || e;
 }
@@ -1703,7 +1703,7 @@ let _ = class extends T {
     );
   }
   t(t) {
-    return M(this._language, t);
+    return R(this._language, t);
   }
   get _dirty() {
     return !Kt(this._draft || null, this._saved || null);
@@ -1970,27 +1970,46 @@ let _ = class extends T {
   }
   _coverConfig(t, e) {
     const r = this._covers(t);
-    return e ? r.find((i) => i.id === e) || r[0] || R(void 0) : r[0] || R(void 0);
+    return e ? r.find((i) => i.id === e) || r[0] || M(void 0) : r[0] || M(void 0);
+  }
+  _buttonRole(t) {
+    var r;
+    const e = (r = this._draft) == null ? void 0 : r.buttons.find((i) => i.index === t);
+    return (e == null ? void 0 : e.role) || "toggle";
   }
   _isCoverButton(t) {
-    var e;
-    return ((e = this._draft) == null ? void 0 : e.mode) !== "cover" ? !1 : this._covers().some(
-      (r) => r.open_button === t || r.close_button === t
-    );
+    return this._coverDirectionFor(t) != null;
   }
   _coverDirectionFor(t) {
-    var e;
-    if (((e = this._draft) == null ? void 0 : e.mode) !== "cover")
+    if (!this._draft)
       return null;
-    for (const r of this._covers()) {
-      if (r.open_button === t) return "open";
-      if (r.close_button === t) return "close";
+    if (this._draft.mode === "mixed") {
+      const e = this._buttonRole(t);
+      return e === "cover_open" ? "open" : e === "cover_close" ? "close" : null;
+    }
+    if (this._draft.mode !== "cover")
+      return null;
+    for (const e of this._covers()) {
+      if (e.open_button === t) return "open";
+      if (e.close_button === t) return "close";
     }
     return null;
   }
   _coverForButton(t) {
+    var e;
+    if (!this._draft)
+      return null;
+    if (this._draft.mode === "mixed") {
+      const r = this._draft.buttons.find((o) => o.index === t), i = (r == null ? void 0 : r.role) || "toggle";
+      if (i !== "cover_open" && i !== "cover_close")
+        return null;
+      const a = String((r == null ? void 0 : r.cover_id) || ((e = this._covers()[0]) == null ? void 0 : e.id) || "cover_1").trim() || "cover_1";
+      return this._covers().find((o) => o.id === a) || this._covers().find(
+        (o) => o.open_button === t || o.close_button === t
+      ) || null;
+    }
     return this._covers().find(
-      (e) => e.open_button === t || e.close_button === t
+      (r) => r.open_button === t || r.close_button === t
     ) || null;
   }
   _patchCovers(t) {
@@ -2098,8 +2117,8 @@ let _ = class extends T {
   }
   _setCoverTime(t, e, r) {
     const i = Math.max(
-      F,
-      Math.min(te, Number.isFinite(r) ? r : F)
+      I,
+      Math.min(te, Number.isFinite(r) ? r : I)
     );
     this._patchCovers((a) => {
       const o = a.find((s) => s.id === t);
@@ -2115,7 +2134,7 @@ let _ = class extends T {
         t.flatMap((n) => [n.open_button, n.close_button])
       ), a = this._gangIndexes(e).filter((n) => !i.has(n)), o = a[0] ?? 1, s = a[1] ?? Math.min(o + 1, e.gang_count);
       t.push(
-        R(
+        M(
           { open_button: o, close_button: s },
           {
             gangCount: e.gang_count,
@@ -2218,7 +2237,7 @@ let _ = class extends T {
   }
   _renderOneCoverEditor(t, e) {
     var n;
-    const r = (n = this._panel) == null ? void 0 : n.capabilities.cover, i = (r == null ? void 0 : r.min_time_s) ?? F, a = (r == null ? void 0 : r.max_time_s) ?? te, o = this.t("card.cover_seconds"), s = this._covers().length > 1;
+    const r = (n = this._panel) == null ? void 0 : n.capabilities.cover, i = (r == null ? void 0 : r.min_time_s) ?? I, a = (r == null ? void 0 : r.max_time_s) ?? te, o = this.t("card.cover_seconds"), s = this._covers().length > 1;
     return d`
       <div class="cover-block" data-cover-id=${t.id}>
         <div class="cover-head">
@@ -2491,7 +2510,7 @@ let _ = class extends T {
     if (!(!this.hass || !this._config)) {
       this._dirty && await this._saveDraft(), this._busy = !0, this._error = void 0, this._syncPulse = !0;
       try {
-        const t = await jt(this.hass, this._config.entry_id);
+        const t = await Ft(this.hass, this._config.entry_id);
         this._applyPanel(t);
       } catch (t) {
         this._error = t instanceof Error ? t.message : String(t), this._config && await this._load();
@@ -2506,7 +2525,7 @@ let _ = class extends T {
     if (!(!this.hass || !this._config) && await this._guardDirty()) {
       this._busy = !0, this._error = void 0;
       try {
-        const t = await Ft(this.hass, this._config.entry_id);
+        const t = await It(this.hass, this._config.entry_id);
         this._applyPanel(t);
       } catch (t) {
         this._error = t instanceof Error ? t.message : String(t);
@@ -2559,7 +2578,7 @@ let _ = class extends T {
     const t = `${this._draft.id}_copy_${Date.now()}`;
     this._busy = !0;
     try {
-      await Ut(
+      await jt(
         this.hass,
         this._config.entry_id,
         this._draft.id,
@@ -2594,7 +2613,7 @@ let _ = class extends T {
       if (window.confirm(`${this.t("card.delete")} ${this._draft.name}?`)) {
         this._busy = !0;
         try {
-          await It(this.hass, this._config.entry_id, this._draft.id), await this._load();
+          await Ut(this.hass, this._config.entry_id, this._draft.id), await this._load();
         } catch (t) {
           this._error = t instanceof Error ? t.message : String(t);
         } finally {
@@ -2711,22 +2730,26 @@ let _ = class extends T {
     const r = String(e).toLowerCase();
     return ["unavailable", "unknown"].includes(r) ? null : ["on", "open", "home", "playing", "active"].includes(r);
   }
+  _toggleLocalRing(t) {
+    this._splitPreviewOn = {
+      ...this._splitPreviewOn,
+      [t]: !this._splitPreviewOn[t]
+    };
+  }
   _isRingOn(t) {
     var i, a, o;
     if (!this._draft)
       return !1;
-    if (this._draft.mode === "cover") {
-      const s = this._coverDirectionFor(t);
-      if (s) {
-        const n = this._coverForButton(t), c = (i = this._panel) == null ? void 0 : i.cover_state;
-        if (c != null && c.active && n) {
-          const l = (a = c.covers) == null ? void 0 : a.find((u) => u.id === n.id);
-          return l ? l.direction === s : c.cover_id === n.id || !((o = c.covers) != null && o.length) ? c.direction === s : !1;
-        }
-        return !!this._splitPreviewOn[t];
+    const e = this._coverDirectionFor(t);
+    if (e) {
+      const s = this._coverForButton(t), n = (i = this._panel) == null ? void 0 : i.cover_state;
+      if (n != null && n.active && s) {
+        const c = (a = n.covers) == null ? void 0 : a.find((l) => l.id === s.id);
+        return c ? c.direction === e : n.cover_id === s.id || !((o = n.covers) != null && o.length) ? n.direction === e : !1;
       }
+      return !!this._splitPreviewOn[t];
     }
-    if (this._draft.mode === "radio_split") {
+    if (this._draft.mode === "radio_split" || this._draft.mode === "mixed" && this._buttonRole(t) === "radio") {
       const s = this._buttonEntityId(t);
       if (s) {
         const n = this._entityIsOn(s);
@@ -2735,7 +2758,7 @@ let _ = class extends T {
       }
       return !!this._splitPreviewOn[t];
     }
-    if (this._draft.mode !== "toggle" && this._isRadioMember(t))
+    if ((this._draft.mode === "radio_mandatory" || this._draft.mode === "radio_optional") && this._isRadioMember(t))
       return (this._radioPreviewSelected ?? this._draft.selected_button) === t;
     const r = this._buttonEntityId(t);
     if (r) {
@@ -2743,21 +2766,19 @@ let _ = class extends T {
       if (s !== null)
         return s;
     }
-    return t % 2 === 1;
+    return Object.prototype.hasOwnProperty.call(this._splitPreviewOn, t) ? !!this._splitPreviewOn[t] : t % 2 === 1;
   }
   _onRingPress(t) {
     if (this._pressedRing = t, window.setTimeout(() => {
       this._pressedRing === t && (this._pressedRing = null);
-    }, 180), !this._draft || this._draft.mode === "toggle")
+    }, 180), !this._draft)
       return;
-    if (this._draft.mode === "cover") {
-      const r = this._coverDirectionFor(t);
-      if (!r)
-        return;
+    const e = this._coverDirectionFor(t);
+    if (e) {
       const i = this._coverForButton(t);
       if (!i)
         return;
-      const a = r === "open" ? i.close_button : i.open_button;
+      const a = e === "open" ? i.close_button : i.open_button;
       this._splitPreviewOn = {
         ...this._splitPreviewOn,
         [t]: !this._splitPreviewOn[t],
@@ -2766,19 +2787,44 @@ let _ = class extends T {
       return;
     }
     if (this._draft.mode === "radio_split") {
-      const r = this._radioGroupFor(t), i = { ...this._splitPreviewOn };
-      if (!r)
-        i[t] = !i[t];
+      const i = this._radioGroupFor(t), a = { ...this._splitPreviewOn };
+      if (!i)
+        a[t] = !a[t];
       else {
-        if (i[t])
+        if (a[t])
           return;
-        for (const a of r.buttons)
-          i[a] = a === t;
+        for (const o of i.buttons)
+          a[o] = o === t;
       }
-      this._splitPreviewOn = i;
+      this._splitPreviewOn = a;
       return;
     }
-    !this._isRadioMember(t) || (this._radioPreviewSelected ?? this._draft.selected_button) === t || (this._radioPreviewSelected = t);
+    if (this._draft.mode === "mixed") {
+      if (this._buttonRole(t) === "radio") {
+        const a = this._radioGroupFor(t), o = { ...this._splitPreviewOn };
+        if (!a)
+          o[t] = !o[t];
+        else {
+          if (o[t])
+            return;
+          for (const s of a.buttons)
+            o[s] = s === t;
+        }
+        this._splitPreviewOn = o;
+        return;
+      }
+      this._toggleLocalRing(t);
+      return;
+    }
+    if (this._draft.mode === "toggle") {
+      this._toggleLocalRing(t);
+      return;
+    }
+    if (!this._isRadioMember(t)) {
+      this._toggleLocalRing(t);
+      return;
+    }
+    (this._radioPreviewSelected ?? this._draft.selected_button) !== t && (this._radioPreviewSelected = t);
   }
   _ringOnColor() {
     var t;
@@ -5965,7 +6011,7 @@ let X = class extends T {
     return d`
       <div class="editor" dir=${t ? "rtl" : "ltr"}>
         <label>
-          ${M(this._language, "editor.entry_id")}
+          ${R(this._language, "editor.entry_id")}
           <input
             .value=${this._config.entry_id || ""}
             @input=${(e) => this._valueChanged({
@@ -5974,7 +6020,7 @@ let X = class extends T {
           />
         </label>
         <label>
-          ${M(this._language, "card.language")}
+          ${R(this._language, "card.language")}
           <select
             .value=${V(this._config.language || this._language)}
             @change=${(e) => this._valueChanged({
@@ -5987,7 +6033,7 @@ let X = class extends T {
           </select>
         </label>
         <label>
-          ${M(this._language, "card.theme")}
+          ${R(this._language, "card.theme")}
           <select
             .value=${ie(this._config.theme)}
             @change=${(e) => this._valueChanged({
@@ -5996,7 +6042,7 @@ let X = class extends T {
           >
             ${Se.map(
       (e) => d`<option value=${e.id}>
-                ${M(this._language, `theme.${e.id}`)}
+                ${R(this._language, `theme.${e.id}`)}
               </option>`
     )}
           </select>
@@ -6009,7 +6055,7 @@ let X = class extends T {
       compact: e.target.checked
     })}
           />
-          ${M(this._language, "card.compact")}
+          ${R(this._language, "card.compact")}
         </label>
       </div>
     `;

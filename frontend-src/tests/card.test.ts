@@ -503,6 +503,101 @@ describe("custom elements", () => {
     expect(el.shadowRoot?.querySelector("[data-sync-needed]")).toBeTruthy();
   });
 
+  it("toggle faceplate press never marks draft dirty", async () => {
+    const callWS = vi.fn().mockResolvedValue(panelPayload({ sync_status: "synced" }));
+    const el = await mountCard({ language: "en", callWS });
+    expect(el._draft?.mode).toBe("toggle");
+    expect(el._dirty).toBe(false);
+    const before = JSON.stringify(el._draft);
+    el._onRingPress(1);
+    el._onRingPress(2);
+    await el.updateComplete;
+    expect(el._dirty).toBe(false);
+    expect(JSON.stringify(el._draft)).toBe(before);
+    expect(el.shadowRoot?.querySelector(".unsaved-draft")).toBeFalsy();
+  });
+
+  it("mixed momentary + toggle presses stay independent and never mark dirty", async () => {
+    const mixedProfile: Profile = {
+      ...sampleProfile,
+      mode: "mixed",
+      selected_button: null,
+      buttons: sampleProfile.buttons.map((button, index) => ({
+        ...button,
+        role: index === 0 ? "momentary" : "toggle",
+        pulse_time_s: 2,
+        radio_member: true,
+      })),
+    };
+    const callWS = vi.fn().mockResolvedValue(
+      panelPayload({
+        sync_status: "synced",
+        profiles: { lighting: mixedProfile },
+      })
+    );
+    const el = await mountCard({ language: "en", callWS });
+    expect(el._draft?.mode).toBe("mixed");
+    expect(el._dirty).toBe(false);
+    const before = JSON.stringify(el._draft);
+
+    // L1 momentary + L2 toggle: local LED only; draft untouched.
+    el._onRingPress(1);
+    el._onRingPress(2);
+    await el.updateComplete;
+    expect(el._dirty).toBe(false);
+    expect(JSON.stringify(el._draft)).toBe(before);
+    expect(el._radioPreviewSelected).toBeNull();
+    expect(el._splitPreviewOn[1]).toBe(true);
+    expect(el._splitPreviewOn[2]).toBe(true);
+    // Independent — momentary press must not force toggle LED exclusivity.
+    expect(el._isRingOn(1)).toBe(true);
+    expect(el._isRingOn(2)).toBe(true);
+
+    el._onRingPress(1);
+    await el.updateComplete;
+    expect(el._isRingOn(1)).toBe(false);
+    expect(el._isRingOn(2)).toBe(true);
+    expect(el._dirty).toBe(false);
+    expect(JSON.stringify(el._draft)).toBe(before);
+  });
+
+  it("editor edit dirty → save clean → press stays clean", async () => {
+    const callWS = vi
+      .fn()
+      .mockResolvedValueOnce(panelPayload({ sync_status: "synced" }))
+      .mockResolvedValueOnce({
+        ...sampleProfile,
+        name: "Lighting edited",
+      })
+      .mockResolvedValueOnce(
+        panelPayload({
+          sync_status: "pending",
+          profiles: {
+            lighting: { ...sampleProfile, name: "Lighting edited" },
+          },
+        })
+      );
+    const el = await mountCard({ language: "en", callWS });
+    expect(el._dirty).toBe(false);
+    el._patchDraft((draft: Profile) => {
+      draft.name = "Lighting edited";
+    });
+    await el.updateComplete;
+    expect(el._dirty).toBe(true);
+    expect(el.shadowRoot?.querySelector(".unsaved-draft")).toBeTruthy();
+
+    await el._saveDraft();
+    await el.updateComplete;
+    expect(el._dirty).toBe(false);
+    expect(el.shadowRoot?.querySelector(".unsaved-draft")).toBeFalsy();
+
+    el._onRingPress(1);
+    el._onRingPress(3);
+    await el.updateComplete;
+    expect(el._dirty).toBe(false);
+    expect(el.shadowRoot?.querySelector(".unsaved-draft")).toBeFalsy();
+  });
+
   it("shows radio groups editor only in buttons section for radio_split", async () => {
     const callWS = vi.fn().mockResolvedValue(
       panelPayload({

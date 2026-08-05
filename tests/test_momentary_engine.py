@@ -220,6 +220,33 @@ async def test_mixed_toggle_button_stays_independent() -> None:
 
 
 @pytest.mark.asyncio
+async def test_mixed_momentary_and_toggle_do_not_mutate_profile() -> None:
+    """Physical presses must not rewrite the draft profile (no false dirty).
+
+    Momentary timers and toggle actions run, but profile fields including
+    selected_button / roles stay unchanged so the editor does not demand Save.
+    """
+    store = FakeStore()
+    adapter = FakeAdapter()
+    runtime = _runtime(adapter, store)
+    coordinator = PanelCoordinator(runtime)  # type: ignore[arg-type]
+    profile = _mixed_profile(store)
+    before = profile.to_dict()
+
+    await coordinator._async_handle_physical_press(1, True)  # momentary
+    await coordinator._async_handle_physical_press(2, True)  # toggle
+    assert runtime.hass.services.async_call.await_count == 2
+    assert 1 in runtime.momentary.timers
+    assert 2 not in runtime.momentary.timers
+    assert profile.to_dict() == before
+
+    await coordinator._async_handle_physical_press(1, False)
+    await coordinator._async_handle_physical_press(2, False)
+    assert profile.to_dict() == before
+    assert runtime.momentary.timers == {}
+
+
+@pytest.mark.asyncio
 async def test_mixed_radio_on_runs_action_and_clears_peers() -> None:
     store = FakeStore()
     adapter = FakeAdapter()
