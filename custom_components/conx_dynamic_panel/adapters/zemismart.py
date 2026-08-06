@@ -270,20 +270,37 @@ class Zemismart4GangAdapter(PanelAdapter):
         return max(float(self.confirm_timeout), float(SELECT_CONFIRM_TIMEOUT_FLOOR))
 
     async def _async_select_option(self, entity_id: str, option: str) -> None:
+        await self._async_wait_for_select_ready(entity_id)
         options = self._options(entity_id)
-        resolved = resolve_select_option(option, options)
-        if resolved != option:
-            _LOGGER.debug(
-                "Resolved select option %s → %s on %s", option, resolved, entity_id
-            )
+        resolved = option
+        try:
+            resolved = resolve_select_option(option, options)
+        except HardwareWriteError as err:
+            # Keep trying below — options may appear after a short wait.
+            _LOGGER.debug("Initial select resolve deferred for %s: %s", entity_id, err)
+
+        if options and resolved != option:
+            _LOGGER.debug("Resolved select option %s → %s on %s", option, resolved, entity_id)
 
         current = self._state_str(entity_id)
-        if current and options_match(current, resolved):
+        if current and options and options_match(current, resolved):
             return
 
         timeout = self._select_confirm_timeout()
         last_error: HardwareWriteError | None = None
         for attempt in range(1, SELECT_WRITE_ATTEMPTS + 1):
+            # Re-read options each attempt — Z2M entities can populate late.
+            options = self._options(entity_id) or options
+            try:
+                resolved = resolve_select_option(option, options)
+            except HardwareWriteError as err:
+                last_error = HardwareWriteError(
+                    f"{err}; entity={entity_id}; current={self._select_current_label(entity_id)}"
+                )
+                if attempt < SELECT_WRITE_ATTEMPTS:
+                    await asyncio.sleep(0.5)
+                    continue
+                break
             try:
                 await self.hass.services.async_call(
                     "select",
@@ -315,8 +332,22 @@ class Zemismart4GangAdapter(PanelAdapter):
         detail = str(last_error) if last_error else "unknown error"
         raise HardwareWriteError(
             f"{detail}; wrote '{resolved}' (from '{option}'); "
+            f"entity={entity_id}; current={self._select_current_label(entity_id)}; "
             f"available options={choices}"
         )
+
+    async def _async_wait_for_select_ready(self, entity_id: str) -> None:
+        """Wait briefly when select is unknown/unavailable or options are empty."""
+        timeout = min(self._select_confirm_timeout(), 10.0)
+        deadline = asyncio.get_running_loop().time() + timeout
+        while asyncio.get_running_loop().time() < deadline:
+            state = self.hass.states.get(entity_id)
+            if state is not None and state.state not in {"unavailable"}:
+                options = state.attributes.get("options") or []
+                if options:
+                    return
+            await asyncio.sleep(0.2)
+        # Proceed anyway — write path will raise a clearer error if still unusable.
 
     async def _async_set_switch(self, entity_id: str, enabled: bool) -> None:
         expected = "on" if enabled else "off"
@@ -350,10 +381,18 @@ class Zemismart4GangAdapter(PanelAdapter):
             await asyncio.sleep(0.1)
         current = self.hass.states.get(entity_id)
         current_state = current.state if current else "missing"
+        options = self._options(entity_id)
+        choices = options if options else "unknown"
         raise HardwareWriteError(
             f"Timed out waiting for {entity_id} to become '{expected_str}' "
-            f"(current='{current_state}')"
+            f"(current='{current_state}'); available options={choices}"
         )
+
+    def _select_current_label(self, entity_id: str) -> str:
+        state = self.hass.states.get(entity_id)
+        if state is None:
+            return "missing"
+        return str(state.state)
 
     def _require_domain(self, entity_id: str, domain: str) -> None:
         if not entity_id.startswith(f"{domain}."):
@@ -370,7 +409,8 @@ class Zemismart4GangAdapter(PanelAdapter):
         state = self.hass.states.get(entity_id)
         if state is None:
             return []
-        options = state.attributes.get("options") or []
+        attributes = getattr(state, "attributes", None) or {}
+        options = attributes.get("options") or []
         return [str(item) for item in options]
 
     def _state_str(self, entity_id: str) -> str:

@@ -9,7 +9,7 @@ import {
   persistLanguage,
 } from "../src/localize";
 import type { Profile } from "../src/types";
-import { COLOR_PREVIEW, resolveLedPreviewColor } from "../src/card";
+import { COLOR_PREVIEW, ensureSelectOptions, resolveLedPreviewColor } from "../src/card";
 import {
   AUTOMATION_EXAMPLE_ENTRY_PLACEHOLDER,
   buildAutomationExampleYaml,
@@ -403,6 +403,81 @@ describe("custom elements", () => {
     expect(resolveLedPreviewColor("red")).toBe(COLOR_PREVIEW.red);
     expect(resolveLedPreviewColor("warm_yellow")).toBe(COLOR_PREVIEW.warm_yellow);
     expect(resolveLedPreviewColor("cyan")).not.toBe(COLOR_PREVIEW.blue);
+  });
+
+  it("keeps draft select values when live options omit them", () => {
+    expect(ensureSelectOptions(["blue", "cyan"], "warm_white", "blue")).toEqual([
+      "blue",
+      "cyan",
+      "warm_white",
+    ]);
+    expect(ensureSelectOptions(["10s", "30s"], "none")).toEqual([
+      "10s",
+      "30s",
+      "none",
+    ]);
+  });
+
+  it("renders live color and radar options including none", async () => {
+    const callWS = vi.fn().mockResolvedValue(
+      panelPayload({
+        capabilities: {
+          colors: ["red", "blue", "green", "white", "yellow", "magenta", "cyan"],
+          radar: ["none", "10s", "20s", "30s", "45s", "60s"],
+          modes: [
+            "toggle",
+            "radio_mandatory",
+            "radio_optional",
+            "radio_split",
+            "mixed",
+            "cover",
+          ],
+          button_count: 4,
+          gang_count_min: 1,
+          gang_count_max: 4,
+          cover: {
+            min_time_s: 1,
+            max_time_s: 600,
+            min_settle_s: 0,
+            max_settle_s: 5,
+            opposite_press: ["stop_only", "stop_then_reverse"],
+            max_covers: 2,
+          },
+          mixed: {
+            roles: ["toggle", "momentary", "radio", "cover_open", "cover_close"],
+            min_pulse_s: 0.1,
+            max_pulse_s: 600,
+            default_pulse_s: 2,
+          },
+        },
+        profiles: {
+          lighting: {
+            ...sampleProfile,
+            color_on: "cyan",
+            color_off: "blue",
+            radar: "none",
+          },
+        },
+      })
+    );
+    const el = await mountCard({ language: "en", callWS });
+    (el as any)._activeTab = "appearance";
+    await el.updateComplete;
+    const appearancePanel = el.shadowRoot?.querySelector(
+      ".tab-panel.active"
+    ) as HTMLElement;
+    const selects = [...(appearancePanel?.querySelectorAll("select") || [])];
+    const colorSelect = selects.find((sel) =>
+      [...sel.options].some((opt) => opt.value === "cyan")
+    );
+    const radarSelect = selects.find((sel) =>
+      [...sel.options].some((opt) => opt.value === "none")
+    );
+    expect(colorSelect).toBeTruthy();
+    expect([...colorSelect!.options].map((o) => o.value)).not.toContain("warm_white");
+    expect(radarSelect).toBeTruthy();
+    expect(radarSelect!.value).toBe("none");
+    expect([...radarSelect!.options].map((o) => o.value)).toContain("none");
   });
 
   it("updates faceplate ring CSS vars when draft color_on/color_off change", async () => {

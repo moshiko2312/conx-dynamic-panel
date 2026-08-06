@@ -150,7 +150,26 @@ export function resolveLedPreviewColor(
   if (!name) {
     return fallback;
   }
-  return COLOR_PREVIEW[name] || name || fallback;
+  const key = name.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  return COLOR_PREVIEW[key] || COLOR_PREVIEW[key.replace(/_/g, "")] || fallback;
+}
+
+/** Prefer live select options; keep the current draft value visible if missing. */
+export function ensureSelectOptions(
+  live: string[] | undefined,
+  ...current: Array<string | undefined>
+): string[] {
+  const options = [...(live || [])];
+  const seen = new Set(options);
+  for (const value of current) {
+    const trimmed = String(value || "").trim();
+    if (!trimmed || seen.has(trimmed)) {
+      continue;
+    }
+    options.push(trimmed);
+    seen.add(trimmed);
+  }
+  return options;
 }
 
 @customElement("conx-dynamic-panel-card")
@@ -2726,6 +2745,15 @@ export class ConXDynamicPanelCard extends LitElement {
     if (!this._panel || !this._draft) {
       return nothing;
     }
+    const colorOptions = ensureSelectOptions(
+      this._panel.capabilities.colors,
+      this._draft.color_on,
+      this._draft.color_off
+    );
+    const radarOptions = ensureSelectOptions(
+      this._panel.capabilities.radar,
+      this._draft.radar
+    );
     return html`
           <div class="grid-2">
             <label class="field">
@@ -2743,7 +2771,7 @@ export class ConXDynamicPanelCard extends LitElement {
                       draft.color_on = (e.target as HTMLSelectElement).value;
                     })}
                 >
-                  ${this._panel.capabilities.colors.map(
+                  ${colorOptions.map(
                     (color) => html`<option value=${color}>${color}</option>`
                   )}
                 </select>
@@ -2764,7 +2792,7 @@ export class ConXDynamicPanelCard extends LitElement {
                       draft.color_off = (e.target as HTMLSelectElement).value;
                     })}
                 >
-                  ${this._panel.capabilities.colors.map(
+                  ${colorOptions.map(
                     (color) => html`<option value=${color}>${color}</option>`
                   )}
                 </select>
@@ -2782,7 +2810,7 @@ export class ConXDynamicPanelCard extends LitElement {
                     draft.radar = (e.target as HTMLSelectElement).value;
                   })}
               >
-                ${this._panel.capabilities.radar.map(
+                ${radarOptions.map(
                   (value) => html`<option value=${value}>${value}</option>`
                 )}
               </select>

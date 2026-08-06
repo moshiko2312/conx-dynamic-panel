@@ -171,6 +171,8 @@ panel's own `entry_id` and profile ids. The same example is committed to
 ## Troubleshooting
 
 - **Sync timeouts / color stays unchanged:** raise Confirm timeout and Sync timeout in the integration Options (defaults are now 20s / 90s). In Developer Tools → States, open `select.*_switch_color_off` / `_color_on` and confirm the `options` list includes the color you want (e.g. `warm_white` vs `Warm White`). Try `select.select_option` manually; if the state does not change, fix Zigbee2MQTT / the entity before Syncing from ConX.
+- **`warm_white` / `warm_yellow` fail in ConX and in Z2M:** documented Z2M converter bug — exposes use underscores (`warm_white`) while the Tuya lookup map uses `warmwhite` / `warmyellow`. Use `white` / `yellow` (or other working colors) until Z2M is fixed, or apply an external converter that aligns the keys. ConX fuzzy-matches labels and maps warm variants to closest live options when they are absent from HA `options`.
+- **Radar stuck on `unknown` / cannot set `none`:** open the mapped `select.*_radar_config` entity. Confirm `options` includes `none` (Z2M) or an off alias. Set `none` with `select.select_option` manually; if state stays `unknown`, the device is not reporting the datapoint — fix Zigbee2MQTT / mesh first. ConX retries select writes, waits for options when the entity is unavailable, and surfaces available options in timeout errors.
 - **Resource 404:** rebuild with `./scripts/build_frontend.sh`, reinstall/update, restart Home Assistant, then hard-refresh the browser.
 - **Out of sync:** hardware no longer matches the last applied snapshot. Pull, review the draft, then Sync.
 - **Profiles missing after update:** never delete `.storage` files for this integration; restore from backup if storage was removed.

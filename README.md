@@ -82,6 +82,19 @@ warm_white
 warm_yellow
 ```
 
+These match the Zigbee2MQTT ZMS-206 / TS0601 expose list for `switch_color_on` /
+`switch_color_off`. The card prefers **live** `options` from the mapped Home Assistant
+`select` entities when available; defaults above are fallbacks only.
+
+**Note (Z2M / hardware):** current `zigbee-herdsman-converters` exposes
+`warm_white` / `warm_yellow` but the Tuya datapoint lookup keys are `warmwhite` /
+`warmyellow` (no underscore). Setting the underscored values via Z2M or HA often
+times out and the select stays on the previous color (e.g. `blue`). That is a
+Zigbee2MQTT converter mismatch, not a ConX-only bug. If your HA `options` list
+omits the warm variants, ConX maps them to the closest supported colors
+(`white` / `yellow`). Prefer colors that already work when you set them manually
+in Developer Tools.
+
 ### Supported radar values
 
 ```text
@@ -93,6 +106,10 @@ none
 60s
 ```
 
+Canonical Z2M value for radar off is `none`. ConX also accepts aliases such as
+`off`, `0`, `disabled`, and Hebrew `ללא` / `כבוי` when resolving against live
+select options. If the radar entity state is `unknown`, Sync still attempts to
+write and waits for confirmation; a timeout error lists the available options.
 ## Main features
 
 - Home Assistant Config Flow setup.

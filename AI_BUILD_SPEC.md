@@ -54,13 +54,18 @@ Colors:
 red, blue, green, white, yellow, magenta, cyan, warm_white, warm_yellow
 ```
 
+These match Zigbee2MQTT ZMS-206 exposes. Prefer live Home Assistant select
+`options` over defaults. Note: some Z2M converter builds mismatch
+`warm_white`/`warm_yellow` (expose) vs `warmwhite`/`warmyellow` (lookup); those
+values may fail on the wire even outside ConX.
+
 Radar:
 
 ```text
 none, 10s, 20s, 30s, 45s, 60s
 ```
 
-Validate against the actual `options` attribute of the selected Home Assistant select entities. Adapter defaults are fallback values only.
+Validate against the actual `options` attribute of the selected Home Assistant select entities. Adapter defaults are fallback values only. Radar off is canonical `none` (aliases such as `off` / `0` may resolve to the live option).
 
 ## Backend architecture
 

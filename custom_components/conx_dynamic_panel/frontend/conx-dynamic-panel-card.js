@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 const Z = globalThis, xe = Z.ShadowRoot && (Z.ShadyCSS === void 0 || Z.ShadyCSS.nativeShadow) && "adoptedStyleSheets" in Document.prototype && "replace" in CSSStyleSheet.prototype, $e = Symbol(), Me = /* @__PURE__ */ new WeakMap();
-let et = class {
+let rt = class {
   constructor(t, r, i) {
     if (this._$cssResult$ = !0, i !== $e) throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");
     this.cssText = t, this.t = r;
@@ -22,14 +22,14 @@ let et = class {
     return this.cssText;
   }
 };
-const vt = (e) => new et(typeof e == "string" ? e : e + "", void 0, $e), tt = (e, ...t) => {
+const xt = (e) => new rt(typeof e == "string" ? e : e + "", void 0, $e), it = (e, ...t) => {
   const r = e.length === 1 ? e[0] : t.reduce((i, a, s) => i + ((n) => {
     if (n._$cssResult$ === !0) return n.cssText;
     if (typeof n == "number") return n;
     throw Error("Value passed to 'css' function must be a 'css' function result: " + n + ". Use 'unsafeCSS' to pass non-literal values, but take care to ensure page security.");
   })(a) + e[s + 1], e[0]);
-  return new et(r, e, $e);
-}, yt = (e, t) => {
+  return new rt(r, e, $e);
+}, $t = (e, t) => {
   if (xe) e.adoptedStyleSheets = t.map((r) => r instanceof CSSStyleSheet ? r : r.styleSheet);
   else for (const r of t) {
     const i = document.createElement("style"), a = Z.litNonce;
@@ -38,17 +38,17 @@ const vt = (e) => new et(typeof e == "string" ? e : e + "", void 0, $e), tt = (e
 }, Te = xe ? (e) => e : (e) => e instanceof CSSStyleSheet ? ((t) => {
   let r = "";
   for (const i of t.cssRules) r += i.cssText;
-  return vt(r);
+  return xt(r);
 })(e) : e;
 /**
  * @license
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const { is: xt, defineProperty: $t, getOwnPropertyDescriptor: wt, getOwnPropertyNames: kt, getOwnPropertySymbols: St, getPrototypeOf: Pt } = Object, w = globalThis, Le = w.trustedTypes, Et = Le ? Le.emptyScript : "", se = w.reactiveElementPolyfillSupport, j = (e, t) => e, Q = { toAttribute(e, t) {
+const { is: wt, defineProperty: kt, getOwnPropertyDescriptor: St, getOwnPropertyNames: Pt, getOwnPropertySymbols: Et, getPrototypeOf: Ct } = Object, w = globalThis, Le = w.trustedTypes, At = Le ? Le.emptyScript : "", se = w.reactiveElementPolyfillSupport, j = (e, t) => e, Q = { toAttribute(e, t) {
   switch (t) {
     case Boolean:
-      e = e ? Et : null;
+      e = e ? At : null;
       break;
     case Object:
     case Array:
@@ -73,7 +73,7 @@ const { is: xt, defineProperty: $t, getOwnPropertyDescriptor: wt, getOwnProperty
       }
   }
   return r;
-} }, we = (e, t) => !xt(e, t), Ne = { attribute: !0, type: String, converter: Q, reflect: !1, useDefault: !1, hasChanged: we };
+} }, we = (e, t) => !wt(e, t), Ne = { attribute: !0, type: String, converter: Q, reflect: !1, useDefault: !1, hasChanged: we };
 Symbol.metadata ?? (Symbol.metadata = Symbol("metadata")), w.litPropertyMetadata ?? (w.litPropertyMetadata = /* @__PURE__ */ new WeakMap());
 let O = class extends HTMLElement {
   static addInitializer(t) {
@@ -85,11 +85,11 @@ let O = class extends HTMLElement {
   static createProperty(t, r = Ne) {
     if (r.state && (r.attribute = !1), this._$Ei(), this.prototype.hasOwnProperty(t) && ((r = Object.create(r)).wrapped = !0), this.elementProperties.set(t, r), !r.noAccessor) {
       const i = Symbol(), a = this.getPropertyDescriptor(t, i, r);
-      a !== void 0 && $t(this.prototype, t, a);
+      a !== void 0 && kt(this.prototype, t, a);
     }
   }
   static getPropertyDescriptor(t, r, i) {
-    const { get: a, set: s } = wt(this.prototype, t) ?? { get() {
+    const { get: a, set: s } = St(this.prototype, t) ?? { get() {
       return this[r];
     }, set(n) {
       this[r] = n;
@@ -104,13 +104,13 @@ let O = class extends HTMLElement {
   }
   static _$Ei() {
     if (this.hasOwnProperty(j("elementProperties"))) return;
-    const t = Pt(this);
+    const t = Ct(this);
     t.finalize(), t.l !== void 0 && (this.l = [...t.l]), this.elementProperties = new Map(t.elementProperties);
   }
   static finalize() {
     if (this.hasOwnProperty(j("finalized"))) return;
     if (this.finalized = !0, this._$Ei(), this.hasOwnProperty(j("properties"))) {
-      const r = this.properties, i = [...kt(r), ...St(r)];
+      const r = this.properties, i = [...Pt(r), ...Et(r)];
       for (const a of i) this.createProperty(a, r[a]);
     }
     const t = this[Symbol.metadata];
@@ -159,7 +159,7 @@ let O = class extends HTMLElement {
   }
   createRenderRoot() {
     const t = this.shadowRoot ?? this.attachShadow(this.constructor.shadowRootOptions);
-    return yt(t, this.constructor.elementStyles), t;
+    return $t(t, this.constructor.elementStyles), t;
   }
   connectedCallback() {
     var t;
@@ -284,42 +284,42 @@ O.elementStyles = [], O.shadowRootOptions = { mode: "open" }, O[j("elementProper
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const H = globalThis, Be = (e) => e, ee = H.trustedTypes, De = ee ? ee.createPolicy("lit-html", { createHTML: (e) => e }) : void 0, rt = "$lit$", $ = `lit$${Math.random().toFixed(9).slice(2)}$`, it = "?" + $, Ct = `<${it}>`, C = document, Y = () => C.createComment(""), I = (e) => e === null || typeof e != "object" && typeof e != "function", ke = Array.isArray, At = (e) => ke(e) || typeof (e == null ? void 0 : e[Symbol.iterator]) == "function", ne = `[ 	
+const H = globalThis, Be = (e) => e, ee = H.trustedTypes, De = ee ? ee.createPolicy("lit-html", { createHTML: (e) => e }) : void 0, at = "$lit$", $ = `lit$${Math.random().toFixed(9).slice(2)}$`, st = "?" + $, Ot = `<${st}>`, C = document, Y = () => C.createComment(""), I = (e) => e === null || typeof e != "object" && typeof e != "function", ke = Array.isArray, Rt = (e) => ke(e) || typeof (e == null ? void 0 : e[Symbol.iterator]) == "function", ne = `[ 	
 \f\r]`, B = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, Ue = /-->/g, je = />/g, S = RegExp(`>|${ne}(?:([^\\s"'>=/]+)(${ne}*=${ne}*(?:[^ 	
-\f\r"'\`<>=]|("|')|))|$)`, "g"), He = /'/g, Fe = /"/g, at = /^(?:script|style|textarea|title)$/i, Ot = (e) => (t, ...r) => ({ _$litType$: e, strings: t, values: r }), d = Ot(1), L = Symbol.for("lit-noChange"), p = Symbol.for("lit-nothing"), Ge = /* @__PURE__ */ new WeakMap(), P = C.createTreeWalker(C, 129);
-function st(e, t) {
+\f\r"'\`<>=]|("|')|))|$)`, "g"), He = /'/g, Fe = /"/g, nt = /^(?:script|style|textarea|title)$/i, zt = (e) => (t, ...r) => ({ _$litType$: e, strings: t, values: r }), d = zt(1), L = Symbol.for("lit-noChange"), p = Symbol.for("lit-nothing"), Ge = /* @__PURE__ */ new WeakMap(), P = C.createTreeWalker(C, 129);
+function ot(e, t) {
   if (!ke(e) || !e.hasOwnProperty("raw")) throw Error("invalid template strings array");
   return De !== void 0 ? De.createHTML(t) : t;
 }
-const Rt = (e, t) => {
+const Mt = (e, t) => {
   const r = e.length - 1, i = [];
   let a, s = t === 2 ? "<svg>" : t === 3 ? "<math>" : "", n = B;
   for (let o = 0; o < r; o++) {
     const c = e[o];
     let l, u, h = -1, f = 0;
-    for (; f < c.length && (n.lastIndex = f, u = n.exec(c), u !== null); ) f = n.lastIndex, n === B ? u[1] === "!--" ? n = Ue : u[1] !== void 0 ? n = je : u[2] !== void 0 ? (at.test(u[2]) && (a = RegExp("</" + u[2], "g")), n = S) : u[3] !== void 0 && (n = S) : n === S ? u[0] === ">" ? (n = a ?? B, h = -1) : u[1] === void 0 ? h = -2 : (h = n.lastIndex - u[2].length, l = u[1], n = u[3] === void 0 ? S : u[3] === '"' ? Fe : He) : n === Fe || n === He ? n = S : n === Ue || n === je ? n = B : (n = S, a = void 0);
+    for (; f < c.length && (n.lastIndex = f, u = n.exec(c), u !== null); ) f = n.lastIndex, n === B ? u[1] === "!--" ? n = Ue : u[1] !== void 0 ? n = je : u[2] !== void 0 ? (nt.test(u[2]) && (a = RegExp("</" + u[2], "g")), n = S) : u[3] !== void 0 && (n = S) : n === S ? u[0] === ">" ? (n = a ?? B, h = -1) : u[1] === void 0 ? h = -2 : (h = n.lastIndex - u[2].length, l = u[1], n = u[3] === void 0 ? S : u[3] === '"' ? Fe : He) : n === Fe || n === He ? n = S : n === Ue || n === je ? n = B : (n = S, a = void 0);
     const b = n === S && e[o + 1].startsWith("/>") ? " " : "";
-    s += n === B ? c + Ct : h >= 0 ? (i.push(l), c.slice(0, h) + rt + c.slice(h) + $ + b) : c + $ + (h === -2 ? o : b);
+    s += n === B ? c + Ot : h >= 0 ? (i.push(l), c.slice(0, h) + at + c.slice(h) + $ + b) : c + $ + (h === -2 ? o : b);
   }
-  return [st(e, s + (e[r] || "<?>") + (t === 2 ? "</svg>" : t === 3 ? "</math>" : "")), i];
+  return [ot(e, s + (e[r] || "<?>") + (t === 2 ? "</svg>" : t === 3 ? "</math>" : "")), i];
 };
 class W {
   constructor({ strings: t, _$litType$: r }, i) {
     let a;
     this.parts = [];
     let s = 0, n = 0;
-    const o = t.length - 1, c = this.parts, [l, u] = Rt(t, r);
+    const o = t.length - 1, c = this.parts, [l, u] = Mt(t, r);
     if (this.el = W.createElement(l, i), P.currentNode = this.el.content, r === 2 || r === 3) {
       const h = this.el.content.firstChild;
       h.replaceWith(...h.childNodes);
     }
     for (; (a = P.nextNode()) !== null && c.length < o; ) {
       if (a.nodeType === 1) {
-        if (a.hasAttributes()) for (const h of a.getAttributeNames()) if (h.endsWith(rt)) {
+        if (a.hasAttributes()) for (const h of a.getAttributeNames()) if (h.endsWith(at)) {
           const f = u[n++], b = a.getAttribute(h).split($), k = /([.?@])?(.*)/.exec(f);
-          c.push({ type: 1, index: s, name: k[2], strings: b, ctor: k[1] === "." ? Mt : k[1] === "?" ? Tt : k[1] === "@" ? Lt : re }), a.removeAttribute(h);
+          c.push({ type: 1, index: s, name: k[2], strings: b, ctor: k[1] === "." ? Lt : k[1] === "?" ? Nt : k[1] === "@" ? Bt : re }), a.removeAttribute(h);
         } else h.startsWith($) && (c.push({ type: 6, index: s }), a.removeAttribute(h));
-        if (at.test(a.tagName)) {
+        if (nt.test(a.tagName)) {
           const h = a.textContent.split($), f = h.length - 1;
           if (f > 0) {
             a.textContent = ee ? ee.emptyScript : "";
@@ -327,7 +327,7 @@ class W {
             a.append(h[f], Y());
           }
         }
-      } else if (a.nodeType === 8) if (a.data === it) c.push({ type: 2, index: s });
+      } else if (a.nodeType === 8) if (a.data === st) c.push({ type: 2, index: s });
       else {
         let h = -1;
         for (; (h = a.data.indexOf($, h + 1)) !== -1; ) c.push({ type: 7, index: s }), h += $.length - 1;
@@ -347,7 +347,7 @@ function N(e, t, r = e, i) {
   const s = I(t) ? void 0 : t._$litDirective$;
   return (a == null ? void 0 : a.constructor) !== s && ((o = a == null ? void 0 : a._$AO) == null || o.call(a, !1), s === void 0 ? a = void 0 : (a = new s(e), a._$AT(e, r, i)), i !== void 0 ? (r._$Co ?? (r._$Co = []))[i] = a : r._$Cl = a), a !== void 0 && (t = N(e, a._$AS(e, t.values), a, i)), t;
 }
-class zt {
+class Tt {
   constructor(t, r) {
     this._$AV = [], this._$AN = void 0, this._$AD = t, this._$AM = r;
   }
@@ -364,7 +364,7 @@ class zt {
     for (; c !== void 0; ) {
       if (n === c.index) {
         let l;
-        c.type === 2 ? l = new V(s, s.nextSibling, this, t) : c.type === 1 ? l = new c.ctor(s, c.name, c.strings, this, t) : c.type === 6 && (l = new Nt(s, this, t)), this._$AV.push(l), c = i[++o];
+        c.type === 2 ? l = new V(s, s.nextSibling, this, t) : c.type === 1 ? l = new c.ctor(s, c.name, c.strings, this, t) : c.type === 6 && (l = new Dt(s, this, t)), this._$AV.push(l), c = i[++o];
       }
       n !== (c == null ? void 0 : c.index) && (s = P.nextNode(), n++);
     }
@@ -395,7 +395,7 @@ class V {
     return this._$AB;
   }
   _$AI(t, r = this) {
-    t = N(this, t, r), I(t) ? t === p || t == null || t === "" ? (this._$AH !== p && this._$AR(), this._$AH = p) : t !== this._$AH && t !== L && this._(t) : t._$litType$ !== void 0 ? this.$(t) : t.nodeType !== void 0 ? this.T(t) : At(t) ? this.k(t) : this._(t);
+    t = N(this, t, r), I(t) ? t === p || t == null || t === "" ? (this._$AH !== p && this._$AR(), this._$AH = p) : t !== this._$AH && t !== L && this._(t) : t._$litType$ !== void 0 ? this.$(t) : t.nodeType !== void 0 ? this.T(t) : Rt(t) ? this.k(t) : this._(t);
   }
   O(t) {
     return this._$AA.parentNode.insertBefore(t, this._$AB);
@@ -408,10 +408,10 @@ class V {
   }
   $(t) {
     var s;
-    const { values: r, _$litType$: i } = t, a = typeof i == "number" ? this._$AC(t) : (i.el === void 0 && (i.el = W.createElement(st(i.h, i.h[0]), this.options)), i);
+    const { values: r, _$litType$: i } = t, a = typeof i == "number" ? this._$AC(t) : (i.el === void 0 && (i.el = W.createElement(ot(i.h, i.h[0]), this.options)), i);
     if (((s = this._$AH) == null ? void 0 : s._$AD) === a) this._$AH.p(r);
     else {
-      const n = new zt(a, this), o = n.u(this.options);
+      const n = new Tt(a, this), o = n.u(this.options);
       n.p(r), this.T(o), this._$AH = n;
     }
   }
@@ -463,7 +463,7 @@ class re {
     t === p ? this.element.removeAttribute(this.name) : this.element.setAttribute(this.name, t ?? "");
   }
 }
-class Mt extends re {
+class Lt extends re {
   constructor() {
     super(...arguments), this.type = 3;
   }
@@ -471,7 +471,7 @@ class Mt extends re {
     this.element[this.name] = t === p ? void 0 : t;
   }
 }
-class Tt extends re {
+class Nt extends re {
   constructor() {
     super(...arguments), this.type = 4;
   }
@@ -479,7 +479,7 @@ class Tt extends re {
     this.element.toggleAttribute(this.name, !!t && t !== p);
   }
 }
-class Lt extends re {
+class Bt extends re {
   constructor(t, r, i, a, s) {
     super(t, r, i, a, s), this.type = 5;
   }
@@ -493,7 +493,7 @@ class Lt extends re {
     typeof this._$AH == "function" ? this._$AH.call(((r = this.options) == null ? void 0 : r.host) ?? this.element, t) : this._$AH.handleEvent(t);
   }
 }
-class Nt {
+class Dt {
   constructor(t, r, i) {
     this.element = t, this.type = 6, this._$AN = void 0, this._$AM = r, this.options = i;
   }
@@ -506,7 +506,7 @@ class Nt {
 }
 const oe = H.litHtmlPolyfillSupport;
 oe == null || oe(W, V), (H.litHtmlVersions ?? (H.litHtmlVersions = [])).push("3.3.3");
-const Bt = (e, t, r) => {
+const Ut = (e, t, r) => {
   const i = (r == null ? void 0 : r.renderBefore) ?? t;
   let a = i._$litPart$;
   if (a === void 0) {
@@ -532,7 +532,7 @@ class M extends O {
   }
   update(t) {
     const r = this.render();
-    this.hasUpdated || (this.renderOptions.isConnected = this.isConnected), super.update(t), this._$Do = Bt(r, this.renderRoot, this.renderOptions);
+    this.hasUpdated || (this.renderOptions.isConnected = this.isConnected), super.update(t), this._$Do = Ut(r, this.renderRoot, this.renderOptions);
   }
   connectedCallback() {
     var t;
@@ -546,8 +546,8 @@ class M extends O {
     return L;
   }
 }
-var Qe;
-M._$litElement$ = !0, M.finalized = !0, (Qe = E.litElementHydrateSupport) == null || Qe.call(E, { LitElement: M });
+var tt;
+M._$litElement$ = !0, M.finalized = !0, (tt = E.litElementHydrateSupport) == null || tt.call(E, { LitElement: M });
 const ce = E.litElementPolyfillSupport;
 ce == null || ce({ LitElement: M });
 (E.litElementVersions ?? (E.litElementVersions = [])).push("4.2.2");
@@ -556,7 +556,7 @@ ce == null || ce({ LitElement: M });
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const nt = (e) => (t, r) => {
+const ct = (e) => (t, r) => {
   r !== void 0 ? r.addInitializer(() => {
     customElements.define(e, t);
   }) : customElements.define(e, t);
@@ -566,7 +566,7 @@ const nt = (e) => (t, r) => {
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const Dt = { attribute: !0, type: String, converter: Q, reflect: !1, hasChanged: we }, Ut = (e = Dt, t, r) => {
+const jt = { attribute: !0, type: String, converter: Q, reflect: !1, hasChanged: we }, Ht = (e = jt, t, r) => {
   const { kind: i, metadata: a } = r;
   let s = globalThis.litPropertyMetadata.get(a);
   if (s === void 0 && globalThis.litPropertyMetadata.set(a, s = /* @__PURE__ */ new Map()), i === "setter" && ((e = Object.create(e)).wrapped = !0), s.set(r.name, e), i === "accessor") {
@@ -588,7 +588,7 @@ const Dt = { attribute: !0, type: String, converter: Q, reflect: !1, hasChanged:
   throw Error("Unsupported decorator location: " + i);
 };
 function Se(e) {
-  return (t, r) => typeof r == "object" ? Ut(e, t, r) : ((i, a, s) => {
+  return (t, r) => typeof r == "object" ? Ht(e, t, r) : ((i, a, s) => {
     const n = a.hasOwnProperty(s);
     return a.constructor.createProperty(s, i), n ? Object.getOwnPropertyDescriptor(a, s) : void 0;
   })(e, t, r);
@@ -612,7 +612,7 @@ async function Ye(e, t) {
     entry_id: t
   });
 }
-async function jt(e, t, r, i) {
+async function Ft(e, t, r, i) {
   return e.callWS({
     type: "conx_dynamic_panel/update_profile",
     entry_id: t,
@@ -620,21 +620,21 @@ async function jt(e, t, r, i) {
     profile: i
   });
 }
-async function Ht(e, t, r) {
+async function Gt(e, t, r) {
   return e.callWS({
     type: "conx_dynamic_panel/create_profile",
     entry_id: t,
     profile: r
   });
 }
-async function Ft(e, t, r) {
+async function Yt(e, t, r) {
   await e.callWS({
     type: "conx_dynamic_panel/delete_profile",
     entry_id: t,
     profile_id: r
   });
 }
-async function Gt(e, t, r, i, a) {
+async function It(e, t, r, i, a) {
   return e.callWS({
     type: "conx_dynamic_panel/duplicate_profile",
     entry_id: t,
@@ -651,25 +651,25 @@ async function de(e, t, r, i = !1) {
     sync: i
   });
 }
-async function Yt(e, t) {
+async function Wt(e, t) {
   return e.callWS({
     type: "conx_dynamic_panel/sync",
     entry_id: t
   });
 }
-async function It(e, t) {
+async function Jt(e, t) {
   return e.callWS({
     type: "conx_dynamic_panel/pull",
     entry_id: t
   });
 }
-async function Wt(e, t) {
+async function Xt(e, t) {
   return e.callWS({
     type: "conx_dynamic_panel/export_profiles",
     entry_id: t
   });
 }
-async function Jt(e, t, r, i = "merge") {
+async function Vt(e, t, r, i = "merge") {
   return e.callWS({
     type: "conx_dynamic_panel/import_profiles",
     entry_id: t,
@@ -677,14 +677,14 @@ async function Jt(e, t, r, i = "merge") {
     mode: i
   });
 }
-async function Xt(e, t, r) {
+async function qt(e, t, r) {
   return e.callWS({
     type: "conx_dynamic_panel/update_panel_name",
     entry_id: t,
     panel_name: r
   });
 }
-async function Vt(e, t, r, i) {
+async function Zt(e, t, r, i) {
   const a = {
     type: "conx_dynamic_panel/cover_command",
     entry_id: t,
@@ -692,14 +692,14 @@ async function Vt(e, t, r, i) {
   };
   return i && (a.cover_id = i), e.callWS(a);
 }
-async function qt(e, t, r) {
+async function Kt(e, t, r) {
   return e.callWS({
     type: "conx_dynamic_panel/execute_button",
     entry_id: t,
     button: r
   });
 }
-async function Zt(e, t, r) {
+async function Qt(e, t, r) {
   var i;
   return (i = e.connection) != null && i.subscribeMessage ? e.connection.subscribeMessage(r, {
     type: "conx_dynamic_panel/subscribe",
@@ -714,41 +714,41 @@ function G(e, t, r, i) {
 function v(e) {
   return Math.round(G(e, 1, 4, 4));
 }
-const Kt = /* @__PURE__ */ new Set([
+const er = /* @__PURE__ */ new Set([
   "radio_mandatory",
   "radio_optional",
   "radio_split",
   "cover"
-]), ot = 0.1, ct = 600, z = 2, me = [
+]), lt = 0.1, dt = 600, z = 2, me = [
   "toggle",
   "momentary",
   "radio",
   "cover_open",
   "cover_close"
-], Qt = /* @__PURE__ */ new Set(["radio", "cover_open", "cover_close"]);
+], tr = /* @__PURE__ */ new Set(["radio", "cover_open", "cover_close"]);
 function K(e, t = z) {
-  return G(e, ot, ct, t);
+  return G(e, lt, dt, t);
 }
-function er(e, t) {
+function rr(e, t) {
   const r = String(e || "").trim().toLowerCase();
   return me.includes(r) ? r : String(t || "").trim().toLowerCase() === "momentary" ? "momentary" : "toggle";
 }
 function ge(e) {
-  return v(e) > 1 ? [...me] : me.filter((t) => !Qt.has(t));
+  return v(e) > 1 ? [...me] : me.filter((t) => !tr.has(t));
 }
-function lt(e) {
-  return Kt.has(e);
+function pt(e) {
+  return er.has(e);
 }
 function Ie(e, t) {
-  return v(t) > 1 ? [...e] : e.filter((r) => !lt(r));
+  return v(t) > 1 ? [...e] : e.filter((r) => !pt(r));
 }
 function fe(e, t) {
-  return v(t) === 1 && lt(e) ? "toggle" : e;
+  return v(t) === 1 && pt(e) ? "toggle" : e;
 }
 function be(e) {
   return Math.max(0, Math.floor(v(e) / 2));
 }
-function tr(e, t) {
+function ir(e, t) {
   const r = e * 2 + 1, i = e * 2 + 2;
   return i > t ? [1, t >= 2 ? 2 : 1] : [r, i];
 }
@@ -757,7 +757,7 @@ function We(e, t, r) {
   return !Number.isFinite(i) || i < 1 || i > a ? Math.min(t, a) : i;
 }
 function T(e, t = {}) {
-  const r = v(t.gangCount ?? 4), i = t.slot ?? 0, a = t.defaultId ?? `cover_${i + 1}`, [s, n] = tr(i, r), o = e || {}, c = We(o.open_button, s, r);
+  const r = v(t.gangCount ?? 4), i = t.slot ?? 0, a = t.defaultId ?? `cover_${i + 1}`, [s, n] = ir(i, r), o = e || {}, c = We(o.open_button, s, r);
   let l = We(o.close_button, n, r);
   return l === c && (l = Array.from({ length: r }, (u, h) => h + 1).find((u) => u !== c) ?? Math.min(c + 1, r)), {
     id: String(o.id || "").trim() || a,
@@ -800,7 +800,7 @@ function y(e) {
     return a.add(o), { ...s, id: o };
   });
 }
-function rr(e) {
+function ar(e) {
   const t = structuredClone(e);
   t.gang_count = v(t.gang_count ?? 4);
   let r = String(t.mode || "toggle");
@@ -812,7 +812,7 @@ function rr(e) {
   t.buttons = [1, 2, 3, 4].map((o) => {
     var u;
     const c = (u = t.buttons) == null ? void 0 : u.find((h) => h.index === o);
-    let l = er(c == null ? void 0 : c.role, c == null ? void 0 : c.press_mode);
+    let l = rr(c == null ? void 0 : c.role, c == null ? void 0 : c.press_mode);
     return i.has(l) || (l = "toggle"), {
       index: o,
       name: (c == null ? void 0 : c.name) ?? `Button ${o}`,
@@ -836,18 +836,18 @@ function rr(e) {
   return t.radio_groups = n, t.covers = y(t), delete t.cover, t.selected_button != null && (t.selected_button < 1 || t.selected_button > t.gang_count) && (t.selected_button = null), t;
 }
 function D(e) {
-  return rr(e);
+  return ar(e);
 }
-function ir(e, t) {
+function sr(e, t) {
   return !e || !t ? e === t : JSON.stringify(e) === JSON.stringify(t);
 }
-function ar(e, t) {
+function nr(e, t) {
   const r = new Blob([JSON.stringify(t, null, 2)], {
     type: "application/json"
   }), i = URL.createObjectURL(r), a = document.createElement("a");
   a.href = i, a.download = e, a.click(), URL.revokeObjectURL(i);
 }
-const sr = "YOUR_ENTRY_ID", pe = [
+const or = "YOUR_ENTRY_ID", pe = [
   { id: "morning", at: "06:30:00", profile: "morning" },
   { id: "evening", at: "18:00:00", profile: "evening" },
   { id: "night", at: "23:00:00", profile: "night" }
@@ -860,8 +860,8 @@ function he(e) {
   return String(e).split(`
 `).map((t) => `# ${t.trim()}`.trimEnd());
 }
-function nr(e) {
-  const { comments: t } = e, r = Je(e.entryId, sr), i = {
+function cr(e) {
+  const { comments: t } = e, r = Je(e.entryId, or), i = {
     morning: t.morning,
     evening: t.evening,
     night: t.night
@@ -884,7 +884,7 @@ function nr(e) {
 `)}
 `;
 }
-const U = 2, or = /* @__PURE__ */ new Set([
+const U = 2, lr = /* @__PURE__ */ new Set([
   "toggle",
   "radio_mandatory",
   "radio_optional",
@@ -892,7 +892,7 @@ const U = 2, or = /* @__PURE__ */ new Set([
   "mixed",
   "cover"
 ]);
-function cr(e) {
+function dr(e) {
   const t = [];
   for (Array.isArray(e) && e.forEach((r, i) => {
     if (!x(r)) return;
@@ -909,7 +909,7 @@ function cr(e) {
 function x(e) {
   return typeof e == "object" && e !== null && !Array.isArray(e);
 }
-function lr(e) {
+function pr(e) {
   if (x(e)) {
     const t = Object.entries(e);
     if (!t.length)
@@ -944,7 +944,7 @@ function Xe(e, t) {
   if (!r)
     return { ok: !1, error: "profile is missing id" };
   const i = String(e.mode || "toggle");
-  if (!or.has(i))
+  if (!lr.has(i))
     return { ok: !1, error: `unsupported mode for profile ${r}: ${i}` };
   const a = Array.isArray(e.buttons) ? e.buttons : [], s = [1, 2, 3, 4].map((o) => {
     const c = a.find(
@@ -986,12 +986,12 @@ function Xe(e, t) {
       selected_button: e.selected_button === null || e.selected_button === void 0 ? null : Number(e.selected_button),
       gang_count: Math.max(1, Math.min(4, Number(e.gang_count) || 4)),
       buttons: s,
-      radio_groups: cr(e.radio_groups),
+      radio_groups: dr(e.radio_groups),
       covers: Array.isArray(e.covers) ? e.covers : e.cover ? [e.cover] : void 0
     }
   };
 }
-function dr(e) {
+function hr(e) {
   if (!x(e))
     return { ok: !1, error: "Root must be a JSON object" };
   const t = e.schema_version ?? U, r = Number(t);
@@ -1002,7 +1002,7 @@ function dr(e) {
       ok: !1,
       error: `Unsupported schema_version ${r}; current is ${U}`
     };
-  const i = lr(e.profiles);
+  const i = pr(e.profiles);
   if (!i.ok)
     return i;
   let a = null;
@@ -1018,14 +1018,14 @@ function dr(e) {
     }
   };
 }
-function pr(e, t) {
+function ur(e, t) {
   return {
     schema_version: U,
     active_profile_id: t,
     profiles: structuredClone(e)
   };
 }
-function hr(e, t, r = "YOUR_CONFIG_ENTRY_ID") {
+function _r(e, t, r = "YOUR_CONFIG_ENTRY_ID") {
   const i = JSON.stringify(e, null, 2).split(`
 `).map((a, s) => s === 0 ? a : `    ${a}`).join(`
 `);
@@ -1038,7 +1038,7 @@ function hr(e, t, r = "YOUR_CONFIG_ENTRY_ID") {
   ].join(`
 `);
 }
-function ur(e) {
+function mr(e) {
   if (!e)
     return [];
   const t = [];
@@ -1056,7 +1056,7 @@ function Ve(e) {
   const t = e.trim(), r = t.indexOf(".");
   return r <= 0 || r === t.length - 1 ? null : t.slice(0, r);
 }
-function _r(e, t) {
+function gr(e, t) {
   if (!e)
     return [];
   const r = (t == null ? void 0 : t.trim()) || null;
@@ -1065,7 +1065,7 @@ function _r(e, t) {
 function ve() {
   return typeof customElements < "u" && typeof customElements.get == "function" && !!customElements.get("ha-entity-picker");
 }
-async function mr() {
+async function fr() {
   var t, r, i;
   if (ve())
     return !0;
@@ -1086,7 +1086,7 @@ function qe(e, t) {
   const r = (t == null ? void 0 : t.trim()) || "";
   return !r || e.includes(r) ? e : [r, ...e];
 }
-const dt = "conx-dynamic-panel-lang", pt = {}, ht = {
+const ht = "conx-dynamic-panel-lang", ut = {}, _t = {
   "card.title": "ConX Dynamic Panel",
   "card.sync": "Sync to Panel",
   "card.pull": "Pull from Panel",
@@ -1237,7 +1237,7 @@ const dt = "conx-dynamic-panel-lang", pt = {}, ht = {
   "role.radio": "Radio group",
   "role.cover_open": "Cover open",
   "role.cover_close": "Cover close"
-}, gr = {
+}, br = {
   "card.title": "ConX Dynamic Panel",
   "card.sync": "סנכרון לפאנל",
   "card.pull": "משיכה מהפאנל",
@@ -1388,7 +1388,7 @@ const dt = "conx-dynamic-panel-lang", pt = {}, ht = {
   "role.radio": "קבוצת רדיו",
   "role.cover_open": "פתיחת תריס",
   "role.cover_close": "סגירת תריס"
-}, fr = {
+}, vr = {
   "card.title": "ConX Dynamic Panel",
   "card.sync": "Синхронизация",
   "card.pull": "Считать с панели",
@@ -1539,10 +1539,10 @@ const dt = "conx-dynamic-panel-lang", pt = {}, ht = {
   "role.radio": "Радиогруппа",
   "role.cover_open": "Открыть ролету",
   "role.cover_close": "Закрыть ролету"
-}, br = {
-  en: ht,
-  he: gr,
-  ru: fr
+}, yr = {
+  en: _t,
+  he: br,
+  ru: vr
 }, ye = [
   { id: "he", label: "עברית", flag: "IL" },
   { id: "en", label: "English", flag: "GB" },
@@ -1552,32 +1552,32 @@ function J(e) {
   const t = (e || "en").toLowerCase();
   return t.startsWith("he") || t.startsWith("iw") ? "he" : t.startsWith("ru") ? "ru" : "en";
 }
-function vr() {
+function xr() {
   var e, t;
   try {
-    const r = (t = (e = globalThis.localStorage) == null ? void 0 : e.getItem) == null ? void 0 : t.call(e, dt);
+    const r = (t = (e = globalThis.localStorage) == null ? void 0 : e.getItem) == null ? void 0 : t.call(e, ht);
     if (r === "en" || r === "he" || r === "ru")
       return r;
   } catch {
   }
-  return pt.language || null;
+  return ut.language || null;
 }
-function yr(e) {
+function $r(e) {
   var t, r;
-  pt.language = e;
+  ut.language = e;
   try {
-    (r = (t = globalThis.localStorage) == null ? void 0 : t.setItem) == null || r.call(t, dt, e);
+    (r = (t = globalThis.localStorage) == null ? void 0 : t.setItem) == null || r.call(t, ht, e);
   } catch {
   }
 }
 function R(e, t) {
   const r = J(e);
-  return br[r][t] || ht[t] || t;
+  return yr[r][t] || _t[t] || t;
 }
-function ut(e) {
+function mt(e) {
   return J(e) === "he";
 }
-const _t = "conx-dynamic-panel-theme", xr = {
+const gt = "conx-dynamic-panel-theme", wr = {
   industrial: "ivory",
   glass: "ivory",
   glass_light: "ivory",
@@ -1600,33 +1600,33 @@ const _t = "conx-dynamic-panel-theme", xr = {
     swatch: "linear-gradient(145deg, #ffffff 0%, #f5f7fa 48%, #e8ecf1 72%, #8a7348 100%)",
     accent: "#8a7348"
   }
-], $r = new Set(Pe.map((e) => e.id));
+], kr = new Set(Pe.map((e) => e.id));
 function ie(e) {
-  return e ? $r.has(e) ? e : xr[e] || "noir" : "noir";
+  return e ? kr.has(e) ? e : wr[e] || "noir" : "noir";
 }
 function Ze() {
   var e, t;
   try {
-    const r = (t = (e = globalThis.localStorage) == null ? void 0 : e.getItem) == null ? void 0 : t.call(e, _t);
+    const r = (t = (e = globalThis.localStorage) == null ? void 0 : e.getItem) == null ? void 0 : t.call(e, gt);
     return r ? ie(r) : null;
   } catch {
   }
   return null;
 }
-function wr(e) {
+function Sr(e) {
   var t, r;
   try {
-    (r = (t = globalThis.localStorage) == null ? void 0 : t.setItem) == null || r.call(t, _t, e);
+    (r = (t = globalThis.localStorage) == null ? void 0 : t.setItem) == null || r.call(t, gt, e);
   } catch {
   }
 }
 function Ke(e, t) {
   return e ? ie(e) : t || "noir";
 }
-var kr = Object.defineProperty, Sr = Object.getOwnPropertyDescriptor, m = (e, t, r, i) => {
-  for (var a = i > 1 ? void 0 : i ? Sr(t, r) : t, s = e.length - 1, n; s >= 0; s--)
+var Pr = Object.defineProperty, Er = Object.getOwnPropertyDescriptor, m = (e, t, r, i) => {
+  for (var a = i > 1 ? void 0 : i ? Er(t, r) : t, s = e.length - 1, n; s >= 0; s--)
     (n = e[s]) && (a = (i ? n(t, r, a) : n(a)) || a);
-  return i && a && kr(t, r, a), a;
+  return i && a && Pr(t, r, a), a;
 };
 const A = [
   "language",
@@ -1635,7 +1635,7 @@ const A = [
   "preview",
   "review",
   "transfer"
-], Pr = {
+], Qe = {
   red: "#ff1744",
   blue: "#2979ff",
   green: "#00e676",
@@ -1645,11 +1645,11 @@ const A = [
   cyan: "#00e5ff",
   warm_white: "#ffe0b2",
   warm_yellow: "#ffc400"
-}, mt = "#00e5ff", Er = "#2979ff", gt = "conx-dynamic-panel-radio-groups-open";
-function Cr() {
+}, ft = "#00e5ff", Cr = "#2979ff", bt = "conx-dynamic-panel-radio-groups-open";
+function Ar() {
   var e, t;
   try {
-    const r = (t = (e = globalThis.localStorage) == null ? void 0 : e.getItem) == null ? void 0 : t.call(e, gt);
+    const r = (t = (e = globalThis.localStorage) == null ? void 0 : e.getItem) == null ? void 0 : t.call(e, bt);
     if (r === "0")
       return !1;
     if (r === "1")
@@ -1658,15 +1658,26 @@ function Cr() {
   }
   return null;
 }
-function Ar(e) {
+function Or(e) {
   var t, r;
   try {
-    (r = (t = globalThis.localStorage) == null ? void 0 : t.setItem) == null || r.call(t, gt, e ? "1" : "0");
+    (r = (t = globalThis.localStorage) == null ? void 0 : t.setItem) == null || r.call(t, bt, e ? "1" : "0");
   } catch {
   }
 }
-function q(e, t = mt) {
-  return e && (Pr[e] || e) || t;
+function q(e, t = ft) {
+  if (!e)
+    return t;
+  const r = e.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  return Qe[r] || Qe[r.replace(/_/g, "")] || t;
+}
+function et(e, ...t) {
+  const r = [...e || []], i = new Set(r);
+  for (const a of t) {
+    const s = String(a || "").trim();
+    !s || i.has(s) || (r.push(s), i.add(s));
+  }
+  return r;
 }
 let _ = class extends M {
   constructor() {
@@ -1697,7 +1708,7 @@ let _ = class extends M {
   }
   connectedCallback() {
     var e;
-    super.connectedCallback(), this._uiLang || (this._uiLang = vr() || void 0), this._theme = Ke((e = this._config) == null ? void 0 : e.theme, Ze()), this._ensureFonts(), this._ensureRuntimeSubscription(), this._ensureHaEntityPicker();
+    super.connectedCallback(), this._uiLang || (this._uiLang = xr() || void 0), this._theme = Ke((e = this._config) == null ? void 0 : e.theme, Ze()), this._ensureFonts(), this._ensureRuntimeSubscription(), this._ensureHaEntityPicker();
   }
   disconnectedCallback() {
     this._teardownRuntimeSubscription(), this._clearFaceplatePreview(), super.disconnectedCallback();
@@ -1722,8 +1733,8 @@ let _ = class extends M {
   _buildServiceYaml(e) {
     if (!this._panel || !this._config)
       return "";
-    const t = e || pr(this._panel.profiles, this._panel.active_profile_id);
-    return hr(
+    const t = e || ur(this._panel.profiles, this._panel.active_profile_id);
+    return _r(
       t,
       this._importMode,
       this._config.entry_id
@@ -1746,7 +1757,7 @@ let _ = class extends M {
   _buildAutomationYaml() {
     var t;
     const e = this._panel ? Object.keys(this._panel.profiles) : [];
-    return nr({
+    return cr({
       entryId: (t = this._config) == null ? void 0 : t.entry_id,
       profileIds: e,
       comments: {
@@ -1791,13 +1802,13 @@ let _ = class extends M {
     return R(this._language, e);
   }
   get _dirty() {
-    return !ir(this._draft || null, this._saved || null);
+    return !sr(this._draft || null, this._saved || null);
   }
   _setLanguage(e) {
-    this._uiLang = e, yr(e);
+    this._uiLang = e, $r(e);
   }
   _setTheme(e) {
-    this._theme = ie(e), wr(this._theme), this._config && (this._config = { ...this._config, theme: this._theme }, this.dispatchEvent(
+    this._theme = ie(e), Sr(this._theme), this._config && (this._config = { ...this._config, theme: this._theme }, this.dispatchEvent(
       new CustomEvent("config-changed", {
         detail: { config: this._config },
         bubbles: !0,
@@ -2015,7 +2026,7 @@ let _ = class extends M {
     var i;
     this._panel = e, this._panelNameDraft = e.panel_name, this._runtimeRelayStates = e.relay_states ? [...e.relay_states] : [];
     const t = e.active_profile_id, r = t ? e.profiles[t] : void 0;
-    this._saved = r ? D(r) : void 0, this._draft = r ? D(r) : void 0, this._clearFaceplatePreview(), ((i = this._draft) == null ? void 0 : i.mode) === "radio_split" && (this._radioGroupsOpen = Cr() ?? !0), this._syncMomentaryFromRuntime(e.momentary_active);
+    this._saved = r ? D(r) : void 0, this._draft = r ? D(r) : void 0, this._clearFaceplatePreview(), ((i = this._draft) == null ? void 0 : i.mode) === "radio_split" && (this._radioGroupsOpen = Ar() ?? !0), this._syncMomentaryFromRuntime(e.momentary_active);
   }
   /** Merge coordinator runtime push — never overwrites draft / saved profiles. */
   _applyRuntime(e) {
@@ -2040,7 +2051,7 @@ let _ = class extends M {
     if (!(!this.hass || !e || !this._panel) && !(this._unsubRuntime && this._runtimeEntryId === e)) {
       this._teardownRuntimeSubscription(), this._runtimeEntryId = e;
       try {
-        this._unsubRuntime = await Zt(this.hass, e, (r) => {
+        this._unsubRuntime = await Qt(this.hass, e, (r) => {
           this._applyRuntime(r);
         });
       } catch {
@@ -2139,7 +2150,7 @@ let _ = class extends M {
     this._armMomentaryUiPulse(e);
   }
   _setRadioGroupsOpen(e) {
-    this._radioGroupsOpen = e, Ar(e);
+    this._radioGroupsOpen = e, Or(e);
   }
   _groupSummary(e) {
     const t = [...e].sort((r, i) => r - i).map((r) => `L${r}`);
@@ -2359,7 +2370,7 @@ let _ = class extends M {
     if (!(!this.hass || !this._config)) {
       this._busy = !0, this._error = void 0;
       try {
-        const r = await Vt(
+        const r = await Zt(
           this.hass,
           this._config.entry_id,
           e,
@@ -2691,7 +2702,7 @@ let _ = class extends M {
     if (!(!this.hass || !this._config || !this._draft)) {
       this._busy = !0, this._error = void 0;
       try {
-        const e = await jt(
+        const e = await Ft(
           this.hass,
           this._config.entry_id,
           this._draft.id,
@@ -2712,7 +2723,7 @@ let _ = class extends M {
     if (!(!this.hass || !this._config)) {
       this._dirty && await this._saveDraft(), this._busy = !0, this._error = void 0, this._syncPulse = !0;
       try {
-        const e = await Yt(this.hass, this._config.entry_id);
+        const e = await Wt(this.hass, this._config.entry_id);
         this._applyPanel(e);
       } catch (e) {
         this._error = e instanceof Error ? e.message : String(e), this._config && await this._load();
@@ -2727,7 +2738,7 @@ let _ = class extends M {
     if (!(!this.hass || !this._config) && await this._guardDirty()) {
       this._busy = !0, this._error = void 0;
       try {
-        const e = await It(this.hass, this._config.entry_id);
+        const e = await Jt(this.hass, this._config.entry_id);
         this._applyPanel(e);
       } catch (e) {
         this._error = e instanceof Error ? e.message : String(e);
@@ -2760,7 +2771,7 @@ let _ = class extends M {
     };
     this._busy = !0;
     try {
-      await Ht(this.hass, this._config.entry_id, t);
+      await Gt(this.hass, this._config.entry_id, t);
       const r = await de(
         this.hass,
         this._config.entry_id,
@@ -2780,7 +2791,7 @@ let _ = class extends M {
     const e = `${this._draft.id}_copy_${Date.now()}`;
     this._busy = !0;
     try {
-      await Gt(
+      await It(
         this.hass,
         this._config.entry_id,
         this._draft.id,
@@ -2815,7 +2826,7 @@ let _ = class extends M {
       if (window.confirm(`${this.t("card.delete")} ${this._draft.name}?`)) {
         this._busy = !0;
         try {
-          await Ft(this.hass, this._config.entry_id, this._draft.id), await this._load();
+          await Yt(this.hass, this._config.entry_id, this._draft.id), await this._load();
         } catch (e) {
           this._error = e instanceof Error ? e.message : String(e);
         } finally {
@@ -2828,8 +2839,8 @@ let _ = class extends M {
     if (!(!this.hass || !this._config || !this._panel)) {
       this._busy = !0, this._error = void 0;
       try {
-        const e = await Wt(this.hass, this._config.entry_id), t = this._panel.panel_name.replace(/[^\w.-]+/g, "_");
-        ar(`conx-profiles-${t}.json`, e), this._refreshServiceYaml(e), this._notice = this.t("card.export_ok");
+        const e = await Xt(this.hass, this._config.entry_id), t = this._panel.panel_name.replace(/[^\w.-]+/g, "_");
+        nr(`conx-profiles-${t}.json`, e), this._refreshServiceYaml(e), this._notice = this.t("card.export_ok");
       } catch (e) {
         this._error = e instanceof Error ? e.message : String(e);
       } finally {
@@ -2848,10 +2859,10 @@ let _ = class extends M {
     if (!(!this.hass || !this._config) && await this._guardDirty()) {
       this._busy = !0, this._error = void 0;
       try {
-        const r = await e.text(), i = dr(JSON.parse(r));
+        const r = await e.text(), i = hr(JSON.parse(r));
         if (!i.ok)
           throw new Error(i.error || this.t("card.import_invalid"));
-        const a = await Jt(
+        const a = await Vt(
           this.hass,
           this._config.entry_id,
           i.payload,
@@ -2888,7 +2899,7 @@ let _ = class extends M {
         this._haEntityPickerReady = !0;
         return;
       }
-      this._haEntityPickerReady = await mr();
+      this._haEntityPickerReady = await fr();
     }
   }
   _setButtonAction(e, t, r) {
@@ -2944,10 +2955,10 @@ let _ = class extends M {
   _renderActionEntityPickers(e, t, r) {
     var o, c;
     const i = qe(
-      ur((o = this.hass) == null ? void 0 : o.services),
+      mr((o = this.hass) == null ? void 0 : o.services),
       t
     ), a = Ve(t), s = qe(
-      _r((c = this.hass) == null ? void 0 : c.states, a),
+      gr((c = this.hass) == null ? void 0 : c.states, a),
       r
     ), n = this._haEntityPickerReady && !!this.hass;
     return d`
@@ -3158,7 +3169,7 @@ let _ = class extends M {
     const t = (r = this._config) == null ? void 0 : r.entry_id;
     if (!(!this.hass || !t || this._busy))
       try {
-        const i = await qt(this.hass, t, e);
+        const i = await Kt(this.hass, t, e);
         this._applyRuntime(i);
       } catch (i) {
         this._error = i instanceof Error ? i.message : this.t("card.error"), this.requestUpdate();
@@ -3166,11 +3177,11 @@ let _ = class extends M {
   }
   _ringOnColor() {
     var e;
-    return q((e = this._draft) == null ? void 0 : e.color_on, mt);
+    return q((e = this._draft) == null ? void 0 : e.color_on, ft);
   }
   _ringOffColor() {
     var e;
-    return q((e = this._draft) == null ? void 0 : e.color_off, Er);
+    return q((e = this._draft) == null ? void 0 : e.color_off, Cr);
   }
   _renderFlag(e) {
     return e === "IL" ? d`
@@ -3413,7 +3424,7 @@ let _ = class extends M {
     }
     this._busy = !0, this._error = void 0;
     try {
-      const t = await Xt(
+      const t = await qt(
         this.hass,
         this._config.entry_id,
         e
@@ -3459,7 +3470,17 @@ let _ = class extends M {
     `;
   }
   _renderAppearanceFields() {
-    return !this._panel || !this._draft ? p : d`
+    if (!this._panel || !this._draft)
+      return p;
+    const e = et(
+      this._panel.capabilities.colors,
+      this._draft.color_on,
+      this._draft.color_off
+    ), t = et(
+      this._panel.capabilities.radar,
+      this._draft.radar
+    );
+    return d`
           <div class="grid-2">
             <label class="field">
               <span>${this.t("card.color_on")}</span>
@@ -3471,12 +3492,12 @@ let _ = class extends M {
                 <select
                   .value=${this._draft.color_on}
                   ?disabled=${this._busy}
-                  @change=${(e) => this._patchDraft((t) => {
-      t.color_on = e.target.value;
+                  @change=${(r) => this._patchDraft((i) => {
+      i.color_on = r.target.value;
     })}
                 >
-                  ${this._panel.capabilities.colors.map(
-      (e) => d`<option value=${e}>${e}</option>`
+                  ${e.map(
+      (r) => d`<option value=${r}>${r}</option>`
     )}
                 </select>
               </div>
@@ -3491,12 +3512,12 @@ let _ = class extends M {
                 <select
                   .value=${this._draft.color_off}
                   ?disabled=${this._busy}
-                  @change=${(e) => this._patchDraft((t) => {
-      t.color_off = e.target.value;
+                  @change=${(r) => this._patchDraft((i) => {
+      i.color_off = r.target.value;
     })}
                 >
-                  ${this._panel.capabilities.colors.map(
-      (e) => d`<option value=${e}>${e}</option>`
+                  ${e.map(
+      (r) => d`<option value=${r}>${r}</option>`
     )}
                 </select>
               </div>
@@ -3508,12 +3529,12 @@ let _ = class extends M {
               <select
                 .value=${this._draft.radar}
                 ?disabled=${this._busy}
-                @change=${(e) => this._patchDraft((t) => {
-      t.radar = e.target.value;
+                @change=${(r) => this._patchDraft((i) => {
+      i.radar = r.target.value;
     })}
               >
-                ${this._panel.capabilities.radar.map(
-      (e) => d`<option value=${e}>${e}</option>`
+                ${t.map(
+      (r) => d`<option value=${r}>${r}</option>`
     )}
               </select>
             </div>
@@ -3526,8 +3547,8 @@ let _ = class extends M {
                   type="checkbox"
                   .checked=${this._draft.backlight}
                   ?disabled=${this._busy}
-                  @change=${(e) => this._patchDraft((t) => {
-      t.backlight = e.target.checked;
+                  @change=${(r) => this._patchDraft((i) => {
+      i.backlight = r.target.checked;
     })}
                 />
                 <span class="slider"></span>
@@ -3540,8 +3561,8 @@ let _ = class extends M {
                   type="checkbox"
                   .checked=${this._draft.child_lock}
                   ?disabled=${this._busy}
-                  @change=${(e) => this._patchDraft((t) => {
-      t.child_lock = e.target.checked;
+                  @change=${(r) => this._patchDraft((i) => {
+      i.child_lock = r.target.checked;
     })}
                 />
                 <span class="slider"></span>
@@ -3561,9 +3582,9 @@ let _ = class extends M {
               .value=${String(this._draft.backlight_brightness ?? 100)}
               style="--brightness-pct: ${this._draft.backlight_brightness ?? 100}%"
               ?disabled=${this._busy || !this._draft.backlight}
-              @input=${(e) => this._patchDraft((t) => {
-      t.backlight_brightness = Number(
-        e.target.value
+              @input=${(r) => this._patchDraft((i) => {
+      i.backlight_brightness = Number(
+        r.target.value
       );
     })}
             />
@@ -3623,8 +3644,8 @@ let _ = class extends M {
                       <input
                         type="number"
                         data-pulse-time
-                        min=${ot}
-                        max=${ct}
+                        min=${lt}
+                        max=${dt}
                         step="0.1"
                         .value=${String(s)}
                         ?disabled=${this._busy}
@@ -3750,9 +3771,9 @@ let _ = class extends M {
                                       <select
                                         .value=${n ? "radio" : "toggle"}
                                         ?disabled=${this._busy}
-                                        @change=${(ae) => this._patchDraft((ft) => {
-        const ze = ft.buttons.find(
-          (bt) => bt.index === e.index
+                                        @change=${(ae) => this._patchDraft((vt) => {
+        const ze = vt.buttons.find(
+          (yt) => yt.index === e.index
         );
         ze && (ze.radio_member = ae.target.value === "radio");
       })}
@@ -3892,7 +3913,7 @@ let _ = class extends M {
   }
   render() {
     var r;
-    const e = ut(this._language);
+    const e = mt(this._language);
     if (!((r = this._config) != null && r.entry_id))
       return d`<ha-card class="conx-card"><div class="pad">${this.t("card.missing_entry")}</div></ha-card>`;
     if (this._loading && !this._panel)
@@ -4284,7 +4305,7 @@ let _ = class extends M {
     `;
   }
 };
-_.styles = tt`
+_.styles = it`
     :host {
       display: block;
       width: 100%;
@@ -6479,12 +6500,12 @@ m([
   g()
 ], _.prototype, "_haEntityPickerReady", 2);
 _ = m([
-  nt("conx-dynamic-panel-card")
+  ct("conx-dynamic-panel-card")
 ], _);
-var Or = Object.defineProperty, Rr = Object.getOwnPropertyDescriptor, Ee = (e, t, r, i) => {
-  for (var a = i > 1 ? void 0 : i ? Rr(t, r) : t, s = e.length - 1, n; s >= 0; s--)
+var Rr = Object.defineProperty, zr = Object.getOwnPropertyDescriptor, Ee = (e, t, r, i) => {
+  for (var a = i > 1 ? void 0 : i ? zr(t, r) : t, s = e.length - 1, n; s >= 0; s--)
     (n = e[s]) && (a = (i ? n(t, r, a) : n(a)) || a);
-  return i && a && Or(t, r, a), a;
+  return i && a && Rr(t, r, a), a;
 };
 let X = class extends M {
   setConfig(e) {
@@ -6509,7 +6530,7 @@ let X = class extends M {
   render() {
     if (!this._config)
       return d``;
-    const e = ut(this._language);
+    const e = mt(this._language);
     return d`
       <div class="editor" dir=${e ? "rtl" : "ltr"}>
         <label>
@@ -6563,7 +6584,7 @@ let X = class extends M {
     `;
   }
 };
-X.styles = tt`
+X.styles = it`
     .editor {
       display: flex;
       flex-direction: column;
@@ -6598,7 +6619,7 @@ Ee([
   g()
 ], X.prototype, "_config", 2);
 X = Ee([
-  nt("conx-dynamic-panel-card-editor")
+  ct("conx-dynamic-panel-card-editor")
 ], X);
 window.customCards = window.customCards || [];
 window.customCards.push({
