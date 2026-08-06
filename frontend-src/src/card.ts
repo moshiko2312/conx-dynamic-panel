@@ -18,6 +18,7 @@ import {
   deleteProfile,
   downloadJson,
   duplicateProfile,
+  executeButton,
   exportProfiles,
   fetchConfig,
   importProfiles,
@@ -2161,8 +2162,9 @@ export class ConXDynamicPanelCard extends LitElement {
         this._pressedRing = null;
       }
     }, 180);
-    // Faceplate presses are local LED preview only — never mutate the draft
+    // Optimistic local LED preview for snappy UI — never mutate the draft
     // (mutating selected_button previously flipped _dirty / Save Draft).
+    // Hardware + HA actions are driven via execute_button below.
     if (!this._draft) {
       return;
     }
@@ -2181,6 +2183,7 @@ export class ConXDynamicPanelCard extends LitElement {
         [buttonIndex]: !this._splitPreviewOn[buttonIndex],
         [opposite]: false,
       };
+      void this._dispatchButtonPress(buttonIndex);
       return;
     }
     if (this._draft.mode === "radio_split") {
@@ -2197,6 +2200,7 @@ export class ConXDynamicPanelCard extends LitElement {
         }
       }
       this._splitPreviewOn = next;
+      void this._dispatchButtonPress(buttonIndex);
       return;
     }
     if (this._draft.mode === "mixed") {
@@ -2215,24 +2219,29 @@ export class ConXDynamicPanelCard extends LitElement {
           }
         }
         this._splitPreviewOn = next;
+        void this._dispatchButtonPress(buttonIndex);
         return;
       }
       if (role === "momentary") {
         // Local pulse preview mirrors backend: ON → auto-OFF after pulse_time_s.
         this._pulseMomentaryPreview(buttonIndex);
+        void this._dispatchButtonPress(buttonIndex);
         return;
       }
       // toggle: local LED only — never selected_button / dirty.
       this._toggleLocalRing(buttonIndex);
+      void this._dispatchButtonPress(buttonIndex);
       return;
     }
     if (this._draft.mode === "toggle") {
       this._toggleLocalRing(buttonIndex);
+      void this._dispatchButtonPress(buttonIndex);
       return;
     }
     // Classic radio_mandatory / radio_optional
     if (!this._isRadioMember(buttonIndex)) {
       this._toggleLocalRing(buttonIndex);
+      void this._dispatchButtonPress(buttonIndex);
       return;
     }
     // Classic radio preview: exactly one on; re-pressing selected does nothing.
@@ -2242,6 +2251,26 @@ export class ConXDynamicPanelCard extends LitElement {
       return;
     }
     this._radioPreviewSelected = buttonIndex;
+    void this._dispatchButtonPress(buttonIndex);
+  }
+
+  /**
+   * Drive physical relays + HA actions through the integration.
+   * Uses the saved active profile on the backend; never marks the draft dirty.
+   */
+  private async _dispatchButtonPress(buttonIndex: number): Promise<void> {
+    const entryId = this._config?.entry_id;
+    if (!this.hass || !entryId || this._busy) {
+      return;
+    }
+    try {
+      const runtime = await executeButton(this.hass, entryId, buttonIndex);
+      this._applyRuntime(runtime);
+    } catch (err) {
+      this._error =
+        err instanceof Error ? err.message : this.t("card.error");
+      this.requestUpdate();
+    }
   }
 
   private _ringOnColor(): string {

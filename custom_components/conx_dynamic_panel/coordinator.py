@@ -531,14 +531,21 @@ class PanelCoordinator:
     async def _async_cover_start(
         self, cover: CoverConfig, profile: Profile, direction: str, reason: str
     ) -> None:
-        """Energize one direction. Caller must hold the cover lock."""
+        """Energize one direction. Caller must hold the cover lock.
+
+        Hard mutex (zero both-ON window for this cover pair):
+          1. Cancel any residual travel bookkeeping is the caller's job.
+          2. Force BOTH direction relays OFF and confirm each write.
+          3. Only then energize the chosen direction.
+        Opposite OFF always precedes direction ON; never parallel writes.
+        """
         motion = self.runtime.cover.get(cover.id)
         target = cover.button_for(direction)
         opposite = cover.button_for(cover.opposite_direction(direction))
         duration = cover.duration_for(direction)
 
-        # Hard mutual exclusion within this cover: opposite OFF before start.
-        if not await self._async_cover_relay_off(opposite):
+        # Belt-and-suspenders: both OFF before any ON (not only opposite).
+        if not await self._async_cover_ensure_pair_off(cover, prefer_off_first=opposite):
             await self._async_cover_halt(cover, reason=COVER_REASON_ERROR)
             return
         try:
@@ -610,14 +617,25 @@ class PanelCoordinator:
         cover: CoverConfig | None,
         reason: str,
     ) -> None:
-        """Halt one motion entry. Caller must hold the cover lock."""
+        """Halt one motion entry. Caller must hold the cover lock.
+
+        Active direction (if known) is forced OFF first so a reverse press
+        kills the running motor as fast as possible, then the opposite.
+        """
         was_moving = motion.moving
+        active_direction = motion.direction
         timer = motion.timer
         indexes: list[int] = []
         for pair in (motion.relays, cover.relay_indexes() if cover is not None else None):
             for index in pair or ():
                 if index not in indexes:
                     indexes.append(index)
+        # Prefer killing the currently energized direction first.
+        if active_direction and cover is not None:
+            active_button = cover.button_for(active_direction)
+            if active_button in indexes:
+                indexes.remove(active_button)
+                indexes.insert(0, active_button)
         motion.reset(reason)
         if timer is not None and timer is not asyncio.current_task():
             timer.cancel()
@@ -657,6 +675,25 @@ class PanelCoordinator:
             for cover in covers:
                 await self._async_cover_halt(cover, reason=reason)
 
+    async def _async_cover_ensure_pair_off(
+        self, cover: CoverConfig, *, prefer_off_first: int | None = None
+    ) -> bool:
+        """Force both cover direction relays OFF (serialized). Return False on failure.
+
+        ``prefer_off_first`` is written first when present (kill active / opposite
+        ASAP). Never turns either relay ON.
+        """
+        open_i, close_i = cover.relay_indexes()
+        order = [open_i, close_i]
+        if prefer_off_first in order:
+            order.remove(prefer_off_first)
+            order.insert(0, prefer_off_first)
+        ok = True
+        for index in order:
+            if not await self._async_cover_relay_off(index):
+                ok = False
+        return ok
+
     async def _async_cover_relay_off(self, index: int) -> bool:
         """Force one relay OFF, reporting success without raising."""
         try:
@@ -668,9 +705,13 @@ class PanelCoordinator:
         return True
 
     async def _async_cover_settle(self, cover: CoverConfig) -> None:
-        """Dead time between de-energizing one direction and energizing the other."""
+        """Dead time between directions. Both relays must stay OFF the whole time."""
+        # Re-assert pair OFF before and after the wait so settle never bridges
+        # a stale ON into the reverse start.
+        await self._async_cover_ensure_pair_off(cover)
         if cover.direction_settle_s > 0:
             await asyncio.sleep(cover.direction_settle_s)
+        await self._async_cover_ensure_pair_off(cover)
 
     def _cover_is_usable(self, profile: Profile, cover: CoverConfig) -> bool:
         try:
@@ -1106,21 +1147,146 @@ class PanelCoordinator:
         if self.runtime.auto_sync and self.data.sync_status == SYNC_PENDING:
             await self.async_sync()
 
+    def _relay_currently_on(self, index: int) -> bool | None:
+        """Return mapped relay on/off, or None when unknown."""
+        states = self._relay_states_payload()
+        if index < 1 or index > len(states):
+            return None
+        return states[index - 1]
+
     async def async_execute_button(self, button: int) -> None:
-        """Execute a button action without requiring a physical press."""
+        """Simulate a physical press from the card or service (drives hardware).
+
+        Physical presses arrive as relay state transitions; card/service presses
+        must flip/drive the relay first, then run the same engines so the panel
+        and HA actions stay in sync. Never mutates the editor draft.
+        """
         profile = self.data.active_profile()
         if profile is None:
             raise ProfileNotFoundError("No active profile")
         if button < 1 or button > BUTTON_COUNT:
             raise ValueError("Button must be 1-4")
-        if profile.mode == MODE_COVER and profile.is_cover_button(button):
-            # Cover buttons drive the motor, never an arbitrary stored action.
-            await self._async_cover_press(profile, button, True)
+        if button > int(profile.gang_count or BUTTON_COUNT):
+            raise ValueError(
+                f"Button {button} is outside gang_count {profile.gang_count}"
+            )
+        await self._async_virtual_press(profile, button)
+
+    async def _async_virtual_press(self, profile: Profile, index: int) -> None:
+        """Drive hardware then run the same press path as a physical transition."""
+        if profile.mode == MODE_COVER and profile.is_cover_button(index):
+            # Cover engine owns both direction relays.
+            await self._async_cover_press(profile, index, True)
             return
         if profile.mode == MODE_MIXED:
-            await self._async_mixed_press(profile, button, True)
+            await self._async_virtual_mixed_press(profile, index)
             return
-        await self._async_execute_button_action(profile, button, True)
+        if profile.mode == MODE_TOGGLE:
+            await self._async_virtual_toggle_press(profile, index)
+            return
+        if profile.mode == MODE_RADIO_SPLIT:
+            await self._async_virtual_radio_split_press(profile, index)
+            return
+        if not profile.is_radio_member(index):
+            await self._async_virtual_toggle_press(profile, index)
+            return
+        if profile.mode in {MODE_RADIO_MANDATORY, MODE_RADIO_OPTIONAL}:
+            await self._async_virtual_radio_press(profile, index)
+            return
+
+    async def _async_virtual_toggle_press(self, profile: Profile, index: int) -> None:
+        """Flip the relay (like a latching physical press) then run the action."""
+        current = self._relay_currently_on(index)
+        new_state = True if current is None else (not current)
+        try:
+            await self.runtime.adapter.async_set_relay(
+                index, new_state, suppress_event=True
+            )
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.error("Virtual toggle failed for button %s: %s", index, err)
+            raise
+        await self._async_execute_button_action(profile, index, new_state)
+        self.runtime.async_notify()
+
+    async def _async_virtual_radio_press(self, profile: Profile, index: int) -> None:
+        """Select a classic radio member: energize it, exclusivity, then action."""
+        current = self._relay_currently_on(index)
+        if profile.selected_button == index and current is True:
+            # Classic radio: re-pressing the selected member is a no-op.
+            return
+        try:
+            await self.runtime.adapter.async_set_relay(index, True, suppress_event=True)
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.error("Virtual radio press failed for button %s: %s", index, err)
+            raise
+        await self._async_radio_mandatory(profile, index, True)
+
+    async def _async_virtual_radio_split_press(
+        self, profile: Profile, index: int
+    ) -> None:
+        """Radio-split virtual press: group exclusivity or independent toggle."""
+        group = profile.radio_group_for(index)
+        if group is None:
+            await self._async_virtual_toggle_press(profile, index)
+            return
+        current = self._relay_currently_on(index)
+        if current is True:
+            # Classic radio within group: re-pressing selected is a no-op.
+            return
+        try:
+            await self.runtime.adapter.async_set_relay(index, True, suppress_event=True)
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.error(
+                "Virtual radio-split press failed for button %s: %s", index, err
+            )
+            raise
+        await self._async_radio_split(profile, index, True)
+
+    async def _async_virtual_mixed_press(self, profile: Profile, index: int) -> None:
+        """Route a card/service press by mixed-mode role, driving hardware."""
+        role = profile.button_role(index)
+        if role in {BUTTON_ROLE_COVER_OPEN, BUTTON_ROLE_COVER_CLOSE}:
+            await self._async_cover_press(profile, index, True)
+            return
+        if role == BUTTON_ROLE_MOMENTARY:
+            await self._async_virtual_momentary_press(profile, index)
+            return
+        if role == BUTTON_ROLE_RADIO:
+            await self._async_virtual_radio_split_press(profile, index)
+            return
+        await self._async_virtual_toggle_press(profile, index)
+
+    async def _async_virtual_momentary_press(
+        self, profile: Profile, index: int
+    ) -> None:
+        """Card/service momentary: energize (+ pulse) or cancel like a re-press."""
+        armed = index in self.runtime.momentary.timers
+        current = self._relay_currently_on(index)
+        if armed:
+            # Same as physical ON while armed / re-press cancel.
+            await self._async_momentary_press(profile, index, True)
+            return
+        if current is True:
+            # Latched ON without an armed timer — force OFF (fail-safe).
+            try:
+                await self.runtime.adapter.async_set_relay(
+                    index, False, suppress_event=True
+                )
+            except Exception as err:  # noqa: BLE001
+                _LOGGER.error(
+                    "Virtual momentary cancel failed for button %s: %s", index, err
+                )
+            self.runtime.async_notify()
+            return
+        try:
+            await self.runtime.adapter.async_set_relay(index, True, suppress_event=True)
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.error(
+                "Virtual momentary ON failed for button %s: %s", index, err
+            )
+            raise
+        await self._async_momentary_press(profile, index, True)
+        self.runtime.async_notify()
 
     async def async_update_panel_name(self, panel_name: str) -> dict[str, Any]:
         """Rename the panel in mapping, config entry title/data, and device registry."""

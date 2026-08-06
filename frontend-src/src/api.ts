@@ -176,6 +176,23 @@ export async function coverCommand(
   return hass.callWS<CoverState>(msg);
 }
 
+/**
+ * Simulate a physical panel press from the card faceplate.
+ * Drives mapped relays + HA actions via the saved active profile.
+ * Does not touch the editor draft.
+ */
+export async function executeButton(
+  hass: HomeAssistant,
+  entryId: string,
+  button: number
+): Promise<PanelRuntimeUpdate> {
+  return hass.callWS<PanelRuntimeUpdate>({
+    type: "conx_dynamic_panel/execute_button",
+    entry_id: entryId,
+    button,
+  });
+}
+
 /** Subscribe to coordinator runtime pushes (sync/cover/relays; never drafts). */
 export async function subscribeRuntime(
   hass: HomeAssistant,

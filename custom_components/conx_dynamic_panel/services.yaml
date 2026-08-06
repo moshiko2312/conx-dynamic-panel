@@ -61,7 +61,9 @@ pull_from_panel:
 
 execute_button:
   name: Execute button
-  description: Execute a button action without a physical press.
+  description: >
+    Simulate a physical panel button press from the card or an automation.
+    Drives the mapped relay (and HA action) using the saved active profile.
   fields:
     entry_id:
       name: Entry ID

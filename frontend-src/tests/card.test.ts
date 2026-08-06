@@ -550,9 +550,46 @@ describe("custom elements", () => {
     el._onRingPress(1);
     el._onRingPress(2);
     await el.updateComplete;
+    await Promise.resolve();
+    await el.updateComplete;
     expect(el._dirty).toBe(false);
     expect(JSON.stringify(el._draft)).toBe(before);
     expect(el.shadowRoot?.querySelector(".unsaved-draft")).toBeFalsy();
+    const executeCalls = callWS.mock.calls.filter(
+      (call: unknown[]) =>
+        (call[0] as { type?: string })?.type === "conx_dynamic_panel/execute_button"
+    );
+    expect(executeCalls.length).toBe(2);
+    expect(executeCalls[0][0]).toMatchObject({
+      type: "conx_dynamic_panel/execute_button",
+      entry_id: "abc",
+      button: 1,
+    });
+    expect(executeCalls[1][0]).toMatchObject({ button: 2 });
+  });
+
+  it("faceplate press dispatches execute_button without dirty", async () => {
+    const callWS = vi.fn().mockImplementation((msg: { type?: string }) => {
+      if (msg.type === "conx_dynamic_panel/execute_button") {
+        return Promise.resolve({
+          entry_id: "abc",
+          sync_status: "synced",
+          relay_states: [true, false, false, false],
+          momentary_active: [],
+        });
+      }
+      return Promise.resolve(panelPayload({ sync_status: "synced" }));
+    });
+    const el = await mountCard({ language: "en", callWS });
+    el._onRingPress(1);
+    await Promise.resolve();
+    await el.updateComplete;
+    expect(el._dirty).toBe(false);
+    expect(callWS).toHaveBeenCalledWith({
+      type: "conx_dynamic_panel/execute_button",
+      entry_id: "abc",
+      button: 1,
+    });
   });
 
   it("mixed momentary + toggle presses stay independent and never mark dirty", async () => {

@@ -37,6 +37,7 @@ async def async_register_websocket_api(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_import_profiles)
     websocket_api.async_register_command(hass, ws_update_panel_name)
     websocket_api.async_register_command(hass, ws_cover_command)
+    websocket_api.async_register_command(hass, ws_execute_button)
 
 
 @websocket_api.websocket_command(
@@ -302,3 +303,23 @@ async def ws_cover_command(
     except ValueError as err:
         raise HomeAssistantError(str(err)) from err
     connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "conx_dynamic_panel/execute_button",
+        vol.Required("entry_id"): str,
+        vol.Required("button"): vol.All(vol.Coerce(int), vol.Range(min=1, max=4)),
+    }
+)
+@websocket_api.async_response
+async def ws_execute_button(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Simulate a physical press from the Lovelace card (drives relays + actions)."""
+    coordinator = _coordinator(hass, msg["entry_id"])
+    try:
+        await coordinator.async_execute_button(int(msg["button"]))
+    except ValueError as err:
+        raise HomeAssistantError(str(err)) from err
+    connection.send_result(msg["id"], coordinator.get_runtime_payload())

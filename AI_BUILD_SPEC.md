@@ -408,12 +408,22 @@ conx_dynamic_panel/sync
 conx_dynamic_panel/pull
 conx_dynamic_panel/export_profiles
 conx_dynamic_panel/import_profiles
+conx_dynamic_panel/execute_button
+conx_dynamic_panel/cover_command
 ```
+
+`execute_button` simulates a physical press from the Lovelace card faceplate (or
+automations): it drives mapped relays and runs the same engines as a hardware
+press (toggle, radio, momentary pulse, cover). It must never mutate the editor
+draft.
 
 `subscribe` pushes live runtime fields (`sync_status`, `cover_state`, `relay_entities`, `relay_states`, `momentary_active`, …) on coordinator notify. It must never include profile drafts.
 
 Card faceplate LED requirements:
 
+- Faceplate ring clicks call `execute_button` so the physical panel and HA actions
+  follow the saved active profile; optimistic local LEDs are allowed but must
+  not mark the draft dirty.
 - Re-render on mapped relay `hass.states` changes even when Lovelace reuses the same `hass` object reference (`hasChanged: () => true` on `hass`).
 - For momentary buttons, arm a matching UI pulse timer from `pulse_time_s` on card press **and** on physical/runtime ON (`momentary_active` / relay ON), and clear when the relay goes OFF or the timer elapses.
 - Live ring updates must never mark the draft dirty.

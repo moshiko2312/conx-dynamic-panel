@@ -181,6 +181,21 @@ def _assert_all_cover_relays_off(adapter: CoverAdapter) -> None:
     assert adapter.relays[CLOSE_BUTTON] is False
 
 
+def _assert_no_both_on_window(
+    calls: list[tuple[int, bool]], left: int, right: int
+) -> None:
+    """Replay write order; left and right must never both be True."""
+    state = {left: False, right: False}
+    for index, value in calls:
+        if index not in state:
+            continue
+        state[index] = value
+        if state[left] and state[right]:
+            raise AssertionError(
+                f"both cover relays ON after {index}={'on' if value else 'off'}: {calls}"
+            )
+
+
 # ---------------------------------------------------------------------------
 # Starting travel
 # ---------------------------------------------------------------------------
@@ -190,8 +205,12 @@ def _assert_all_cover_relays_off(adapter: CoverAdapter) -> None:
 async def test_press_open_while_idle_starts_opening() -> None:
     coordinator, adapter, _store, _profile, runtime = _build(open_time=5.0)
     await coordinator._async_handle_physical_press(OPEN_BUTTON, True)
-    # The opposite relay is de-energized before the direction relay is energized.
-    assert adapter.relay_calls == [(CLOSE_BUTTON, False), (OPEN_BUTTON, True)]
+    # Both OFF first (opposite preferred), then direction ON — never both true.
+    assert adapter.relay_calls == [
+        (CLOSE_BUTTON, False),
+        (OPEN_BUTTON, False),
+        (OPEN_BUTTON, True),
+    ]
     assert runtime.cover.direction == "open"
     assert runtime.cover.duration == 5.0
     await coordinator._async_cover_abort("test")
@@ -201,7 +220,11 @@ async def test_press_open_while_idle_starts_opening() -> None:
 async def test_press_close_while_idle_starts_closing_with_close_time() -> None:
     coordinator, adapter, _store, _profile, runtime = _build(open_time=5.0, close_time=9.0)
     await coordinator._async_handle_physical_press(CLOSE_BUTTON, True)
-    assert adapter.relay_calls == [(OPEN_BUTTON, False), (CLOSE_BUTTON, True)]
+    assert adapter.relay_calls == [
+        (OPEN_BUTTON, False),
+        (CLOSE_BUTTON, False),
+        (CLOSE_BUTTON, True),
+    ]
     assert runtime.cover.direction == "close"
     assert runtime.cover.duration == 9.0
     await coordinator._async_cover_abort("test")
@@ -211,8 +234,9 @@ async def test_press_close_while_idle_starts_closing_with_close_time() -> None:
 async def test_arbitrary_buttons_can_be_mapped_to_directions() -> None:
     coordinator, adapter, store, profile, runtime = _build()
     profile.cover = CoverConfig(open_button=4, close_button=2, open_time_s=5.0, close_time_s=5.0)
+    adapter.cover_pairs = [(4, 2)]
     await coordinator._async_handle_physical_press(4, True)
-    assert adapter.relay_calls == [(2, False), (4, True)]
+    assert adapter.relay_calls == [(2, False), (4, False), (4, True)]
     assert runtime.cover.direction == "open"
     await coordinator._async_cover_abort("test")
 
@@ -298,10 +322,63 @@ async def test_opposite_press_stop_then_reverse_stops_before_starting() -> None:
     adapter.relay_calls.clear()
     await coordinator._async_handle_physical_press(CLOSE_BUTTON, True)
     assert runtime.cover.direction == "close"
-    # The open relay is forced off before the close relay is ever energized.
+    # Active open is killed first, then close OFF, settle re-asserts both OFF,
+    # then start forces both OFF again before close ON — never both true.
     first_close_on = adapter.relay_calls.index((CLOSE_BUTTON, True))
-    assert (OPEN_BUTTON, False) in adapter.relay_calls[:first_close_on]
+    prefix = adapter.relay_calls[:first_close_on]
+    assert (OPEN_BUTTON, False) in prefix
+    assert prefix[0] == (OPEN_BUTTON, False)  # kill active direction ASAP
+    assert all(state is False for _index, state in prefix)
     assert adapter.relays[OPEN_BUTTON] is False
+    assert adapter.relays[CLOSE_BUTTON] is True
+    _assert_no_both_on_window(adapter.relay_calls, OPEN_BUTTON, CLOSE_BUTTON)
+    await coordinator._async_cover_abort("test")
+
+
+@pytest.mark.asyncio
+async def test_stop_then_reverse_settles_with_both_off() -> None:
+    """During settle both relays stay OFF; reverse ON only after the wait."""
+    coordinator, adapter, _store, _profile, runtime = _build(
+        opposite_press=COVER_OPPOSITE_STOP_THEN_REVERSE,
+        settle=0.05,
+        open_time=5.0,
+        close_time=5.0,
+    )
+    await coordinator._async_handle_physical_press(OPEN_BUTTON, True)
+    adapter.relay_calls.clear()
+
+    task = asyncio.create_task(
+        coordinator._async_handle_physical_press(CLOSE_BUTTON, True)
+    )
+    await asyncio.sleep(0.02)  # mid-settle
+    assert adapter.relays[OPEN_BUTTON] is False
+    assert adapter.relays[CLOSE_BUTTON] is False
+    assert runtime.cover.moving is False  # still settling / not yet reverse
+    await task
+    assert runtime.cover.direction == "close"
+    assert adapter.relays[OPEN_BUTTON] is False
+    assert adapter.relays[CLOSE_BUTTON] is True
+    _assert_no_both_on_window(adapter.relay_calls, OPEN_BUTTON, CLOSE_BUTTON)
+    await coordinator._async_cover_abort("test")
+
+
+@pytest.mark.asyncio
+async def test_start_clears_stale_both_on_hardware_before_energize() -> None:
+    """If hardware somehow left both ON, start must OFF both before any ON."""
+    coordinator, adapter, _store, _profile, runtime = _build(open_time=5.0)
+    # Simulate illegal hardware state without going through the adapter guard.
+    adapter.relays[OPEN_BUTTON] = True
+    adapter.relays[CLOSE_BUTTON] = True
+    await coordinator._async_cover_start(
+        _profile.cover, _profile, "open", "test"
+    )
+    first_on = next(
+        i for i, (idx, state) in enumerate(adapter.relay_calls) if state is True
+    )
+    assert (CLOSE_BUTTON, False) in adapter.relay_calls[:first_on]
+    assert (OPEN_BUTTON, False) in adapter.relay_calls[:first_on]
+    assert adapter.relay_calls[first_on] == (OPEN_BUTTON, True)
+    _assert_no_both_on_window(adapter.relay_calls, OPEN_BUTTON, CLOSE_BUTTON)
     await coordinator._async_cover_abort("test")
 
 
