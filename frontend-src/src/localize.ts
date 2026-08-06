@@ -48,8 +48,9 @@ const EN: Record<string, string> = {
   "card.entity_id": "Entity ID",
   "card.action_none": "No Home Assistant action",
   "card.entity_none": "No entity (optional)",
-  "card.action_picker_hint": "Choose a service from Home Assistant.",
-  "card.entity_picker_hint": "Entities are filtered by the action domain when set.",
+  "card.action_picker_hint": "Searchable Home Assistant service (domain.service).",
+  "card.entity_picker_hint": "Searchable entity list, filtered by the action domain when set.",
+  "card.picker_search": "Search…",
   "card.radio_participation": "Button behavior",
   "card.radio_member": "Radio group",
   "card.radio_toggle": "Independent toggle",
@@ -181,7 +182,7 @@ const EN: Record<string, string> = {
   "card.mixed_radio_hint":
     "Assign this button to a radio group below. Classic radio keeps exactly one member ON (turning it off snaps it back). Only role=Radio buttons stay in groups.",
   "card.mixed_cover_hint":
-    "Shutter motor: use Open/Close roles + travel times here. Domain and entity for Home Assistant actions are under Toggle/Momentary in the button expanders below.",
+    "Shutter motor: Open/Close roles + travel times here. Motor slot is not an HA entity. For lights and other HA calls, use Toggle/Momentary/Radio and set Action + Entity on that role card.",
   "role.toggle": "Toggle",
   "role.momentary": "Momentary",
   "role.radio": "Radio group",
@@ -234,8 +235,9 @@ const HE: Record<string, string> = {
   "card.entity_id": "מזהה ישות",
   "card.action_none": "ללא פעולת Home Assistant",
   "card.entity_none": "ללא ישות (אופציונלי)",
-  "card.action_picker_hint": "בחרו שירות מרשימת Home Assistant.",
-  "card.entity_picker_hint": "הישויות מסוננות לפי דומיין הפעולה כשנבחרה.",
+  "card.action_picker_hint": "שירות Home Assistant עם חיפוש (דומיין.שירות).",
+  "card.entity_picker_hint": "רשימת ישויות עם חיפוש, מסוננת לפי דומיין הפעולה כשנבחרה.",
+  "card.picker_search": "חיפוש…",
   "card.radio_participation": "התנהגות כפתור",
   "card.radio_member": "משתתף ברדיו",
   "card.radio_toggle": "טוגל עצמאי",
@@ -367,7 +369,7 @@ const HE: Record<string, string> = {
   "card.mixed_radio_hint":
     "שייכו את הכפתור לקבוצת רדיו למטה. רדיו קלאסי משאיר תמיד חבר אחד דלוק (כיבוי מחזיר להדלקה). רק כפתורים בתפקיד «קבוצת רדיו» נשארים בקבוצה.",
   "card.mixed_cover_hint":
-    "מנוע תריס: תפקידי פתיחה/סגירה + זמני נסיעה כאן. דומיין וישות לפעולות Home Assistant נמצאים תחת טוגל/רגעי במרחיבי הכפתורים למטה.",
+    "מנוע תריס: תפקידי פתיחה/סגירה וזמני נסיעה כאן. מזהה המנוע אינו ישות HA. לאורות ופעולות Home Assistant בחרו טוגל/רגעי/רדיו והגדירו פעולה וישות בכרטיס התפקיד.",
   "role.toggle": "טוגל",
   "role.momentary": "רגעי",
   "role.radio": "קבוצת רדיו",
@@ -420,8 +422,9 @@ const RU: Record<string, string> = {
   "card.entity_id": "Entity ID",
   "card.action_none": "Без действия Home Assistant",
   "card.entity_none": "Без сущности (необязательно)",
-  "card.action_picker_hint": "Выберите службу из списка Home Assistant.",
-  "card.entity_picker_hint": "Сущности фильтруются по домену действия, если он выбран.",
+  "card.action_picker_hint": "Поиск службы Home Assistant (домен.служба).",
+  "card.entity_picker_hint": "Поиск сущностей; фильтр по домену действия, если он выбран.",
+  "card.picker_search": "Поиск…",
   "card.radio_participation": "Поведение кнопки",
   "card.radio_member": "В радиогруппе",
   "card.radio_toggle": "Независимый тоггл",
@@ -553,7 +556,7 @@ const RU: Record<string, string> = {
   "card.mixed_radio_hint":
     "Назначьте кнопку в радиогруппу ниже. Классическое радио держит ровно одного участника включённым (выключение возвращает включение). В группах остаются только кнопки с ролью «Радиогруппа».",
   "card.mixed_cover_hint":
-    "Мотор ролеты: роли Открыть/Закрыть + время хода здесь. Домен и сущность для действий Home Assistant — у Тоггл/Импульс в раскрывающихся кнопках ниже.",
+    "Мотор ролеты: роли Открыть/Закрыть и время хода здесь. Слот мотора — не сущность HA. Для света и других вызовов HA выберите Тоггл/Импульс/Радио и задайте Действие + Сущность в карточке роли.",
   "role.toggle": "Тоггл",
   "role.momentary": "Импульс",
   "role.radio": "Радиогруппа",

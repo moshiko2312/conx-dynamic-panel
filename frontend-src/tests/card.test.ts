@@ -1820,8 +1820,14 @@ describe("custom elements", () => {
     await el.updateComplete;
     expect(el._draft?.buttons[0].role).toBe("cover_open");
     expect(roleRow.querySelector("[data-cover-id]")).toBeTruthy();
+    expect(roleRow.querySelector("[data-cover-id-hint]")?.textContent || "").toMatch(
+      /not a Home Assistant|לא ישות|не сущность/i
+    );
     expect(roleRow.querySelector("[data-mixed-cover-hint]")?.textContent || "").toMatch(
       /Toggle\/Momentary|טוגל|Тоггл/
+    );
+    expect(roleRow.querySelector("[data-mixed-cover-hint]")?.textContent || "").not.toMatch(
+      /below|למטה|ниже/i
     );
     // Travel times sit inside the cover-role card; bottom mixed editor is gone.
     expect(el.shadowRoot?.querySelector("[data-cover-editor]")).toBeFalsy();
@@ -1851,6 +1857,9 @@ describe("custom elements", () => {
       "L1"
     );
     expect(el.shadowRoot?.querySelector("[data-cover-editor]")).toBeFalsy();
+    // Cover roles must not show HA action/entity pickers (motor slot ≠ HA entity).
+    expect(updatedRow1.querySelector("[data-mixed-action-entity]")).toBeFalsy();
+    expect(updatedRow2.querySelector("[data-mixed-action-entity]")).toBeFalsy();
 
     const radioRow = el.shadowRoot?.querySelector(
       '[data-mixed-role="1"]'
@@ -1859,6 +1868,79 @@ describe("custom elements", () => {
     await el.updateComplete;
     expect(el._draft?.buttons[0].role).toBe("radio");
     expect(el.shadowRoot?.querySelector(".radio-groups-section")).toBeTruthy();
+    expect(radioRow.querySelector("[data-mixed-action-entity]")).toBeTruthy();
+    expect(
+      radioRow.querySelector('[data-action-picker][data-button="1"]')
+    ).toBeTruthy();
+  });
+
+  it("shows searchable action/entity pickers on free-mix toggle and momentary", async () => {
+    const callWS = vi.fn().mockResolvedValue(panelPayload({ sync_status: "synced" }));
+    const el = await mountCard({
+      language: "en",
+      callWS,
+      services: {
+        light: { toggle: {}, turn_on: {} },
+        switch: { toggle: {} },
+      },
+      states: {
+        "light.living_room": { state: "on" },
+        "light.kitchen": { state: "off" },
+        "switch.porch": { state: "off" },
+      },
+    });
+    el._activeTab = "buttons";
+    await el.updateComplete;
+    (el.shadowRoot?.querySelector('[data-mode="mixed"]') as HTMLButtonElement).click();
+    await el.updateComplete;
+
+    const toggleCard = el.shadowRoot?.querySelector(
+      '[data-mixed-role="1"]'
+    ) as HTMLElement;
+    // Default free-mix role is toggle — primary pickers visible without accordion.
+    expect(toggleCard.querySelector(".mixed-role-extras")).toBeTruthy();
+    expect(toggleCard.querySelector("[data-mixed-action-entity]")).toBeTruthy();
+    const actionSelect = toggleCard.querySelector(
+      '[data-action-picker][data-button="1"]'
+    ) as HTMLSelectElement;
+    const entitySelect = toggleCard.querySelector(
+      '[data-entity-picker][data-button="1"]'
+    ) as HTMLSelectElement;
+    expect(actionSelect).toBeTruthy();
+    expect(entitySelect).toBeTruthy();
+    expect(toggleCard.querySelector("[data-action-filter]")).toBeTruthy();
+    expect(toggleCard.querySelector("[data-entity-filter]")).toBeTruthy();
+
+    actionSelect.value = "light.toggle";
+    actionSelect.dispatchEvent(new Event("change", { bubbles: true }));
+    await el.updateComplete;
+    expect(el._draft?.buttons[0].action?.action).toBe("light.toggle");
+
+    const entityAfter = toggleCard.querySelector(
+      '[data-entity-picker][data-button="1"]'
+    ) as HTMLSelectElement;
+    entityAfter.value = "light.kitchen";
+    entityAfter.dispatchEvent(new Event("change", { bubbles: true }));
+    await el.updateComplete;
+    expect(el._draft?.buttons[0].action).toEqual({
+      action: "light.toggle",
+      target: { entity_id: "light.kitchen" },
+      data: {},
+    });
+
+    (toggleCard.querySelector('[data-role="momentary"]') as HTMLButtonElement).click();
+    await el.updateComplete;
+    const momentaryCard = el.shadowRoot?.querySelector(
+      '[data-mixed-role="1"]'
+    ) as HTMLElement;
+    expect(momentaryCard.querySelector("[data-pulse-time]")).toBeTruthy();
+    expect(momentaryCard.querySelector("[data-mixed-action-entity]")).toBeTruthy();
+    expect(
+      momentaryCard.querySelector('[data-action-picker][data-button="1"]')
+    ).toBeTruthy();
+    expect(
+      momentaryCard.querySelector('[data-entity-picker][data-button="1"]')
+    ).toBeTruthy();
   });
 
   it("labels free-mix per-button roles in Hebrew", () => {
@@ -1871,8 +1953,13 @@ describe("custom elements", () => {
     expect(localize("he", "card.cover_id")).toBe("מנוע / מזהה תריס");
     expect(localize("en", "card.cover_id")).toBe("Motor / Cover slot");
     expect(localize("ru", "card.cover_id")).toBe("Мотор / слот ролеты");
-    expect(localize("he", "card.mixed_cover_hint")).toContain("דומיין");
+    expect(localize("he", "card.mixed_cover_hint")).toContain("ישות");
+    expect(localize("he", "card.mixed_cover_hint")).toContain("טוגל");
+    expect(localize("he", "card.mixed_cover_hint")).not.toContain("למטה");
     expect(localize("en", "card.mixed_cover_hint")).toContain("Toggle/Momentary");
+    expect(localize("en", "card.mixed_cover_hint")).not.toMatch(/below/i);
+    expect(localize("en", "card.picker_search")).toBe("Search…");
+    expect(localize("he", "card.picker_search")).toBe("חיפוש…");
     expect(localize("en", "card.mixed_roles")).toBe("Per-button roles");
     expect(localize("en", "role.radio")).toBe("Radio group");
     expect(localize("he", "card.unsaved")).toContain("שמרו טיוטה");
@@ -1984,6 +2071,7 @@ describe("custom elements", () => {
       /\.cover-times-compact\s*\{[^}]*grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(5\.5rem,\s*1fr\)\)/s
     );
     expect(sheetText).toMatch(/\.mixed-cover-times\s*\{[^}]*flex:\s*1\s+1\s+100%/s);
+    expect(sheetText).toMatch(/\.mixed-action-entity\s*\{[^}]*grid-template-columns:\s*repeat\(auto-fit/s);
     expect(sheetText).toMatch(/\.radio-member\.on\s*\{[^}]*color:\s*var\(--accent-text\)/s);
     expect(sheetText).toMatch(/\.mixed-role-l\s*\{[^}]*color:\s*var\(--text\)/s);
     expect(sheetText).toMatch(/\.actions-grid\s+\.btn\s*\{[^}]*min-height:\s*32px/s);
@@ -2001,7 +2089,9 @@ describe("custom elements", () => {
     ) as HTMLElement;
     expect(card.querySelector(".mixed-role-card-main")).toBeTruthy();
     expect(card.querySelector(".mixed-role-picker")).toBeTruthy();
-    expect(card.querySelector(".mixed-role-extras")).toBeFalsy();
+    // Default toggle shows action/entity extras in the role card.
+    expect(card.querySelector(".mixed-role-extras")).toBeTruthy();
+    expect(card.querySelector("[data-mixed-action-entity]")).toBeTruthy();
     const roles = [...(card.querySelectorAll("[data-role]") || [])].map(
       (chip) => chip.getAttribute("data-role")
     );
@@ -2019,6 +2109,7 @@ describe("custom elements", () => {
     ) as HTMLElement;
     expect(updated.querySelector(".mixed-role-extras")).toBeTruthy();
     expect(updated.querySelector("[data-cover-id]")).toBeTruthy();
+    expect(updated.querySelector("[data-mixed-action-entity]")).toBeFalsy();
   });
 
   it("opens a copyable automation example from the settings menu", async () => {

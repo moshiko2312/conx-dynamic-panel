@@ -43,8 +43,9 @@ import {
 } from "./exportSchema";
 import {
   actionDomain,
-  ensureHaEntityPickerLoaded,
+  ensureHaPickersLoaded,
   isHaEntityPickerRegistered,
+  isHaServicePickerRegistered,
   listEntityIds,
   listServiceActions,
   withCurrentOption,
@@ -339,6 +340,10 @@ export class ConXDynamicPanelCard extends LitElement {
   @state() private _radioGroupsOpen = true;
   /** True when HA's native `ha-entity-picker` is registered (or preload succeeded). */
   @state() private _haEntityPickerReady = false;
+  /** True when HA's native `ha-service-picker` is registered (or preload succeeded). */
+  @state() private _haServicePickerReady = false;
+  /** Client-side filter text for fallback action/entity `<select>` lists. */
+  @state() private _pickerFilter: Record<string, string> = {};
 
   private _importInput?: HTMLInputElement;
   private _haPickerLoadStarted = false;
@@ -2279,9 +2284,57 @@ export class ConXDynamicPanelCard extends LitElement {
     this._haPickerLoadStarted = true;
     if (isHaEntityPickerRegistered()) {
       this._haEntityPickerReady = true;
+    }
+    if (isHaServicePickerRegistered()) {
+      this._haServicePickerReady = true;
+    }
+    if (this._haEntityPickerReady && this._haServicePickerReady) {
       return;
     }
-    this._haEntityPickerReady = await ensureHaEntityPickerLoaded();
+    const ready = await ensureHaPickersLoaded();
+    this._haEntityPickerReady = ready.entity;
+    this._haServicePickerReady = ready.service;
+  }
+
+  private _pickerFilterKey(
+    kind: "action" | "entity",
+    buttonIndex: number
+  ): string {
+    return `${kind}:${buttonIndex}`;
+  }
+
+  private _getPickerFilter(
+    kind: "action" | "entity",
+    buttonIndex: number
+  ): string {
+    return this._pickerFilter[this._pickerFilterKey(kind, buttonIndex)] || "";
+  }
+
+  private _setPickerFilter(
+    kind: "action" | "entity",
+    buttonIndex: number,
+    value: string
+  ): void {
+    const key = this._pickerFilterKey(kind, buttonIndex);
+    const next = value.trim().toLowerCase();
+    if ((this._pickerFilter[key] || "") === next) {
+      return;
+    }
+    this._pickerFilter = { ...this._pickerFilter, [key]: next };
+  }
+
+  private _filterOptions(options: string[], needle: string): string[] {
+    if (!needle) {
+      return options;
+    }
+    return options.filter((item) => item.toLowerCase().includes(needle));
+  }
+
+  private _onHaServicePickerChanged(index: number, e: Event): void {
+    e.stopPropagation();
+    const detail = (e as CustomEvent<{ value?: string | null }>).detail;
+    const action = (detail?.value ?? "").trim();
+    this._setButtonAction(index, action);
   }
 
   private _setButtonAction(index: number, action: string, entityId?: string | null): void {
@@ -2362,29 +2415,65 @@ export class ConXDynamicPanelCard extends LitElement {
       listEntityIds(this.hass?.states, domain),
       entityId
     );
-    const useHaPicker = this._haEntityPickerReady && !!this.hass;
+    const useHaEntityPicker = this._haEntityPickerReady && !!this.hass;
+    const useHaServicePicker = this._haServicePickerReady && !!this.hass;
+    const actionFilter = this._getPickerFilter("action", buttonIndex);
+    const entityFilter = this._getPickerFilter("entity", buttonIndex);
+    const filteredServices = this._filterOptions(serviceOptions, actionFilter);
+    const filteredEntities = this._filterOptions(entityOptions, entityFilter);
     return html`
       <label class="field">
         <span>${this.t("card.action")}</span>
-        <div class="select-wrap select-wrap-wide">
-          <select
-            data-action-picker
-            data-button=${buttonIndex}
-            .value=${action}
-            ?disabled=${this._busy}
-            @change=${(e: Event) => this._onButtonActionSelect(buttonIndex, e)}
-          >
-            <option value="">${this.t("card.action_none")}</option>
-            ${serviceOptions.map(
-              (service) => html`<option value=${service}>${service}</option>`
-            )}
-          </select>
-        </div>
+        ${useHaServicePicker
+          ? html`
+              <ha-service-picker
+                data-action-picker
+                data-button=${buttonIndex}
+                .hass=${this.hass}
+                .value=${action || ""}
+                ?disabled=${this._busy}
+                @value-changed=${(e: Event) =>
+                  this._onHaServicePickerChanged(buttonIndex, e)}
+              ></ha-service-picker>
+            `
+          : html`
+              <input
+                type="search"
+                class="picker-filter"
+                data-action-filter
+                data-button=${buttonIndex}
+                placeholder=${this.t("card.picker_search")}
+                .value=${actionFilter}
+                ?disabled=${this._busy}
+                @input=${(e: Event) =>
+                  this._setPickerFilter(
+                    "action",
+                    buttonIndex,
+                    (e.target as HTMLInputElement).value
+                  )}
+              />
+              <div class="select-wrap select-wrap-wide">
+                <select
+                  data-action-picker
+                  data-button=${buttonIndex}
+                  .value=${action}
+                  ?disabled=${this._busy}
+                  @change=${(e: Event) =>
+                    this._onButtonActionSelect(buttonIndex, e)}
+                >
+                  <option value="">${this.t("card.action_none")}</option>
+                  ${filteredServices.map(
+                    (service) =>
+                      html`<option value=${service}>${service}</option>`
+                  )}
+                </select>
+              </div>
+            `}
         <span class="field-hint">${this.t("card.action_picker_hint")}</span>
       </label>
       <label class="field">
         <span>${this.t("card.entity_id")}</span>
-        ${useHaPicker
+        ${useHaEntityPicker
           ? html`
               <ha-entity-picker
                 data-entity-picker
@@ -2399,6 +2488,21 @@ export class ConXDynamicPanelCard extends LitElement {
               ></ha-entity-picker>
             `
           : html`
+              <input
+                type="search"
+                class="picker-filter"
+                data-entity-filter
+                data-button=${buttonIndex}
+                placeholder=${this.t("card.picker_search")}
+                .value=${entityFilter}
+                ?disabled=${this._busy || !action}
+                @input=${(e: Event) =>
+                  this._setPickerFilter(
+                    "entity",
+                    buttonIndex,
+                    (e.target as HTMLInputElement).value
+                  )}
+              />
               <div class="select-wrap select-wrap-wide">
                 <select
                   data-entity-picker
@@ -2409,7 +2513,7 @@ export class ConXDynamicPanelCard extends LitElement {
                     this._onButtonEntitySelect(buttonIndex, e)}
                 >
                   <option value="">${this.t("card.entity_none")}</option>
-                  ${entityOptions.map(
+                  ${filteredEntities.map(
                     (id) => html`<option value=${id}>${id}</option>`
                   )}
                 </select>
@@ -3208,8 +3312,9 @@ export class ConXDynamicPanelCard extends LitElement {
             "cover_1";
           const label = (button.name || "").trim() || "—";
           const isCoverRole = role === "cover_open" || role === "cover_close";
-          const extras =
-            role === "momentary" || role === "radio" || isCoverRole;
+          const needsActionEntity =
+            role === "toggle" || role === "momentary" || role === "radio";
+          const extras = needsActionEntity || isCoverRole;
           const cover = covers.find((item) => item.id === coverId) || covers[0];
           const timesOwner = isCoverRole
             ? this._firstCoverRoleIndex(coverId)
@@ -3221,6 +3326,12 @@ export class ConXDynamicPanelCard extends LitElement {
             cover &&
             timesOwner != null &&
             timesOwner !== button.index;
+          const entityId = String(
+            (
+              button.action?.target as { entity_id?: string } | undefined
+            )?.entity_id || ""
+          );
+          const action = button.action?.action || "";
           return html`
             <div class="mixed-role-card" data-mixed-role=${button.index}>
               <div class="mixed-role-card-main">
@@ -3298,6 +3409,20 @@ export class ConXDynamicPanelCard extends LitElement {
                             ${this.t("card.mixed_radio_hint")}
                           </p>`
                         : nothing}
+                      ${needsActionEntity
+                        ? html`
+                            <div
+                              class="mixed-action-entity"
+                              data-mixed-action-entity
+                            >
+                              ${this._renderActionEntityPickers(
+                                button.index,
+                                action,
+                                entityId
+                              )}
+                            </div>
+                          `
+                        : nothing}
                       ${isCoverRole
                         ? html`
                             ${multiCover
@@ -3338,6 +3463,12 @@ export class ConXDynamicPanelCard extends LitElement {
                                   >${this.t("card.cover_id")}:
                                   ${coverId}</span
                                 >`}
+                            <p
+                              class="radio-groups-hint"
+                              data-cover-id-hint
+                            >
+                              ${this.t("card.cover_id_hint")}
+                            </p>
                             <p
                               class="radio-groups-hint"
                               data-mixed-cover-hint
@@ -5035,10 +5166,23 @@ export class ConXDynamicPanelCard extends LitElement {
       opacity: 0.7;
       line-height: 1.35;
     }
-    ha-entity-picker {
+    ha-entity-picker,
+    ha-service-picker {
       display: block;
       width: 100%;
       --mdc-theme-primary: var(--conx-accent, #d4af61);
+    }
+    .picker-filter {
+      width: 100%;
+      min-height: 28px;
+      margin-bottom: 4px;
+      padding: 4px 8px;
+      border-radius: 8px;
+      border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+      background: color-mix(in srgb, var(--surface) 88%, transparent);
+      color: var(--text);
+      font: inherit;
+      font-size: 0.78rem;
     }
 
     .field-inline {
@@ -5237,6 +5381,27 @@ export class ConXDynamicPanelCard extends LitElement {
       align-items: center;
       gap: 3px 8px;
       min-width: 0;
+    }
+    .mixed-action-entity {
+      flex: 1 1 100%;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+      gap: 6px 10px;
+      width: 100%;
+      margin-top: 2px;
+    }
+    .mixed-action-entity .field {
+      margin: 0;
+      min-width: 0;
+    }
+    .mixed-action-entity .field-hint {
+      font-size: 0.58rem;
+      line-height: 1.2;
+    }
+    .mixed-action-entity .picker-filter {
+      min-height: 24px;
+      margin-bottom: 3px;
+      font-size: 0.7rem;
     }
     .mixed-role-card .radio-groups-hint {
       margin: 0;

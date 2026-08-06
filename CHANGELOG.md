@@ -6,8 +6,9 @@ All notable changes to this private project will be documented here.
 
 ### Changed
 
+- **Free-mix role cards show Action + searchable Entity:** Toggle / Momentary / Radio extras include primary HA Action + Entity pickers in the same role window (not only buried in the button accordion). Uses `ha-service-picker` / `ha-entity-picker` when Home Assistant provides them; otherwise searchable filter + select. Cover roles keep motor-slot + inline travel times only (no fake HA entity for `cover_1`). Hint copy (EN/HE/RU) no longer says “look below”.
 - **Operate mode hides cover live controls:** when the card is in Operate / תפעול, open/stop/close chrome is hidden — faceplate (and corner menu / profile name) only. Covers remain controllable via physical panel buttons and Settings-mode live controls.
-- **Free-mix cover times live in the role card:** when a button is `cover_open` / `cover_close`, open/close/settle/opposite fields render compactly inside that L# mixed-role card (once per motor slot when open+close share `cover_1`). The large bottom “זמני נסיעת תריס” / mixed cover editor is removed. `cover_1` is labeled **Motor / Cover slot** (מנוע / מזהה תריס) — not an HA entity. Copy (EN/HE/RU) points domain/entity pickers to Toggle/Momentary under the button expanders. Dedicated `mode=cover` editor stays, denser. Lit card + HTML preview + tests.
+- **Free-mix cover times live in the role card:** when a button is `cover_open` / `cover_close`, open/close/settle/opposite fields render compactly inside that L# mixed-role card (once per motor slot when open+close share `cover_1`). The large bottom “זמני נסיעת תריס” / mixed cover editor is removed. `cover_1` is labeled **Motor / Cover slot** (מנוע / מזהה תריס) — not an HA entity. Dedicated `mode=cover` editor stays, denser. Lit card + HTML preview + tests.
 
 ### Added
 

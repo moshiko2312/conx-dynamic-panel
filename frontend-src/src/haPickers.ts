@@ -63,19 +63,38 @@ export function isHaEntityPickerRegistered(): boolean {
   );
 }
 
+/** True when HA has registered its native service picker element. */
+export function isHaServicePickerRegistered(): boolean {
+  return (
+    typeof customElements !== "undefined" &&
+    typeof customElements.get === "function" &&
+    !!customElements.get("ha-service-picker")
+  );
+}
+
+export type HaPickersReady = {
+  entity: boolean;
+  service: boolean;
+};
+
 /**
- * Best-effort preload of `ha-entity-picker` via Lovelace card helpers.
- * Returns true when the element is available afterwards.
+ * Best-effort preload of HA pickers via Lovelace card helpers.
+ * Returns which pickers are available afterwards.
  */
-export async function ensureHaEntityPickerLoaded(): Promise<boolean> {
-  if (isHaEntityPickerRegistered()) {
-    return true;
+export async function ensureHaPickersLoaded(): Promise<HaPickersReady> {
+  const ready = (): HaPickersReady => ({
+    entity: isHaEntityPickerRegistered(),
+    service: isHaServicePickerRegistered(),
+  });
+  const current = ready();
+  if (current.entity && current.service) {
+    return current;
   }
   const loadHelpers = (
     globalThis as unknown as { loadCardHelpers?: () => Promise<unknown> }
   ).loadCardHelpers;
   if (typeof loadHelpers !== "function") {
-    return false;
+    return current;
   }
   try {
     const helpers = (await loadHelpers()) as {
@@ -83,6 +102,7 @@ export async function ensureHaEntityPickerLoaded(): Promise<boolean> {
         constructor: { getConfigElement?: () => Promise<unknown> };
       }>;
     };
+    // Entities editor pulls in ha-entity-picker; service picker may come along.
     const card = await helpers.createCardElement?.({
       type: "entities",
       entities: [],
@@ -91,7 +111,16 @@ export async function ensureHaEntityPickerLoaded(): Promise<boolean> {
   } catch {
     // Fall back to native selects when HA internals are unavailable.
   }
-  return isHaEntityPickerRegistered();
+  return ready();
+}
+
+/**
+ * Best-effort preload of `ha-entity-picker` via Lovelace card helpers.
+ * Returns true when the element is available afterwards.
+ */
+export async function ensureHaEntityPickerLoaded(): Promise<boolean> {
+  const ready = await ensureHaPickersLoaded();
+  return ready.entity;
 }
 
 /** Merge a current value into an options list when it is missing. */

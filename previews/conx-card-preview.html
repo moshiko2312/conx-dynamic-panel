@@ -882,6 +882,34 @@
       gap: 3px 8px;
       min-width: 0;
     }
+    .mixed-action-entity {
+      flex: 1 1 100%;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+      gap: 6px 10px;
+      width: 100%;
+      margin-top: 2px;
+    }
+    .mixed-action-entity .field {
+      margin: 0;
+      min-width: 0;
+    }
+    .mixed-action-entity .field-hint {
+      font-size: .58rem;
+      line-height: 1.2;
+    }
+    .picker-filter {
+      width: 100%;
+      min-height: 24px;
+      margin-bottom: 3px;
+      padding: 2px 6px;
+      border-radius: 8px;
+      border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+      background: color-mix(in srgb, var(--surface) 88%, transparent);
+      color: var(--text);
+      font: inherit;
+      font-size: .7rem;
+    }
     .mixed-role-card .radio-groups-hint {
       margin: 0;
       font-size: .62rem;
@@ -1877,8 +1905,9 @@
         "card.label": "Label", "card.action": "Action", "card.entity_id": "Entity ID",
         "card.action_none": "No Home Assistant action",
         "card.entity_none": "No entity (optional)",
-        "card.action_picker_hint": "Choose a service from Home Assistant (preview sample list).",
-        "card.entity_picker_hint": "Entities are filtered by the action domain when set.",
+        "card.action_picker_hint": "Searchable Home Assistant service (preview sample list).",
+        "card.entity_picker_hint": "Searchable entity list, filtered by the action domain when set.",
+        "card.picker_search": "Search…",
         "card.unsaved": "Unsaved draft — physical presses still use the last saved profile. Save Draft to apply roles/actions; Sync updates panel labels and colors.",
         "card.sync_needed": "Draft saved. Press behavior already uses this draft. Sync to Panel to push labels, colors, and on-panel settings.",
         "card.missing_action": "No Home Assistant action — only the panel relay will change.",
@@ -1923,7 +1952,7 @@
         "card.cover_id": "Motor / Cover slot",
         "card.cover_id_hint": "Internal motor slot for open/close pairing — not a Home Assistant cover.* entity.",
         "card.mixed_radio_hint": "Assign this button to a radio group below. Classic radio keeps exactly one member ON (turning it off snaps it back). Only role=Radio buttons stay in groups.",
-        "card.mixed_cover_hint": "Shutter motor: use Open/Close roles + travel times here. Domain and entity for Home Assistant actions are under Toggle/Momentary in the button expanders below.",
+        "card.mixed_cover_hint": "Shutter motor: Open/Close roles + travel times here. Motor slot is not an HA entity. For lights and other HA calls, use Toggle/Momentary/Radio and set Action + Entity on that role card.",
         "card.mixed_cover_times_on": "Travel times for this motor are set on L{n}.",
         "role.toggle": "Toggle", "role.momentary": "Momentary", "role.radio": "Radio group",
         "role.cover_open": "Cover open", "role.cover_close": "Cover close",
@@ -1986,8 +2015,9 @@
         "card.label": "תווית", "card.action": "פעולה", "card.entity_id": "מזהה ישות",
         "card.action_none": "ללא פעולת Home Assistant",
         "card.entity_none": "ללא ישות (אופציונלי)",
-        "card.action_picker_hint": "בחרו שירות מרשימת Home Assistant (רשימת דמו בתצוגה המקדימה).",
-        "card.entity_picker_hint": "הישויות מסוננות לפי דומיין הפעולה כשנבחרה.",
+        "card.action_picker_hint": "שירות Home Assistant עם חיפוש (רשימת דמו בתצוגה המקדימה).",
+        "card.entity_picker_hint": "רשימת ישויות עם חיפוש, מסוננת לפי דומיין הפעולה כשנבחרה.",
+        "card.picker_search": "חיפוש…",
         "card.unsaved": "יש שינויי טיוטה שלא נשמרו — לחיצות על הפאנל עדיין לפי הפרופיל השמור האחרון. שמרו טיוטה כדי להחיל תפקידים/פעולות; סנכרון מעדכן תוויות וצבעים בפאנל.",
         "card.sync_needed": "הטיוטה נשמרה. התנהגות הלחיצות כבר לפי הטיוטה. סנכרנו לפאנל כדי לדחוף תוויות, צבעים והגדרות על החומרה.",
         "card.missing_action": "אין פעולת Home Assistant — ישתנה רק ממסר הפאנל.",
@@ -2032,7 +2062,7 @@
         "card.cover_id": "מנוע / מזהה תריס",
         "card.cover_id_hint": "מזהה מנוע פנימי לזיווג פתיחה/סגירה — לא ישות cover של Home Assistant.",
         "card.mixed_radio_hint": "שייכו את הכפתור לקבוצת רדיו למטה. רדיו קלאסי משאיר תמיד חבר אחד דלוק (כיבוי מחזיר להדלקה). רק כפתורים בתפקיד «קבוצת רדיו» נשארים בקבוצה.",
-        "card.mixed_cover_hint": "מנוע תריס: תפקידי פתיחה/סגירה + זמני נסיעה כאן. דומיין וישות לפעולות Home Assistant נמצאים תחת טוגל/רגעי במרחיבי הכפתורים למטה.",
+        "card.mixed_cover_hint": "מנוע תריס: תפקידי פתיחה/סגירה וזמני נסיעה כאן. מזהה המנוע אינו ישות HA. לאורות ופעולות Home Assistant בחרו טוגל/רגעי/רדיו והגדירו פעולה וישות בכרטיס התפקיד.",
         "card.mixed_cover_times_on": "זמני הנסיעה למנוע זה מוגדרים ב־L{n}.",
         "role.toggle": "טוגל", "role.momentary": "רגעי", "role.radio": "קבוצת רדיו",
         "role.cover_open": "פתיחת תריס", "role.cover_close": "סגירת תריס",
@@ -2095,8 +2125,9 @@
         "card.label": "Название", "card.action": "Действие", "card.entity_id": "Entity ID",
         "card.action_none": "Без действия Home Assistant",
         "card.entity_none": "Без сущности (необязательно)",
-        "card.action_picker_hint": "Выберите службу из списка Home Assistant (демо-список в превью).",
-        "card.entity_picker_hint": "Сущности фильтруются по домену действия, если он выбран.",
+        "card.action_picker_hint": "Поиск службы Home Assistant (демо-список в превью).",
+        "card.entity_picker_hint": "Поиск сущностей; фильтр по домену действия, если он выбран.",
+        "card.picker_search": "Поиск…",
         "card.unsaved": "Несохранённый черновик — нажатия на панели всё ещё по последнему сохранённому профилю. Сохраните черновик для ролей/действий; синхронизация обновляет подписи и цвета на панели.",
         "card.sync_needed": "Черновик сохранён. Поведение кнопок уже по этому черновику. Синхронизируйте панель, чтобы отправить подписи, цвета и настройки на железо.",
         "card.missing_action": "Нет действия Home Assistant — изменится только реле панели.",
@@ -2141,7 +2172,7 @@
         "card.cover_id": "Мотор / слот ролеты",
         "card.cover_id_hint": "Внутренний слот мотора для пары открыть/закрыть — не сущность cover.* Home Assistant.",
         "card.mixed_radio_hint": "Назначьте кнопку в радиогруппу ниже. Классическое радио держит ровно одного участника включённым (выключение возвращает включение). В группах остаются только кнопки с ролью «Радиогруппа».",
-        "card.mixed_cover_hint": "Мотор ролеты: роли Открыть/Закрыть + время хода здесь. Домен и сущность для действий Home Assistant — у Тоггл/Импульс в раскрывающихся кнопках ниже.",
+        "card.mixed_cover_hint": "Мотор ролеты: роли Открыть/Закрыть и время хода здесь. Слот мотора — не сущность HA. Для света и других вызовов HA выберите Тоггл/Импульс/Радио и задайте Действие + Сущность в карточке роли.",
         "card.mixed_cover_times_on": "Время хода для этого мотора задано на L{n}.",
         "role.toggle": "Тоггл", "role.momentary": "Импульс", "role.radio": "Радиогруппа",
         "role.cover_open": "Открыть ролету", "role.cover_close": "Закрыть ролету",
@@ -3071,6 +3102,7 @@
           const label = (button.name || "").trim() || "—";
           const coverId = String(button.cover_id || covers[0]?.id || "cover_1").trim() || "cover_1";
           const isCoverRole = role === "cover_open" || role === "cover_close";
+          const needsActionEntity = role === "toggle" || role === "momentary" || role === "radio";
           const cover = covers.find((c) => c.id === coverId) || covers[0];
           const timesOwner = isCoverRole ? firstCoverRoleIndex(coverId) : null;
           const showTimes = isCoverRole && cover && timesOwner === button.index;
@@ -3088,6 +3120,29 @@
             </label>` : "";
           const radioHint = role === "radio"
             ? `<p class="radio-groups-hint" data-mixed-radio-hint>${t("card.mixed_radio_hint")}</p>` : "";
+          const domain = actionDomainPreview(button.action);
+          const entityChoices = domain
+            ? PREVIEW_ENTITIES.filter((id) => id.startsWith(domain + "."))
+            : PREVIEW_ENTITIES;
+          const actionEntity = needsActionEntity ? `
+            <div class="mixed-action-entity" data-mixed-action-entity>
+              <label class="field"><span>${t("card.action")}</span>
+                <input type="search" class="picker-filter" data-action-filter data-button="${button.index}"
+                  placeholder="${t("card.picker_search")}" />
+                <select data-field="action" data-action-picker data-button="${button.index}">
+                  ${optionsHtml(PREVIEW_SERVICES, button.action, t("card.action_none"))}
+                </select>
+                <span class="field-hint">${t("card.action_picker_hint")}</span>
+              </label>
+              <label class="field"><span>${t("card.entity_id")}</span>
+                <input type="search" class="picker-filter" data-entity-filter data-button="${button.index}"
+                  placeholder="${t("card.picker_search")}" ${button.action ? "" : "disabled"} />
+                <select data-field="entity" data-entity-picker data-button="${button.index}" ${button.action ? "" : "disabled"}>
+                  ${optionsHtml(entityChoices, button.entity, t("card.entity_none"))}
+                </select>
+                <span class="field-hint">${t("card.entity_picker_hint")}</span>
+              </label>
+            </div>` : "";
           let coverFields = "";
           if (isCoverRole) {
             const slot = multiCover
@@ -3099,14 +3154,15 @@
                 </label>`
               : `<span class="mixed-cover-slot" data-cover-id data-cover-slot="${coverId}">${t("card.cover_id")}: ${coverId}</span>`;
             coverFields = `${slot}
+              <p class="radio-groups-hint" data-cover-id-hint>${t("card.cover_id_hint")}</p>
               <p class="radio-groups-hint" data-mixed-cover-hint>${t("card.mixed_cover_hint")}</p>
               ${showTimes && cover ? inlineCoverTimesHtml(cover) : ""}
               ${showTimesPointer && timesOwner != null
                 ? `<p class="radio-groups-hint" data-mixed-cover-times-on>${t("card.mixed_cover_times_on").replace("{n}", String(timesOwner))}</p>`
                 : ""}`;
           }
-          const extras = pulse || radioHint || coverFields
-            ? `<div class="mixed-role-extras">${pulse}${radioHint}${coverFields}</div>`
+          const extras = pulse || radioHint || actionEntity || coverFields
+            ? `<div class="mixed-role-extras">${pulse}${radioHint}${actionEntity}${coverFields}</div>`
             : "";
           return `<div class="mixed-role-card" data-mixed-role="${button.index}">
             <div class="mixed-role-card-main">
@@ -3122,54 +3178,94 @@
       els.mixedRolesSection.querySelectorAll("[data-mixed-role]").forEach((card) => {
         const index = Number(card.dataset.mixedRole);
         card.querySelectorAll("[data-role]").forEach((chip) => {
-          chip.addEventListener("click", () => setButtonRole(index, chip.dataset.role));
+          chip.addEventListener("click", () => {
+            const btn = state.draft.buttons.find((b) => b.index === index);
+            if (!btn) return;
+            btn.role = chip.dataset.role;
+            markDirty(true);
+            renderMixedRolesSection();
+            renderButtonsEditor();
+            renderFaceplate();
+          });
         });
         const pulseInput = card.querySelector("[data-pulse-time]");
         if (pulseInput) {
           pulseInput.addEventListener("change", () => {
-            const button = state.draft.buttons.find((b) => b.index === index);
-            if (!button) return;
-            button.pulse_time_s = clampPulseTime(pulseInput.value, DEFAULT_PULSE_TIME);
+            const btn = state.draft.buttons.find((b) => b.index === index);
+            if (!btn) return;
+            btn.pulse_time_s = clampPulseTime(pulseInput.value, DEFAULT_PULSE_TIME);
             markDirty(true);
           });
         }
         const coverSelect = card.querySelector("select[data-cover-id]");
         if (coverSelect) {
-          coverSelect.addEventListener("change", () => setButtonCoverId(index, coverSelect.value));
+          coverSelect.addEventListener("change", () => {
+            const btn = state.draft.buttons.find((b) => b.index === index);
+            if (!btn) return;
+            btn.cover_id = coverSelect.value;
+            markDirty(true);
+            renderMixedRolesSection();
+          });
         }
-        card.querySelectorAll("[data-cover-open-time]").forEach((input) => {
-          input.addEventListener("change", () => {
-            patchCovers((covers) => {
-              const cover = covers.find((item) => item.id === input.dataset.coverOpenTime);
-              if (!cover) return;
-              cover.open_time_s = clampNumber(input.value, COVER_TIME_MIN, COVER_TIME_MAX, DEFAULT_COVER.open_time_s);
+        card.querySelectorAll("[data-action-filter], [data-entity-filter]").forEach((input) => {
+          input.addEventListener("input", () => {
+            const needle = String(input.value || "").trim().toLowerCase();
+            const kind = input.hasAttribute("data-action-filter") ? "action" : "entity";
+            const select = card.querySelector(
+              kind === "action"
+                ? `[data-action-picker][data-button="${index}"]`
+                : `[data-entity-picker][data-button="${index}"]`
+            );
+            if (!select) return;
+            [...select.options].forEach((opt) => {
+              if (!opt.value) {
+                opt.hidden = false;
+                return;
+              }
+              opt.hidden = needle ? !opt.value.toLowerCase().includes(needle) : false;
             });
           });
         });
-        card.querySelectorAll("[data-cover-close-time]").forEach((input) => {
-          input.addEventListener("change", () => {
-            patchCovers((covers) => {
-              const cover = covers.find((item) => item.id === input.dataset.coverCloseTime);
-              if (!cover) return;
-              cover.close_time_s = clampNumber(input.value, COVER_TIME_MIN, COVER_TIME_MAX, DEFAULT_COVER.close_time_s);
-            });
-          });
-        });
-        card.querySelectorAll("[data-cover-settle]").forEach((input) => {
-          input.addEventListener("change", () => {
-            patchCovers((covers) => {
-              const cover = covers.find((item) => item.id === input.dataset.coverSettle);
-              if (!cover) return;
-              cover.direction_settle_s = clampNumber(input.value, COVER_SETTLE_MIN, COVER_SETTLE_MAX, DEFAULT_COVER.direction_settle_s);
-            });
-          });
-        });
-        card.querySelectorAll("[data-cover-opposite]").forEach((select) => {
+        card.querySelectorAll("[data-action-picker], [data-entity-picker]").forEach((select) => {
           select.addEventListener("change", () => {
+            const btn = state.draft.buttons.find((b) => b.index === index);
+            if (!btn) return;
+            const field = select.dataset.field;
+            if (field === "action") {
+              btn.action = select.value;
+              const domain = actionDomainPreview(btn.action);
+              if (domain && btn.entity && !String(btn.entity).startsWith(domain + ".")) {
+                btn.entity = "";
+              }
+              markDirty(true);
+              renderMixedRolesSection();
+              renderButtonsEditor();
+              return;
+            }
+            if (field === "entity") {
+              btn.entity = select.value;
+              markDirty(true);
+              renderButtonsEditor();
+            }
+          });
+        });
+        card.querySelectorAll("[data-cover-open-time], [data-cover-close-time], [data-cover-settle], [data-cover-opposite]").forEach((input) => {
+          const eventName = input.tagName === "SELECT" ? "change" : "change";
+          input.addEventListener(eventName, () => {
+            const coverId = input.closest("[data-inline-cover-times]")?.dataset.coverId;
+            if (!coverId) return;
             patchCovers((covers) => {
-              const cover = covers.find((item) => item.id === select.dataset.coverOpposite);
+              const cover = covers.find((item) => item.id === coverId);
               if (!cover) return;
-              cover.opposite_press = select.value === "stop_then_reverse" ? "stop_then_reverse" : "stop_only";
+              if (input.hasAttribute("data-cover-open-time")) {
+                cover.open_time_s = clampNumber(input.value, COVER_TIME_MIN, COVER_TIME_MAX, DEFAULT_COVER.open_time_s);
+              } else if (input.hasAttribute("data-cover-close-time")) {
+                cover.close_time_s = clampNumber(input.value, COVER_TIME_MIN, COVER_TIME_MAX, DEFAULT_COVER.close_time_s);
+              } else if (input.hasAttribute("data-cover-settle")) {
+                cover.direction_settle_s = clampNumber(input.value, COVER_SETTLE_MIN, COVER_SETTLE_MAX, DEFAULT_COVER.direction_settle_s);
+              } else if (input.hasAttribute("data-cover-opposite")) {
+                cover.opposite_press = input.value === "stop_then_reverse" ? "stop_then_reverse" : "stop_only";
+              }
             });
           });
         });
