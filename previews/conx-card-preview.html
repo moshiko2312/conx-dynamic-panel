@@ -2714,8 +2714,10 @@
         state.draft.mode === "cover" || draftHasMixedCover()
       );
       if (!els.coverControl) return;
-      els.coverControl.hidden = !isCover;
-      if (!isCover) {
+      // Operate mode: faceplate only — hide live open/stop/close chrome.
+      const showCover = Boolean(isCover) && !state.operateMode;
+      els.coverControl.hidden = !showCover;
+      if (!showCover) {
         els.coverControl.innerHTML = "";
         return;
       }
@@ -3742,6 +3744,7 @@
         els.operateToggle.title = t("card.operate_hint");
         els.operateToggle.setAttribute("aria-label", t("card.operate"));
       }
+      renderCoverState();
       applyPreviewToggle();
     }
     function setOperateMode(operate) {

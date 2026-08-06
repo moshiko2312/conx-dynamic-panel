@@ -1886,6 +1886,10 @@ export class ConXDynamicPanelCard extends LitElement {
 
   /** Live open/close/stop, routed through the backend engine (never direct relays). */
   private _renderCoverControl() {
+    // Operate mode: faceplate only — physical panel / settings still drive covers.
+    if (this._operateMode) {
+      return nothing;
+    }
     const mode = this._saved?.mode;
     if (mode !== "cover" && mode !== "mixed") {
       return nothing;

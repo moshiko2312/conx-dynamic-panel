@@ -2844,6 +2844,8 @@ let _ = class extends D {
   /** Live open/close/stop, routed through the backend engine (never direct relays). */
   _renderCoverControl() {
     var r, i, a;
+    if (this._operateMode)
+      return p;
     const t = (r = this._saved) == null ? void 0 : r.mode;
     if (t !== "cover" && t !== "mixed" || t === "mixed" && !((a = (i = this._saved) == null ? void 0 : i.buttons) != null && a.some(
       (o) => o.role === "cover_open" || o.role === "cover_close"

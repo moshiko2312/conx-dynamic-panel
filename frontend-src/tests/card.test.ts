@@ -1637,7 +1637,7 @@ describe("custom elements", () => {
     expect(exitBtn?.textContent?.trim()).toBe("הגדרות");
   });
 
-  it("keeps cover live controls visible in operate mode", async () => {
+  it("hides cover live controls in operate mode", async () => {
     const callWS = vi.fn().mockResolvedValue(
       panelPayload({
         sync_status: "synced",
@@ -1667,10 +1667,11 @@ describe("custom elements", () => {
     expect(el.shadowRoot?.querySelector("[data-editor-chrome]")).toBeFalsy();
     expect(el.shadowRoot?.querySelector("[data-panel-title]")).toBeFalsy();
     expect(el.shadowRoot?.querySelector("[data-operate-menu]")).toBeTruthy();
-    expect(el.shadowRoot?.querySelector("[data-cover-control]")).toBeTruthy();
-    expect(el.shadowRoot?.querySelector("[data-cover-open]")).toBeTruthy();
-    expect(el.shadowRoot?.querySelector("[data-cover-stop]")).toBeTruthy();
-    expect(el.shadowRoot?.querySelector("[data-cover-close]")).toBeTruthy();
+    expect(el.shadowRoot?.querySelector(".faceplate")).toBeTruthy();
+    expect(el.shadowRoot?.querySelector("[data-cover-control]")).toBeFalsy();
+    expect(el.shadowRoot?.querySelector("[data-cover-open]")).toBeFalsy();
+    expect(el.shadowRoot?.querySelector("[data-cover-stop]")).toBeFalsy();
+    expect(el.shadowRoot?.querySelector("[data-cover-close]")).toBeFalsy();
   });
 
   it("switches editor tabs between profiles appearance and buttons", async () => {
