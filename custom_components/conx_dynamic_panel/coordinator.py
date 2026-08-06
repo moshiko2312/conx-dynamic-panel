@@ -592,64 +592,71 @@ class PanelCoordinator:
             motion = self.runtime.cover.get(cover.id)
             if not turned_on:
                 # OFF on the inactive direction must not abort travel. After
-                # stop_then_reverse the previous direction often reports a
-                # duplicate Zigbee OFF; treating that as a stop killed reverse.
+                # reverse the previous direction often reports a duplicate OFF.
                 if motion.moving and motion.direction != direction:
                     return
-                # After stop_then_reverse force_energize only: active-direction
-                # OFF shortly after start is usually a deferred halt/settle echo
-                # that lost the suppression race. Ignore it and re-assert ON if
-                # HA flipped off. Idle starts still treat immediate OFF as stop.
-                if (
-                    motion.moving
-                    and motion.direction == direction
-                    and motion.suppress_stale_off_until is not None
-                    and self._monotonic() < motion.suppress_stale_off_until
-                ):
-                    target = cover.button_for(direction)
-                    if not self.runtime.adapter.relay_is_on(target):
-                        try:
-                            await self.runtime.adapter.async_set_relay(
-                                target, True, suppress_event=True
-                            )
-                        except Exception as err:  # noqa: BLE001
-                            _LOGGER.error(
-                                "Cover %s failed to re-assert %s after stale OFF: %s",
-                                cover.id,
-                                direction,
-                                err,
-                            )
-                            await self._async_cover_halt(cover, reason=COVER_REASON_ERROR)
+                if motion.moving and motion.direction == direction:
+                    opposite_dir = cover.opposite_direction(direction)
+                    opposite_btn = cover.button_for(opposite_dir)
+                    # Latching panels often turn the old direction OFF when the
+                    # user presses reverse (hardware mutex). If the opposite
+                    # relay is already ON, continue travel that way — do not
+                    # treat this OFF as a full stop.
+                    if (
+                        cover.opposite_press == COVER_OPPOSITE_STOP_THEN_REVERSE
+                        and self.runtime.adapter.relay_is_on(opposite_btn)
+                    ):
+                        await self._async_cover_reverse_to(
+                            cover,
+                            profile,
+                            opposite_dir,
+                            COVER_REASON_PRESS,
+                        )
+                        return
+                    # Stale OFF echo shortly after reverse start.
+                    if (
+                        motion.suppress_stale_off_until is not None
+                        and self._monotonic() < motion.suppress_stale_off_until
+                    ):
+                        target = cover.button_for(direction)
+                        if not self.runtime.adapter.relay_is_on(target):
+                            try:
+                                await self.runtime.adapter.async_set_relay(
+                                    target, True, suppress_event=True
+                                )
+                            except Exception as err:  # noqa: BLE001
+                                _LOGGER.error(
+                                    "Cover %s failed to re-assert %s after stale OFF: %s",
+                                    cover.id,
+                                    direction,
+                                    err,
+                                )
+                                await self._async_cover_halt(
+                                    cover, reason=COVER_REASON_ERROR
+                                )
+                        return
+                    await self._async_cover_halt(
+                        cover, reason=COVER_REASON_STOP_PRESS
+                    )
                     return
-                # Active-direction OFF is a stop press; idle OFF is safety.
-                await self._async_cover_halt(
-                    cover,
-                    reason=COVER_REASON_STOP_PRESS if motion.moving else COVER_REASON_SAFETY,
-                )
+                await self._async_cover_halt(cover, reason=COVER_REASON_SAFETY)
                 return
             if motion.moving:
                 previous = motion.direction
-                will_reverse = (
-                    previous != direction
-                    and cover.opposite_press == COVER_OPPOSITE_STOP_THEN_REVERSE
-                )
-                # Reverse transition: do not mirror cover.stop_cover — a deferred
-                # HA/Zigbee stop after close/open_cover kills the new direction.
-                await self._async_cover_halt(
-                    cover,
-                    reason=COVER_REASON_STOP_PRESS,
-                    mirror_ha=not will_reverse,
-                )
-                if not will_reverse:
+                if previous == direction:
+                    # Same direction while moving = stop.
+                    await self._async_cover_halt(
+                        cover, reason=COVER_REASON_STOP_PRESS
+                    )
                     return
-                await self._async_cover_settle(cover)
-                # Halt just forced both OFF — always re-energize reverse.
-                await self._async_cover_start(
-                    cover,
-                    profile,
-                    direction,
-                    COVER_REASON_PRESS,
-                    force_energize=True,
+                if cover.opposite_press != COVER_OPPOSITE_STOP_THEN_REVERSE:
+                    await self._async_cover_halt(
+                        cover, reason=COVER_REASON_STOP_PRESS
+                    )
+                    return
+                # Reverse: never pulse the newly pressed relay OFF→ON.
+                await self._async_cover_reverse_to(
+                    cover, profile, direction, COVER_REASON_PRESS
                 )
                 return
             await self._async_cover_start(cover, profile, direction, COVER_REASON_PRESS)
@@ -684,28 +691,95 @@ class PanelCoordinator:
             )
             if motion.moving:
                 previous = motion.direction
-                will_reverse = (
-                    previous != direction
-                    and cover.opposite_press == COVER_OPPOSITE_STOP_THEN_REVERSE
-                )
-                await self._async_cover_halt(
-                    cover,
-                    reason=COVER_REASON_COMMAND,
-                    mirror_ha=not will_reverse,
-                )
-                if not will_reverse:
+                if previous == direction:
+                    # Same direction command while moving = stop.
+                    await self._async_cover_halt(cover, reason=COVER_REASON_COMMAND)
                     return self.cover_state_payload(cover_id=cover.id)
-                await self._async_cover_settle(cover)
-                await self._async_cover_start(
-                    cover,
-                    profile,
-                    direction,
-                    COVER_REASON_COMMAND,
-                    force_energize=True,
+                if cover.opposite_press != COVER_OPPOSITE_STOP_THEN_REVERSE:
+                    await self._async_cover_halt(cover, reason=COVER_REASON_COMMAND)
+                    return self.cover_state_payload(cover_id=cover.id)
+                await self._async_cover_reverse_to(
+                    cover, profile, direction, COVER_REASON_COMMAND
                 )
             else:
                 await self._async_cover_start(cover, profile, direction, COVER_REASON_COMMAND)
         return self.cover_state_payload(cover_id=cover.id)
+
+    async def _async_cover_reverse_to(
+        self,
+        cover: CoverConfig,
+        profile: Profile,
+        new_direction: str,
+        reason: str,
+    ) -> None:
+        """Switch travel to ``new_direction`` without pulsing that relay OFF→ON.
+
+        Latching Zemismart panels: the user already turned the reverse relay ON.
+        The old halt-both-OFF then force-ON path killed travel (buttons swapped
+        then the new action died). Here we only de-energize the previous
+        direction, settle, keep/ensure the new relay ON, and arm a fresh timer.
+        """
+        motion = self.runtime.cover.get(cover.id)
+        previous = motion.direction
+        if previous == new_direction:
+            return
+
+        target = cover.button_for(new_direction)
+        old = cover.button_for(previous) if previous else None
+
+        timer = motion.timer
+        motion.timer = None
+        if timer is not None and timer is not asyncio.current_task():
+            timer.cancel()
+        # Bookkeeping cleared until we re-arm; relays handled explicitly below.
+        motion.direction = None
+        motion.started_at = None
+        motion.duration = None
+        motion.suppress_stale_off_until = None
+        motion.last_reason = reason
+
+        if old is not None and old != target:
+            if not await self._async_cover_relay_off(old):
+                await self._async_cover_halt(cover, reason=COVER_REASON_ERROR)
+                return
+
+        settle = float(cover.direction_settle_s or 0.0)
+        if settle > 0:
+            await asyncio.sleep(settle)
+            if old is not None and old != target:
+                await self._async_cover_relay_off(old)
+
+        # Never turn the reverse target OFF here — only ensure it is ON.
+        if not self.runtime.adapter.relay_is_on(target):
+            try:
+                await self.runtime.adapter.async_set_relay(
+                    target, True, suppress_event=True
+                )
+            except Exception as err:  # noqa: BLE001
+                _LOGGER.error(
+                    "Cover %s reverse to %s failed to energize relay %s: %s",
+                    cover.id,
+                    new_direction,
+                    target,
+                    err,
+                )
+                await self._async_cover_halt(cover, reason=COVER_REASON_ERROR)
+                return
+
+        duration = cover.duration_for(new_direction)
+        motion.direction = new_direction
+        motion.duration = duration
+        motion.started_at = self._monotonic()
+        motion.last_reason = reason
+        motion.relays = cover.relay_indexes()
+        motion.suppress_stale_off_until = motion.started_at + COVER_POST_START_OFF_GRACE_S
+        motion.timer = self.hass.async_create_task(
+            self._async_cover_travel_timer(profile.id, cover.id, new_direction, duration)
+        )
+        self._fire_cover_event(profile, cover, new_direction, reason)
+        # Mirror only the final direction — never stop_cover mid-reverse.
+        await self._async_cover_mirror_ha(cover, new_direction)
+        self.runtime.async_notify()
 
     def _resolve_cover(self, profile: Profile, cover_id: str | None) -> CoverConfig:
         """Resolve a cover by id, defaulting to the first active cover on the profile."""

@@ -340,6 +340,7 @@ async def test_opposite_press_stop_only_does_not_start_reverse() -> None:
 
 @pytest.mark.asyncio
 async def test_opposite_press_stop_then_reverse_stops_before_starting() -> None:
+    """Reverse kills old direction only; new direction stays/goes ON and keeps traveling."""
     coordinator, adapter, _store, _profile, runtime = _build(
         opposite_press=COVER_OPPOSITE_STOP_THEN_REVERSE,
         settle=0.01,
@@ -347,18 +348,16 @@ async def test_opposite_press_stop_then_reverse_stops_before_starting() -> None:
         close_time=5.0,
     )
     await coordinator._async_handle_physical_press(OPEN_BUTTON, True)
+    # Physical latching press already energized close before the HA event.
+    adapter.relays[CLOSE_BUTTON] = True
     adapter.relay_calls.clear()
     await coordinator._async_handle_physical_press(CLOSE_BUTTON, True)
     assert runtime.cover.direction == "close"
     assert runtime.cover.moving is True
     assert runtime.cover.timer is not None
-    # Active open is killed first, then close OFF, settle re-asserts both OFF,
-    # then start forces opposite OFF again before close ON — never both true.
-    first_close_on = adapter.relay_calls.index((CLOSE_BUTTON, True))
-    prefix = adapter.relay_calls[:first_close_on]
-    assert (OPEN_BUTTON, False) in prefix
-    assert prefix[0] == (OPEN_BUTTON, False)  # kill active direction ASAP
-    assert all(state is False for _index, state in prefix)
+    assert (OPEN_BUTTON, False) in adapter.relay_calls
+    # Must never pulse the newly pressed reverse relay OFF→ON.
+    assert (CLOSE_BUTTON, False) not in adapter.relay_calls
     assert adapter.relays[OPEN_BUTTON] is False
     assert adapter.relays[CLOSE_BUTTON] is True
     _assert_no_both_on_window(adapter.relay_calls, OPEN_BUTTON, CLOSE_BUTTON)
@@ -366,8 +365,8 @@ async def test_opposite_press_stop_then_reverse_stops_before_starting() -> None:
 
 
 @pytest.mark.asyncio
-async def test_stop_then_reverse_energizes_when_relay_is_on_is_stale() -> None:
-    """After halt both are OFF; reverse must turn_on even if is_on lies."""
+async def test_stop_then_reverse_energizes_when_target_still_off() -> None:
+    """If reverse relay is not yet ON, reverse path turns it on once (no prior OFF)."""
     coordinator, adapter, _store, _profile, runtime = _build(
         opposite_press=COVER_OPPOSITE_STOP_THEN_REVERSE,
         settle=0.0,
@@ -376,23 +375,34 @@ async def test_stop_then_reverse_energizes_when_relay_is_on_is_stale() -> None:
     )
     await coordinator._async_handle_physical_press(OPEN_BUTTON, True)
     adapter.relay_calls.clear()
-
-    real_is_on = adapter.relay_is_on
-
-    def stale_is_on(index: int) -> bool:
-        # Simulate HA still reporting the reverse target ON from the physical
-        # press even though halt already wrote it OFF.
-        if index == CLOSE_BUTTON and adapter.relays[CLOSE_BUTTON] is False:
-            return True
-        return real_is_on(index)
-
-    adapter.relay_is_on = stale_is_on  # type: ignore[method-assign]
     await coordinator._async_handle_physical_press(CLOSE_BUTTON, True)
     assert runtime.cover.direction == "close"
     assert runtime.cover.timer is not None
     assert adapter.relays[CLOSE_BUTTON] is True
     assert (CLOSE_BUTTON, True) in adapter.relay_calls
+    assert (CLOSE_BUTTON, False) not in adapter.relay_calls
     _assert_no_both_on_window(adapter.relay_calls, OPEN_BUTTON, CLOSE_BUTTON)
+    await coordinator._async_cover_abort("test")
+
+
+@pytest.mark.asyncio
+async def test_active_off_with_opposite_already_on_reverses() -> None:
+    """Hardware mutex: old direction OFF while opposite ON continues as reverse."""
+    coordinator, adapter, _store, _profile, runtime = _build(
+        opposite_press=COVER_OPPOSITE_STOP_THEN_REVERSE,
+        settle=0.0,
+        open_time=5.0,
+        close_time=5.0,
+    )
+    await coordinator._async_handle_physical_press(OPEN_BUTTON, True)
+    adapter.relays[CLOSE_BUTTON] = True
+    adapter.relays[OPEN_BUTTON] = False
+    adapter.relay_calls.clear()
+    await coordinator._async_handle_physical_press(OPEN_BUTTON, False)
+    assert runtime.cover.direction == "close"
+    assert adapter.relays[CLOSE_BUTTON] is True
+    assert adapter.relays[OPEN_BUTTON] is False
+    assert (CLOSE_BUTTON, False) not in adapter.relay_calls
     await coordinator._async_cover_abort("test")
 
 
@@ -533,8 +543,8 @@ async def test_cover_command_stop_then_reverse_energizes_opposite() -> None:
 
 
 @pytest.mark.asyncio
-async def test_stop_then_reverse_settles_with_both_off() -> None:
-    """During settle both relays stay OFF; reverse ON only after the wait."""
+async def test_stop_then_reverse_settles_without_killing_new_direction() -> None:
+    """During settle the old direction is OFF; reverse target is not pulsed OFF."""
     coordinator, adapter, _store, _profile, runtime = _build(
         opposite_press=COVER_OPPOSITE_STOP_THEN_REVERSE,
         settle=0.05,
@@ -542,13 +552,14 @@ async def test_stop_then_reverse_settles_with_both_off() -> None:
         close_time=5.0,
     )
     await coordinator._async_handle_physical_press(OPEN_BUTTON, True)
+    adapter.relays[CLOSE_BUTTON] = True
     adapter.relay_calls.clear()
 
     task = asyncio.create_task(coordinator._async_handle_physical_press(CLOSE_BUTTON, True))
     await asyncio.sleep(0.02)  # mid-settle
     assert adapter.relays[OPEN_BUTTON] is False
-    assert adapter.relays[CLOSE_BUTTON] is False
-    assert runtime.cover.moving is False  # still settling / not yet reverse
+    assert adapter.relays[CLOSE_BUTTON] is True  # reverse press kept ON
+    assert (CLOSE_BUTTON, False) not in adapter.relay_calls
     await task
     assert runtime.cover.direction == "close"
     assert adapter.relays[OPEN_BUTTON] is False
