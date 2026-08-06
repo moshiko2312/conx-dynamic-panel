@@ -775,6 +775,7 @@ class PanelCoordinator:
             self._async_cover_travel_timer(profile.id, cover.id, direction, duration)
         )
         self._fire_cover_event(profile, cover, direction, reason)
+        await self._async_cover_mirror_ha(cover, direction)
         self.runtime.async_notify()
 
     async def _async_cover_travel_timer(
@@ -846,6 +847,16 @@ class PanelCoordinator:
             timer.cancel()
         for index in indexes:
             await self._async_cover_relay_off(index)
+        if cover is not None and (
+            was_moving
+            or reason
+            in {
+                COVER_REASON_COMMAND,
+                COVER_REASON_STOP_PRESS,
+                COVER_REASON_TRAVEL_COMPLETE,
+            }
+        ):
+            await self._async_cover_mirror_ha(cover, "stop")
         if was_moving or reason in {COVER_REASON_SAFETY, COVER_REASON_ERROR}:
             profile = self.data.active_profile()
             if profile is not None and cover is not None:
@@ -908,6 +919,44 @@ class PanelCoordinator:
             self.data.last_error = f"Cover relay {index} could not be turned off: {err}"
             return False
         return True
+
+    async def _async_cover_mirror_ha(self, cover: CoverConfig, command: str) -> None:
+        """Best-effort mirror open/close/stop to an optional linked HA cover entity.
+
+        Motor relay control must not fail when the HA service call fails.
+        """
+        entity_id = (cover.ha_entity_id or "").strip()
+        if not entity_id:
+            return
+        if command == COVER_DIRECTION_OPEN:
+            service = "open_cover"
+        elif command == COVER_DIRECTION_CLOSE:
+            service = "close_cover"
+        else:
+            service = "stop_cover"
+        try:
+            if not self.hass.services.has_service("cover", service):
+                _LOGGER.warning(
+                    "Cover %s HA mirror skipped: service cover.%s missing for %s",
+                    cover.id,
+                    service,
+                    entity_id,
+                )
+                return
+            await self.hass.services.async_call(
+                "cover",
+                service,
+                {"entity_id": entity_id},
+                blocking=False,
+            )
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.warning(
+                "Cover %s HA mirror cover.%s for %s failed: %s",
+                cover.id,
+                service,
+                entity_id,
+                err,
+            )
 
     async def _async_cover_settle(self, cover: CoverConfig) -> None:
         """Dead time between directions. Both relays must stay OFF the whole time."""

@@ -109,6 +109,7 @@ const sampleProfile: Profile = {
       close_time_s: 20,
       direction_settle_s: 0.5,
       opposite_press: "stop_only",
+      ha_entity_id: null,
     },
   ],
 };
@@ -1823,11 +1824,15 @@ describe("custom elements", () => {
     expect(roleRow.querySelector("[data-cover-id-hint]")?.textContent || "").toMatch(
       /not a Home Assistant|לא ישות|не сущность/i
     );
+    expect(roleRow.querySelector("[data-cover-ha-entity]")?.textContent || "").toMatch(
+      /HA cover entity|ישות תריס|Сущность cover/i
+    );
+    expect(roleRow.querySelector("[data-cover-ha-entity-picker]")).toBeTruthy();
     expect(roleRow.querySelector("[data-mixed-cover-hint]")?.textContent || "").toMatch(
-      /Toggle\/Momentary|טוגל|Тоггл/
+      /cover\.\*|מנוע תריס|Мотор ролеты/
     );
     expect(roleRow.querySelector("[data-mixed-cover-hint]")?.textContent || "").not.toMatch(
-      /below|למטה|ниже/i
+      /look below|see below/i
     );
     // Travel times sit inside the cover-role card; bottom mixed editor is gone.
     expect(el.shadowRoot?.querySelector("[data-cover-editor]")).toBeFalsy();
@@ -2001,10 +2006,12 @@ describe("custom elements", () => {
     expect(localize("en", "card.cover_id")).toBe("Motor / Cover slot");
     expect(localize("ru", "card.cover_id")).toBe("Мотор / слот ролеты");
     expect(localize("he", "card.mixed_cover_hint")).toContain("ישות");
-    expect(localize("he", "card.mixed_cover_hint")).toContain("טוגל");
-    expect(localize("he", "card.mixed_cover_hint")).not.toContain("למטה");
-    expect(localize("en", "card.mixed_cover_hint")).toContain("Toggle/Momentary");
-    expect(localize("en", "card.mixed_cover_hint")).not.toMatch(/below/i);
+    expect(localize("he", "card.cover_ha_entity")).toContain("אופציונלי");
+    expect(localize("en", "card.cover_ha_entity")).toMatch(/HA cover entity/i);
+    expect(localize("ru", "card.cover_ha_entity")).toMatch(/cover/i);
+    expect(localize("he", "card.mixed_cover_hint")).toContain("מנוע");
+    expect(localize("en", "card.mixed_cover_hint")).toMatch(/cover\.\*/i);
+    expect(localize("en", "card.mixed_cover_hint")).not.toMatch(/look below/i);
     expect(localize("en", "card.picker_search")).toBe("Search…");
     expect(localize("he", "card.picker_search")).toBe("חיפוש…");
     expect(localize("en", "card.action_data")).toBe("Action data (YAML)");
@@ -2248,6 +2255,7 @@ describe("cover mode", () => {
       close_time_s: 20,
       direction_settle_s: 0.5,
       opposite_press: "stop_only",
+      ha_entity_id: null,
     });
     const clamped = normalizeCover({
       open_button: 9,
@@ -2264,6 +2272,28 @@ describe("cover mode", () => {
     expect(clamped.close_time_s).toBe(1);
     expect(clamped.direction_settle_s).toBe(5);
     expect(clamped.opposite_press).toBe("stop_only");
+    expect(clamped.ha_entity_id).toBeNull();
+    expect(
+      normalizeCover({
+        open_button: 1,
+        close_button: 2,
+        ha_entity_id: "cover.living_shutter",
+      }).ha_entity_id
+    ).toBe("cover.living_shutter");
+    expect(
+      normalizeCover({
+        open_button: 1,
+        close_button: 2,
+        entity_id: "cover.kitchen",
+      } as never).ha_entity_id
+    ).toBe("cover.kitchen");
+    expect(
+      normalizeCover({
+        open_button: 1,
+        close_button: 2,
+        ha_entity_id: "light.nope",
+      }).ha_entity_id
+    ).toBeNull();
   });
 
   it("shows the cover editor only in cover mode", async () => {

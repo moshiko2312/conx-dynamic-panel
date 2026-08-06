@@ -22,6 +22,7 @@ export const DEFAULT_COVER: CoverConfig = {
   close_time_s: 20,
   direction_settle_s: 0.5,
   opposite_press: "stop_only",
+  ha_entity_id: null,
 };
 
 export async function fetchConfig(
@@ -334,6 +335,13 @@ export function normalizeCover(
       Array.from({ length: gangCount }, (_, i) => i + 1).find((index) => index !== openButton) ??
       Math.min(openButton + 1, gangCount);
   }
+  const rawEntity =
+    (source as { ha_entity_id?: unknown; entity_id?: unknown }).ha_entity_id ??
+    (source as { entity_id?: unknown }).entity_id;
+  const haEntity =
+    typeof rawEntity === "string" && rawEntity.trim().startsWith("cover.")
+      ? rawEntity.trim()
+      : null;
   return {
     id: String(source.id || "").trim() || defaultId,
     open_button: openButton,
@@ -358,6 +366,7 @@ export function normalizeCover(
     ),
     opposite_press:
       source.opposite_press === "stop_then_reverse" ? "stop_then_reverse" : "stop_only",
+    ha_entity_id: haEntity,
   };
 }
 

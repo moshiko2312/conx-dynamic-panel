@@ -45,6 +45,11 @@ export interface CoverConfig {
   /** Dead time between de-energizing one direction and energizing the other. */
   direction_settle_s: number;
   opposite_press: CoverOppositePress;
+  /**
+   * Optional linked Home Assistant `cover.*` entity.
+   * Panel relays still drive the motor; this mirrors open/close/stop for HA.
+   */
+  ha_entity_id?: string | null;
 }
 
 export interface CoverMotionState {

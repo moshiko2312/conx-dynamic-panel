@@ -6,6 +6,8 @@ All notable changes to this private project will be documented here.
 
 ### Added
 
+- **Optional HA `cover.*` entity on cover motors:** free-mix `cover_open` / `cover_close` role cards (and dedicated `mode=cover` editor) include a searchable **HA cover entity (optional)** / **ישות תריס ב-HA (אופציונלי)** picker beside the motor slot + travel times. Stored as `covers[].ha_entity_id` (one per motor). When the cover engine starts or stops, it best-effort mirrors `cover.open_cover` / `close_cover` / `stop_cover` to that entity — panel relays still drive the physical motor; HA failures are logged and never block the motor path. Not used for live on/off LED sync of direction buttons.
+
 - **Live HA entity → panel LED/relay sync:** while a profile is active, the backend listens to `state_changed` for linked toggle (and safe radio) entities and updates the matching panel relay with transition suppression — so turning a light/switch off in the HA app turns the physical button LED off without waiting for Sync. Same Sync rules: `cover_*` / momentary never latch from entity state; unavailable/unknown skipped. Listeners rebuild on profile change / sync / unload.
 
 - **Optional Action data (YAML) on button actions:** after Action + Entity pickers (free-mix role cards and Buttons accordion), a collapsible **Action data (YAML)** / **נתוני פעולה (YAML)** editor writes `button.action.data`. Flat `key: value` lines or a JSON object (HA Developer Tools → Actions `data:` style). Invalid input shows an inline error and does not wipe the last good data; entity picker still sets `target.entity_id` and keeps extra data fields additive. EN/HE/RU + HTML preview.

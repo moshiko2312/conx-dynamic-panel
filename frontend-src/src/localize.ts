@@ -78,6 +78,10 @@ const EN: Record<string, string> = {
   "card.mixed_cover_times_on": "Travel times for this motor are set on L{n}.",
   "card.cover_id_hint":
     "Internal motor slot for open/close pairing — not a Home Assistant cover.* entity.",
+  "card.cover_ha_entity": "HA cover entity (optional)",
+  "card.cover_ha_entity_hint":
+    "Panel L1/L2 still drive the physical motor relays. Link a cover.* entity to mirror open/close/stop for HA status and automations.",
+  "card.cover_ha_entity_none": "No HA cover (optional)",
   "card.cover_settle_hint":
     "Brief pause before reversing direction (motor relay safety).",
   "card.cover_opposite": "Opposite press",
@@ -187,7 +191,7 @@ const EN: Record<string, string> = {
   "card.mixed_radio_hint":
     "Assign this button to a radio group below. Classic radio keeps exactly one member ON (turning it off snaps it back). Only role=Radio buttons stay in groups.",
   "card.mixed_cover_hint":
-    "Shutter motor: Open/Close roles + travel times here. Motor slot is not an HA entity. For lights and other HA calls, use Toggle/Momentary/Radio and set Action + Entity on that role card.",
+    "Shutter motor: Open/Close roles + travel times here. Motor slot is internal (not an HA entity). Optionally link a cover.* entity below to mirror open/close/stop for HA status and automations. Panel relays still drive the physical motor.",
   "role.toggle": "Toggle",
   "role.momentary": "Momentary",
   "role.radio": "Radio group",
@@ -270,6 +274,10 @@ const HE: Record<string, string> = {
   "card.mixed_cover_times_on": "זמני הנסיעה למנוע זה מוגדרים ב־L{n}.",
   "card.cover_id_hint":
     "מזהה מנוע פנימי לזיווג פתיחה/סגירה — לא ישות cover של Home Assistant.",
+  "card.cover_ha_entity": "ישות תריס ב-HA (אופציונלי)",
+  "card.cover_ha_entity_hint":
+    "כפתורי הפאנל עדיין מפעילים את ממסרי המנוע. קשרו ישות cover.* כדי לשקף פתיחה/סגירה/עצירה לסטטוס ואוטומציות ב-HA.",
+  "card.cover_ha_entity_none": "ללא ישות תריס ב-HA (אופציונלי)",
   "card.cover_settle_hint":
     "השהיה קצרה לפני היפוך כיוון (בטיחות ממסרי מנוע).",
   "card.cover_opposite": "לחיצה הפוכה",
@@ -379,7 +387,7 @@ const HE: Record<string, string> = {
   "card.mixed_radio_hint":
     "שייכו את הכפתור לקבוצת רדיו למטה. רדיו קלאסי משאיר תמיד חבר אחד דלוק (כיבוי מחזיר להדלקה). רק כפתורים בתפקיד «קבוצת רדיו» נשארים בקבוצה.",
   "card.mixed_cover_hint":
-    "מנוע תריס: תפקידי פתיחה/סגירה וזמני נסיעה כאן. מזהה המנוע אינו ישות HA. לאורות ופעולות Home Assistant בחרו טוגל/רגעי/רדיו והגדירו פעולה וישות בכרטיס התפקיד.",
+    "מנוע תריס: תפקידי פתיחה/סגירה וזמני נסיעה כאן. מזהה המנוע פנימי (לא ישות HA). אפשר לקשר ישות cover.* למטה כדי לשקף פתיחה/סגירה/עצירה לסטטוס ואוטומציות — ממסרי הפאנל עדיין מפעילים את המנוע.",
   "role.toggle": "טוגל",
   "role.momentary": "רגעי",
   "role.radio": "קבוצת רדיו",
@@ -462,6 +470,10 @@ const RU: Record<string, string> = {
   "card.mixed_cover_times_on": "Время хода для этого мотора задано на L{n}.",
   "card.cover_id_hint":
     "Внутренний слот мотора для пары открыть/закрыть — не сущность cover.* Home Assistant.",
+  "card.cover_ha_entity": "Сущность cover в HA (необязательно)",
+  "card.cover_ha_entity_hint":
+    "Кнопки панели по-прежнему управляют реле мотора. Свяжите cover.*, чтобы зеркалировать открытие/закрытие/стоп для статуса и автоматизаций HA.",
+  "card.cover_ha_entity_none": "Без cover в HA (необязательно)",
   "card.cover_settle_hint":
     "Короткая пауза перед сменой направления (безопасность реле мотора).",
   "card.cover_opposite": "Противоположное нажатие",
@@ -571,7 +583,7 @@ const RU: Record<string, string> = {
   "card.mixed_radio_hint":
     "Назначьте кнопку в радиогруппу ниже. Классическое радио держит ровно одного участника включённым (выключение возвращает включение). В группах остаются только кнопки с ролью «Радиогруппа».",
   "card.mixed_cover_hint":
-    "Мотор ролеты: роли Открыть/Закрыть и время хода здесь. Слот мотора — не сущность HA. Для света и других вызовов HA выберите Тоггл/Импульс/Радио и задайте Действие + Сущность в карточке роли.",
+    "Мотор ролеты: роли Открыть/Закрыть и время хода здесь. Слот мотора внутренний (не сущность HA). Ниже можно связать cover.* для зеркалирования открытия/закрытия/стопа в HA — реле панели по-прежнему управляют мотором.",
   "role.toggle": "Тоггл",
   "role.momentary": "Импульс",
   "role.radio": "Радиогруппа",

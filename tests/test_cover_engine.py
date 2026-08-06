@@ -758,6 +758,70 @@ def test_cover_config_clamps_out_of_range_values() -> None:
     assert cover.opposite_press == COVER_OPPOSITE_STOP_ONLY
 
 
+def test_cover_config_ha_entity_id_roundtrip() -> None:
+    cover = CoverConfig.from_dict(
+        {
+            "open_button": 1,
+            "close_button": 2,
+            "ha_entity_id": "cover.living_shutter",
+        }
+    )
+    assert cover.ha_entity_id == "cover.living_shutter"
+    assert cover.to_dict()["ha_entity_id"] == "cover.living_shutter"
+    # Alias entity_id is accepted on load.
+    aliased = CoverConfig.from_dict(
+        {"open_button": 1, "close_button": 2, "entity_id": "cover.kitchen"}
+    )
+    assert aliased.ha_entity_id == "cover.kitchen"
+    # Non-cover domains are dropped.
+    rejected = CoverConfig.from_dict(
+        {"open_button": 1, "close_button": 2, "ha_entity_id": "light.not_a_cover"}
+    )
+    assert rejected.ha_entity_id is None
+    assert "ha_entity_id" not in rejected.to_dict()
+
+
+@pytest.mark.asyncio
+async def test_cover_start_mirrors_ha_open_cover() -> None:
+    coordinator, adapter, _store, profile, runtime = _build(open_time=5.0)
+    profile.cover.ha_entity_id = "cover.living_shutter"
+    await coordinator._async_handle_physical_press(OPEN_BUTTON, True)
+    assert runtime.cover.direction == "open"
+    assert adapter.relays[OPEN_BUTTON] is True
+    runtime.hass.services.async_call.assert_awaited()
+    call = runtime.hass.services.async_call.await_args
+    assert call.args[0] == "cover"
+    assert call.args[1] == "open_cover"
+    assert call.kwargs.get("blocking") is False
+    assert call.args[2] == {"entity_id": "cover.living_shutter"}
+    await coordinator._async_cover_abort("test")
+
+
+@pytest.mark.asyncio
+async def test_cover_halt_mirrors_ha_stop_cover() -> None:
+    coordinator, _adapter, _store, profile, runtime = _build(open_time=5.0)
+    profile.cover.ha_entity_id = "cover.living_shutter"
+    await coordinator._async_handle_physical_press(OPEN_BUTTON, True)
+    runtime.hass.services.async_call.reset_mock()
+    await coordinator.async_cover_command("stop")
+    runtime.hass.services.async_call.assert_awaited()
+    call = runtime.hass.services.async_call.await_args
+    assert call.args[0] == "cover"
+    assert call.args[1] == "stop_cover"
+    assert call.args[2] == {"entity_id": "cover.living_shutter"}
+
+
+@pytest.mark.asyncio
+async def test_cover_ha_mirror_failure_does_not_block_motor() -> None:
+    coordinator, adapter, _store, profile, runtime = _build(open_time=5.0)
+    profile.cover.ha_entity_id = "cover.living_shutter"
+    runtime.hass.services.async_call = AsyncMock(side_effect=RuntimeError("HA down"))
+    await coordinator._async_handle_physical_press(OPEN_BUTTON, True)
+    assert runtime.cover.direction == "open"
+    assert adapter.relays[OPEN_BUTTON] is True
+    await coordinator._async_cover_abort("test")
+
+
 def test_cover_state_payload_reports_idle_by_default() -> None:
     store = FakeStore()
     adapter = CoverAdapter()

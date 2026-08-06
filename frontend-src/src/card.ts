@@ -1465,6 +1465,103 @@ export class ConXDynamicPanelCard extends LitElement {
     });
   }
 
+  private _setCoverHaEntity(coverId: string, entityId: string): void {
+    const cleaned = entityId.trim();
+    const next =
+      cleaned && cleaned.startsWith("cover.") ? cleaned : null;
+    this._patchCovers((covers) => {
+      const cover = covers.find((item) => item.id === coverId);
+      if (!cover) {
+        return;
+      }
+      cover.ha_entity_id = next;
+    });
+  }
+
+  private _getCoverEntityFilter(coverId: string): string {
+    return this._pickerFilter[`cover:${coverId}`] || "";
+  }
+
+  private _setCoverEntityFilter(coverId: string, value: string): void {
+    const key = `cover:${coverId}`;
+    const next = value.trim().toLowerCase();
+    if ((this._pickerFilter[key] || "") === next) {
+      return;
+    }
+    this._pickerFilter = { ...this._pickerFilter, [key]: next };
+  }
+
+  private _onCoverHaEntityPickerChanged(coverId: string, e: Event): void {
+    e.stopPropagation();
+    const detail = (e as CustomEvent<{ value?: string | null }>).detail;
+    this._setCoverHaEntity(coverId, detail?.value ?? "");
+  }
+
+  private _renderCoverHaEntityPicker(cover: CoverConfig) {
+    const entityId = (cover.ha_entity_id || "").trim();
+    const useHaEntityPicker = this._haEntityPickerReady && !!this.hass;
+    const entityOptions = withCurrentOption(
+      listEntityIds(this.hass?.states, "cover"),
+      entityId
+    );
+    const entityFilter = this._getCoverEntityFilter(cover.id);
+    const filteredEntities = this._filterOptions(entityOptions, entityFilter);
+    return html`
+      <label class="field mixed-cover-ha-entity" data-cover-ha-entity=${cover.id}>
+        <span>${this.t("card.cover_ha_entity")}</span>
+        ${useHaEntityPicker
+          ? html`
+              <ha-entity-picker
+                data-cover-ha-entity-picker
+                data-cover-id=${cover.id}
+                .hass=${this.hass}
+                .value=${entityId || undefined}
+                .includeDomains=${["cover"]}
+                allow-custom-entity
+                ?disabled=${this._busy}
+                @value-changed=${(e: Event) =>
+                  this._onCoverHaEntityPickerChanged(cover.id, e)}
+              ></ha-entity-picker>
+            `
+          : html`
+              <input
+                type="search"
+                class="picker-filter"
+                data-cover-ha-entity-filter
+                data-cover-id=${cover.id}
+                placeholder=${this.t("card.picker_search")}
+                .value=${entityFilter}
+                ?disabled=${this._busy}
+                @input=${(e: Event) =>
+                  this._setCoverEntityFilter(
+                    cover.id,
+                    (e.target as HTMLInputElement).value
+                  )}
+              />
+              <div class="select-wrap select-wrap-wide">
+                <select
+                  data-cover-ha-entity-picker
+                  data-cover-id=${cover.id}
+                  .value=${entityId}
+                  ?disabled=${this._busy}
+                  @change=${(e: Event) =>
+                    this._setCoverHaEntity(
+                      cover.id,
+                      (e.target as HTMLSelectElement).value
+                    )}
+                >
+                  <option value="">${this.t("card.cover_ha_entity_none")}</option>
+                  ${filteredEntities.map(
+                    (id) => html`<option value=${id}>${id}</option>`
+                  )}
+                </select>
+              </div>
+            `}
+        <span class="field-hint">${this.t("card.cover_ha_entity_hint")}</span>
+      </label>
+    `;
+  }
+
   private _addCover(): void {
     this._patchCovers((covers, draft) => {
       const maxCovers = maxCoversForGangs(draft.gang_count);
@@ -1748,6 +1845,7 @@ export class ConXDynamicPanelCard extends LitElement {
             ${this._renderCoverButtonPicker(cover, "close")}
           </div>
         </div>
+        ${this._renderCoverHaEntityPicker(cover)}
         <div class="cover-times cover-times-compact">
           <label class="field">
             <span>${this.t("card.cover_open_time")} (${unit})</span>
@@ -3581,6 +3679,9 @@ export class ConXDynamicPanelCard extends LitElement {
                             >
                               ${this.t("card.cover_id_hint")}
                             </p>
+                            ${cover
+                              ? this._renderCoverHaEntityPicker(cover)
+                              : nothing}
                             <p
                               class="radio-groups-hint"
                               data-mixed-cover-hint
@@ -5622,6 +5723,15 @@ export class ConXDynamicPanelCard extends LitElement {
       font-weight: 650;
       color: var(--text-muted);
       line-height: 1.15;
+    }
+    .mixed-cover-ha-entity {
+      flex: 1 1 100%;
+      width: 100%;
+      margin-top: 2px;
+    }
+    .mixed-cover-ha-entity .field-hint {
+      font-size: 0.62rem;
+      line-height: 1.25;
     }
     .mixed-cover-times {
       flex: 1 1 100%;

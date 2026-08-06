@@ -168,6 +168,18 @@ def _default_cover_pair(slot: int, gang_count: int) -> tuple[int, int]:
     return open_button, close_button
 
 
+def _normalize_cover_ha_entity_id(value: Any) -> str | None:
+    """Return a cleaned ``cover.*`` entity id, or None when unset/invalid."""
+    if value is None:
+        return None
+    entity_id = str(value).strip()
+    if not entity_id:
+        return None
+    if not entity_id.startswith("cover."):
+        return None
+    return entity_id
+
+
 @dataclass(slots=True)
 class CoverConfig:
     """Cover/shutter wiring and travel timing for one motor on a cover-mode profile.
@@ -184,10 +196,13 @@ class CoverConfig:
     close_time_s: float = COVER_DEFAULT_CLOSE_TIME
     direction_settle_s: float = COVER_DEFAULT_SETTLE
     opposite_press: str = COVER_OPPOSITE_STOP_ONLY
+    # Optional linked Home Assistant cover.* for status/automations / mirror commands.
+    # Panel L1/L2 still drive the physical motor relays; this does not replace them.
+    ha_entity_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize cover config."""
-        return {
+        payload: dict[str, Any] = {
             "id": self.id,
             "open_button": self.open_button,
             "close_button": self.close_button,
@@ -196,6 +211,9 @@ class CoverConfig:
             "direction_settle_s": self.direction_settle_s,
             "opposite_press": self.opposite_press,
         }
+        if self.ha_entity_id:
+            payload["ha_entity_id"] = self.ha_entity_id
+        return payload
 
     @classmethod
     def from_dict(
@@ -228,6 +246,9 @@ class CoverConfig:
             close_time_s=clamp_cover_time(data.get("close_time_s"), COVER_DEFAULT_CLOSE_TIME),
             direction_settle_s=clamp_cover_settle(data.get("direction_settle_s")),
             opposite_press=opposite,
+            ha_entity_id=_normalize_cover_ha_entity_id(
+                data.get("ha_entity_id", data.get("entity_id"))
+            ),
         )
 
     def direction_for(self, button_index: int) -> CoverDirection | None:
@@ -483,9 +504,7 @@ def validate_mixed_profile(profile: Profile) -> None:
 
     for cover_id, pair in cover_dirs.items():
         if "open" not in pair or "close" not in pair:
-            raise ValueError(
-                f"Cover '{cover_id}' needs both cover_open and cover_close buttons"
-            )
+            raise ValueError(f"Cover '{cover_id}' needs both cover_open and cover_close buttons")
         if pair["open"] == pair["close"]:
             raise ValueError(f"Cover '{cover_id}' open and close must use different buttons")
         cover = profile.cover_by_id(cover_id)
@@ -580,9 +599,7 @@ class ButtonConfig:
             name=str(data.get("name") or ""),
             action=ButtonAction.from_dict(data.get("action")),
             radio_member=bool(data.get("radio_member", True)),
-            role=normalize_button_role(
-                data.get("role"), legacy_press_mode=data.get("press_mode")
-            ),
+            role=normalize_button_role(data.get("role"), legacy_press_mode=data.get("press_mode")),
             pulse_time_s=clamp_pulse_time(data.get("pulse_time_s", DEFAULT_PULSE_TIME)),
             cover_id=data.get("cover_id"),
         )
@@ -754,11 +771,7 @@ class Profile:
 
     def momentary_button_indexes(self) -> list[int]:
         """Return 1-based indexes configured as momentary within gang_count."""
-        return [
-            button.index
-            for button in self.visible_buttons()
-            if button.is_momentary
-        ]
+        return [button.index for button in self.visible_buttons() if button.is_momentary]
 
     def button_role(self, index: int) -> str:
         """Return the mixed-mode role for a button (default toggle)."""
@@ -822,12 +835,9 @@ class Profile:
                 "close_button": close_button,
                 "open_time_s": prior.open_time_s if prior else COVER_DEFAULT_OPEN_TIME,
                 "close_time_s": prior.close_time_s if prior else COVER_DEFAULT_CLOSE_TIME,
-                "direction_settle_s": (
-                    prior.direction_settle_s if prior else COVER_DEFAULT_SETTLE
-                ),
-                "opposite_press": (
-                    prior.opposite_press if prior else COVER_OPPOSITE_STOP_ONLY
-                ),
+                "direction_settle_s": (prior.direction_settle_s if prior else COVER_DEFAULT_SETTLE),
+                "opposite_press": (prior.opposite_press if prior else COVER_OPPOSITE_STOP_ONLY),
+                "ha_entity_id": prior.ha_entity_id if prior else None,
             }
             rebuilt.append(
                 normalize_cover(payload, gang_count=self.gang_count, default_id=cover_id)
