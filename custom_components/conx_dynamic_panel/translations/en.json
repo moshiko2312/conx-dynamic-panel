@@ -99,6 +99,21 @@
     "switch": {
       "auto_sync": {
         "name": "Auto sync"
+      },
+      "holiday_mode": {
+        "name": "Master holiday mode"
+      },
+      "panel_holiday_mode": {
+        "name": "Holiday mode"
+      },
+      "master_holiday_mode": {
+        "name": "Master holiday mode"
+      },
+      "scheduler_task": {
+        "name": "Scheduler task"
+      },
+      "master_scheduler_task": {
+        "name": "Master scheduler task"
       }
     }
   }

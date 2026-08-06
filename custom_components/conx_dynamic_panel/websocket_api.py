@@ -20,6 +20,18 @@ def _coordinator(hass: HomeAssistant, entry_id: str) -> PanelCoordinator:
     return data["coordinator"]
 
 
+def _send_schedule_conflict(
+    connection: websocket_api.ActiveConnection, msg_id: int, err: ValueError
+) -> None:
+    conflicts = getattr(err, "conflicts", None) or []
+    connection.send_error(
+        msg_id,
+        "schedule_conflict",
+        str(err),
+        {"conflicts": conflicts},
+    )
+
+
 @callback
 async def async_register_websocket_api(hass: HomeAssistant) -> None:
     """Register websocket commands."""
@@ -35,9 +47,16 @@ async def async_register_websocket_api(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_pull)
     websocket_api.async_register_command(hass, ws_export_profiles)
     websocket_api.async_register_command(hass, ws_import_profiles)
+    websocket_api.async_register_command(hass, ws_export_scheduler)
+    websocket_api.async_register_command(hass, ws_import_scheduler)
     websocket_api.async_register_command(hass, ws_update_panel_name)
     websocket_api.async_register_command(hass, ws_cover_command)
     websocket_api.async_register_command(hass, ws_execute_button)
+    websocket_api.async_register_command(hass, ws_upsert_scheduler_task)
+    websocket_api.async_register_command(hass, ws_delete_scheduler_task)
+    websocket_api.async_register_command(hass, ws_set_default_profile)
+    websocket_api.async_register_command(hass, ws_set_holiday_mode)
+    websocket_api.async_register_command(hass, ws_set_scheduler_task_enabled)
 
 
 @websocket_api.websocket_command(
@@ -266,6 +285,46 @@ async def ws_import_profiles(
     connection.send_result(msg["id"], result)
 
 
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "conx_dynamic_panel/export_scheduler",
+        vol.Required("entry_id"): str,
+    }
+)
+@websocket_api.async_response
+async def ws_export_scheduler(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Export scheduler tasks as portable JSON (local + masters for this entry)."""
+    coordinator = _coordinator(hass, msg["entry_id"])
+    connection.send_result(msg["id"], coordinator.export_scheduler())
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "conx_dynamic_panel/import_scheduler",
+        vol.Required("entry_id"): str,
+        vol.Required("payload"): dict,
+        vol.Optional("mode", default="merge"): vol.In(["merge", "replace"]),
+    }
+)
+@websocket_api.async_response
+async def ws_import_scheduler(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Import scheduler tasks from portable JSON (merge or replace local)."""
+    coordinator = _coordinator(hass, msg["entry_id"])
+    try:
+        result = await coordinator.async_import_scheduler(msg["payload"], mode=msg["mode"])
+    except ValueError as err:
+        if getattr(err, "conflicts", None):
+            _send_schedule_conflict(connection, msg["id"], err)
+            return
+        raise HomeAssistantError(str(err)) from err
+    connection.send_result(msg["id"], result)
+
+
 @websocket_api.require_admin
 @websocket_api.websocket_command(
     {
@@ -323,3 +382,123 @@ async def ws_execute_button(
     except ValueError as err:
         raise HomeAssistantError(str(err)) from err
     connection.send_result(msg["id"], coordinator.get_runtime_payload())
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "conx_dynamic_panel/upsert_scheduler_task",
+        vol.Required("entry_id"): str,
+        vol.Required("task"): dict,
+    }
+)
+@websocket_api.async_response
+async def ws_upsert_scheduler_task(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Create or update a scheduler task (blocks on profile conflicts)."""
+    coordinator = _coordinator(hass, msg["entry_id"])
+    try:
+        task = await coordinator.async_upsert_scheduler_task(msg["task"])
+    except ValueError as err:
+        if getattr(err, "conflicts", None):
+            _send_schedule_conflict(connection, msg["id"], err)
+            return
+        raise HomeAssistantError(str(err)) from err
+    connection.send_result(
+        msg["id"],
+        {
+            "task": task.to_dict(),
+            **coordinator.scheduler_payload(),
+            "config": coordinator.get_config_payload(),
+        },
+    )
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "conx_dynamic_panel/delete_scheduler_task",
+        vol.Required("entry_id"): str,
+        vol.Required("task_id"): str,
+    }
+)
+@websocket_api.async_response
+async def ws_delete_scheduler_task(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Delete a scheduler task."""
+    coordinator = _coordinator(hass, msg["entry_id"])
+    try:
+        await coordinator.async_delete_scheduler_task(msg["task_id"])
+    except ValueError as err:
+        raise HomeAssistantError(str(err)) from err
+    connection.send_result(msg["id"], coordinator.get_config_payload())
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "conx_dynamic_panel/set_default_profile",
+        vol.Required("entry_id"): str,
+        vol.Required("profile_id"): str,
+    }
+)
+@websocket_api.async_response
+async def ws_set_default_profile(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Set the panel default profile used outside timeline ranges."""
+    coordinator = _coordinator(hass, msg["entry_id"])
+    await coordinator.async_set_default_profile(msg["profile_id"])
+    connection.send_result(msg["id"], coordinator.get_config_payload())
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "conx_dynamic_panel/set_holiday_mode",
+        vol.Required("entry_id"): str,
+        vol.Required("enabled"): bool,
+        vol.Optional("scope"): vol.In(["panel", "master"]),
+    }
+)
+@websocket_api.async_response
+async def ws_set_holiday_mode(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Toggle panel or master holiday mode.
+
+    ``scope=panel`` (default): suspend schedulers for this entry only.
+    ``scope=master``: master holiday — suspends schedulers on every panel.
+    """
+    coordinator = _coordinator(hass, msg["entry_id"])
+    await coordinator.async_set_holiday_mode(
+        bool(msg["enabled"]), scope=str(msg.get("scope") or "panel")
+    )
+    connection.send_result(msg["id"], coordinator.get_config_payload())
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "conx_dynamic_panel/set_scheduler_task_enabled",
+        vol.Required("entry_id"): str,
+        vol.Required("task_id"): str,
+        vol.Required("enabled"): bool,
+    }
+)
+@websocket_api.async_response
+async def ws_set_scheduler_task_enabled(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Enable or disable a scheduler task."""
+    coordinator = _coordinator(hass, msg["entry_id"])
+    try:
+        await coordinator.async_set_scheduler_task_enabled(msg["task_id"], bool(msg["enabled"]))
+    except ValueError as err:
+        if getattr(err, "conflicts", None):
+            _send_schedule_conflict(connection, msg["id"], err)
+            return
+        raise HomeAssistantError(str(err)) from err
+    connection.send_result(msg["id"], coordinator.get_config_payload())

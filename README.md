@@ -17,7 +17,7 @@ For Cursor or Codex:
 
 ### Implementation status
 
-MVP `0.1.1` is implemented in this repository:
+MVP `0.2.0` is implemented in this repository:
 
 - Backend package under `custom_components/conx_dynamic_panel/`
 - Bundled card source under `frontend-src/`
@@ -429,10 +429,17 @@ Update an existing install without touching Home Assistant storage:
 - Copy-ready automation example modal
 - Bundled brand icon and logo for Home Assistant 2026.3+
 
+### v0.2.0 (implemented)
+
+- Internal scheduler with timeline ranges, default profile, conditions, and master multi-panel tasks
+- Per-panel and master holiday mode; faceplate next-profile / holiday indicators
+- Scheduler import/export (separate from profiles)
+- Double-click actions with physical relay restore
+- Settings menu cleanup, YAML action defaults, exclusive range ends, and card polish
+
 ### Later
 
 - Sync all panels
-- Multi-click experiments
 - Automatic profile conditions
 - Additional panel adapters
 - Internal ConX profile library

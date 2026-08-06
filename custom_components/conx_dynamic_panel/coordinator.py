@@ -4,20 +4,26 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from datetime import UTC, datetime
 from typing import Any
 
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import Event, callback
-from homeassistant.helpers.event import async_track_state_change_event
+from homeassistant.helpers.event import (
+    async_track_point_in_time,
+    async_track_state_change_event,
+)
+from homeassistant.util import dt as dt_util
 
 from .const import (
+    ATTR_CLICK_COUNT,
     BUTTON_COUNT,
     BUTTON_ROLE_COVER_CLOSE,
     BUTTON_ROLE_COVER_OPEN,
     BUTTON_ROLE_MOMENTARY,
     BUTTON_ROLE_RADIO,
+    CLICK_COUNT_DOUBLE,
     COVER_COMMAND_OPEN,
     COVER_COMMAND_STOP,
     COVER_COMMANDS,
@@ -35,12 +41,19 @@ from .const import (
     DOMAIN,
     EVENT_BUTTON_PRESS,
     EVENT_COVER_STATE,
+    EXPORT_SCOPE_SCHEDULER,
     MODE_COVER,
     MODE_MIXED,
     MODE_RADIO_MANDATORY,
     MODE_RADIO_OPTIONAL,
     MODE_RADIO_SPLIT,
     MODE_TOGGLE,
+    MULTI_CLICK_MAX,
+    SCHEDULER_EXPORT_SCHEMA_VERSION,
+    SCHEDULER_SCOPE_LOCAL,
+    SCHEDULER_SCOPE_MASTER,
+    HOLIDAY_SCOPE_MASTER,
+    HOLIDAY_SCOPE_PANEL,
     STORAGE_VERSION,
     SUPPORTED_MODES,
     SYNC_ERROR,
@@ -60,6 +73,12 @@ from .exceptions import (
     ProfileNotFoundError,
     SyncInProgressError,
 )
+from .holiday_store import async_get_holiday_store, master_holiday_enabled
+from .master_store import (
+    async_get_master_store,
+    list_panel_summaries,
+    master_tasks_payload,
+)
 from .models import (
     ButtonAction,
     CoverConfig,
@@ -67,13 +86,31 @@ from .models import (
     HardwareState,
     PanelStorageData,
     Profile,
+    SchedulerTask,
     SyncResult,
     capability_defaults,
     validate_covers,
     validate_mixed_profile,
     validate_radio_groups,
 )
+from .multiclick import (
+    MultiClickPending,
+    action_for_click_count,
+    button_has_multi_click,
+    classify_click_count,
+    pending_token,
+    should_restore_relay_after_double,
+)
 from .runtime import CoverMotion, PanelRuntime
+from .scheduler import (
+    condition_entity_ids,
+    find_next_scheduler_change,
+    next_scheduler_check_at,
+    resolve_desired_profile_id,
+    scheduler_has_enabled_tasks,
+    task_conditions_pass,
+    validate_tasks_no_conflicts,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -89,29 +126,55 @@ class PanelCoordinator:
         # Live HA entity → panel relay listeners (separate from mapped hardware).
         self._entity_relay_unsubs: list[Callable[[], None]] = []
         self._entity_relay_bindings: dict[str, list[EntityRelayBinding]] = {}
+        self._scheduler_unsub: Callable[[], None] | None = None
+        self._scheduler_condition_unsub: Callable[[], None] | None = None
+        self._scheduler_entity_adder: Callable[[str], None] | None = None
+        self._scheduler_entity_remover: Callable[[str], None] | None = None
+        self._master_entity_adder: Callable[[str], None] | None = None
+        self._master_entity_remover: Callable[[str], None] | None = None
+        self._scheduler_applying = False
 
     @property
     def data(self) -> PanelStorageData:
         """Shortcut to storage data."""
         return self.runtime.store.data
 
+    def register_scheduler_entity_hooks(
+        self,
+        *,
+        adder: Callable[[str], None] | None = None,
+        remover: Callable[[str], None] | None = None,
+        master_adder: Callable[[str], None] | None = None,
+        master_remover: Callable[[str], None] | None = None,
+    ) -> None:
+        """Allow the switch platform to add/remove per-task enable entities."""
+        self._scheduler_entity_adder = adder
+        self._scheduler_entity_remover = remover
+        self._master_entity_adder = master_adder
+        self._master_entity_remover = master_remover
+
     async def async_setup(self) -> None:
-        """Load storage, attach listeners, and restore hardware from applied snapshot.
+        """Load storage, attach listeners, and apply the effective profile now.
 
         Persistence survives HA restart via versioned Store. Draft profiles stay
-        as saved for the editor; hardware is re-driven from ``applied_snapshot``
-        (last successful Sync) so the panel matches the last known-good state.
+        as saved for the editor. The internal scheduler (when not in holiday mode)
+        activates the profile that should be live *now* with sync; otherwise
+        hardware is restored from ``applied_snapshot``.
         """
+        await async_get_holiday_store(self.hass)
+        await async_get_master_store(self.hass)
         await self.runtime.store.async_load()
         self.data.refresh_pending_status()
         self._attach_listeners()
         self._rebuild_entity_relay_listeners()
+        self._rebuild_scheduler_condition_listeners()
         # A restart must never inherit an energized motor: start from both off so
         # the engine's belief and the hardware agree.
         await self._async_cover_abort(COVER_REASON_SAFETY)
         # Drop any armed pulse timers and force momentary relays OFF.
         await self._async_momentary_abort()
-        await self._async_restore_applied_to_hardware()
+        self._multi_click_abort()
+        await self.async_scheduler_tick(reason="setup")
         self.runtime.async_notify()
 
     def _attach_listeners(self) -> None:
@@ -258,12 +321,434 @@ class PanelCoordinator:
         # travelling by an unload, reload, or Home Assistant shutdown.
         await self._async_cover_abort(COVER_REASON_ABORT)
         await self._async_momentary_abort()
+        self._multi_click_abort()
         self.runtime.unloading = True
+        self._cancel_scheduler_timer()
+        self._clear_scheduler_condition_listeners()
         self._clear_entity_relay_listeners()
         for remove in self.runtime.listeners:
             remove()
         self.runtime.listeners.clear()
         self.runtime.suppression.clear()
+
+    def _iter_panel_coordinators(self) -> list[PanelCoordinator]:
+        """Return all loaded panel coordinators."""
+        domain = self.hass.data.get(DOMAIN) or {}
+        out: list[PanelCoordinator] = []
+        for entry_data in domain.values():
+            if not isinstance(entry_data, dict):
+                continue
+            coordinator = entry_data.get("coordinator")
+            if isinstance(coordinator, PanelCoordinator):
+                out.append(coordinator)
+        return out
+
+    def _master_tasks_for_this_entry(self) -> list[SchedulerTask]:
+        """Master tasks that include this panel."""
+        domain = self.hass.data.get(DOMAIN) or {}
+        store = domain.get("master_store")
+        if store is None:
+            return []
+        entry_id = self.runtime.entry.entry_id
+        return list(store.tasks_for_entry(entry_id))
+
+    def _effective_scheduler_tasks(self) -> list[SchedulerTask]:
+        """Local tasks plus master tasks targeting this panel."""
+        return [*self.data.scheduler_tasks.values(), *self._master_tasks_for_this_entry()]
+
+    def _clear_scheduler_condition_listeners(self) -> None:
+        """Detach HA entity listeners used for scheduler conditions."""
+        if self._scheduler_condition_unsub is not None:
+            self._scheduler_condition_unsub()
+            self._scheduler_condition_unsub = None
+
+    def _rebuild_scheduler_condition_listeners(self) -> None:
+        """Subscribe to condition entity state changes for local + master tasks."""
+        self._clear_scheduler_condition_listeners()
+        if self.runtime.unloading:
+            return
+        entity_ids = condition_entity_ids(self._effective_scheduler_tasks())
+        if not entity_ids:
+            return
+
+        @callback
+        def _on_condition_change(_event: Event) -> None:
+            self.hass.async_create_task(
+                self.async_scheduler_tick(reason="condition_state")
+            )
+
+        self._scheduler_condition_unsub = async_track_state_change_event(
+            self.hass, entity_ids, _on_condition_change
+        )
+
+    def _cancel_scheduler_timer(self) -> None:
+        """Cancel the pending point-in-time scheduler callback."""
+        if self._scheduler_unsub is not None:
+            self._scheduler_unsub()
+            self._scheduler_unsub = None
+
+    def _schedule_next_scheduler_tick(self) -> None:
+        """Arm the next realtime scheduler evaluation."""
+        self._cancel_scheduler_timer()
+        if self.runtime.unloading:
+            return
+        now = dt_util.now()
+        when = next_scheduler_check_at(self._effective_scheduler_tasks(), now)
+
+        @callback
+        def _fire(_now: datetime) -> None:
+            self._scheduler_unsub = None
+            self.hass.async_create_task(self.async_scheduler_tick(reason="timer"))
+
+        self._scheduler_unsub = async_track_point_in_time(self.hass, _fire, when)
+
+    async def async_scheduler_tick(self, *, reason: str = "tick") -> None:
+        """Evaluate the desired profile now and activate+sync when it changes.
+
+        Holiday mode suppresses scheduler activations (hardware falls back to the
+        applied-snapshot restore path on setup only). Outside holiday, covering
+        ranges win when their entity conditions pass; otherwise the panel default
+        profile is applied. Master multi-panel tasks are merged with local tasks.
+        """
+        if self.runtime.unloading:
+            return
+        if self._scheduler_applying:
+            self._schedule_next_scheduler_tick()
+            return
+
+        holiday = self.effective_holiday_mode()
+        now = dt_util.now()
+        tasks = self._effective_scheduler_tasks()
+        desired = resolve_desired_profile_id(
+            holiday_mode=holiday,
+            default_profile_id=self.data.default_profile_id,
+            tasks=tasks,
+            when=now,
+            known_profiles=set(self.data.profiles),
+            conditions_ok=lambda task: task_conditions_pass(self.hass, task),
+        )
+        has_enabled_tasks = any(task.enabled for task in tasks)
+
+        try:
+            self._scheduler_applying = True
+            # Holiday / no desired profile: never activate from scheduler.
+            # Panels without enabled tasks keep classic applied-snapshot restore.
+            if holiday or desired is None:
+                if reason == "setup":
+                    await self._async_restore_applied_to_hardware()
+            elif has_enabled_tasks or desired != self.data.active_profile_id:
+                if desired != self.data.active_profile_id or reason == "setup":
+                    _LOGGER.debug(
+                        "Scheduler (%s) activating profile %s for panel %s",
+                        reason,
+                        desired,
+                        self.runtime.mapping.panel_name,
+                    )
+                    await self.async_activate_profile(desired, sync=True)
+            elif reason == "setup":
+                await self._async_restore_applied_to_hardware()
+        finally:
+            self._scheduler_applying = False
+            self._schedule_next_scheduler_tick()
+            self.runtime.async_notify()
+
+    async def _async_tick_entries(
+        self, entry_ids: Iterable[str] | None = None, *, reason: str
+    ) -> None:
+        """Re-evaluate schedulers for selected panels (or all when None)."""
+        wanted = set(entry_ids) if entry_ids is not None else None
+        for coordinator in self._iter_panel_coordinators():
+            if wanted is not None and coordinator.runtime.entry.entry_id not in wanted:
+                continue
+            coordinator._rebuild_scheduler_condition_listeners()
+            await coordinator.async_scheduler_tick(reason=reason)
+
+    def _tasks_for_entry_validation(self, entry_id: str) -> list[SchedulerTask]:
+        """Local + master tasks that affect ``entry_id`` (for conflict checks)."""
+        tasks: list[SchedulerTask] = []
+        for coordinator in self._iter_panel_coordinators():
+            if coordinator.runtime.entry.entry_id != entry_id:
+                continue
+            tasks.extend(coordinator.data.scheduler_tasks.values())
+            break
+        domain = self.hass.data.get(DOMAIN) or {}
+        store = domain.get("master_store")
+        if store is not None:
+            tasks.extend(store.tasks_for_entry(entry_id))
+        return tasks
+
+    async def async_set_default_profile(self, profile_id: str) -> None:
+        """Persist the panel default profile used outside timeline ranges."""
+        if profile_id not in self.data.profiles:
+            raise ProfileNotFoundError(profile_id)
+        self.data.default_profile_id = profile_id
+        await self.runtime.store.async_save()
+        await self.async_scheduler_tick(reason="default_profile")
+        self.runtime.async_notify()
+
+    async def async_upsert_scheduler_task(self, payload: dict[str, Any]) -> SchedulerTask:
+        """Create or update a local or master scheduler task after conflict validation."""
+        raw = dict(payload)
+        scope = str(raw.get("scope") or SCHEDULER_SCOPE_LOCAL).strip().lower()
+        if scope == SCHEDULER_SCOPE_MASTER:
+            return await self.async_upsert_master_scheduler_task(raw)
+
+        raw["scope"] = SCHEDULER_SCOPE_LOCAL
+        raw["entry_ids"] = []
+        task = SchedulerTask.from_dict(raw)
+        for rng in task.ranges:
+            if rng.profile_id not in self.data.profiles:
+                raise ProfileNotFoundError(rng.profile_id)
+        proposed = dict(self.data.scheduler_tasks)
+        is_new = task.id not in proposed
+        proposed[task.id] = task
+        # Include master tasks that hit this panel in static conflict checks.
+        combined = [*proposed.values(), *self._master_tasks_for_this_entry()]
+        # When updating, master list already excludes this local id; replace local.
+        validate_tasks_no_conflicts(combined)
+        self.data.scheduler_tasks[task.id] = task
+        await self.runtime.store.async_save()
+        if is_new and self._scheduler_entity_adder is not None:
+            self._scheduler_entity_adder(task.id)
+        self._rebuild_scheduler_condition_listeners()
+        await self.async_scheduler_tick(reason="task_upsert")
+        self.runtime.async_notify()
+        return task
+
+    async def async_upsert_master_scheduler_task(
+        self, payload: dict[str, Any]
+    ) -> SchedulerTask:
+        """Create or update a multi-panel master task."""
+        raw = dict(payload)
+        raw["scope"] = SCHEDULER_SCOPE_MASTER
+        task = SchedulerTask.from_dict(raw)
+        store = await async_get_master_store(self.hass)
+
+        # Validate profile IDs exist on every targeted panel.
+        for entry_id in task.entry_ids:
+            coordinator = next(
+                (
+                    item
+                    for item in self._iter_panel_coordinators()
+                    if item.runtime.entry.entry_id == entry_id
+                ),
+                None,
+            )
+            if coordinator is None:
+                raise ValueError(f"Unknown panel entry_id: {entry_id}")
+            for rng in task.ranges:
+                if rng.profile_id not in coordinator.data.profiles:
+                    raise ProfileNotFoundError(
+                        f"{rng.profile_id} (missing on panel {entry_id})"
+                    )
+
+        # Conflict-check per targeted entry against that entry's local + masters.
+        for entry_id in task.entry_ids:
+            combined = [
+                item
+                for item in self._tasks_for_entry_validation(entry_id)
+                if item.id != task.id
+            ]
+            combined.append(task)
+            validate_tasks_no_conflicts(combined)
+
+        is_new = task.id not in store.tasks
+        await store.async_upsert(task)
+        if is_new:
+            for coordinator in self._iter_panel_coordinators():
+                if coordinator._master_entity_adder is not None:
+                    coordinator._master_entity_adder(task.id)
+                    break
+        await self._async_tick_entries(task.entry_ids, reason="master_upsert")
+        self.runtime.async_notify()
+        return task
+
+    async def async_delete_scheduler_task(self, task_id: str) -> None:
+        """Delete a local or master scheduler task."""
+        store = await async_get_master_store(self.hass)
+        if task_id in store.tasks:
+            affected = list(store.tasks[task_id].entry_ids)
+            await store.async_delete(task_id)
+            for coordinator in self._iter_panel_coordinators():
+                if coordinator._master_entity_remover is not None:
+                    coordinator._master_entity_remover(task_id)
+                    break
+            await self._async_tick_entries(affected, reason="master_delete")
+            self.runtime.async_notify()
+            return
+        if task_id not in self.data.scheduler_tasks:
+            raise ValueError(f"Unknown scheduler task: {task_id}")
+        del self.data.scheduler_tasks[task_id]
+        await self.runtime.store.async_save()
+        if self._scheduler_entity_remover is not None:
+            self._scheduler_entity_remover(task_id)
+        self._rebuild_scheduler_condition_listeners()
+        await self.async_scheduler_tick(reason="task_delete")
+        self.runtime.async_notify()
+
+    async def async_set_scheduler_task_enabled(self, task_id: str, enabled: bool) -> None:
+        """Enable or disable a local or master task. Re-validates conflicts when enabling."""
+        store = await async_get_master_store(self.hass)
+        if task_id in store.tasks:
+            task = store.tasks[task_id]
+            if bool(enabled) == task.enabled:
+                return
+            updated = SchedulerTask.from_dict({**task.to_dict(), "enabled": bool(enabled)})
+            if enabled:
+                for entry_id in updated.entry_ids:
+                    combined = [
+                        item
+                        for item in self._tasks_for_entry_validation(entry_id)
+                        if item.id != task_id
+                    ]
+                    combined.append(updated)
+                    validate_tasks_no_conflicts(combined)
+            await store.async_upsert(updated)
+            await self._async_tick_entries(updated.entry_ids, reason="master_enabled")
+            self.runtime.async_notify()
+            return
+
+        task = self.data.scheduler_tasks.get(task_id)
+        if task is None:
+            raise ValueError(f"Unknown scheduler task: {task_id}")
+        if bool(enabled) == task.enabled:
+            return
+        proposed = dict(self.data.scheduler_tasks)
+        updated = SchedulerTask.from_dict({**task.to_dict(), "enabled": bool(enabled)})
+        proposed[task_id] = updated
+        if enabled:
+            validate_tasks_no_conflicts(
+                [*proposed.values(), *self._master_tasks_for_this_entry()]
+            )
+        self.data.scheduler_tasks[task_id] = updated
+        await self.runtime.store.async_save()
+        self._rebuild_scheduler_condition_listeners()
+        await self.async_scheduler_tick(reason="task_enabled")
+        self.runtime.async_notify()
+
+    def effective_holiday_mode(self) -> bool:
+        """True when this panel's schedulers are suspended (local or master)."""
+        return bool(self.data.holiday_mode) or master_holiday_enabled(self.hass)
+
+    def holiday_fields(self) -> dict[str, Any]:
+        """Holiday flags for get_config / subscribe / scheduler payloads."""
+        master = master_holiday_enabled(self.hass)
+        panel = bool(self.data.holiday_mode)
+        return {
+            # Effective: faceplate icon + scheduler pause for THIS panel.
+            "holiday_mode": panel or master,
+            "panel_holiday_mode": panel,
+            "master_holiday_mode": master,
+        }
+
+    async def async_set_holiday_mode(
+        self, enabled: bool, *, scope: str = HOLIDAY_SCOPE_PANEL
+    ) -> bool:
+        """Set panel or master holiday and re-evaluate affected coordinators.
+
+        ``scope=panel`` (default): only this entry's ``holiday_mode``.
+        ``scope=master``: domain master holiday — forces holiday on every panel
+        (legacy global holiday migrates here).
+        """
+        scope_norm = str(scope or HOLIDAY_SCOPE_PANEL).strip().lower()
+        if scope_norm == HOLIDAY_SCOPE_MASTER:
+            store = await async_get_holiday_store(self.hass)
+            value = await store.async_set(enabled)
+            for coordinator in self._iter_panel_coordinators():
+                await coordinator.async_scheduler_tick(reason="master_holiday")
+                coordinator.runtime.async_notify()
+            return value
+
+        self.data.holiday_mode = bool(enabled)
+        await self.runtime.store.async_save()
+        await self.async_scheduler_tick(reason="panel_holiday")
+        self.runtime.async_notify()
+        return self.effective_holiday_mode()
+
+    def scheduler_payload(self) -> dict[str, Any]:
+        """Return scheduler fields for the card / get_config."""
+        return {
+            "default_profile_id": self.data.default_profile_id,
+            **self.holiday_fields(),
+            "scheduler_tasks": {
+                key: task.to_dict() for key, task in self.data.scheduler_tasks.items()
+            },
+            **master_tasks_payload(self.hass),
+            "panels": list_panel_summaries(self.hass),
+            **self._scheduler_next_payload(),
+        }
+
+    def _scheduler_next_payload(self) -> dict[str, Any]:
+        """Faceplate footer fields: next profile change, or null when inactive."""
+        holiday = self.effective_holiday_mode()
+        tasks = self._effective_scheduler_tasks()
+        active = (not holiday) and scheduler_has_enabled_tasks(tasks)
+        if not active:
+            return {"scheduler_active": False, "scheduler_next": None}
+        names = {pid: profile.name for pid, profile in self.data.profiles.items()}
+        event = find_next_scheduler_change(
+            holiday_mode=False,
+            default_profile_id=self.data.default_profile_id,
+            tasks=tasks,
+            when=dt_util.now(),
+            known_profiles=names,
+            conditions_ok=lambda task: task_conditions_pass(self.hass, task),
+        )
+        return {
+            "scheduler_active": True,
+            "scheduler_next": event.to_dict() if event is not None else None,
+        }
+
+    def get_runtime_payload(self) -> dict[str, Any]:
+        """Return live runtime fields for card refresh (never includes drafts)."""
+        return {
+            "entry_id": self.runtime.entry.entry_id,
+            "sync_status": self.data.sync_status,
+            "last_sync": self.data.last_sync,
+            "last_error": self.data.last_error,
+            "auto_sync": self.runtime.auto_sync,
+            **self.holiday_fields(),
+            "default_profile_id": self.data.default_profile_id,
+            "active_profile_id": self.data.active_profile_id,
+            "relay_entities": list(self.runtime.mapping.relay_entities),
+            "relay_states": self._relay_states_payload(),
+            "momentary_active": sorted(self.runtime.momentary.timers),
+            "cover_state": self.cover_state_payload(),
+            **self._scheduler_next_payload(),
+        }
+
+    def get_config_payload(self) -> dict[str, Any]:
+        """Return frontend configuration payload."""
+        colors = self.runtime.adapter.supported_colors()
+        radar = self.runtime.adapter.supported_radar()
+        defaults = capability_defaults()
+        defaults["colors"] = colors
+        defaults["radar"] = radar
+        return {
+            "entry_id": self.runtime.entry.entry_id,
+            "panel_name": self.runtime.mapping.panel_name,
+            "adapter_type": self.runtime.mapping.adapter_type,
+            "active_profile_id": self.data.active_profile_id,
+            "default_profile_id": self.data.default_profile_id,
+            **self.holiday_fields(),
+            "scheduler_tasks": {
+                key: task.to_dict() for key, task in self.data.scheduler_tasks.items()
+            },
+            **master_tasks_payload(self.hass),
+            "panels": list_panel_summaries(self.hass),
+            **self._scheduler_next_payload(),
+            "sync_status": self.data.sync_status,
+            "last_sync": self.data.last_sync,
+            "last_error": self.data.last_error,
+            "auto_sync": self.runtime.auto_sync,
+            "capabilities": defaults,
+            "profiles": {key: profile.to_dict() for key, profile in self.data.profiles.items()},
+            "applied_snapshot": self.data.applied_snapshot,
+            "relay_entities": list(self.runtime.mapping.relay_entities),
+            "relay_states": self._relay_states_payload(),
+            "momentary_active": sorted(self.runtime.momentary.timers),
+            "cover_state": self.cover_state_payload(),
+        }
 
     async def _async_handle_relay_event(self, event: Event) -> None:
         if self.runtime.unloading:
@@ -386,14 +871,14 @@ class PanelCoordinator:
             await self._async_mixed_press(profile, index, turned_on)
             return
         if profile.mode == MODE_TOGGLE:
-            await self._async_execute_button_action(profile, index, turned_on)
+            await self._async_route_button_action(profile, index, turned_on)
             return
         if profile.mode == MODE_RADIO_SPLIT:
             await self._async_radio_split(profile, index, turned_on)
             return
         # Independent toggles inside a radio profile skip exclusivity.
         if not profile.is_radio_member(index):
-            await self._async_execute_button_action(profile, index, turned_on)
+            await self._async_route_button_action(profile, index, turned_on)
             return
         if profile.mode == MODE_RADIO_MANDATORY:
             await self._async_radio_mandatory(profile, index, turned_on)
@@ -421,7 +906,7 @@ class PanelCoordinator:
         if role == BUTTON_ROLE_RADIO:
             await self._async_radio_split(profile, index, turned_on)
             return
-        await self._async_execute_button_action(profile, index, turned_on)
+        await self._async_route_button_action(profile, index, turned_on)
 
     # ------------------------------------------------------------------
     # Momentary (timed pulse) engine — used by mixed role=momentary
@@ -440,7 +925,7 @@ class PanelCoordinator:
         """Handle a physical press for a momentary-role button."""
         button = profile.button_by_index(index)
         if button is None or button.role != BUTTON_ROLE_MOMENTARY:
-            await self._async_execute_button_action(profile, index, turned_on)
+            await self._async_route_button_action(profile, index, turned_on)
             return
 
         run_action = False
@@ -468,7 +953,7 @@ class PanelCoordinator:
             self.runtime.async_notify()
             return
         if run_action:
-            await self._async_execute_button_action(profile, index, True)
+            await self._async_route_button_action(profile, index, True)
 
     def _arm_momentary_timer(self, profile_id: str, index: int, duration: float) -> None:
         """Schedule relay OFF after ``duration`` seconds. Caller holds the lock."""
@@ -526,11 +1011,11 @@ class PanelCoordinator:
         group = profile.radio_group_for(index)
         if group is None:
             # Ungrouped buttons behave as independent toggles.
-            await self._async_execute_button_action(profile, index, turned_on)
+            await self._async_route_button_action(profile, index, turned_on)
             return
         members = list(group.buttons)
         if turned_on:
-            await self._async_execute_button_action(profile, index, True)
+            await self._async_route_button_action(profile, index, True)
             for other in members:
                 if other != index:
                     await self.runtime.adapter.async_set_relay(other, False, suppress_event=True)
@@ -541,7 +1026,7 @@ class PanelCoordinator:
     async def _async_radio_mandatory(self, profile: Profile, index: int, turned_on: bool) -> None:
         members = profile.radio_member_indexes()
         if turned_on:
-            await self._async_execute_button_action(profile, index, True)
+            await self._async_route_button_action(profile, index, True)
             profile.selected_button = index
             for other in members:
                 if other != index:
@@ -578,11 +1063,11 @@ class PanelCoordinator:
         cover = profile.cover_for_button(index)
         if cover is None:
             # Buttons outside every cover pair stay independent toggles.
-            await self._async_execute_button_action(profile, index, turned_on)
+            await self._async_route_button_action(profile, index, turned_on)
             return
         direction = cover.direction_for(index)
         if direction is None:
-            await self._async_execute_button_action(profile, index, turned_on)
+            await self._async_route_button_action(profile, index, turned_on)
             return
         if not self._cover_is_usable(profile, cover):
             await self._async_cover_abort(COVER_REASON_ERROR)
@@ -1170,17 +1655,175 @@ class PanelCoordinator:
             "covers": cover_states,
         }
 
-    async def _async_execute_button_action(
+    async def _async_route_button_action(
         self, profile: Profile, index: int, new_relay_state: bool
+    ) -> None:
+        """Run the button HA action, deferring when multi-click slots are set.
+
+        Hardware mode engines (radio exclusivity, momentary pulse, cover) still
+        react immediately to each physical edge. Only the configured
+        Home Assistant action is classified as single / double. On double,
+        the relay is restored to pre-gesture state before ``action_double``.
+        """
+        button = profile.button_by_index(index)
+        if button_has_multi_click(button):
+            await self._async_multi_click_note(profile, index, new_relay_state)
+            return
+        await self._async_execute_button_action(
+            profile, index, new_relay_state, click_count=1
+        )
+
+    def _multi_click_abort(self) -> None:
+        """Drop every pending multi-click timer without firing actions."""
+        self.runtime.multiclick.cancel_all()
+
+    def _multi_click_radio_members(self, profile: Profile, index: int) -> list[int]:
+        """Radio exclusivity group for a button, or empty when not a radio member."""
+        if profile.mode == MODE_RADIO_SPLIT or (
+            profile.mode == MODE_MIXED and profile.button_role(index) == BUTTON_ROLE_RADIO
+        ):
+            group = profile.radio_group_for(index)
+            return list(group.buttons) if group is not None else []
+        if profile.mode in {MODE_RADIO_MANDATORY, MODE_RADIO_OPTIONAL} and profile.is_radio_member(
+            index
+        ):
+            return list(profile.radio_member_indexes())
+        return []
+
+    def _snapshot_radio_pre_states(
+        self, profile: Profile, index: int, pre_relay_state: bool
+    ) -> dict[int, bool] | None:
+        """Capture radio-group relay states as they were before click 1."""
+        members = self._multi_click_radio_members(profile, index)
+        if not members:
+            return None
+        states: dict[int, bool] = {}
+        for member in members:
+            if member == index:
+                states[member] = pre_relay_state
+                continue
+            try:
+                states[member] = bool(self.runtime.adapter.relay_is_on(member))
+            except Exception:  # noqa: BLE001
+                states[member] = False
+        return states
+
+    async def _async_multi_click_restore_relay(
+        self,
+        profile: Profile,
+        index: int,
+        pre_relay_state: bool | None,
+        pre_radio_states: dict[int, bool] | None,
+    ) -> None:
+        """Rewrite relays to the pre-gesture snapshot with transition suppression."""
+        if pre_relay_state is None:
+            return
+        if not should_restore_relay_after_double(profile, index):
+            return
+        try:
+            if pre_radio_states:
+                for member, state in sorted(pre_radio_states.items()):
+                    await self.runtime.adapter.async_set_relay(
+                        member, state, suppress_event=True
+                    )
+                if profile.mode in {MODE_RADIO_MANDATORY, MODE_RADIO_OPTIONAL}:
+                    on_member = next(
+                        (member for member, state in pre_radio_states.items() if state),
+                        None,
+                    )
+                    if on_member is not None and profile.selected_button != on_member:
+                        profile.selected_button = on_member
+                        await self.runtime.store.async_save()
+            else:
+                await self.runtime.adapter.async_set_relay(
+                    index, pre_relay_state, suppress_event=True
+                )
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.error("Double-click relay restore failed for button %s: %s", index, err)
+        self.runtime.async_notify()
+
+    async def _async_multi_click_note(
+        self, profile: Profile, index: int, new_relay_state: bool
+    ) -> None:
+        """Count one unsuppressed edge toward a deferred multi-click gesture."""
+        token = pending_token()
+        gap_s = self.runtime.multiclick.gap_s
+        async with self.runtime.multiclick.lock:
+            entry = self.runtime.multiclick.pending.get(index)
+            if entry is None:
+                entry = MultiClickPending()
+                self.runtime.multiclick.pending[index] = entry
+            if entry.handle is not None and not entry.handle.cancelled():
+                entry.handle.cancel()
+            is_first = entry.count == 0
+            if is_first:
+                # First edge already flipped hardware; snapshot state prior to click 1.
+                entry.pre_relay_state = not new_relay_state
+                entry.pre_radio_states = self._snapshot_radio_pre_states(
+                    profile, index, entry.pre_relay_state
+                )
+            entry.count = min(entry.count + 1, MULTI_CLICK_MAX)
+            entry.last_relay_state = new_relay_state
+            entry.profile_id = profile.id
+            entry.token = token
+            loop = getattr(self.hass, "loop", None) or asyncio.get_running_loop()
+
+            @callback
+            def _fire(_now: Any = None) -> None:
+                self.hass.async_create_task(self._async_multi_click_finalize(index, token))
+
+            entry.handle = loop.call_later(gap_s, _fire)
+
+    async def _async_multi_click_finalize(self, index: int, token: object) -> None:
+        """Fire the action matching the finalized click count for one button."""
+        async with self.runtime.multiclick.lock:
+            entry = self.runtime.multiclick.pending.get(index)
+            if entry is None or entry.token is not token:
+                return
+            count = classify_click_count(entry.count)
+            relay_state = entry.last_relay_state
+            pre_relay_state = entry.pre_relay_state
+            pre_radio_states = (
+                dict(entry.pre_radio_states) if entry.pre_radio_states else None
+            )
+            profile_id = entry.profile_id
+            self.runtime.multiclick.cancel(index)
+
+        if self.runtime.unloading:
+            return
+        profile = self.data.active_profile()
+        if profile is None or profile.id != profile_id:
+            return
+        if count == CLICK_COUNT_DOUBLE:
+            await self._async_multi_click_restore_relay(
+                profile, index, pre_relay_state, pre_radio_states
+            )
+            if pre_relay_state is not None and should_restore_relay_after_double(
+                profile, index
+            ):
+                relay_state = pre_relay_state
+        await self._async_execute_button_action(
+            profile, index, relay_state, click_count=count
+        )
+
+    async def _async_execute_button_action(
+        self,
+        profile: Profile,
+        index: int,
+        new_relay_state: bool,
+        *,
+        click_count: int = 1,
     ) -> None:
         button = next((item for item in profile.buttons if item.index == index), None)
         if button is None:
             return
-        if button.action is not None:
+        classified = classify_click_count(click_count)
+        action = action_for_click_count(button, classified)
+        if action is not None:
             try:
-                await self._async_run_action(button.action)
+                await self._async_run_action(action)
             except ActionExecutionError as err:
-                _LOGGER.error("Button action failed: %s", err)
+                _LOGGER.error("Button action failed (click_count=%s): %s", classified, err)
         self.hass.bus.async_fire(
             EVENT_BUTTON_PRESS,
             {
@@ -1191,6 +1834,7 @@ class PanelCoordinator:
                 "button_name": button.name,
                 "mode": profile.mode,
                 "new_relay_state": "on" if new_relay_state else "off",
+                ATTR_CLICK_COUNT: classified,
             },
         )
 
@@ -1225,6 +1869,7 @@ class PanelCoordinator:
             # Never rewrite relays while a motor or pulse is running.
             await self._async_cover_abort(COVER_REASON_ABORT)
             await self._async_momentary_abort()
+            self._multi_click_abort()
             self.data.sync_status = SYNC_SYNCING  # type: ignore[assignment]
             self.data.last_error = None
             self.runtime.async_notify()
@@ -1318,9 +1963,11 @@ class PanelCoordinator:
             # the incoming one so latched leftovers cannot swallow the first press.
             await self._async_cover_abort(COVER_REASON_ABORT)
             await self._async_momentary_abort()
+            self._multi_click_abort()
             self.data.active_profile_id = profile_id
             await self._async_cover_abort(COVER_REASON_ABORT)
             await self._async_momentary_abort()
+            self._multi_click_abort()
         self.data.refresh_pending_status()
         await self.runtime.store.async_save()
         self._rebuild_entity_relay_listeners()
@@ -1357,6 +2004,7 @@ class PanelCoordinator:
         if profile_id == self.data.active_profile_id:
             await self._async_cover_abort(COVER_REASON_ABORT)
             await self._async_momentary_abort()
+            self._multi_click_abort()
         self.data.refresh_pending_status()
         await self._async_after_draft_change()
         return profile
@@ -1389,14 +2037,24 @@ class PanelCoordinator:
             raise ProfileNotFoundError(profile_id)
         if len(self.data.profiles) <= 1:
             raise ValueError("At least one profile must remain")
+        for task in self._effective_scheduler_tasks():
+            for rng in task.ranges:
+                if rng.profile_id == profile_id:
+                    raise ValueError(
+                        f"Profile '{profile_id}' is used by scheduler task '{task.name}'"
+                    )
         if profile_id == self.data.active_profile_id:
             await self._async_cover_abort(COVER_REASON_ABORT)
             await self._async_momentary_abort()
+            self._multi_click_abort()
         del self.data.profiles[profile_id]
         if self.data.active_profile_id == profile_id:
             self.data.active_profile_id = next(iter(self.data.profiles))
+        if self.data.default_profile_id == profile_id:
+            self.data.default_profile_id = self.data.active_profile_id
         self.data.refresh_pending_status()
         await self._async_after_draft_change()
+        await self.async_scheduler_tick(reason="profile_delete")
 
     async def async_duplicate_profile(
         self, profile_id: str, new_id: str, new_name: str | None = None
@@ -1490,6 +2148,7 @@ class PanelCoordinator:
 
         await self._async_cover_abort(COVER_REASON_ABORT)
         await self._async_momentary_abort()
+        self._multi_click_abort()
         if mode == "replace":
             self.data.profiles = imported
         else:
@@ -1504,6 +2163,319 @@ class PanelCoordinator:
         self.data.refresh_pending_status()
         await self._async_after_draft_change()
         return self.get_config_payload()
+
+    def export_scheduler(self) -> dict[str, Any]:
+        """Return a portable JSON payload of this panel's scheduler configuration.
+
+        Includes local tasks, ``default_profile_id``, and master tasks that
+        target this entry. Holiday mode is domain-global and intentionally
+        excluded (documented in ``notes``).
+        """
+        entry_id = self.runtime.entry.entry_id
+        masters = {
+            task.id: task.to_dict()
+            for task in self._master_tasks_for_this_entry()
+        }
+        return {
+            "schema_version": SCHEDULER_EXPORT_SCHEMA_VERSION,
+            "scope": EXPORT_SCOPE_SCHEDULER,
+            "entry_id": entry_id,
+            "default_profile_id": self.data.default_profile_id,
+            "scheduler_tasks": {
+                key: task.to_dict() for key, task in self.data.scheduler_tasks.items()
+            },
+            "master_scheduler_tasks": masters,
+            "notes": (
+                "Holiday mode is domain-global and is not included in scheduler "
+                "exports. Profiles and button mappings are not included — only "
+                "profile_id references. On import, unknown profile_ids are "
+                "skipped with warnings. Replace mode replaces local tasks only; "
+                "master tasks in the file are merged/updated by id."
+            ),
+        }
+
+    @staticmethod
+    def normalize_import_scheduler_tasks(raw_tasks: Any) -> dict[str, Any]:
+        """Normalize scheduler_tasks object/list into an id→task mapping."""
+        if raw_tasks is None:
+            return {}
+        if isinstance(raw_tasks, dict):
+            return raw_tasks
+        if isinstance(raw_tasks, list):
+            normalized: dict[str, Any] = {}
+            for index, item in enumerate(raw_tasks):
+                if not isinstance(item, dict):
+                    raise ValueError(f"Invalid scheduler task payload at index {index}")
+                task_id = str(item.get("id") or "").strip()
+                if not task_id:
+                    raise ValueError(f"Scheduler task at index {index} is missing id")
+                normalized[task_id] = item
+            return normalized
+        raise ValueError("scheduler_tasks must be an object or array")
+
+    def _filter_task_ranges_for_profiles(
+        self,
+        task: SchedulerTask,
+        *,
+        known_profiles: set[str],
+        warnings: list[str],
+    ) -> SchedulerTask | None:
+        """Drop ranges whose profile_id is missing; skip task if none remain."""
+        kept = [rng for rng in task.ranges if rng.profile_id in known_profiles]
+        skipped = [rng.profile_id for rng in task.ranges if rng.profile_id not in known_profiles]
+        if skipped:
+            warnings.append(
+                f"Task '{task.id}': skipped ranges with unknown profile_id(s): "
+                + ", ".join(sorted(set(skipped)))
+            )
+        if not kept:
+            warnings.append(f"Task '{task.id}' skipped: no ranges with known profiles")
+            return None
+        data = task.to_dict()
+        data["ranges"] = [rng.to_dict() for rng in kept]
+        return SchedulerTask.from_dict(data)
+
+    def _known_panel_entry_ids(self) -> set[str]:
+        """Return entry_ids of loaded panel coordinators."""
+        return {item.runtime.entry.entry_id for item in self._iter_panel_coordinators()}
+
+    def _master_entry_ids_for_import(
+        self,
+        raw_entry_ids: list[str],
+        *,
+        warnings: list[str],
+        task_id: str,
+    ) -> list[str]:
+        """Keep existing panels from the payload and always include this entry."""
+        current = self.runtime.entry.entry_id
+        known = self._known_panel_entry_ids()
+        kept = sorted({eid for eid in raw_entry_ids if eid in known})
+        dropped = sorted({eid for eid in raw_entry_ids if eid not in known})
+        if dropped:
+            warnings.append(
+                f"Master task '{task_id}': dropped unknown entry_id(s): "
+                + ", ".join(dropped)
+            )
+        if current not in kept:
+            kept.append(current)
+            kept = sorted(set(kept))
+        return kept
+
+    async def async_import_scheduler(
+        self, payload: dict[str, Any], *, mode: str = "merge"
+    ) -> dict[str, Any]:
+        """Import scheduler tasks from a portable JSON payload.
+
+        mode=merge upserts local and master tasks by id.
+        mode=replace replaces this entry's local tasks entirely; master tasks
+        present in the file are still merged/updated (domain-wide masters are
+        never wiped by a single-panel replace).
+
+        Holiday mode is never imported. Unknown profile_ids are skipped with
+        warnings. Static time conflicts reject the whole import.
+        """
+        if mode not in {"merge", "replace"}:
+            raise ValueError(f"Unsupported import mode: {mode}")
+        if not isinstance(payload, dict):
+            raise ValueError("Import payload must be an object")
+
+        scope = str(payload.get("scope") or EXPORT_SCOPE_SCHEDULER).strip().lower()
+        if scope and scope != EXPORT_SCOPE_SCHEDULER:
+            raise ValueError(
+                f"Unsupported export scope '{scope}'; expected '{EXPORT_SCOPE_SCHEDULER}'"
+            )
+
+        schema_version = payload.get("schema_version", SCHEDULER_EXPORT_SCHEMA_VERSION)
+        try:
+            schema_version_int = int(schema_version)
+        except (TypeError, ValueError) as err:
+            raise ValueError("schema_version must be an integer") from err
+        if schema_version_int < 1:
+            raise ValueError("schema_version must be a positive integer")
+        if schema_version_int > SCHEDULER_EXPORT_SCHEMA_VERSION:
+            raise ValueError(
+                f"Unsupported scheduler export schema_version {schema_version_int}; "
+                f"current is {SCHEDULER_EXPORT_SCHEMA_VERSION}"
+            )
+
+        warnings: list[str] = []
+        known_profiles = set(self.data.profiles)
+        raw_local = self.normalize_import_scheduler_tasks(payload.get("scheduler_tasks"))
+        raw_master = self.normalize_import_scheduler_tasks(
+            payload.get("master_scheduler_tasks")
+        )
+
+        imported_local: dict[str, SchedulerTask] = {}
+        for task_id, raw in raw_local.items():
+            if not isinstance(raw, dict):
+                raise ValueError(f"Invalid scheduler task payload for {task_id}")
+            data = dict(raw)
+            data["id"] = str(data.get("id") or task_id)
+            data["scope"] = SCHEDULER_SCOPE_LOCAL
+            data["entry_ids"] = []
+            try:
+                task = SchedulerTask.from_dict(data)
+            except ValueError as err:
+                warnings.append(f"Local task '{data['id']}' skipped: {err}")
+                continue
+            filtered = self._filter_task_ranges_for_profiles(
+                task, known_profiles=known_profiles, warnings=warnings
+            )
+            if filtered is None:
+                continue
+            imported_local[filtered.id] = filtered
+
+        imported_master: dict[str, SchedulerTask] = {}
+        for task_id, raw in raw_master.items():
+            if not isinstance(raw, dict):
+                raise ValueError(f"Invalid master scheduler task payload for {task_id}")
+            data = dict(raw)
+            data["id"] = str(data.get("id") or task_id)
+            data["scope"] = SCHEDULER_SCOPE_MASTER
+            raw_ids = data.get("entry_ids") or []
+            if not isinstance(raw_ids, list):
+                raise ValueError(f"Master task '{data['id']}' entry_ids must be a list")
+            data["entry_ids"] = self._master_entry_ids_for_import(
+                [str(item).strip() for item in raw_ids if str(item).strip()],
+                warnings=warnings,
+                task_id=str(data["id"]),
+            )
+            try:
+                task = SchedulerTask.from_dict(data)
+            except ValueError as err:
+                warnings.append(f"Master task '{data['id']}' skipped: {err}")
+                continue
+            # Validate profile_ids on every targeted panel that is loaded.
+            missing_on: list[str] = []
+            for entry_id in list(task.entry_ids):
+                coordinator = next(
+                    (
+                        item
+                        for item in self._iter_panel_coordinators()
+                        if item.runtime.entry.entry_id == entry_id
+                    ),
+                    None,
+                )
+                if coordinator is None:
+                    continue
+                for rng in task.ranges:
+                    if rng.profile_id not in coordinator.data.profiles:
+                        missing_on.append(f"{rng.profile_id}@{entry_id}")
+            if missing_on:
+                # Keep only panels where every range profile exists.
+                valid_entries: list[str] = []
+                for entry_id in task.entry_ids:
+                    coordinator = next(
+                        (
+                            item
+                            for item in self._iter_panel_coordinators()
+                            if item.runtime.entry.entry_id == entry_id
+                        ),
+                        None,
+                    )
+                    if coordinator is None:
+                        continue
+                    if all(
+                        rng.profile_id in coordinator.data.profiles for rng in task.ranges
+                    ):
+                        valid_entries.append(entry_id)
+                if self.runtime.entry.entry_id not in valid_entries:
+                    warnings.append(
+                        f"Master task '{task.id}' skipped: profile_id(s) missing on "
+                        f"this panel ({', '.join(sorted(set(missing_on)))})"
+                    )
+                    continue
+                if set(valid_entries) != set(task.entry_ids):
+                    warnings.append(
+                        f"Master task '{task.id}': limited entry_ids to panels with "
+                        f"matching profiles: {', '.join(valid_entries)}"
+                    )
+                task = SchedulerTask.from_dict(
+                    {**task.to_dict(), "entry_ids": valid_entries}
+                )
+            imported_master[task.id] = task
+
+        if mode == "replace":
+            proposed_local = dict(imported_local)
+        else:
+            proposed_local = dict(self.data.scheduler_tasks)
+            proposed_local.update(imported_local)
+
+        store = await async_get_master_store(self.hass)
+        # Build the master view as it would look after upserts for conflict checks
+        # on this entry (other masters that still target this entry remain).
+        proposed_masters_for_entry: dict[str, SchedulerTask] = {
+            task.id: task
+            for task in store.tasks_for_entry(self.runtime.entry.entry_id)
+            if task.id not in imported_master
+        }
+        for task in imported_master.values():
+            if self.runtime.entry.entry_id in task.entry_ids:
+                proposed_masters_for_entry[task.id] = task
+
+        validate_tasks_no_conflicts(
+            [*proposed_local.values(), *proposed_masters_for_entry.values()]
+        )
+
+        # Conflict-check other panels affected by imported masters.
+        other_entries: set[str] = set()
+        for task in imported_master.values():
+            for entry_id in task.entry_ids:
+                if entry_id != self.runtime.entry.entry_id:
+                    other_entries.add(entry_id)
+        for entry_id in other_entries:
+            combined = [
+                item
+                for item in self._tasks_for_entry_validation(entry_id)
+                if item.id not in imported_master
+            ]
+            for task in imported_master.values():
+                if entry_id in task.entry_ids:
+                    combined.append(task)
+            validate_tasks_no_conflicts(combined)
+
+        previous_local_ids = set(self.data.scheduler_tasks)
+        previous_master_ids = set(store.tasks)
+
+        self.data.scheduler_tasks = proposed_local
+
+        requested_default = payload.get("default_profile_id")
+        if isinstance(requested_default, str) and requested_default.strip():
+            default_id = requested_default.strip()
+            if default_id in self.data.profiles:
+                self.data.default_profile_id = default_id
+            else:
+                warnings.append(
+                    f"default_profile_id '{default_id}' not found; left unchanged"
+                )
+
+        for task in imported_master.values():
+            await store.async_upsert(task)
+
+        await self.runtime.store.async_save()
+
+        new_local_ids = set(self.data.scheduler_tasks)
+        for removed in previous_local_ids - new_local_ids:
+            if self._scheduler_entity_remover is not None:
+                self._scheduler_entity_remover(removed)
+        for added in new_local_ids - previous_local_ids:
+            if self._scheduler_entity_adder is not None:
+                self._scheduler_entity_adder(added)
+
+        for task_id in imported_master:
+            if task_id not in previous_master_ids and self._master_entity_adder is not None:
+                self._master_entity_adder(task_id)
+
+        self._rebuild_scheduler_condition_listeners()
+        affected = {self.runtime.entry.entry_id}
+        for task in imported_master.values():
+            affected.update(task.entry_ids)
+        await self._async_tick_entries(sorted(affected), reason="scheduler_import")
+        self.runtime.async_notify()
+
+        result = self.get_config_payload()
+        result["scheduler_import_warnings"] = warnings
+        return result
 
     async def _async_after_draft_change(self) -> None:
         if self.data.sync_status != SYNC_SYNCING:
@@ -1570,7 +2542,7 @@ class PanelCoordinator:
         except Exception as err:  # noqa: BLE001
             _LOGGER.error("Virtual toggle failed for button %s: %s", index, err)
             raise
-        await self._async_execute_button_action(profile, index, new_state)
+        await self._async_route_button_action(profile, index, new_state)
         self.runtime.async_notify()
 
     async def _async_virtual_radio_press(self, profile: Profile, index: int) -> None:
@@ -1692,42 +2664,3 @@ class PanelCoordinator:
             else:
                 states.append(state.state == "on")
         return states
-
-    def get_runtime_payload(self) -> dict[str, Any]:
-        """Return live runtime fields for card refresh (never includes drafts)."""
-        return {
-            "entry_id": self.runtime.entry.entry_id,
-            "sync_status": self.data.sync_status,
-            "last_sync": self.data.last_sync,
-            "last_error": self.data.last_error,
-            "auto_sync": self.runtime.auto_sync,
-            "relay_entities": list(self.runtime.mapping.relay_entities),
-            "relay_states": self._relay_states_payload(),
-            "momentary_active": sorted(self.runtime.momentary.timers),
-            "cover_state": self.cover_state_payload(),
-        }
-
-    def get_config_payload(self) -> dict[str, Any]:
-        """Return frontend configuration payload."""
-        colors = self.runtime.adapter.supported_colors()
-        radar = self.runtime.adapter.supported_radar()
-        defaults = capability_defaults()
-        defaults["colors"] = colors
-        defaults["radar"] = radar
-        return {
-            "entry_id": self.runtime.entry.entry_id,
-            "panel_name": self.runtime.mapping.panel_name,
-            "adapter_type": self.runtime.mapping.adapter_type,
-            "active_profile_id": self.data.active_profile_id,
-            "sync_status": self.data.sync_status,
-            "last_sync": self.data.last_sync,
-            "last_error": self.data.last_error,
-            "auto_sync": self.runtime.auto_sync,
-            "capabilities": defaults,
-            "profiles": {key: profile.to_dict() for key, profile in self.data.profiles.items()},
-            "applied_snapshot": self.data.applied_snapshot,
-            "relay_entities": list(self.runtime.mapping.relay_entities),
-            "relay_states": self._relay_states_payload(),
-            "momentary_active": sorted(self.runtime.momentary.timers),
-            "cover_state": self.cover_state_payload(),
-        }

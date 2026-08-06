@@ -13,6 +13,7 @@ from homeassistant.core import HomeAssistant
 from .adapters.base import PanelAdapter
 from .const import COVER_DEFAULT_ID, DEFAULT_CONFIRM_TIMEOUT, DEFAULT_SYNC_TIMEOUT
 from .models import EntityMapping
+from .multiclick import MultiClickRuntime
 from .storage import PanelStore
 from .suppression import SuppressionTracker
 
@@ -161,6 +162,7 @@ class PanelRuntime:
     sync_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     cover: CoverRuntime = field(default_factory=CoverRuntime)
     momentary: MomentaryRuntime = field(default_factory=MomentaryRuntime)
+    multiclick: MultiClickRuntime = field(default_factory=MultiClickRuntime)
     unloading: bool = False
     listeners: list[Callable[[], None]] = field(default_factory=list)
     update_callbacks: list[Callable[[], None]] = field(default_factory=list)

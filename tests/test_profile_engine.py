@@ -28,7 +28,7 @@ from custom_components.conx_dynamic_panel.models import (
     RadioGroup,
     SyncResult,
 )
-from custom_components.conx_dynamic_panel.runtime import CoverRuntime, MomentaryRuntime
+from custom_components.conx_dynamic_panel.runtime import CoverRuntime, MomentaryRuntime, MultiClickRuntime
 from custom_components.conx_dynamic_panel.suppression import SuppressionTracker
 
 
@@ -105,6 +105,7 @@ def _runtime(adapter: FakeAdapter, store: FakeStore) -> Any:
         sync_lock=asyncio.Lock(),
         cover=CoverRuntime(),
         momentary=MomentaryRuntime(),
+        multiclick=MultiClickRuntime(),
         unloading=False,
         listeners=[],
         update_callbacks=[],

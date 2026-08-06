@@ -4,7 +4,31 @@ All notable changes to this private project will be documented here.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-08-07
+
 ### Added
+
+- **Per-panel holiday + master holiday:** each panel stores its own `holiday_mode` (schema **v5**) to suspend that panel’s schedulers (“ביטול שעונים”). Domain **master holiday** (migrated from the old global holiday flag) forces holiday on **every** panel when ON. Effective holiday = panel OR master. Faceplate shows a small holiday badge when effective; next-profile footer is hidden. Card Scheduler tab has separate panel + master toggles (EN/HE/RU). HA: per-entry holiday switch + legacy unique_id master holiday switch. Holiday is not exported.
+
+- **Faceplate next-profile footer reliability:** `find_next_scheduler_change` look-ahead is **14 days**, and when a range profile matches the default (no identity change) it still returns the next range-start so a newly saved task populates the footer. Compact “Scheduler on” row when active but no computable next. Cross-day times show weekday + HH:MM.
+
+- **Scheduler delete button labels:** red range/condition/task delete controls use text (**Delete** / **מחק** / **Удалить**, plus **Delete range** / **מחק טווח**) instead of icon-only ×.
+
+- **Scheduler export / import (separate from profiles):** portable JSON with `scope: "scheduler"`, `schema_version`, `default_profile_id`, local `scheduler_tasks`, and `master_scheduler_tasks` that target the current entry. Panel/master holiday is not exported. WebSocket/services `export_scheduler` / `import_scheduler` with merge (upsert by id) and replace (local tasks only; masters in the file still merge). Unknown `profile_id`s are skipped with warnings; static time conflicts reject the import. Scheduler tab compact Export / Import (merge) / Import (replace) controls (EN/HE/RU + RTL) + HTML preview + tests.
+
+- **Double-click actions:** each button can configure an optional `action_double` Home Assistant action alongside the normal single `action`. When set, unsuppressed physical relay edges within **0.4s** are classified as 1 / 2 clicks and **only the matching action runs once** (classic deferred single — not the single action twice). Without that slot, single-click behavior stays immediate. Integration-generated relay writes remain suppressed and never count. `conx_dynamic_panel_button_press` events include `click_count` (1 or 2). **On double classification the physical relay is restored to its pre-gesture state** (transition suppression) before `action_double` runs; single-click does not restore. Momentary and cover-direction roles skip restore. Radio groups restore the full member snapshot so exclusivity stays intact. Card UI (EN/HE/RU) + HTML preview + tests. Triple-click (`action_triple`) is not supported.
+
+- **Internal scheduler Phase 2 + 3:** optional structured HA entity conditions per task (`eq` / `neq` / numeric compares; no templates). Failed/missing entities make the task inactive for that evaluation; condition entity listeners re-evaluate with time ticks. **Master** multi-panel tasks live in a domain store (`scope=master`, `entry_ids[]`) and apply via each panel’s `activate_profile(..., sync=True)`. Static time conflict blocking still applies across local + master (conditions do not override). Storage schema **v4** + master store; EN/HE/RU Scheduler UI (conditions, master multi-select, conflict note). Faceplate footer shows **next profile + time** from backend `scheduler_next` when the scheduler is active (hidden on holiday / no enabled tasks).
+
+- **Internal scheduler (Phase 1):** per-panel scheduled tasks with weekday/month filters and `from`–`to` timeline ranges (overnight supported, e.g. 22:00–06:00). Outside all enabled ranges the selectable **default profile** is applied. Global **Holiday mode** switch pauses schedulers on every panel. Saving blocks when two enabled ranges would activate different profiles at the same overlapping time (same-profile overlap allowed). On HA restart / time edges the coordinator evaluates the desired profile now and calls `activate_profile(..., sync=True)` when the scheduler owns the panel. Card **Scheduler** tab (EN/HE/RU) + WebSocket CRUD/validation APIs; storage schema **v3** (preserves profiles/snapshots).
+
+### Changed
+
+- **Scheduler day/month chip contrast:** weekday and month selectors in the task editor now use solid gold/accent fill with dark contrast text when selected, and muted darker chips when unselected (same treatment for master panel chips). Larger tap targets, 7-column day row, 4-column month grid (3 on narrow), plus light polish on ranges/conditions blocks. Lit card + HTML preview; EN/HE/RU + RTL unchanged.
+
+- **Settings menu layout:** removed the Export Wizard button; language flags use a tight equal 3-column grid; Export / Import / Info / Automation actions use a compact 2-column grid instead of full-width stacked pills (Lit card + HTML preview; EN/HE/RU).
+
+- **Live Action data (YAML) examples per domain/service:** choosing an Action prefills editable `data:` YAML for that service (e.g. `light.turn_on` → brightness/rgb, `climate.set_temperature` → temperature/hvac_mode, `cover.set_cover_position` → position). Empty or still-matching last auto-default is replaced; customized YAML is preserved. EN/HE/RU hints + HTML preview.
 
 - **Info / מידע card guide:** settings menu opens a full-card guide (profiles, appearance, buttons, modes, roles, draft vs sync, operate mode, cover motor vs HA entity, actions/YAML, menu). EN/HE/RU; free-mix cover hints moved into the guide instead of inline clutter.
 
@@ -18,6 +42,7 @@ All notable changes to this private project will be documented here.
 
 ### Changed
 
+- **Scheduler range end is exclusive:** timeline ranges use start-inclusive / end-exclusive minutes (e.g. Morning `08:00–12:00` and Evening `12:00–17:00` — at exactly 12:00 Evening applies). Adjacent ranges sharing a boundary no longer conflict; true overlaps still do. Overnight ranges (e.g. `22:00–06:00`) stay active until the end minute exclusive. EN/HE/RU help copy updated.
 - **Free-mix cover extras denser grid:** motor slot, optional HA cover entity, open/close/settle, and opposite-press use a consistent label-above-field `mixed-cover-grid` (auto-fit / 2×2 under narrow width, RTL-safe). Long inline role-card hints removed; guide text is in hamburger **Info**.
 - **Free-mix role cards show Action + searchable Entity:** Toggle / Momentary / Radio extras include primary HA Action + Entity pickers in the same role window (not only buried in the button accordion). Uses `ha-service-picker` / `ha-entity-picker` when Home Assistant provides them; otherwise searchable filter + select. Cover roles keep motor-slot + inline travel times only (no fake HA entity for `cover_1`). Hint copy (EN/HE/RU) no longer says “look below”.
 - **Operate mode hides cover live controls:** when the card is in Operate / תפעול, open/stop/close chrome is hidden — faceplate (and corner menu / profile name) only. Covers remain controllable via physical panel buttons and Settings-mode live controls.

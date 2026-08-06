@@ -17,7 +17,7 @@ from custom_components.conx_dynamic_panel.models import (
     Profile,
     SyncResult,
 )
-from custom_components.conx_dynamic_panel.runtime import CoverRuntime, MomentaryRuntime
+from custom_components.conx_dynamic_panel.runtime import CoverRuntime, MomentaryRuntime, MultiClickRuntime
 from custom_components.conx_dynamic_panel.suppression import SuppressionTracker
 
 
@@ -106,6 +106,7 @@ def _runtime(adapter: FakeAdapter, store: FakeStore) -> Any:
         sync_lock=asyncio.Lock(),
         cover=CoverRuntime(),
         momentary=MomentaryRuntime(),
+        multiclick=MultiClickRuntime(),
         unloading=False,
         listeners=[],
         update_callbacks=[],
@@ -121,7 +122,7 @@ async def test_export_profiles_payload() -> None:
     store = FakeStore()
     coordinator = PanelCoordinator(_runtime(FakeAdapter(), store))  # type: ignore[arg-type]
     payload = coordinator.export_profiles()
-    assert payload["schema_version"] == 2
+    assert payload["schema_version"] == 4
     assert "lighting" in payload["profiles"]
     assert payload["active_profile_id"] == "lighting"
 
@@ -195,7 +196,7 @@ async def test_export_import_roundtrip() -> None:
     store = FakeStore()
     coordinator = PanelCoordinator(_runtime(FakeAdapter(), store))  # type: ignore[arg-type]
     exported = coordinator.export_profiles()
-    assert exported["schema_version"] == 2
+    assert exported["schema_version"] == 4
     await coordinator.async_import_profiles(
         {
             "profiles": {

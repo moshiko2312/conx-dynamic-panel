@@ -23,5 +23,13 @@ class ProfileNotFoundError(ConXDynamicPanelError):
     """Raised when a profile ID does not exist."""
 
 
+class ScheduleConflictError(ConXDynamicPanelError):
+    """Raised when scheduler tasks have overlapping different profiles."""
+
+    def __init__(self, message: str, conflicts: list[dict] | None = None) -> None:
+        super().__init__(message)
+        self.conflicts = conflicts or []
+
+
 class ActionExecutionError(ConXDynamicPanelError):
     """Raised when a stored action cannot be executed."""

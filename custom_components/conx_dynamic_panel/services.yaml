@@ -183,3 +183,59 @@ import_profiles:
           options:
             - merge
             - replace
+
+export_scheduler:
+  name: Export scheduler
+  description: >
+    Return portable scheduler JSON (schema_version, scope=scheduler,
+    default_profile_id, scheduler_tasks, master_scheduler_tasks targeting this
+    entry). Holiday mode is domain-global and excluded.
+  fields:
+    entry_id:
+      name: Entry ID
+      required: false
+      selector:
+        text:
+    device_id:
+      name: Device
+      required: false
+      selector:
+        device:
+          integration: conx_dynamic_panel
+
+import_scheduler:
+  name: Import scheduler
+  description: >
+    Import portable scheduler JSON. mode=merge upserts local and master tasks by
+    id; mode=replace replaces this panel's local tasks only (masters in the file
+    are still merged). Unknown profile_ids are skipped with warnings; time
+    conflicts reject the import.
+  fields:
+    entry_id:
+      name: Entry ID
+      required: false
+      selector:
+        text:
+    device_id:
+      name: Device
+      required: false
+      selector:
+        device:
+          integration: conx_dynamic_panel
+    payload:
+      name: Payload
+      description: >
+        Object with schema_version, scope=scheduler, optional default_profile_id,
+        scheduler_tasks, and optional master_scheduler_tasks.
+      required: true
+      selector:
+        object:
+    mode:
+      name: Mode
+      required: false
+      default: merge
+      selector:
+        select:
+          options:
+            - merge
+            - replace

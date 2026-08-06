@@ -15,6 +15,8 @@ export interface ButtonConfig {
   index: number;
   name: string;
   action: ButtonAction | null;
+  /** Optional double-click HA action (deferred multi-click classification). */
+  action_double?: ButtonAction | null;
   /** When profile mode is radio_*, participate in exclusivity (default true). */
   radio_member?: boolean;
   /** Per-button role when profile mode is mixed. */
@@ -24,6 +26,8 @@ export interface ButtonConfig {
   /** Cover id when role is cover_open / cover_close. */
   cover_id?: string | null;
 }
+
+export type ActionClickSlot = "single" | "double";
 
 export interface RadioGroup {
   id: string;
@@ -110,12 +114,64 @@ export interface PanelRuntimeUpdate {
   last_sync?: string | null;
   last_error?: string | null;
   auto_sync?: boolean;
+  holiday_mode?: boolean;
+  /** Local per-panel holiday (may be false while master forces effective holiday). */
+  panel_holiday_mode?: boolean;
+  /** Domain master holiday — when true, every panel is in holiday. */
+  master_holiday_mode?: boolean;
+  default_profile_id?: string | null;
+  active_profile_id?: string | null;
   relay_entities?: string[];
   /** Parallel to relay_entities: true=on, false=off, null=unknown. */
   relay_states?: Array<boolean | null>;
   /** 1-based button indexes with an armed backend momentary OFF timer. */
   momentary_active?: number[];
   cover_state?: CoverState;
+  /** True when holiday is off and enabled schedule tasks exist for this panel. */
+  scheduler_active?: boolean;
+  /** Next effective profile change for the faceplate footer; omit/null to hide. */
+  scheduler_next?: SchedulerNextEvent | null;
+}
+
+export interface SchedulerNextEvent {
+  profile_id: string;
+  profile_name: string;
+  /** ISO timestamp when the change takes effect. */
+  at: string;
+  /** Local clock HH:MM for display. */
+  at_time: string;
+}
+
+export interface ScheduleRange {
+  start: string;
+  end: string;
+  profile_id: string;
+}
+
+export type ScheduleConditionOperator = "eq" | "neq" | "gt" | "lt" | "gte" | "lte";
+
+export interface ScheduleCondition {
+  entity_id: string;
+  operator: ScheduleConditionOperator;
+  value: string;
+}
+
+export interface SchedulerTask {
+  id: string;
+  name: string;
+  enabled: boolean;
+  weekdays: number[];
+  months: number[];
+  ranges: ScheduleRange[];
+  notes?: string;
+  scope?: "local" | "master";
+  entry_ids?: string[];
+  conditions?: ScheduleCondition[];
+}
+
+export interface PanelSummary {
+  entry_id: string;
+  panel_name: string;
 }
 
 export interface PanelConfig {
@@ -123,6 +179,17 @@ export interface PanelConfig {
   panel_name: string;
   adapter_type: string;
   active_profile_id: string | null;
+  default_profile_id?: string | null;
+  holiday_mode?: boolean;
+  /** Local per-panel holiday flag. */
+  panel_holiday_mode?: boolean;
+  /** Domain master holiday — forces holiday on all panels when true. */
+  master_holiday_mode?: boolean;
+  scheduler_tasks?: Record<string, SchedulerTask>;
+  master_scheduler_tasks?: Record<string, SchedulerTask>;
+  panels?: PanelSummary[];
+  scheduler_active?: boolean;
+  scheduler_next?: SchedulerNextEvent | null;
   sync_status: string;
   last_sync: string | null;
   last_error: string | null;
@@ -164,6 +231,17 @@ export interface ProfilesExport {
   schema_version: number;
   active_profile_id: string | null;
   profiles: Record<string, Profile>;
+}
+
+/** Portable scheduler-only export (local + masters for one entry). */
+export interface SchedulerExport {
+  schema_version: number;
+  scope: "scheduler";
+  entry_id?: string;
+  default_profile_id?: string | null;
+  scheduler_tasks: Record<string, SchedulerTask>;
+  master_scheduler_tasks?: Record<string, SchedulerTask>;
+  notes?: string;
 }
 
 export interface CardConfig {

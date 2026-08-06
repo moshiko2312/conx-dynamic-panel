@@ -20,8 +20,10 @@ import {
   duplicateProfile,
   executeButton,
   exportProfiles,
+  exportScheduler,
   fetchConfig,
   importProfiles,
+  importScheduler,
   maxCoversForGangs,
   modesForGangCount,
   normalizeCover,
@@ -30,21 +32,41 @@ import {
   pullPanel,
   rolesForGangCount,
   setActiveProfile,
+  setDefaultProfile,
+  setHolidayMode,
+  setSchedulerTaskEnabled,
   subscribeRuntime,
   syncPanel,
   updatePanelName,
   updateProfile,
+  upsertSchedulerTask,
+  deleteSchedulerTask,
 } from "./api";
+import {
+  CONDITION_OPERATORS,
+  WEEKDAY_KEYS,
+  emptyCondition,
+  emptyMasterSchedulerTask,
+  emptySchedulerTask,
+  findScheduleConflicts,
+  normalizeConditions,
+  tasksAffectingEntry,
+} from "./scheduler";
 import { buildAutomationExampleYaml } from "./automationExample";
 import {
   buildImportServiceYaml,
   buildProfilesExport,
   validateProfilesExport,
+  validateSchedulerExport,
 } from "./exportSchema";
 import {
   parseActionData,
   serializeActionData,
 } from "./actionDataYaml";
+import {
+  defaultActionDataYaml,
+  nextActionDataPrefill,
+} from "./actionDataDefaults";
 import {
   actionDomain,
   ensureHaPickersLoaded,
@@ -76,6 +98,9 @@ import {
   resolveTheme,
 } from "./themes";
 import type {
+  ActionClickSlot,
+  ButtonAction,
+  ButtonConfig,
   ButtonRole,
   CardConfig,
   CoverConfig,
@@ -83,6 +108,7 @@ import type {
   PanelConfig,
   PanelRuntimeUpdate,
   Profile,
+  SchedulerTask,
 } from "./types";
 
 type SectionId =
@@ -319,10 +345,10 @@ export class ConXDynamicPanelCard extends LitElement {
   @state() private _theme: CardThemeId = "noir";
   /** Operational UI: faceplate + live controls only (hides draft editor chrome). */
   @state() private _operateMode = false;
-  /** Main editor vs export/import wizard view. */
-  @state() private _view: "editor" | "export" = "editor";
   @state() private _wizardStep: WizardStep = "transfer";
   @state() private _importMode: "merge" | "replace" = "merge";
+  @state() private _schedulerImportMode: "merge" | "replace" = "merge";
+  @state() private _schedulerImportWarnings: string[] = [];
   @state() private _serviceYaml = "";
   @state() private _sections: Record<SectionId, boolean> = {
     profiles: true,
@@ -335,7 +361,10 @@ export class ConXDynamicPanelCard extends LitElement {
   };
   /** Expanded button editors (collapsed by default). */
   @state() private _expandedButtons: Record<number, boolean> = {};
-  @state() private _activeTab: "profiles" | "appearance" | "buttons" = "profiles";
+  @state() private _activeTab: "profiles" | "appearance" | "buttons" | "scheduler" =
+    "profiles";
+  @state() private _schedulerDraft: SchedulerTask | null = null;
+  @state() private _schedulerConflict: string | null = null;
   @state() private _menuOpen = false;
   @state() private _automationOpen = false;
   @state() private _infoOpen = false;
@@ -349,14 +378,19 @@ export class ConXDynamicPanelCard extends LitElement {
   @state() private _haServicePickerReady = false;
   /** Client-side filter text for fallback action/entity `<select>` lists. */
   @state() private _pickerFilter: Record<string, string> = {};
-  /** Open state for per-button Action data (YAML) collapsible. */
-  @state() private _actionDataOpen: Record<number, boolean> = {};
+  /** Open state for per-button Action data (YAML) collapsible (keyed by editor slot). */
+  @state() private _actionDataOpen: Record<string, boolean> = {};
   /** In-progress YAML text (keeps invalid edits until fixed). */
-  @state() private _actionDataText: Record<number, string> = {};
+  @state() private _actionDataText: Record<string, string> = {};
   /** Inline parse errors for Action data (YAML). */
-  @state() private _actionDataError: Record<number, string> = {};
+  @state() private _actionDataError: Record<string, string> = {};
+  /** Last auto-prefilled YAML per editor slot (used to avoid overwriting custom edits). */
+  @state() private _actionDataAutoDefault: Record<string, string> = {};
+  /** Collapsed state for optional double-click action blocks. */
+  @state() private _multiClickOpen: Record<string, boolean> = {};
 
   private _importInput?: HTMLInputElement;
+  private _schedulerImportInput?: HTMLInputElement;
   private _haPickerLoadStarted = false;
   /** Unsubscribe from conx_dynamic_panel/subscribe runtime pushes. */
   private _unsubRuntime?: () => void;
@@ -414,9 +448,6 @@ export class ConXDynamicPanelCard extends LitElement {
       this._menuOpen = false;
       this._automationOpen = false;
       this._infoOpen = false;
-      if (this._view === "export") {
-        this._view = "editor";
-      }
     }
   }
 
@@ -594,17 +625,6 @@ export class ConXDynamicPanelCard extends LitElement {
         })
       );
     }
-  }
-
-  private _openExportWizard(): void {
-    this._view = "export";
-    this._notice = undefined;
-    this._refreshServiceYaml();
-  }
-
-  private _backToEditor(): void {
-    this._view = "editor";
-    this._notice = undefined;
   }
 
   private _isRadioMember(buttonIndex: number): boolean {
@@ -881,7 +901,20 @@ export class ConXDynamicPanelCard extends LitElement {
   }
 
   private _applyPanel(panel: PanelConfig): void {
-    this._panel = panel;
+    this._panel = {
+      ...panel,
+      scheduler_tasks: panel.scheduler_tasks || {},
+      master_scheduler_tasks: panel.master_scheduler_tasks || {},
+      panels: panel.panels || [],
+      default_profile_id: panel.default_profile_id ?? panel.active_profile_id,
+      holiday_mode: Boolean(panel.holiday_mode),
+      panel_holiday_mode: Boolean(
+        panel.panel_holiday_mode ?? panel.holiday_mode
+      ),
+      master_holiday_mode: Boolean(panel.master_holiday_mode),
+      scheduler_active: Boolean(panel.scheduler_active),
+      scheduler_next: panel.scheduler_next ?? null,
+    };
     this._panelNameDraft = panel.panel_name;
     this._runtimeRelayStates = panel.relay_states ? [...panel.relay_states] : [];
     const activeId = panel.active_profile_id;
@@ -934,10 +967,30 @@ export class ConXDynamicPanelCard extends LitElement {
       last_error:
         update.last_error !== undefined ? update.last_error : this._panel.last_error,
       auto_sync: update.auto_sync ?? this._panel.auto_sync,
+      holiday_mode:
+        update.holiday_mode !== undefined
+          ? Boolean(update.holiday_mode)
+          : this._panel.holiday_mode,
+      panel_holiday_mode:
+        update.panel_holiday_mode !== undefined
+          ? Boolean(update.panel_holiday_mode)
+          : this._panel.panel_holiday_mode,
+      master_holiday_mode:
+        update.master_holiday_mode !== undefined
+          ? Boolean(update.master_holiday_mode)
+          : this._panel.master_holiday_mode,
       relay_entities: update.relay_entities ?? this._panel.relay_entities,
       relay_states: update.relay_states ?? this._panel.relay_states,
       momentary_active: update.momentary_active ?? this._panel.momentary_active,
       cover_state: update.cover_state ?? this._panel.cover_state,
+      scheduler_active:
+        update.scheduler_active !== undefined
+          ? Boolean(update.scheduler_active)
+          : this._panel.scheduler_active,
+      scheduler_next:
+        update.scheduler_next !== undefined
+          ? update.scheduler_next
+          : this._panel.scheduler_next,
     };
     if (update.relay_states) {
       this._runtimeRelayStates = [...update.relay_states];
@@ -2436,6 +2489,87 @@ export class ConXDynamicPanelCard extends LitElement {
     }
   }
 
+  private async _exportScheduler(): Promise<void> {
+    if (!this.hass || !this._config || !this._panel) {
+      return;
+    }
+    this._busy = true;
+    this._error = undefined;
+    try {
+      const payload = await exportScheduler(this.hass, this._config.entry_id);
+      const safeName = this._panel.panel_name.replace(/[^\w.-]+/g, "_");
+      downloadJson(`conx-scheduler-${safeName}.json`, payload);
+      this._schedulerImportWarnings = [];
+      this._notice = this.t("scheduler.export_ok");
+    } catch (err) {
+      this._error = err instanceof Error ? err.message : String(err);
+    } finally {
+      this._busy = false;
+    }
+  }
+
+  private _openSchedulerImport(mode: "merge" | "replace"): void {
+    this._schedulerImportMode = mode;
+    if (!this._schedulerImportInput) {
+      this._schedulerImportInput = document.createElement("input");
+      this._schedulerImportInput.type = "file";
+      this._schedulerImportInput.accept = "application/json,.json";
+      this._schedulerImportInput.hidden = true;
+      this.renderRoot.appendChild(this._schedulerImportInput);
+    }
+    this._schedulerImportInput.onchange = () => {
+      const file = this._schedulerImportInput?.files?.[0];
+      this._schedulerImportInput!.value = "";
+      if (file) {
+        void this._importSchedulerFile(file, this._schedulerImportMode);
+      }
+    };
+    this._schedulerImportInput.click();
+  }
+
+  private async _importSchedulerFile(
+    file: File,
+    mode: "merge" | "replace"
+  ): Promise<void> {
+    if (!this.hass || !this._config) {
+      return;
+    }
+    this._busy = true;
+    this._error = undefined;
+    this._schedulerImportWarnings = [];
+    try {
+      const text = await file.text();
+      const parsed = validateSchedulerExport(JSON.parse(text));
+      if (!parsed.ok) {
+        throw new Error(parsed.error || this.t("scheduler.import_invalid"));
+      }
+      const result = await importScheduler(
+        this.hass,
+        this._config.entry_id,
+        parsed.payload,
+        mode
+      );
+      const warnings = Array.isArray(result.scheduler_import_warnings)
+        ? result.scheduler_import_warnings
+        : [];
+      this._schedulerImportWarnings = warnings;
+      this._applyPanel(result);
+      this._schedulerDraft = null;
+      this._notice =
+        warnings.length > 0
+          ? `${this.t("scheduler.import_ok")} (${warnings.length})`
+          : this.t("scheduler.import_ok");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.toLowerCase().includes("conflict") || message.includes("overlaps")) {
+        this._schedulerConflict = message;
+      }
+      this._error = message;
+    } finally {
+      this._busy = false;
+    }
+  }
+
   /** In-place draft mutation keeps text inputs focused while typing. */
   private _patchDraft(mutate: (draft: Profile) => void): void {
     if (!this._draft) {
@@ -2481,26 +2615,58 @@ export class ConXDynamicPanelCard extends LitElement {
     this._haServicePickerReady = ready.service;
   }
 
+  private _actionEditorKey(
+    buttonIndex: number,
+    slot: ActionClickSlot = "single"
+  ): string {
+    return slot === "single" ? String(buttonIndex) : `${buttonIndex}:${slot}`;
+  }
+
+  private _actionFieldName(
+    slot: ActionClickSlot
+  ): "action" | "action_double" {
+    if (slot === "double") {
+      return "action_double";
+    }
+    return "action";
+  }
+
+  private _buttonSlotAction(
+    button: ButtonConfig | undefined,
+    slot: ActionClickSlot
+  ): ButtonAction | null {
+    if (!button) {
+      return null;
+    }
+    if (slot === "double") {
+      return button.action_double ?? null;
+    }
+    return button.action;
+  }
+
   private _pickerFilterKey(
     kind: "action" | "entity",
-    buttonIndex: number
+    buttonIndex: number,
+    slot: ActionClickSlot = "single"
   ): string {
-    return `${kind}:${buttonIndex}`;
+    return `${kind}:${this._actionEditorKey(buttonIndex, slot)}`;
   }
 
   private _getPickerFilter(
     kind: "action" | "entity",
-    buttonIndex: number
+    buttonIndex: number,
+    slot: ActionClickSlot = "single"
   ): string {
-    return this._pickerFilter[this._pickerFilterKey(kind, buttonIndex)] || "";
+    return this._pickerFilter[this._pickerFilterKey(kind, buttonIndex, slot)] || "";
   }
 
   private _setPickerFilter(
     kind: "action" | "entity",
     buttonIndex: number,
-    value: string
+    value: string,
+    slot: ActionClickSlot = "single"
   ): void {
-    const key = this._pickerFilterKey(kind, buttonIndex);
+    const key = this._pickerFilterKey(kind, buttonIndex, slot);
     const next = value.trim().toLowerCase();
     if ((this._pickerFilter[key] || "") === next) {
       return;
@@ -2515,26 +2681,50 @@ export class ConXDynamicPanelCard extends LitElement {
     return options.filter((item) => item.toLowerCase().includes(needle));
   }
 
-  private _onHaServicePickerChanged(index: number, e: Event): void {
+  private _onHaServicePickerChanged(
+    index: number,
+    e: Event,
+    slot: ActionClickSlot = "single"
+  ): void {
     e.stopPropagation();
     const detail = (e as CustomEvent<{ value?: string | null }>).detail;
     const action = (detail?.value ?? "").trim();
-    this._setButtonAction(index, action);
+    this._setButtonAction(index, action, undefined, slot);
   }
 
-  private _setButtonAction(index: number, action: string, entityId?: string | null): void {
+  private _setButtonAction(
+    index: number,
+    action: string,
+    entityId?: string | null,
+    slot: ActionClickSlot = "single"
+  ): void {
     const nextAction = action.trim();
+    const editorKey = this._actionEditorKey(index, slot);
+    const field = this._actionFieldName(slot);
+    const currentYaml = this._actionDataDisplay(index, slot);
+    const previousAuto = Object.prototype.hasOwnProperty.call(
+      this._actionDataAutoDefault,
+      editorKey
+    )
+      ? this._actionDataAutoDefault[editorKey]
+      : undefined;
+    const prefill = nextActionDataPrefill(
+      nextAction,
+      currentYaml,
+      previousAuto
+    );
     this._patchDraft((draft) => {
       const button = draft.buttons.find((item) => item.index === index);
       if (!button) {
         return;
       }
       if (!nextAction) {
-        button.action = null;
+        button[field] = null;
         return;
       }
+      const previous = this._buttonSlotAction(button, slot);
       const previousEntity = (
-        button.action?.target as { entity_id?: string } | undefined
+        previous?.target as { entity_id?: string } | undefined
       )?.entity_id;
       const domain = actionDomain(nextAction);
       let nextEntity =
@@ -2544,111 +2734,247 @@ export class ConXDynamicPanelCard extends LitElement {
       if (domain && nextEntity && !nextEntity.startsWith(`${domain}.`)) {
         nextEntity = "";
       }
-      button.action = {
+      const data = prefill !== null ? prefill.data : previous?.data || {};
+      button[field] = {
         action: nextAction,
         target: nextEntity ? { entity_id: nextEntity } : {},
-        data: button.action?.data || {},
+        data,
       };
     });
     if (!nextAction) {
-      this._clearActionDataEditor(index);
+      this._clearActionDataEditor(index, slot);
+      return;
+    }
+    if (prefill !== null) {
+      this._applyActionDataPrefill(index, prefill.yaml, slot);
     }
   }
 
-  private _onButtonActionSelect(index: number, e: Event): void {
-    const action = (e.target as HTMLSelectElement).value.trim();
-    this._setButtonAction(index, action);
+  private _applyActionDataPrefill(
+    index: number,
+    yaml: string,
+    slot: ActionClickSlot = "single"
+  ): void {
+    const key = this._actionEditorKey(index, slot);
+    this._actionDataAutoDefault = {
+      ...this._actionDataAutoDefault,
+      [key]: yaml,
+    };
+    this._actionDataText = { ...this._actionDataText, [key]: yaml };
+    const nextError = { ...this._actionDataError };
+    delete nextError[key];
+    this._actionDataError = nextError;
+    if (yaml.trim()) {
+      this._actionDataOpen = { ...this._actionDataOpen, [key]: true };
+    }
   }
 
-  private _onButtonEntitySelect(index: number, e: Event): void {
+  private _onButtonActionSelect(
+    index: number,
+    e: Event,
+    slot: ActionClickSlot = "single"
+  ): void {
+    const action = (e.target as HTMLSelectElement).value.trim();
+    this._setButtonAction(index, action, undefined, slot);
+  }
+
+  private _onButtonEntitySelect(
+    index: number,
+    e: Event,
+    slot: ActionClickSlot = "single"
+  ): void {
     const entityId = (e.target as HTMLSelectElement).value.trim();
+    const field = this._actionFieldName(slot);
     this._patchDraft((draft) => {
       const button = draft.buttons.find((item) => item.index === index);
       if (!button) {
         return;
       }
-      const actionName = button.action?.action || "";
+      const current = this._buttonSlotAction(button, slot);
+      const actionName = current?.action || "";
       if (!actionName) {
-        button.action = null;
+        button[field] = null;
         return;
       }
-      button.action = {
+      button[field] = {
         action: actionName,
         target: entityId ? { entity_id: entityId } : {},
-        data: button.action?.data || {},
+        data: current?.data || {},
       };
     });
   }
 
-  private _onHaEntityPickerChanged(index: number, e: Event): void {
+  private _onHaEntityPickerChanged(
+    index: number,
+    e: Event,
+    slot: ActionClickSlot = "single"
+  ): void {
     e.stopPropagation();
     const detail = (e as CustomEvent<{ value?: string | null }>).detail;
     const entityId = (detail?.value ?? "").trim();
-    this._onButtonEntitySelect(index, {
-      target: { value: entityId },
-    } as unknown as Event);
+    this._onButtonEntitySelect(
+      index,
+      {
+        target: { value: entityId },
+      } as unknown as Event,
+      slot
+    );
   }
 
-  private _actionDataDisplay(index: number): string {
-    if (Object.prototype.hasOwnProperty.call(this._actionDataText, index)) {
-      return this._actionDataText[index];
+  private _actionDataDisplay(
+    index: number,
+    slot: ActionClickSlot = "single"
+  ): string {
+    const key = this._actionEditorKey(index, slot);
+    if (Object.prototype.hasOwnProperty.call(this._actionDataText, key)) {
+      return this._actionDataText[key];
     }
     const button = this._draft?.buttons.find((item) => item.index === index);
-    return serializeActionData(button?.action?.data || {});
+    return serializeActionData(this._buttonSlotAction(button, slot)?.data || {});
   }
 
-  private _toggleActionDataOpen(index: number): void {
+  private _toggleActionDataOpen(
+    index: number,
+    slot: ActionClickSlot = "single"
+  ): void {
+    const key = this._actionEditorKey(index, slot);
     this._actionDataOpen = {
       ...this._actionDataOpen,
-      [index]: !this._actionDataOpen[index],
+      [key]: !this._actionDataOpen[key],
     };
   }
 
-  private _clearActionDataEditor(index: number): void {
-    if (
-      !Object.prototype.hasOwnProperty.call(this._actionDataText, index) &&
-      !this._actionDataError[index]
-    ) {
+  private _toggleMultiClickOpen(index: number, slot: "double" = "double"): void {
+    const key = this._actionEditorKey(index, slot);
+    this._multiClickOpen = {
+      ...this._multiClickOpen,
+      [key]: !this._multiClickOpen[key],
+    };
+  }
+
+  private _clearActionDataEditor(
+    index: number,
+    slot: ActionClickSlot = "single"
+  ): void {
+    const key = this._actionEditorKey(index, slot);
+    const hasText = Object.prototype.hasOwnProperty.call(
+      this._actionDataText,
+      key
+    );
+    const hasError = Boolean(this._actionDataError[key]);
+    const hasAuto = Object.prototype.hasOwnProperty.call(
+      this._actionDataAutoDefault,
+      key
+    );
+    if (!hasText && !hasError && !hasAuto) {
       return;
     }
     const nextText = { ...this._actionDataText };
     const nextError = { ...this._actionDataError };
-    delete nextText[index];
-    delete nextError[index];
+    const nextAuto = { ...this._actionDataAutoDefault };
+    delete nextText[key];
+    delete nextError[key];
+    delete nextAuto[key];
     this._actionDataText = nextText;
     this._actionDataError = nextError;
+    this._actionDataAutoDefault = nextAuto;
   }
 
-  private _onActionDataInput(index: number, e: Event): void {
+  private _onActionDataInput(
+    index: number,
+    e: Event,
+    slot: ActionClickSlot = "single"
+  ): void {
+    const key = this._actionEditorKey(index, slot);
+    const field = this._actionFieldName(slot);
     const text = (e.target as HTMLTextAreaElement).value;
-    this._actionDataText = { ...this._actionDataText, [index]: text };
+    this._actionDataText = { ...this._actionDataText, [key]: text };
     const parsed = parseActionData(text);
     if (!parsed.ok) {
       this._actionDataError = {
         ...this._actionDataError,
-        [index]: parsed.error,
+        [key]: parsed.error,
       };
       return;
     }
     const nextError = { ...this._actionDataError };
-    delete nextError[index];
+    delete nextError[key];
     this._actionDataError = nextError;
     this._patchDraft((draft) => {
       const button = draft.buttons.find((item) => item.index === index);
-      if (!button?.action?.action) {
+      const current = this._buttonSlotAction(button, slot);
+      if (!current?.action) {
         return;
       }
-      button.action = {
-        ...button.action,
+      button![field] = {
+        ...current,
         data: parsed.data,
       };
     });
   }
 
+  private _renderButtonActionSlots(buttonIndex: number) {
+    const button = this._draft?.buttons.find((item) => item.index === buttonIndex);
+    const single = this._buttonSlotAction(button, "single");
+    const entityId = String(
+      (single?.target as { entity_id?: string } | undefined)?.entity_id || ""
+    );
+    return html`
+      ${this._renderActionEntityPickers(
+        buttonIndex,
+        single?.action || "",
+        entityId,
+        "single"
+      )}
+      <p class="field-hint multi-click-hint">${this.t("card.multi_click_hint")}</p>
+      ${this._renderMultiClickSlot(buttonIndex)}
+    `;
+  }
+
+  private _renderMultiClickSlot(buttonIndex: number) {
+    const slot: ActionClickSlot = "double";
+    const button = this._draft?.buttons.find((item) => item.index === buttonIndex);
+    const configured = this._buttonSlotAction(button, slot);
+    const key = this._actionEditorKey(buttonIndex, slot);
+    const open = Boolean(this._multiClickOpen[key] || configured);
+    const entityId = String(
+      (configured?.target as { entity_id?: string } | undefined)?.entity_id || ""
+    );
+    return html`
+      <div class="multi-click-slot" data-multi-click-slot=${slot} data-button=${buttonIndex}>
+        <button
+          type="button"
+          class="action-data-toggle multi-click-toggle"
+          data-multi-click-toggle
+          aria-expanded=${open ? "true" : "false"}
+          ?disabled=${this._busy}
+          @click=${() => this._toggleMultiClickOpen(buttonIndex, slot)}
+        >
+          <span class="action-data-chevron" aria-hidden="true"></span>
+          <span>${this.t("card.action_double")}</span>
+          ${configured
+            ? html`<span class="multi-click-badge" dir="ltr"
+                >${configured.action}</span
+              >`
+            : nothing}
+        </button>
+        ${open
+          ? this._renderActionEntityPickers(
+              buttonIndex,
+              configured?.action || "",
+              entityId,
+              slot
+            )
+          : nothing}
+      </div>
+    `;
+  }
+
   private _renderActionEntityPickers(
     buttonIndex: number,
     action: string,
-    entityId: string
+    entityId: string,
+    slot: ActionClickSlot = "single"
   ) {
     const serviceOptions = withCurrentOption(
       listServiceActions(this.hass?.services),
@@ -2661,27 +2987,33 @@ export class ConXDynamicPanelCard extends LitElement {
     );
     const useHaEntityPicker = this._haEntityPickerReady && !!this.hass;
     const useHaServicePicker = this._haServicePickerReady && !!this.hass;
-    const actionFilter = this._getPickerFilter("action", buttonIndex);
-    const entityFilter = this._getPickerFilter("entity", buttonIndex);
+    const actionFilter = this._getPickerFilter("action", buttonIndex, slot);
+    const entityFilter = this._getPickerFilter("entity", buttonIndex, slot);
     const filteredServices = this._filterOptions(serviceOptions, actionFilter);
     const filteredEntities = this._filterOptions(entityOptions, entityFilter);
-    const dataOpen = Boolean(this._actionDataOpen[buttonIndex]);
-    const dataText = this._actionDataDisplay(buttonIndex);
-    const dataError = this._actionDataError[buttonIndex] || "";
+    const editorKey = this._actionEditorKey(buttonIndex, slot);
+    const dataOpen = Boolean(this._actionDataOpen[editorKey]);
+    const dataText = this._actionDataDisplay(buttonIndex, slot);
+    const dataError = this._actionDataError[editorKey] || "";
+    const dataPlaceholder =
+      defaultActionDataYaml(action) || this.t("card.action_data_placeholder");
     const hasAction = Boolean(action);
+    const titleKey = "card.action";
     return html`
+      <div class="action-slot" data-action-slot=${slot} data-button=${buttonIndex}>
       <label class="field">
-        <span>${this.t("card.action")}</span>
+        <span>${this.t(titleKey)}</span>
         ${useHaServicePicker
           ? html`
               <ha-service-picker
                 data-action-picker
                 data-button=${buttonIndex}
+                data-action-slot=${slot}
                 .hass=${this.hass}
                 .value=${action || ""}
                 ?disabled=${this._busy}
                 @value-changed=${(e: Event) =>
-                  this._onHaServicePickerChanged(buttonIndex, e)}
+                  this._onHaServicePickerChanged(buttonIndex, e, slot)}
               ></ha-service-picker>
             `
           : html`
@@ -2690,6 +3022,7 @@ export class ConXDynamicPanelCard extends LitElement {
                 class="picker-filter"
                 data-action-filter
                 data-button=${buttonIndex}
+                data-action-slot=${slot}
                 placeholder=${this.t("card.picker_search")}
                 .value=${actionFilter}
                 ?disabled=${this._busy}
@@ -2697,17 +3030,19 @@ export class ConXDynamicPanelCard extends LitElement {
                   this._setPickerFilter(
                     "action",
                     buttonIndex,
-                    (e.target as HTMLInputElement).value
+                    (e.target as HTMLInputElement).value,
+                    slot
                   )}
               />
               <div class="select-wrap select-wrap-wide">
                 <select
                   data-action-picker
                   data-button=${buttonIndex}
+                  data-action-slot=${slot}
                   .value=${action}
                   ?disabled=${this._busy}
                   @change=${(e: Event) =>
-                    this._onButtonActionSelect(buttonIndex, e)}
+                    this._onButtonActionSelect(buttonIndex, e, slot)}
                 >
                   <option value="">${this.t("card.action_none")}</option>
                   ${filteredServices.map(
@@ -2726,13 +3061,14 @@ export class ConXDynamicPanelCard extends LitElement {
               <ha-entity-picker
                 data-entity-picker
                 data-button=${buttonIndex}
+                data-action-slot=${slot}
                 .hass=${this.hass}
                 .value=${entityId || undefined}
                 .includeDomains=${domain ? [domain] : undefined}
                 allow-custom-entity
                 ?disabled=${this._busy || !action}
                 @value-changed=${(e: Event) =>
-                  this._onHaEntityPickerChanged(buttonIndex, e)}
+                  this._onHaEntityPickerChanged(buttonIndex, e, slot)}
               ></ha-entity-picker>
             `
           : html`
@@ -2741,6 +3077,7 @@ export class ConXDynamicPanelCard extends LitElement {
                 class="picker-filter"
                 data-entity-filter
                 data-button=${buttonIndex}
+                data-action-slot=${slot}
                 placeholder=${this.t("card.picker_search")}
                 .value=${entityFilter}
                 ?disabled=${this._busy || !action}
@@ -2748,17 +3085,19 @@ export class ConXDynamicPanelCard extends LitElement {
                   this._setPickerFilter(
                     "entity",
                     buttonIndex,
-                    (e.target as HTMLInputElement).value
+                    (e.target as HTMLInputElement).value,
+                    slot
                   )}
               />
               <div class="select-wrap select-wrap-wide">
                 <select
                   data-entity-picker
                   data-button=${buttonIndex}
+                  data-action-slot=${slot}
                   .value=${entityId}
                   ?disabled=${this._busy || !action}
                   @change=${(e: Event) =>
-                    this._onButtonEntitySelect(buttonIndex, e)}
+                    this._onButtonEntitySelect(buttonIndex, e, slot)}
                 >
                   <option value="">${this.t("card.entity_none")}</option>
                   ${filteredEntities.map(
@@ -2769,14 +3108,19 @@ export class ConXDynamicPanelCard extends LitElement {
             `}
         <span class="field-hint">${this.t("card.entity_picker_hint")}</span>
       </label>
-      <div class="action-data-field" data-action-data-field data-button=${buttonIndex}>
+      <div
+        class="action-data-field"
+        data-action-data-field
+        data-button=${buttonIndex}
+        data-action-slot=${slot}
+      >
         <button
           type="button"
           class="action-data-toggle"
           data-action-data-toggle
           aria-expanded=${dataOpen ? "true" : "false"}
           ?disabled=${this._busy || !hasAction}
-          @click=${() => this._toggleActionDataOpen(buttonIndex)}
+          @click=${() => this._toggleActionDataOpen(buttonIndex, slot)}
         >
           <span class="action-data-chevron" aria-hidden="true"></span>
           <span>${this.t("card.action_data")}</span>
@@ -2788,15 +3132,16 @@ export class ConXDynamicPanelCard extends LitElement {
                   class="action-data-box"
                   data-action-data
                   data-button=${buttonIndex}
+                  data-action-slot=${slot}
                   rows="5"
                   dir="ltr"
                   lang="en"
                   spellcheck="false"
-                  placeholder=${this.t("card.action_data_placeholder")}
+                  placeholder=${dataPlaceholder}
                   .value=${dataText}
                   ?disabled=${this._busy || !hasAction}
                   @input=${(e: Event) =>
-                    this._onActionDataInput(buttonIndex, e)}
+                    this._onActionDataInput(buttonIndex, e, slot)}
                 ></textarea>
                 <span class="field-hint">${this.t("card.action_data_hint")}</span>
                 ${dataError
@@ -2807,6 +3152,7 @@ export class ConXDynamicPanelCard extends LitElement {
               </label>
             `
           : nothing}
+      </div>
       </div>
     `;
   }
@@ -3127,6 +3473,80 @@ export class ConXDynamicPanelCard extends LitElement {
     `;
   }
 
+  private _formatSchedulerNextAt(next: {
+    at?: string;
+    at_time: string;
+  }): string {
+    const raw = next.at;
+    if (!raw) {
+      return next.at_time;
+    }
+    const at = new Date(raw);
+    if (Number.isNaN(at.getTime())) {
+      return next.at_time;
+    }
+    const now = new Date();
+    const sameDay =
+      at.getFullYear() === now.getFullYear() &&
+      at.getMonth() === now.getMonth() &&
+      at.getDate() === now.getDate();
+    if (sameDay) {
+      return next.at_time;
+    }
+    // Python weekday Mon=0 … Sun=6; JS getDay() Sun=0 … Sat=6.
+    const pyWeekday = (at.getDay() + 6) % 7;
+    return `${this.t(WEEKDAY_KEYS[pyWeekday])} ${next.at_time}`;
+  }
+
+  private _renderHolidayBadge() {
+    if (!this._panel?.holiday_mode) {
+      return nothing;
+    }
+    const label = this.t("scheduler.holiday_badge");
+    return html`
+      <span
+        class="faceplate-holiday-badge"
+        data-holiday-badge
+        title=${label}
+        aria-label=${label}
+        role="img"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path
+            fill="currentColor"
+            d="M12 2a1 1 0 0 1 1 1v1.06A7.002 7.002 0 0 1 19 11v1.17l1.55 1.55a1 1 0 0 1-1.41 1.41L18 13.59V11a5 5 0 0 0-4-4.9V17a3 3 0 1 1-2 0V6.1A5 5 0 0 0 8 11v2.59l-1.14 1.14a1 1 0 1 1-1.41-1.41L7 12.17V11a7.002 7.002 0 0 1 6-6.94V3a1 1 0 0 1 1-1Zm-1 17a1 1 0 1 0 2 0 1 1 0 0 0-2 0Z"
+          />
+        </svg>
+      </span>
+    `;
+  }
+
+  private _renderSchedulerNextFooter() {
+    if (this._panel?.holiday_mode) {
+      return nothing;
+    }
+    const next = this._panel?.scheduler_next;
+    const active = Boolean(this._panel?.scheduler_active);
+    if (active && next?.profile_name && next.at_time) {
+      return html`
+        <div class="faceplate-scheduler-next" data-scheduler-next>
+          <span class="scheduler-next-label">${this.t("scheduler.next_profile")}</span>
+          <span class="scheduler-next-profile">${next.profile_name}</span>
+          <span class="scheduler-next-sep">${this.t("scheduler.next_at")}</span>
+          <span class="scheduler-next-time">${this._formatSchedulerNextAt(next)}</span>
+        </div>
+      `;
+    }
+    if (active) {
+      return html`
+        <div class="faceplate-scheduler-next" data-scheduler-next data-scheduler-active-only>
+          <span class="scheduler-next-label">${this.t("scheduler.active_compact")}</span>
+        </div>
+      `;
+    }
+    return nothing;
+  }
+
   private _renderFaceplate() {
     if (!this._draft) {
       return nothing;
@@ -3167,6 +3587,7 @@ export class ConXDynamicPanelCard extends LitElement {
                 </button>
               `
             : nothing}
+          ${this._renderHolidayBadge()}
           <div class="faceplate-skin"></div>
           <div class="faceplate-glass">
             <div class="faceplate-labels">
@@ -3203,6 +3624,7 @@ export class ConXDynamicPanelCard extends LitElement {
             </div>
           </div>
         </div>
+        ${this._renderSchedulerNextFooter()}
       </div>
     `;
   }
@@ -3357,6 +3779,776 @@ export class ConXDynamicPanelCard extends LitElement {
         <button type="button" class="btn danger" ?disabled=${this._busy} @click=${this._deleteProfile}>
           ${this.t("card.delete")}
         </button>
+      </div>
+    `;
+  }
+
+  private _editSchedulerTask(task: SchedulerTask): void {
+    this._schedulerDraft = {
+      ...structuredClone(task),
+      scope: task.scope || "local",
+      entry_ids: [...(task.entry_ids || [])],
+      conditions: normalizeConditions(task.conditions),
+    };
+  }
+
+  private _defaultProfileIdForScheduler(): string {
+    return (
+      this._panel?.default_profile_id ||
+      this._panel?.active_profile_id ||
+      Object.keys(this._panel?.profiles || {})[0] ||
+      "lighting"
+    );
+  }
+
+  private _alternateProfileIdForScheduler(preferredDefault: string): string | undefined {
+    const ids = Object.keys(this._panel?.profiles || {});
+    return ids.find((id) => id !== preferredDefault);
+  }
+
+  private _startNewSchedulerTask(): void {
+    if (!this._panel) return;
+    const defaultId = this._defaultProfileIdForScheduler();
+    this._schedulerDraft = emptySchedulerTask(
+      defaultId,
+      this._alternateProfileIdForScheduler(defaultId)
+    );
+  }
+
+  private _startNewMasterSchedulerTask(): void {
+    if (!this._panel || !this._config) return;
+    const defaultId = this._defaultProfileIdForScheduler();
+    this._schedulerDraft = emptyMasterSchedulerTask(
+      defaultId,
+      [this._config.entry_id],
+      this._alternateProfileIdForScheduler(defaultId)
+    );
+  }
+
+  private _conflictTasksForDraft(draft: SchedulerTask): SchedulerTask[] {
+    if (!this._panel || !this._config) return [draft];
+    const entryId = this._config.entry_id;
+    const locals = Object.values(this._panel.scheduler_tasks || {});
+    const masters = Object.values(this._panel.master_scheduler_tasks || {});
+    if ((draft.scope || "local") === "master") {
+      const entryIds = draft.entry_ids?.length ? draft.entry_ids : [entryId];
+      const combined: SchedulerTask[] = [];
+      for (const target of entryIds) {
+        const affecting = tasksAffectingEntry(
+          target === entryId ? locals : [],
+          masters,
+          target
+        ).filter((task) => task.id !== draft.id);
+        // For other panels we only have master tasks in this payload; still check masters.
+        combined.push(...affecting);
+      }
+      // Deduplicate by id then add draft once.
+      const byId = new Map<string, SchedulerTask>();
+      for (const task of combined) byId.set(task.id, task);
+      byId.set(draft.id, draft);
+      return [...byId.values()];
+    }
+    return [
+      ...tasksAffectingEntry(locals, masters, entryId).filter((task) => task.id !== draft.id),
+      draft,
+    ];
+  }
+
+  private async _saveSchedulerTask(): Promise<void> {
+    if (!this.hass || !this._config || !this._schedulerDraft || !this._panel) return;
+    const draft: SchedulerTask = {
+      ...this._schedulerDraft,
+      conditions: normalizeConditions(this._schedulerDraft.conditions),
+      entry_ids:
+        (this._schedulerDraft.scope || "local") === "master"
+          ? [...(this._schedulerDraft.entry_ids || [])]
+          : [],
+      scope: this._schedulerDraft.scope || "local",
+    };
+    if (draft.scope === "master" && !(draft.entry_ids || []).length) {
+      this._error = this.t("scheduler.master_panels");
+      return;
+    }
+    const conflicts = findScheduleConflicts(this._conflictTasksForDraft(draft));
+    if (conflicts.length) {
+      this._schedulerConflict = conflicts[0].message;
+      return;
+    }
+    this._busy = true;
+    try {
+      const panel = await upsertSchedulerTask(this.hass, this._config.entry_id, draft);
+      this._applyPanel(panel);
+      this._schedulerDraft = null;
+      this._error = undefined;
+      this._notice = this.t("scheduler.saved");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.toLowerCase().includes("conflict") || /schedule_conflict/i.test(message)) {
+        this._schedulerConflict = message;
+      } else {
+        this._error = message;
+      }
+    } finally {
+      this._busy = false;
+    }
+  }
+
+  private async _deleteSchedulerTask(taskId: string): Promise<void> {
+    if (!this.hass || !this._config) return;
+    this._busy = true;
+    try {
+      const panel = await deleteSchedulerTask(this.hass, this._config.entry_id, taskId);
+      this._applyPanel(panel);
+      if (this._schedulerDraft?.id === taskId) {
+        this._schedulerDraft = null;
+      }
+      this._notice = this.t("scheduler.deleted");
+    } catch (err) {
+      this._error = err instanceof Error ? err.message : String(err);
+    } finally {
+      this._busy = false;
+    }
+  }
+
+  private async _toggleHoliday(
+    enabled: boolean,
+    scope: "panel" | "master" = "panel"
+  ): Promise<void> {
+    if (!this.hass || !this._config) return;
+    this._busy = true;
+    try {
+      const panel = await setHolidayMode(
+        this.hass,
+        this._config.entry_id,
+        enabled,
+        scope
+      );
+      this._applyPanel(panel);
+    } catch (err) {
+      this._error = err instanceof Error ? err.message : String(err);
+    } finally {
+      this._busy = false;
+    }
+  }
+
+  private async _changeDefaultProfile(profileId: string): Promise<void> {
+    if (!this.hass || !this._config) return;
+    this._busy = true;
+    try {
+      const panel = await setDefaultProfile(this.hass, this._config.entry_id, profileId);
+      this._applyPanel(panel);
+    } catch (err) {
+      this._error = err instanceof Error ? err.message : String(err);
+    } finally {
+      this._busy = false;
+    }
+  }
+
+  private async _toggleTaskEnabled(taskId: string, enabled: boolean): Promise<void> {
+    if (!this.hass || !this._config) return;
+    this._busy = true;
+    try {
+      const panel = await setSchedulerTaskEnabled(
+        this.hass,
+        this._config.entry_id,
+        taskId,
+        enabled
+      );
+      this._applyPanel(panel);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.toLowerCase().includes("conflict")) {
+        this._schedulerConflict = message;
+      } else {
+        this._error = message;
+      }
+    } finally {
+      this._busy = false;
+    }
+  }
+
+  private _renderConditionEditor(draft: SchedulerTask) {
+    const conditions = draft.conditions || [];
+    const useHaEntityPicker = this._haEntityPickerReady && !!this.hass;
+    return html`
+      <div class="scheduler-conditions">
+        <div class="scheduler-field-label">${this.t("scheduler.conditions")}</div>
+        <p class="field-hint">${this.t("scheduler.conditions_hint")}</p>
+        <p class="field-hint">${this.t("scheduler.conflict_conditions_note")}</p>
+        ${conditions.map(
+          (condition, index) => html`
+            <div class="scheduler-condition-row">
+              <label class="field">
+                <span>${this.t("scheduler.condition_entity")}</span>
+                ${useHaEntityPicker
+                  ? html`
+                      <ha-entity-picker
+                        .hass=${this.hass}
+                        .value=${condition.entity_id}
+                        allow-custom-entity
+                        @value-changed=${(e: CustomEvent) => {
+                          const value = String(
+                            (e.detail as { value?: string })?.value || ""
+                          );
+                          condition.entity_id = value;
+                          draft.conditions = [...conditions];
+                          this._schedulerDraft = { ...draft };
+                        }}
+                      ></ha-entity-picker>
+                    `
+                  : html`
+                      <input
+                        type="text"
+                        .value=${condition.entity_id}
+                        @input=${(e: Event) => {
+                          condition.entity_id = (e.target as HTMLInputElement).value;
+                          draft.conditions = [...conditions];
+                          this._schedulerDraft = { ...draft };
+                        }}
+                      />
+                    `}
+              </label>
+              <label class="field">
+                <span>${this.t("scheduler.condition_operator")}</span>
+                <select
+                  @change=${(e: Event) => {
+                    condition.operator = (e.target as HTMLSelectElement)
+                      .value as typeof condition.operator;
+                    draft.conditions = [...conditions];
+                    this._schedulerDraft = { ...draft };
+                  }}
+                >
+                  ${CONDITION_OPERATORS.map(
+                    (op) => html`
+                      <option value=${op} ?selected=${condition.operator === op}>
+                        ${this.t(`scheduler.op_${op}`)}
+                      </option>
+                    `
+                  )}
+                </select>
+              </label>
+              <label class="field">
+                <span>${this.t("scheduler.condition_value")}</span>
+                <input
+                  type="text"
+                  .value=${condition.value}
+                  @input=${(e: Event) => {
+                    condition.value = (e.target as HTMLInputElement).value;
+                    draft.conditions = [...conditions];
+                    this._schedulerDraft = { ...draft };
+                  }}
+                />
+              </label>
+              <button
+                type="button"
+                class="btn danger"
+                @click=${() => {
+                  draft.conditions = conditions.filter((_, i) => i !== index);
+                  this._schedulerDraft = { ...draft };
+                }}
+              >
+                ${this.t("scheduler.delete_condition")}
+              </button>
+            </div>
+          `
+        )}
+        <button
+          type="button"
+          class="btn"
+          @click=${() => {
+            draft.conditions = [...conditions, emptyCondition()];
+            this._schedulerDraft = { ...draft };
+          }}
+        >
+          ${this.t("scheduler.add_condition")}
+        </button>
+      </div>
+    `;
+  }
+
+  private _renderSchedulerTaskEditor(draft: SchedulerTask, profiles: Profile[]) {
+    const isMaster = (draft.scope || "local") === "master";
+    const panels = this._panel?.panels || [];
+    const knownLocal = Object.keys(this._panel?.scheduler_tasks || {}).includes(draft.id);
+    const knownMaster = Object.keys(this._panel?.master_scheduler_tasks || {}).includes(
+      draft.id
+    );
+    return html`
+      <div class="scheduler-editor">
+        ${isMaster
+          ? html`<p class="notice subtle">${this.t("scheduler.master_hint")}</p>`
+          : nothing}
+        <label class="field">
+          <span>${this.t("scheduler.task_name")}</span>
+          <input
+            type="text"
+            .value=${draft.name}
+            @input=${(e: Event) => {
+              draft.name = (e.target as HTMLInputElement).value;
+              this._schedulerDraft = { ...draft };
+            }}
+          />
+        </label>
+        <label class="switch-row">
+          <span>${this.t("scheduler.enabled")}</span>
+          <label class="switch">
+            <input
+              type="checkbox"
+              .checked=${draft.enabled}
+              @change=${(e: Event) => {
+                draft.enabled = (e.target as HTMLInputElement).checked;
+                this._schedulerDraft = { ...draft };
+              }}
+            />
+            <span class="slider"></span>
+          </label>
+        </label>
+        ${isMaster
+          ? html`
+              <div class="scheduler-field-block">
+                <div class="scheduler-field-label">${this.t("scheduler.master_panels")}</div>
+                <div
+                  class="chip-row chip-row-panels"
+                  role="group"
+                  aria-label=${this.t("scheduler.master_panels")}
+                >
+                  ${panels.map(
+                    (panel) => html`
+                      <button
+                        type="button"
+                        class="chip ${(draft.entry_ids || []).includes(panel.entry_id)
+                          ? "active"
+                          : ""}"
+                        @click=${() => {
+                          const set = new Set(draft.entry_ids || []);
+                          if (set.has(panel.entry_id)) set.delete(panel.entry_id);
+                          else set.add(panel.entry_id);
+                          draft.entry_ids = [...set];
+                          this._schedulerDraft = { ...draft };
+                        }}
+                      >
+                        ${panel.panel_name}
+                      </button>
+                    `
+                  )}
+                </div>
+              </div>
+            `
+          : nothing}
+        <div class="scheduler-field-block">
+          <div class="scheduler-field-label">${this.t("scheduler.weekdays")}</div>
+          <div
+            class="chip-row chip-row-days"
+            role="group"
+            aria-label=${this.t("scheduler.weekdays")}
+          >
+            ${WEEKDAY_KEYS.map(
+              (key, index) => html`
+                <button
+                  type="button"
+                  class="chip ${draft.weekdays.includes(index) ? "active" : ""}"
+                  aria-pressed=${draft.weekdays.includes(index) ? "true" : "false"}
+                  @click=${() => {
+                    const set = new Set(draft.weekdays);
+                    if (set.has(index)) set.delete(index);
+                    else set.add(index);
+                    draft.weekdays = [...set].sort((a, b) => a - b);
+                    this._schedulerDraft = { ...draft };
+                  }}
+                >
+                  ${this.t(key)}
+                </button>
+              `
+            )}
+          </div>
+        </div>
+        <div class="scheduler-field-block">
+          <div class="scheduler-field-label">${this.t("scheduler.months")}</div>
+          <div
+            class="chip-row chip-row-months"
+            role="group"
+            aria-label=${this.t("scheduler.months")}
+          >
+            ${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(
+              (month) => html`
+                <button
+                  type="button"
+                  class="chip ${draft.months.includes(month) ? "active" : ""}"
+                  aria-pressed=${draft.months.includes(month) ? "true" : "false"}
+                  @click=${() => {
+                    const set = new Set(draft.months);
+                    if (set.has(month)) set.delete(month);
+                    else set.add(month);
+                    draft.months = [...set].sort((a, b) => a - b);
+                    this._schedulerDraft = { ...draft };
+                  }}
+                >
+                  ${this.t(`scheduler.month_${month}`)}
+                </button>
+              `
+            )}
+          </div>
+        </div>
+        <p class="field-hint">${this.t("scheduler.overnight_hint")}</p>
+        <div class="scheduler-ranges">
+          <div class="scheduler-field-label">${this.t("scheduler.ranges")}</div>
+          ${draft.ranges.map(
+            (range, index) => html`
+              <div class="scheduler-range-row">
+                <label class="field">
+                  <span>${this.t("scheduler.range_from")}</span>
+                  <input
+                    type="time"
+                    .value=${range.start}
+                    @change=${(e: Event) => {
+                      range.start = (e.target as HTMLInputElement).value || "00:00";
+                      this._schedulerDraft = {
+                        ...draft,
+                        ranges: [...draft.ranges],
+                      };
+                    }}
+                  />
+                </label>
+                <label class="field">
+                  <span>${this.t("scheduler.range_to")}</span>
+                  <input
+                    type="time"
+                    .value=${range.end}
+                    @change=${(e: Event) => {
+                      range.end = (e.target as HTMLInputElement).value || "00:00";
+                      this._schedulerDraft = {
+                        ...draft,
+                        ranges: [...draft.ranges],
+                      };
+                    }}
+                  />
+                </label>
+                <label class="field">
+                  <span>${this.t("scheduler.range_profile")}</span>
+                  <select
+                    @change=${(e: Event) => {
+                      range.profile_id = (e.target as HTMLSelectElement).value;
+                      this._schedulerDraft = {
+                        ...draft,
+                        ranges: [...draft.ranges],
+                      };
+                    }}
+                  >
+                    ${profiles.map(
+                      (profile) => html`
+                        <option
+                          value=${profile.id}
+                          ?selected=${profile.id === range.profile_id}
+                        >
+                          ${profile.name}
+                        </option>
+                      `
+                    )}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  class="btn danger"
+                  ?disabled=${draft.ranges.length <= 1}
+                  @click=${() => {
+                    draft.ranges = draft.ranges.filter((_, i) => i !== index);
+                    this._schedulerDraft = { ...draft };
+                  }}
+                >
+                  ${this.t("scheduler.delete_range")}
+                </button>
+              </div>
+            `
+          )}
+          <button
+            type="button"
+            class="btn"
+            @click=${() => {
+              const profileId = this._defaultProfileIdForScheduler();
+              draft.ranges = [
+                ...draft.ranges,
+                { start: "18:00", end: "22:00", profile_id: profileId },
+              ];
+              this._schedulerDraft = { ...draft };
+            }}
+          >
+            ${this.t("scheduler.add_range")}
+          </button>
+        </div>
+        ${this._renderConditionEditor(draft)}
+        <label class="field">
+          <span>${this.t("scheduler.notes")}</span>
+          <input
+            type="text"
+            .value=${draft.notes || ""}
+            @input=${(e: Event) => {
+              draft.notes = (e.target as HTMLInputElement).value;
+              this._schedulerDraft = { ...draft };
+            }}
+          />
+        </label>
+        <div class="profile-actions">
+          <button
+            type="button"
+            class="btn primary"
+            ?disabled=${this._busy}
+            @click=${() => void this._saveSchedulerTask()}
+          >
+            ${this.t("scheduler.save_task")}
+          </button>
+          <button
+            type="button"
+            class="btn"
+            ?disabled=${this._busy}
+            @click=${() => {
+              this._schedulerDraft = null;
+            }}
+          >
+            ${this.t("card.discard")}
+          </button>
+          ${knownLocal || knownMaster
+            ? html`
+                <button
+                  type="button"
+                  class="btn danger"
+                  ?disabled=${this._busy}
+                  @click=${() => void this._deleteSchedulerTask(draft.id)}
+                >
+                  ${this.t("scheduler.delete_task")}
+                </button>
+              `
+            : nothing}
+        </div>
+      </div>
+    `;
+  }
+
+  private _renderSchedulerTab() {
+    if (!this._panel) {
+      return nothing;
+    }
+    const localTasks = Object.values(this._panel.scheduler_tasks || {}).sort((a, b) =>
+      a.name.localeCompare(b.name)
+    );
+    const masterTasks = Object.values(this._panel.master_scheduler_tasks || {}).sort(
+      (a, b) => a.name.localeCompare(b.name)
+    );
+    const draft = this._schedulerDraft;
+    const profiles = Object.values(this._panel.profiles);
+    const renderRow = (task: SchedulerTask, master: boolean) => html`
+      <div class="scheduler-task-row">
+        <button
+          type="button"
+          class="profile-chip ${draft?.id === task.id ? "active" : ""}"
+          @click=${() => this._editSchedulerTask(task)}
+        >
+          <span class="chip-name"
+            >${master
+              ? html`<span class="master-badge">${this.t("scheduler.master_badge")}</span>`
+              : nothing}${task.name}</span
+          >
+          <span class="chip-id">${task.ranges.length} ranges</span>
+        </button>
+        <label class="scheduler-enable" title=${this.t("scheduler.enabled")}>
+          <span class="switch-caption">${this.t("scheduler.enabled")}</span>
+          <label class="switch">
+            <input
+              type="checkbox"
+              .checked=${task.enabled}
+              ?disabled=${this._busy}
+              aria-label=${`${this.t("scheduler.enabled")}: ${task.name}`}
+              @change=${(e: Event) => {
+                void this._toggleTaskEnabled(task.id, (e.target as HTMLInputElement).checked);
+              }}
+            />
+            <span class="slider"></span>
+          </label>
+        </label>
+      </div>
+    `;
+    return html`
+      <div class="scheduler-panel" data-scheduler>
+        <p class="field-hint">${this.t("scheduler.hint")}</p>
+        <label class="switch-row">
+          <span>${this.t("scheduler.holiday")}</span>
+          <label class="switch">
+            <input
+              type="checkbox"
+              .checked=${Boolean(this._panel.panel_holiday_mode)}
+              ?disabled=${this._busy}
+              @change=${(e: Event) => {
+                void this._toggleHoliday(
+                  (e.target as HTMLInputElement).checked,
+                  "panel"
+                );
+              }}
+            />
+            <span class="slider"></span>
+          </label>
+        </label>
+        <label class="switch-row">
+          <span>${this.t("scheduler.master_holiday")}</span>
+          <label class="switch">
+            <input
+              type="checkbox"
+              .checked=${Boolean(this._panel.master_holiday_mode)}
+              ?disabled=${this._busy}
+              @change=${(e: Event) => {
+                void this._toggleHoliday(
+                  (e.target as HTMLInputElement).checked,
+                  "master"
+                );
+              }}
+            />
+            <span class="slider"></span>
+          </label>
+        </label>
+        ${this._panel.master_holiday_mode
+          ? html`<p class="notice subtle">${this.t("scheduler.master_holiday_on")}</p>`
+          : this._panel.holiday_mode
+            ? html`<p class="notice subtle">${this.t("scheduler.holiday_on")}</p>`
+            : nothing}
+        <label class="field">
+          <span>${this.t("scheduler.default_profile")}</span>
+          <select
+            ?disabled=${this._busy}
+            @change=${(e: Event) => {
+              void this._changeDefaultProfile((e.target as HTMLSelectElement).value);
+            }}
+          >
+            ${profiles.map(
+              (profile) => html`
+                <option
+                  value=${profile.id}
+                  ?selected=${profile.id === this._panel?.default_profile_id}
+                >
+                  ${profile.name}
+                </option>
+              `
+            )}
+          </select>
+          <span class="field-hint">${this.t("scheduler.default_hint")}</span>
+        </label>
+
+        <div class="menu-section scheduler-transfer">
+          <span class="menu-label">${this.t("scheduler.transfer")}</span>
+          <p class="field-hint">${this.t("scheduler.import_hint")}</p>
+          <div class="menu-actions menu-action-grid">
+            <button
+              type="button"
+              class="btn success"
+              ?disabled=${this._busy}
+              @click=${() => {
+                void this._exportScheduler();
+              }}
+            >
+              ${this.t("scheduler.export")}
+            </button>
+            <button
+              type="button"
+              class="btn"
+              ?disabled=${this._busy}
+              @click=${() => this._openSchedulerImport("merge")}
+            >
+              ${this.t("scheduler.import_merge")}
+            </button>
+            <button
+              type="button"
+              class="btn danger"
+              ?disabled=${this._busy}
+              @click=${() => this._openSchedulerImport("replace")}
+            >
+              ${this.t("scheduler.import_replace")}
+            </button>
+          </div>
+          ${this._schedulerImportWarnings.length
+            ? html`
+                <details class="scheduler-import-warnings">
+                  <summary>${this.t("scheduler.import_warnings")}</summary>
+                  <ul>
+                    ${this._schedulerImportWarnings.map(
+                      (warning) => html`<li>${warning}</li>`
+                    )}
+                  </ul>
+                </details>
+              `
+            : nothing}
+        </div>
+
+        <div class="scheduler-task-list">
+          <div class="section-head-main">
+            <div class="section-title">${this.t("scheduler.local_tasks")}</div>
+            <button
+              type="button"
+              class="btn"
+              data-scheduler-add-local
+              ?disabled=${this._busy}
+              @click=${() => this._startNewSchedulerTask()}
+            >
+              ${this.t("scheduler.add_task")}
+            </button>
+          </div>
+          ${localTasks.map((task) => renderRow(task, false))}
+        </div>
+
+        <div class="scheduler-task-list">
+          <div class="section-head-main">
+            <div class="section-title">${this.t("scheduler.master_tasks")}</div>
+            <button
+              type="button"
+              class="btn"
+              ?disabled=${this._busy}
+              @click=${() => this._startNewMasterSchedulerTask()}
+            >
+              ${this.t("scheduler.add_master")}
+            </button>
+          </div>
+          ${masterTasks.map((task) => renderRow(task, true))}
+        </div>
+
+        ${draft ? this._renderSchedulerTaskEditor(draft, profiles) : nothing}
+      </div>
+    `;
+  }
+
+  private _renderSchedulerConflictDialog() {
+    if (!this._schedulerConflict) {
+      return nothing;
+    }
+    return html`
+      <div
+        class="conx-layer"
+        role="presentation"
+        @click=${(e: Event) => {
+          if (e.target === e.currentTarget) this._schedulerConflict = null;
+        }}
+      >
+        <div class="conx-panel compact" role="dialog" aria-modal="true" data-scheduler-conflict>
+          <div class="menu-head">
+            <div class="menu-title">${this.t("scheduler.conflict_title")}</div>
+            <button
+              type="button"
+              class="menu-close"
+              @click=${() => {
+                this._schedulerConflict = null;
+              }}
+            >
+              ×
+            </button>
+          </div>
+          <p class="info-intro">${this.t("scheduler.conflict_body")}</p>
+          <p class="field-hint">${this.t("scheduler.conflict_conditions_note")}</p>
+          <pre class="conflict-detail">${this._schedulerConflict}</pre>
+          <button
+            type="button"
+            class="btn primary"
+            @click=${() => {
+              this._schedulerConflict = null;
+            }}
+          >
+            ${this.t("scheduler.conflict_ok")}
+          </button>
+        </div>
       </div>
     `;
   }
@@ -3691,11 +4883,7 @@ export class ConXDynamicPanelCard extends LitElement {
                               class="mixed-action-entity"
                               data-mixed-action-entity
                             >
-                              ${this._renderActionEntityPickers(
-                                button.index,
-                                action,
-                                entityId
-                              )}
+                              ${this._renderButtonActionSlots(button.index)}
                             </div>
                           `
                         : nothing}
@@ -3825,11 +5013,7 @@ export class ConXDynamicPanelCard extends LitElement {
                                         ${this.t("card.missing_action")}
                                       </p>`
                                     : nothing}
-                                  ${this._renderActionEntityPickers(
-                                    button.index,
-                                    action,
-                                    entityId
-                                  )}
+                                  ${this._renderButtonActionSlots(button.index)}
                                 `}
                             ${radioMode
                               ? html`
@@ -4024,15 +5208,16 @@ export class ConXDynamicPanelCard extends LitElement {
       this._menuOpen ||
       this._automationOpen ||
       this._infoOpen ||
-      this._view === "export";
+      Boolean(this._schedulerConflict);
     return html`
       <ha-card
         dir=${rtl ? "rtl" : "ltr"}
         data-theme=${this._theme}
         data-operate=${operate ? "true" : "false"}
-        class="conx-card theme-${this._theme} ${this._view === "export" ? "export-open" : "editor-open"} ${this._menuOpen ? "menu-open" : ""} ${overlayOpen ? "overlay-open" : ""} ${compact ? "compact" : ""} ${operate ? "operate-mode" : ""} ${this._syncPulse ? "syncing-pulse" : ""}"
+        class="conx-card theme-${this._theme} editor-open ${this._menuOpen ? "menu-open" : ""} ${overlayOpen ? "overlay-open" : ""} ${compact ? "compact" : ""} ${operate ? "operate-mode" : ""} ${this._syncPulse ? "syncing-pulse" : ""}"
       >
         <div class="atmosphere"></div>
+        ${this._renderSchedulerConflictDialog()}
         ${operate
           ? nothing
           : html`
@@ -4098,7 +5283,6 @@ export class ConXDynamicPanelCard extends LitElement {
         ${this._menuOpen ? this._renderSettingsMenu() : nothing}
         ${this._automationOpen ? this._renderAutomationExample() : nothing}
         ${this._infoOpen ? this._renderInfoGuide() : nothing}
-        ${this._view === "export" ? this._renderExportView() : nothing}
       </ha-card>
     `;
   }
@@ -4167,7 +5351,7 @@ export class ConXDynamicPanelCard extends LitElement {
           </div>
           <div class="menu-section">
             <span class="menu-label">${this.t("card.step_transfer")}</span>
-            <div class="menu-actions">
+            <div class="menu-actions menu-action-grid">
               <button
                 type="button"
                 class="btn success"
@@ -4178,17 +5362,6 @@ export class ConXDynamicPanelCard extends LitElement {
                 }}
               >
                 ${this.t("card.export")}
-              </button>
-              <button
-                type="button"
-                class="btn primary"
-                ?disabled=${this._busy}
-                @click=${() => {
-                  this._menuOpen = false;
-                  this._openExportWizard();
-                }}
-              >
-                ${this.t("card.open_export_wizard")}
               </button>
               <button
                 type="button"
@@ -4218,7 +5391,7 @@ export class ConXDynamicPanelCard extends LitElement {
           </div>
           <div class="menu-section">
             <span class="menu-label">${this.t("card.more")}</span>
-            <div class="menu-actions">
+            <div class="menu-actions menu-action-grid">
               <button
                 type="button"
                 class="btn info-menu-btn"
@@ -4367,15 +5540,17 @@ export class ConXDynamicPanelCard extends LitElement {
     }
     const operate = this._operateMode;
     const previewOpen = operate || this._previewOpen;
-    const tabs: Array<"profiles" | "appearance" | "buttons"> = [
+    const tabs: Array<"profiles" | "appearance" | "buttons" | "scheduler"> = [
       "profiles",
       "appearance",
       "buttons",
+      "scheduler",
     ];
     const tabLabels: Record<string, string> = {
       profiles: this.t("card.profiles"),
       appearance: this.t("card.editor"),
       buttons: this.t("card.buttons"),
+      scheduler: this.t("card.scheduler"),
     };
     return html`
       <div class="layout single-layout ${operate ? "operate-layout" : ""}">
@@ -4458,6 +5633,12 @@ export class ConXDynamicPanelCard extends LitElement {
                   >
                     ${this._renderButtonsFields()}
                   </section>
+                  <section
+                    class="tab-panel ${this._activeTab === "scheduler" ? "active" : ""}"
+                    ?hidden=${this._activeTab !== "scheduler"}
+                  >
+                    ${this._renderSchedulerTab()}
+                  </section>
                 </div>
               </div>
             `}
@@ -4499,70 +5680,6 @@ export class ConXDynamicPanelCard extends LitElement {
           <button type="button" class="btn" ?disabled=${this._busy} @click=${this._pull}>
             ${this.t("card.pull")}
           </button>
-        </div>
-      </div>
-    `;
-  }
-
-  private _renderExportView() {
-    return html`
-      <div
-        class="conx-layer"
-        @click=${(e: Event) => {
-          if (e.target === e.currentTarget) this._backToEditor();
-        }}
-      >
-        <div class="conx-panel wide" role="dialog" aria-modal="true">
-          <div class="menu-head">
-            <div class="export-title">${this.t("card.step_transfer")}</div>
-            <button type="button" class="menu-close" @click=${this._backToEditor}>
-              ×
-            </button>
-          </div>
-          <p class="export-hint">${this.t("card.step_transfer_hint")}</p>
-          <div class="export-actions">
-            <button
-              type="button"
-              class="btn success"
-              ?disabled=${this._busy}
-              @click=${this._export}
-            >
-              ${this.t("card.export")}
-            </button>
-            <button
-              type="button"
-              class="btn"
-              ?disabled=${this._busy}
-              @click=${() => {
-                this._importMode = "merge";
-                this._openImport();
-              }}
-            >
-              ${this.t("card.import_merge")}
-            </button>
-            <button
-              type="button"
-              class="btn danger"
-              ?disabled=${this._busy}
-              @click=${() => {
-                this._importMode = "replace";
-                this._openImport();
-              }}
-            >
-              ${this.t("card.import_replace")}
-            </button>
-          </div>
-          <div class="export-details">${this._renderStepTransfer()}</div>
-          <div class="export-footer">
-            <button
-              type="button"
-              class="btn"
-              ?disabled=${this._busy}
-              @click=${this._backToEditor}
-            >
-              ← ${this.t("card.back_to_editor")}
-            </button>
-          </div>
         </div>
       </div>
     `;
@@ -5095,37 +6212,44 @@ export class ConXDynamicPanelCard extends LitElement {
     }
 
     .lang-flags {
-      display: flex;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 6px;
     }
 
     .lang-btn {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      padding: 5px 8px;
-      border-radius: 999px;
-      border: 1px solid color-mix(in srgb, var(--conx-steel) 45%, transparent);
-      background:
-        linear-gradient(180deg, color-mix(in srgb, #fff 70%, transparent), color-mix(in srgb, #c9d3dc 40%, transparent));
-      box-shadow: inset 0 1px 0 var(--conx-bevel-light);
+      justify-content: center;
+      gap: 5px;
+      width: 100%;
+      min-height: 36px;
+      padding: 6px 4px;
+      border-radius: 10px;
+      border: 1px solid var(--btn-border, var(--border));
+      background: var(--btn-bg);
+      box-shadow:
+        inset 0 1px 0 var(--bevel-light, var(--conx-bevel-light)),
+        0 1px 3px rgba(0, 0, 0, 0.14);
       cursor: pointer;
-      color: inherit;
+      color: var(--btn-text, inherit);
       font: inherit;
+      box-sizing: border-box;
     }
 
     .lang-btn.active {
-      border-color: color-mix(in srgb, var(--conx-accent) 55%, transparent);
-      background: var(--conx-accent-soft);
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      color: var(--text);
       box-shadow:
-        inset 0 1px 0 var(--conx-bevel-light),
-        0 0 0 1px color-mix(in srgb, var(--conx-accent) 25%, transparent);
+        inset 0 1px 0 var(--bevel-light, var(--conx-bevel-light)),
+        0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent);
     }
 
     .lang-code {
       font-size: 0.72rem;
-      font-weight: 700;
-      letter-spacing: 0.04em;
+      font-weight: 800;
+      letter-spacing: 0.06em;
     }
 
     .flag {
@@ -5517,6 +6641,32 @@ export class ConXDynamicPanelCard extends LitElement {
     }
     .action-data-toggle[aria-expanded="true"] .action-data-chevron {
       transform: rotate(45deg);
+    }
+    .multi-click-hint {
+      margin: 0.15rem 0 0.35rem;
+      opacity: 0.85;
+      font-size: 0.78rem;
+      line-height: 1.35;
+    }
+    .multi-click-slot {
+      margin-top: 0.35rem;
+      padding-top: 0.2rem;
+      border-top: 1px solid color-mix(in srgb, var(--conx-border, #888) 35%, transparent);
+    }
+    .multi-click-toggle {
+      width: 100%;
+    }
+    .multi-click-badge {
+      margin-inline-start: auto;
+      font-size: 0.72rem;
+      opacity: 0.8;
+      max-width: 45%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .action-slot[data-action-slot="double"] {
+      padding-inline-start: 0.35rem;
     }
     .action-data-editor {
       margin: 0;
@@ -6502,6 +7652,100 @@ export class ConXDynamicPanelCard extends LitElement {
       align-content: center;
     }
 
+    .faceplate-scheduler-next {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: center;
+      gap: 0.35rem 0.55rem;
+      margin-top: 0.45rem;
+      padding: 0.35rem 0.55rem;
+      font-size: 0.78rem;
+      line-height: 1.25;
+      color: var(--secondary-text-color, #8b93a7);
+      text-align: center;
+    }
+
+    .faceplate-scheduler-next .scheduler-next-profile,
+    .faceplate-scheduler-next .scheduler-next-time {
+      font-weight: 600;
+      color: var(--primary-text-color, #e8ecf4);
+    }
+
+    .faceplate-scheduler-next .scheduler-next-time {
+      font-variant-numeric: tabular-nums;
+    }
+
+    .faceplate-holiday-badge {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      z-index: 4;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 7px;
+      color: color-mix(in srgb, var(--accent, #d4af61) 88%, #fff);
+      background: rgba(26, 29, 34, 0.72);
+      border: 1px solid color-mix(in srgb, var(--accent, #d4af61) 45%, transparent);
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) inset;
+      pointer-events: none;
+    }
+
+    ha-card.conx-card[dir="rtl"] .faceplate-holiday-badge {
+      right: auto;
+      left: 8px;
+    }
+
+    .operate-mode .faceplate-holiday-badge {
+      /* Keep clear of the operate hamburger (LTR left / RTL right). */
+      top: 8px;
+    }
+
+    .faceplate-holiday-badge svg {
+      width: 13px;
+      height: 13px;
+      display: block;
+    }
+
+    ha-card.conx-card[data-theme="ivory"] .faceplate-holiday-badge {
+      color: #8a7348;
+      background: rgba(255, 255, 255, 0.82);
+      border-color: rgba(138, 115, 72, 0.35);
+    }
+
+    .scheduler-task-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .scheduler-task-row .scheduler-enable {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .scheduler-task-row .switch-caption {
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      color: var(--secondary-text-color, #8b93a7);
+      white-space: nowrap;
+    }
+
+    ha-card.conx-card[data-theme="ivory"] .faceplate-scheduler-next {
+      color: #5c6578;
+    }
+
+    ha-card.conx-card[data-theme="ivory"] .faceplate-scheduler-next .scheduler-next-profile,
+    ha-card.conx-card[data-theme="ivory"] .faceplate-scheduler-next .scheduler-next-time {
+      color: #1e2430;
+    }
+
     .ring {
       width: clamp(26px, 12.5cqw, 56px);
       height: clamp(26px, 12.5cqw, 56px);
@@ -6891,10 +8135,25 @@ export class ConXDynamicPanelCard extends LitElement {
       display: grid;
       gap: 8px;
     }
-    .lang-flags {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 6px;
+    .menu-action-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .menu-action-grid .btn {
+      display: inline-flex;
+      align-items: center;
+      width: 100%;
+      justify-content: center;
+      min-height: 38px;
+      padding: 8px 10px;
+      border-radius: 12px;
+      box-sizing: border-box;
+      white-space: normal;
+      line-height: 1.25;
+      text-align: center;
+    }
+    .menu-action-grid .btn:last-child:nth-child(odd) {
+      grid-column: 1 / -1;
     }
     .hero-preview {
       border-radius: 16px;
@@ -6973,11 +8232,199 @@ export class ConXDynamicPanelCard extends LitElement {
     }
     .tab-bar {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 0;
       border-bottom: 1px solid var(--border);
       background: color-mix(in srgb, var(--surface) 70%, var(--surface-2));
       margin-bottom: 0;
+    }
+    .scheduler-panel {
+      display: grid;
+      gap: 12px;
+      padding: 4px 2px 8px;
+    }
+    .scheduler-transfer {
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface);
+    }
+    .scheduler-transfer .menu-label {
+      display: block;
+      margin-bottom: 6px;
+    }
+    .scheduler-import-warnings {
+      margin-top: 8px;
+      font-size: 0.85rem;
+      color: var(--muted, var(--text));
+    }
+    .scheduler-import-warnings ul {
+      margin: 6px 0 0;
+      padding-inline-start: 1.2em;
+    }
+    .scheduler-task-list {
+      display: grid;
+      gap: 8px;
+    }
+    .scheduler-task-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .scheduler-task-row .profile-chip {
+      flex: 1;
+    }
+    .scheduler-editor {
+      display: grid;
+      gap: 12px;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background:
+        linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 55%, transparent) 0%, transparent 42%),
+        var(--surface);
+      box-shadow: inset 0 1px 0 var(--bevel-light, rgba(255, 255, 255, 0.08));
+    }
+    .scheduler-field-block {
+      display: grid;
+      gap: 8px;
+    }
+    .scheduler-field-label {
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--label, var(--text-muted));
+      line-height: 1.2;
+    }
+    .chip-row {
+      display: grid;
+      gap: 6px;
+    }
+    .chip-row-days {
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+    }
+    .chip-row-months {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+    .chip-row-panels {
+      grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+    }
+    .chip {
+      appearance: none;
+      -webkit-appearance: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 40px;
+      padding: 8px 6px;
+      border-radius: 10px;
+      border: 1px solid var(--btn-border, var(--border));
+      background: color-mix(in srgb, var(--btn-bg, var(--surface-2)) 88%, #000);
+      color: var(--text-muted);
+      cursor: pointer;
+      font: inherit;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      line-height: 1.1;
+      text-align: center;
+      user-select: none;
+      transition:
+        border-color 160ms ease,
+        background 160ms ease,
+        color 160ms ease,
+        box-shadow 160ms ease,
+        transform 120ms ease;
+    }
+    .chip:hover:not(.active) {
+      border-color: color-mix(in srgb, var(--accent) 55%, var(--btn-border, var(--border)));
+      color: var(--text);
+      background: color-mix(in srgb, var(--btn-bg, var(--surface-2)) 70%, var(--accent-soft));
+    }
+    .chip:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+    .chip.active {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: var(--accent-text);
+      font-weight: 800;
+      box-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.22) inset,
+        0 2px 10px color-mix(in srgb, var(--accent) 28%, transparent);
+    }
+    .chip.active:hover {
+      border-color: var(--accent);
+      background: color-mix(in srgb, var(--accent) 88%, #fff);
+      color: var(--accent-text);
+    }
+    .scheduler-ranges,
+    .scheduler-conditions {
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: color-mix(in srgb, var(--surface-2) 82%, transparent);
+    }
+    .scheduler-range-row,
+    .scheduler-condition-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)) auto;
+      gap: 8px;
+      align-items: end;
+      margin-bottom: 0;
+      padding: 8px;
+      border-radius: 10px;
+      border: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
+      background: var(--input-bg, var(--surface));
+    }
+    .scheduler-ranges > .btn,
+    .scheduler-conditions > .btn {
+      justify-self: start;
+    }
+    @media (max-width: 420px) {
+      .chip-row-months {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+      .chip {
+        min-height: 38px;
+        font-size: 0.74rem;
+        padding: 7px 4px;
+      }
+    }
+    .master-badge {
+      display: inline-block;
+      margin-inline-end: 0.35rem;
+      padding: 0.05rem 0.35rem;
+      border-radius: 0.25rem;
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      background: color-mix(in srgb, var(--accent) 22%, transparent);
+      color: var(--accent);
+    }
+    .switch-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .conflict-detail {
+      white-space: pre-wrap;
+      font-size: 0.82rem;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+      margin: 0 0 12px;
+    }
+    .notice.subtle {
+      margin: 0;
+      opacity: 0.85;
     }
     .tab-btn {
       appearance: none;

@@ -28,7 +28,9 @@ from .const import (
     SERVICE_COVER_COMMAND,
     SERVICE_EXECUTE_BUTTON,
     SERVICE_EXPORT_PROFILES,
+    SERVICE_EXPORT_SCHEDULER,
     SERVICE_IMPORT_PROFILES,
+    SERVICE_IMPORT_SCHEDULER,
     SERVICE_PULL_FROM_PANEL,
     SERVICE_RELOAD,
     SERVICE_SYNC,
@@ -117,6 +119,21 @@ async def async_register_services(hass: HomeAssistant) -> None:
         except ValueError as err:
             raise HomeAssistantError(str(err)) from err
 
+    async def handle_export_scheduler(call: ServiceCall) -> dict[str, Any]:
+        coordinator = _get_coordinator(hass, call)
+        return coordinator.export_scheduler()
+
+    async def handle_import_scheduler(call: ServiceCall) -> dict[str, Any]:
+        coordinator = _get_coordinator(hass, call)
+        payload = call.data[ATTR_PAYLOAD]
+        if not isinstance(payload, dict):
+            raise HomeAssistantError("payload must be an object")
+        mode = str(call.data.get(ATTR_MODE, IMPORT_MODE_MERGE))
+        try:
+            return await coordinator.async_import_scheduler(payload, mode=mode)
+        except ValueError as err:
+            raise HomeAssistantError(str(err)) from err
+
     hass.services.async_register(
         DOMAIN,
         SERVICE_SYNC,
@@ -184,6 +201,25 @@ async def async_register_services(hass: HomeAssistant) -> None:
         ),
         supports_response=SupportsResponse.OPTIONAL,
     )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_EXPORT_SCHEDULER,
+        handle_export_scheduler,
+        schema=ENTRY_SCHEMA,
+        supports_response=SupportsResponse.ONLY,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_IMPORT_SCHEDULER,
+        handle_import_scheduler,
+        schema=ENTRY_SCHEMA.extend(
+            {
+                vol.Required(ATTR_PAYLOAD): dict,
+                vol.Optional(ATTR_MODE, default=IMPORT_MODE_MERGE): vol.In(IMPORT_MODES),
+            }
+        ),
+        supports_response=SupportsResponse.OPTIONAL,
+    )
 
 
 def async_unregister_services(hass: HomeAssistant) -> None:
@@ -197,6 +233,8 @@ def async_unregister_services(hass: HomeAssistant) -> None:
         SERVICE_RELOAD,
         SERVICE_EXPORT_PROFILES,
         SERVICE_IMPORT_PROFILES,
+        SERVICE_EXPORT_SCHEDULER,
+        SERVICE_IMPORT_SCHEDULER,
     ):
         if hass.services.has_service(DOMAIN, service):
             hass.services.async_remove(DOMAIN, service)

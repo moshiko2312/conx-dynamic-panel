@@ -26,7 +26,7 @@ from custom_components.conx_dynamic_panel.models import (
     Profile,
     SyncResult,
 )
-from custom_components.conx_dynamic_panel.runtime import CoverRuntime, MomentaryRuntime
+from custom_components.conx_dynamic_panel.runtime import CoverRuntime, MomentaryRuntime, MultiClickRuntime
 from custom_components.conx_dynamic_panel.storage import _migrate
 from custom_components.conx_dynamic_panel.suppression import SuppressionTracker
 
@@ -101,6 +101,8 @@ def _runtime(adapter: FakeAdapter, store: FakeStore) -> Any:
         ),
         bus=SimpleNamespace(async_fire=lambda *args, **kwargs: None),
         async_create_task=lambda coro: asyncio.create_task(coro),
+        data={"conx_dynamic_panel": {"holiday_store": SimpleNamespace(holiday_mode=False, master_holiday=False)}},
+        states=SimpleNamespace(get=lambda *_a, **_k: None),
     )
     entry = SimpleNamespace(entry_id="entry-1", options={"auto_sync": False})
     return SimpleNamespace(
@@ -113,6 +115,7 @@ def _runtime(adapter: FakeAdapter, store: FakeStore) -> Any:
         sync_lock=asyncio.Lock(),
         cover=CoverRuntime(),
         momentary=MomentaryRuntime(),
+        multiclick=MultiClickRuntime(),
         unloading=False,
         listeners=[],
         update_callbacks=[],

@@ -42,6 +42,8 @@ from .const import (
     MODE_MOMENTARY_MIX_ALIAS,
     MODE_TOGGLE,
     MULTI_BUTTON_ROLES,
+    MULTI_CLICK_GAP_S,
+    MULTI_CLICK_MAX,
     PULSE_TIME_MAX,
     PULSE_TIME_MIN,
     STORAGE_VERSION,
@@ -561,6 +563,10 @@ class ButtonConfig:
     index: int
     name: str = ""
     action: ButtonAction | None = None
+    # Optional double-click HA action (parallel to single ``action``).
+    # When set, the coordinator defers classification so a gesture fires
+    # exactly one of single / double — not single×N.
+    action_double: ButtonAction | None = None
     radio_member: bool = True
     # Per-button role for mode=mixed (ignored by legacy single-behavior modes).
     role: ButtonRole = BUTTON_ROLE_TOGGLE  # type: ignore[assignment]
@@ -583,6 +589,7 @@ class ButtonConfig:
             "index": self.index,
             "name": self.name,
             "action": self.action.to_dict() if self.action else None,
+            "action_double": self.action_double.to_dict() if self.action_double else None,
             "radio_member": bool(self.radio_member),
             "role": self.role,
             "pulse_time_s": self.pulse_time_s,
@@ -598,6 +605,7 @@ class ButtonConfig:
             index=int(data["index"]),
             name=str(data.get("name") or ""),
             action=ButtonAction.from_dict(data.get("action")),
+            action_double=ButtonAction.from_dict(data.get("action_double")),
             radio_member=bool(data.get("radio_member", True)),
             role=normalize_button_role(data.get("role"), legacy_press_mode=data.get("press_mode")),
             pulse_time_s=clamp_pulse_time(data.get("pulse_time_s", DEFAULT_PULSE_TIME)),
@@ -948,23 +956,179 @@ class SyncResult:
 
 
 @dataclass(slots=True)
+class ScheduleRange:
+    """One timeline segment mapping a time window to a profile."""
+
+    start: str
+    end: str
+    profile_id: str
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize range."""
+        return {
+            "start": self.start,
+            "end": self.end,
+            "profile_id": self.profile_id,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ScheduleRange:
+        """Deserialize range and validate HH:MM + profile id."""
+        # Local import avoids a models↔scheduler cycle at module load.
+        from .scheduler import parse_hhmm
+
+        start = str(data.get("start") or "").strip()
+        end = str(data.get("end") or "").strip()
+        parse_hhmm(start)
+        parse_hhmm(end)
+        profile_id = str(data.get("profile_id") or "").strip()
+        if not profile_id:
+            raise ValueError("Schedule range requires profile_id")
+        return cls(start=start, end=end, profile_id=profile_id)
+
+
+@dataclass(slots=True)
+class ScheduleCondition:
+    """Structured HA entity condition (no templates / arbitrary code)."""
+
+    entity_id: str
+    operator: str
+    value: str
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize condition."""
+        return {
+            "entity_id": self.entity_id,
+            "operator": self.operator,
+            "value": self.value,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ScheduleCondition | None:
+        """Deserialize; empty entity_id yields None (cleared condition)."""
+        from .const import CONDITION_OPS
+
+        entity_id = str(data.get("entity_id") or "").strip()
+        if not entity_id:
+            return None
+        operator = str(data.get("operator") or "eq").strip().lower()
+        if operator not in CONDITION_OPS:
+            raise ValueError(f"Unsupported condition operator: {operator}")
+        value = str(data.get("value") if data.get("value") is not None else "")
+        return cls(entity_id=entity_id, operator=operator, value=value)
+
+
+@dataclass(slots=True)
+class SchedulerTask:
+    """Scheduled profile activation task (local per-panel or multi-panel master)."""
+
+    id: str
+    name: str
+    enabled: bool = True
+    weekdays: list[int] = field(default_factory=lambda: list(range(7)))
+    months: list[int] = field(default_factory=lambda: list(range(1, 13)))
+    ranges: list[ScheduleRange] = field(default_factory=list)
+    notes: str = ""
+    scope: str = "local"
+    entry_ids: list[str] = field(default_factory=list)
+    conditions: list[ScheduleCondition] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize task."""
+        return {
+            "id": self.id,
+            "name": self.name,
+            "enabled": self.enabled,
+            "weekdays": list(self.weekdays),
+            "months": list(self.months),
+            "ranges": [item.to_dict() for item in self.ranges],
+            "notes": self.notes,
+            "scope": self.scope,
+            "entry_ids": list(self.entry_ids),
+            "conditions": [item.to_dict() for item in self.conditions],
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> SchedulerTask:
+        """Deserialize task."""
+        from .const import SCHEDULER_SCOPE_LOCAL, SCHEDULER_SCOPE_MASTER, SCHEDULER_SCOPES
+        from .scheduler import normalize_months, normalize_weekdays
+
+        task_id = str(data.get("id") or "").strip()
+        if not task_id:
+            raise ValueError("Scheduler task requires id")
+        name = str(data.get("name") or task_id).strip() or task_id
+        raw_ranges = data.get("ranges") or []
+        if not isinstance(raw_ranges, list):
+            raise ValueError("Scheduler task ranges must be a list")
+        ranges = [ScheduleRange.from_dict(item) for item in raw_ranges if isinstance(item, dict)]
+        scope = str(data.get("scope") or SCHEDULER_SCOPE_LOCAL).strip().lower()
+        if scope not in SCHEDULER_SCOPES:
+            raise ValueError(f"Invalid scheduler scope: {scope}")
+        raw_entry_ids = data.get("entry_ids") or []
+        if raw_entry_ids is None:
+            raw_entry_ids = []
+        if not isinstance(raw_entry_ids, list):
+            raise ValueError("entry_ids must be a list")
+        entry_ids = sorted({str(item).strip() for item in raw_entry_ids if str(item).strip()})
+        if scope == SCHEDULER_SCOPE_MASTER and not entry_ids:
+            raise ValueError("Master scheduler task requires at least one entry_id")
+        if scope == SCHEDULER_SCOPE_LOCAL:
+            entry_ids = []
+        raw_conditions = data.get("conditions") or []
+        if raw_conditions is None:
+            raw_conditions = []
+        if not isinstance(raw_conditions, list):
+            raise ValueError("conditions must be a list")
+        conditions: list[ScheduleCondition] = []
+        for item in raw_conditions:
+            if not isinstance(item, dict):
+                continue
+            parsed = ScheduleCondition.from_dict(item)
+            if parsed is not None:
+                conditions.append(parsed)
+        return cls(
+            id=task_id,
+            name=name,
+            enabled=bool(data.get("enabled", True)),
+            weekdays=normalize_weekdays(data.get("weekdays")),
+            months=normalize_months(data.get("months")),
+            ranges=ranges,
+            notes=str(data.get("notes") or ""),
+            scope=scope,
+            entry_ids=entry_ids,
+            conditions=conditions,
+        )
+
+
+@dataclass(slots=True)
 class PanelStorageData:
     """Versioned persisted panel state."""
 
     schema_version: int = STORAGE_VERSION
     active_profile_id: str | None = None
+    default_profile_id: str | None = None
     profiles: dict[str, Profile] = field(default_factory=dict)
+    scheduler_tasks: dict[str, SchedulerTask] = field(default_factory=dict)
     applied_snapshot: dict[str, Any] = field(default_factory=dict)
     last_sync: str | None = None
     last_error: str | None = None
     sync_status: SyncStatus = SYNC_PENDING  # type: ignore[assignment]
+    # Per-panel holiday: suspends this entry's schedulers ("ביטול שעונים").
+    # Master holiday (domain store) can still force holiday on all panels.
+    holiday_mode: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize storage payload."""
         return {
             "schema_version": self.schema_version,
             "active_profile_id": self.active_profile_id,
+            "default_profile_id": self.default_profile_id,
+            "holiday_mode": bool(self.holiday_mode),
             "profiles": {key: profile.to_dict() for key, profile in self.profiles.items()},
+            "scheduler_tasks": {
+                key: task.to_dict() for key, task in self.scheduler_tasks.items()
+            },
             "applied_snapshot": deepcopy(self.applied_snapshot),
             "last_sync": self.last_sync,
             "last_error": self.last_error,
@@ -977,14 +1141,30 @@ class PanelStorageData:
         profiles = {
             key: Profile.from_dict(value) for key, value in (data.get("profiles") or {}).items()
         }
+        raw_tasks = data.get("scheduler_tasks") or {}
+        scheduler_tasks: dict[str, SchedulerTask] = {}
+        if isinstance(raw_tasks, dict):
+            for key, value in raw_tasks.items():
+                if not isinstance(value, dict):
+                    continue
+                payload = dict(value)
+                payload.setdefault("id", key)
+                task = SchedulerTask.from_dict(payload)
+                scheduler_tasks[task.id] = task
+        default_profile_id = data.get("default_profile_id")
+        if default_profile_id is not None:
+            default_profile_id = str(default_profile_id).strip() or None
         return cls(
             schema_version=int(data.get("schema_version") or STORAGE_VERSION),
             active_profile_id=data.get("active_profile_id"),
+            default_profile_id=default_profile_id,
             profiles=profiles,
+            scheduler_tasks=scheduler_tasks,
             applied_snapshot=dict(data.get("applied_snapshot") or {}),
             last_sync=data.get("last_sync"),
             last_error=data.get("last_error"),
             sync_status=data.get("sync_status") or SYNC_PENDING,
+            holiday_mode=bool(data.get("holiday_mode", False)),
         )
 
     def active_profile(self) -> Profile | None:
@@ -998,6 +1178,8 @@ class PanelStorageData:
         if self.profiles:
             if not self.active_profile_id or self.active_profile_id not in self.profiles:
                 self.active_profile_id = next(iter(self.profiles))
+            if not self.default_profile_id or self.default_profile_id not in self.profiles:
+                self.default_profile_id = self.active_profile_id
             return
         lighting = Profile(
             id="lighting",
@@ -1027,6 +1209,7 @@ class PanelStorageData:
         )
         self.profiles = {lighting.id: lighting, scenes.id: scenes}
         self.active_profile_id = lighting.id
+        self.default_profile_id = lighting.id
         self.sync_status = SYNC_PENDING  # type: ignore[assignment]
 
     def draft_matches_snapshot(self) -> bool:
@@ -1136,5 +1319,9 @@ def capability_defaults() -> dict[str, Any]:
             "min_pulse_s": PULSE_TIME_MIN,
             "max_pulse_s": PULSE_TIME_MAX,
             "default_pulse_s": DEFAULT_PULSE_TIME,
+        },
+        "multi_click": {
+            "gap_s": MULTI_CLICK_GAP_S,
+            "max_count": MULTI_CLICK_MAX,
         },
     }

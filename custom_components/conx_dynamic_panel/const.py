@@ -8,8 +8,41 @@ DOMAIN: Final = "conx_dynamic_panel"
 MANUFACTURER: Final = "ConX"
 MODEL_ZEMISMART_4GANG: Final = "Zemismart 4 Gang"
 
-STORAGE_VERSION: Final = 2
+STORAGE_VERSION: Final = 5
 STORAGE_KEY: Final = f"{DOMAIN}_storage"
+HOLIDAY_STORAGE_KEY: Final = f"{DOMAIN}_holiday"
+HOLIDAY_STORAGE_VERSION: Final = 2
+MASTER_STORAGE_KEY: Final = f"{DOMAIN}_master_scheduler"
+MASTER_STORAGE_VERSION: Final = 1
+HOLIDAY_SCOPE_PANEL: Final = "panel"
+HOLIDAY_SCOPE_MASTER: Final = "master"
+HOLIDAY_SCOPES: Final = (HOLIDAY_SCOPE_PANEL, HOLIDAY_SCOPE_MASTER)
+
+SCHEDULER_SCOPE_LOCAL: Final = "local"
+SCHEDULER_SCOPE_MASTER: Final = "master"
+SCHEDULER_SCOPES: Final = (SCHEDULER_SCOPE_LOCAL, SCHEDULER_SCOPE_MASTER)
+
+# Structured entity conditions only (no templates / code).
+CONDITION_OP_EQ: Final = "eq"
+CONDITION_OP_NEQ: Final = "neq"
+CONDITION_OP_GT: Final = "gt"
+CONDITION_OP_LT: Final = "lt"
+CONDITION_OP_GTE: Final = "gte"
+CONDITION_OP_LTE: Final = "lte"
+CONDITION_OPS: Final = (
+    CONDITION_OP_EQ,
+    CONDITION_OP_NEQ,
+    CONDITION_OP_GT,
+    CONDITION_OP_LT,
+    CONDITION_OP_GTE,
+    CONDITION_OP_LTE,
+)
+CONDITION_NUMERIC_OPS: Final = (
+    CONDITION_OP_GT,
+    CONDITION_OP_LT,
+    CONDITION_OP_GTE,
+    CONDITION_OP_LTE,
+)
 
 CONF_PANEL_NAME: Final = "panel_name"
 CONF_ADAPTER_TYPE: Final = "adapter_type"
@@ -159,6 +192,17 @@ DEFAULT_RADAR: Final = ("none", "10s", "20s", "30s", "45s", "60s")
 EVENT_BUTTON_PRESS: Final = f"{DOMAIN}_button_press"
 EVENT_COVER_STATE: Final = f"{DOMAIN}_cover_state"
 
+# Multi-click (double) gesture classification.
+# Each unsuppressed physical relay edge counts as one click. After this idle
+# gap with no further edges, the gesture finalizes as 1 / 2 and runs the
+# matching configured action only (mutually exclusive — not single×N).
+MULTI_CLICK_GAP_S: Final = 0.4
+MULTI_CLICK_MAX: Final = 2
+CLICK_COUNT_SINGLE: Final = 1
+CLICK_COUNT_DOUBLE: Final = 2
+
+ATTR_CLICK_COUNT: Final = "click_count"
+
 ATTR_ENTRY_ID: Final = "entry_id"
 ATTR_DEVICE_ID: Final = "device_id"
 ATTR_PROFILE_ID: Final = "profile_id"
@@ -177,10 +221,16 @@ SERVICE_COVER_COMMAND: Final = "cover_command"
 SERVICE_RELOAD: Final = "reload"
 SERVICE_EXPORT_PROFILES: Final = "export_profiles"
 SERVICE_IMPORT_PROFILES: Final = "import_profiles"
+SERVICE_EXPORT_SCHEDULER: Final = "export_scheduler"
+SERVICE_IMPORT_SCHEDULER: Final = "import_scheduler"
 
 IMPORT_MODE_MERGE: Final = "merge"
 IMPORT_MODE_REPLACE: Final = "replace"
 IMPORT_MODES: Final = (IMPORT_MODE_MERGE, IMPORT_MODE_REPLACE)
+
+# Portable scheduler JSON (separate from full panel profile export).
+SCHEDULER_EXPORT_SCHEMA_VERSION: Final = 1
+EXPORT_SCOPE_SCHEDULER: Final = "scheduler"
 
 FRONTEND_SCRIPT_URL: Final = f"/{DOMAIN}/frontend/conx-dynamic-panel-card.js"
 FRONTEND_RESOURCE_URL: Final = f"{FRONTEND_SCRIPT_URL}?v=0.1.0"

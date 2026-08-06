@@ -6,6 +6,8 @@ import type {
   PanelRuntimeUpdate,
   Profile,
   ProfilesExport,
+  SchedulerExport,
+  SchedulerTask,
 } from "./types";
 
 /** Mirrors the backend CoverConfig defaults and clamping ranges. */
@@ -147,6 +149,30 @@ export async function importProfiles(
   });
 }
 
+export async function exportScheduler(
+  hass: HomeAssistant,
+  entryId: string
+): Promise<SchedulerExport> {
+  return hass.callWS<SchedulerExport>({
+    type: "conx_dynamic_panel/export_scheduler",
+    entry_id: entryId,
+  });
+}
+
+export async function importScheduler(
+  hass: HomeAssistant,
+  entryId: string,
+  payload: SchedulerExport,
+  mode: "merge" | "replace" = "merge"
+): Promise<PanelConfig & { scheduler_import_warnings?: string[] }> {
+  return hass.callWS<PanelConfig & { scheduler_import_warnings?: string[] }>({
+    type: "conx_dynamic_panel/import_scheduler",
+    entry_id: entryId,
+    payload,
+    mode,
+  });
+}
+
 export async function updatePanelName(
   hass: HomeAssistant,
   entryId: string,
@@ -191,6 +217,71 @@ export async function executeButton(
     type: "conx_dynamic_panel/execute_button",
     entry_id: entryId,
     button,
+  });
+}
+
+export async function upsertSchedulerTask(
+  hass: HomeAssistant,
+  entryId: string,
+  task: SchedulerTask
+): Promise<PanelConfig> {
+  const result = await hass.callWS<{ config?: PanelConfig } & PanelConfig>({
+    type: "conx_dynamic_panel/upsert_scheduler_task",
+    entry_id: entryId,
+    task,
+  });
+  return (result.config || result) as PanelConfig;
+}
+
+export async function deleteSchedulerTask(
+  hass: HomeAssistant,
+  entryId: string,
+  taskId: string
+): Promise<PanelConfig> {
+  return hass.callWS<PanelConfig>({
+    type: "conx_dynamic_panel/delete_scheduler_task",
+    entry_id: entryId,
+    task_id: taskId,
+  });
+}
+
+export async function setDefaultProfile(
+  hass: HomeAssistant,
+  entryId: string,
+  profileId: string
+): Promise<PanelConfig> {
+  return hass.callWS<PanelConfig>({
+    type: "conx_dynamic_panel/set_default_profile",
+    entry_id: entryId,
+    profile_id: profileId,
+  });
+}
+
+export async function setHolidayMode(
+  hass: HomeAssistant,
+  entryId: string,
+  enabled: boolean,
+  scope: "panel" | "master" = "panel"
+): Promise<PanelConfig> {
+  return hass.callWS<PanelConfig>({
+    type: "conx_dynamic_panel/set_holiday_mode",
+    entry_id: entryId,
+    enabled,
+    scope,
+  });
+}
+
+export async function setSchedulerTaskEnabled(
+  hass: HomeAssistant,
+  entryId: string,
+  taskId: string,
+  enabled: boolean
+): Promise<PanelConfig> {
+  return hass.callWS<PanelConfig>({
+    type: "conx_dynamic_panel/set_scheduler_task_enabled",
+    entry_id: entryId,
+    task_id: taskId,
+    enabled,
   });
 }
 
@@ -431,6 +522,7 @@ export function normalizeProfile(profile: Profile): Profile {
       index,
       name: found?.name ?? `Button ${index}`,
       action: found?.action ?? null,
+      action_double: found?.action_double ?? null,
       radio_member: found?.radio_member !== false,
       role,
       pulse_time_s: clampPulseTime(found?.pulse_time_s, DEFAULT_PULSE_TIME),

@@ -99,6 +99,21 @@
     "switch": {
       "auto_sync": {
         "name": "סנכרון אוטומטי"
+      },
+      "holiday_mode": {
+        "name": "מצב חג ראשי"
+      },
+      "panel_holiday_mode": {
+        "name": "מצב חג"
+      },
+      "master_holiday_mode": {
+        "name": "מצב חג ראשי"
+      },
+      "scheduler_task": {
+        "name": "משימת תזמון"
+      },
+      "master_scheduler_task": {
+        "name": "משימת תזמון ראשית"
       }
     }
   }

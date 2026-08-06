@@ -98,7 +98,24 @@ def test_backlight_brightness_clamped() -> None:
 
 def test_storage_migration_sets_current_version() -> None:
     migrated = _migrate({"schema_version": 1, "profiles": {}})
-    assert migrated["schema_version"] == 2
+    assert migrated["schema_version"] == 5
+    assert migrated["scheduler_tasks"] == {}
+    assert migrated.get("default_profile_id") is None
+    assert migrated.get("holiday_mode") is False
+
+
+def test_storage_migration_v4_to_v5_adds_panel_holiday() -> None:
+    migrated = _migrate(
+        {
+            "schema_version": 4,
+            "profiles": {"lighting": {"id": "lighting", "name": "Lighting"}},
+            "scheduler_tasks": {},
+            "default_profile_id": "lighting",
+        }
+    )
+    assert migrated["schema_version"] == 5
+    assert migrated["holiday_mode"] is False
+    assert migrated["profiles"]["lighting"]["name"] == "Lighting"
 
 
 def test_storage_migration_cover_to_covers() -> None:

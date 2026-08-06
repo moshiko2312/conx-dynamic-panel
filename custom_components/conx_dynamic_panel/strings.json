@@ -99,6 +99,21 @@
     "switch": {
       "auto_sync": {
         "name": "Auto sync"
+      },
+      "holiday_mode": {
+        "name": "Master holiday mode"
+      },
+      "panel_holiday_mode": {
+        "name": "Holiday mode"
+      },
+      "master_holiday_mode": {
+        "name": "Master holiday mode"
+      },
+      "scheduler_task": {
+        "name": "Scheduler task"
+      },
+      "master_scheduler_task": {
+        "name": "Master scheduler task"
       }
     }
   },
@@ -122,6 +137,14 @@
     "reload": {
       "name": "Reload",
       "description": "Reload one or all ConX Dynamic Panel entries."
+    },
+    "export_scheduler": {
+      "name": "Export scheduler",
+      "description": "Export local and related master scheduler tasks as portable JSON."
+    },
+    "import_scheduler": {
+      "name": "Import scheduler",
+      "description": "Import scheduler tasks (merge or replace local; masters merge by id)."
     }
   }
 }

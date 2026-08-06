@@ -1,6 +1,6 @@
 /** Portable profiles export schema shared by the Lit card and standalone wizard. */
 
-import type { Profile, ProfilesExport } from "./types";
+import type { Profile, ProfilesExport, SchedulerExport, SchedulerTask } from "./types";
 
 /** Must match custom_components/conx_dynamic_panel/const.py STORAGE_VERSION. */
 export const PROFILES_EXPORT_SCHEMA_VERSION = 2;
@@ -110,10 +110,23 @@ function parseProfile(
         data: isRecord(found.action.data) ? found.action.data : {},
       };
     }
+    const parseOptionalAction = (
+      raw: unknown
+    ): Profile["buttons"][number]["action"] => {
+      if (!isRecord(raw) || typeof raw.action !== "string" || !raw.action) {
+        return null;
+      }
+      return {
+        action: raw.action,
+        target: isRecord(raw.target) ? raw.target : {},
+        data: isRecord(raw.data) ? raw.data : {},
+      };
+    };
     return {
       index,
       name: String(found.name ?? `Button ${index}`),
       action,
+      action_double: parseOptionalAction(found.action_double),
       radio_member: found.radio_member === undefined ? true : Boolean(found.radio_member),
     };
   });
@@ -228,4 +241,110 @@ export function buildImportServiceYaml(
     `  mode: ${mode}`,
     `  payload: ${indented}`,
   ].join("\n");
+}
+
+/** Must match custom_components/conx_dynamic_panel/const.py SCHEDULER_EXPORT_SCHEMA_VERSION. */
+export const SCHEDULER_EXPORT_SCHEMA_VERSION = 1;
+export const EXPORT_SCOPE_SCHEDULER = "scheduler";
+
+export type SchedulerExportValidation =
+  | { ok: true; payload: SchedulerExport }
+  | { ok: false; error: string };
+
+function normalizeSchedulerTasks(
+  raw: unknown,
+  label: string
+): { ok: true; tasks: Record<string, SchedulerTask> } | { ok: false; error: string } {
+  if (raw === undefined || raw === null) {
+    return { ok: true, tasks: {} };
+  }
+  if (isRecord(raw)) {
+    const tasks: Record<string, SchedulerTask> = {};
+    for (const [key, value] of Object.entries(raw)) {
+      if (!isRecord(value)) {
+        return { ok: false, error: `${label}.${key} must be an object` };
+      }
+      const id = String(value.id || key).trim();
+      if (!id) {
+        return { ok: false, error: `${label} entry is missing id` };
+      }
+      tasks[id] = { ...(value as unknown as SchedulerTask), id };
+    }
+    return { ok: true, tasks };
+  }
+  if (Array.isArray(raw)) {
+    const tasks: Record<string, SchedulerTask> = {};
+    for (let index = 0; index < raw.length; index += 1) {
+      const value = raw[index];
+      if (!isRecord(value)) {
+        return { ok: false, error: `${label}[${index}] must be an object` };
+      }
+      const id = String(value.id || "").trim();
+      if (!id) {
+        return { ok: false, error: `${label}[${index}] is missing id` };
+      }
+      tasks[id] = { ...(value as unknown as SchedulerTask), id };
+    }
+    return { ok: true, tasks };
+  }
+  return { ok: false, error: `${label} must be an object or array` };
+}
+
+/** Validate/normalize a portable scheduler export JSON document. */
+export function validateSchedulerExport(raw: unknown): SchedulerExportValidation {
+  if (!isRecord(raw)) {
+    return { ok: false, error: "Root must be a JSON object" };
+  }
+
+  const scope = String(raw.scope || EXPORT_SCOPE_SCHEDULER).trim().toLowerCase();
+  if (scope !== EXPORT_SCOPE_SCHEDULER) {
+    return {
+      ok: false,
+      error: `Unsupported scope "${scope}"; expected "${EXPORT_SCOPE_SCHEDULER}"`,
+    };
+  }
+
+  const schemaVersionRaw = raw.schema_version ?? SCHEDULER_EXPORT_SCHEMA_VERSION;
+  const schemaVersion = Number(schemaVersionRaw);
+  if (!Number.isInteger(schemaVersion) || schemaVersion < 1) {
+    return { ok: false, error: "schema_version must be a positive integer" };
+  }
+  if (schemaVersion > SCHEDULER_EXPORT_SCHEMA_VERSION) {
+    return {
+      ok: false,
+      error: `Unsupported schema_version ${schemaVersion}; current is ${SCHEDULER_EXPORT_SCHEMA_VERSION}`,
+    };
+  }
+
+  const locals = normalizeSchedulerTasks(raw.scheduler_tasks, "scheduler_tasks");
+  if (!locals.ok) {
+    return locals;
+  }
+  const masters = normalizeSchedulerTasks(
+    raw.master_scheduler_tasks,
+    "master_scheduler_tasks"
+  );
+  if (!masters.ok) {
+    return masters;
+  }
+
+  let defaultProfileId: string | null | undefined;
+  if (raw.default_profile_id === null || raw.default_profile_id === undefined) {
+    defaultProfileId = raw.default_profile_id as null | undefined;
+  } else {
+    defaultProfileId = String(raw.default_profile_id).trim() || null;
+  }
+
+  return {
+    ok: true,
+    payload: {
+      schema_version: SCHEDULER_EXPORT_SCHEMA_VERSION,
+      scope: EXPORT_SCOPE_SCHEDULER,
+      entry_id: typeof raw.entry_id === "string" ? raw.entry_id : undefined,
+      default_profile_id: defaultProfileId,
+      scheduler_tasks: locals.tasks,
+      master_scheduler_tasks: masters.tasks,
+      notes: typeof raw.notes === "string" ? raw.notes : undefined,
+    },
+  };
 }

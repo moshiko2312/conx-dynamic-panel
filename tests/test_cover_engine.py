@@ -32,7 +32,7 @@ from custom_components.conx_dynamic_panel.models import (
     SyncResult,
     validate_cover_config,
 )
-from custom_components.conx_dynamic_panel.runtime import CoverRuntime, MomentaryRuntime
+from custom_components.conx_dynamic_panel.runtime import CoverRuntime, MomentaryRuntime, MultiClickRuntime
 from custom_components.conx_dynamic_panel.suppression import SuppressionTracker
 
 OPEN_BUTTON = 1
@@ -154,6 +154,7 @@ def _runtime(adapter: CoverAdapter, store: FakeStore) -> Any:
         sync_lock=asyncio.Lock(),
         cover=CoverRuntime(),
         momentary=MomentaryRuntime(),
+        multiclick=MultiClickRuntime(),
         unloading=False,
         listeners=[],
         update_callbacks=[],

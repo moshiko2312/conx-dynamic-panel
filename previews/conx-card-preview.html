@@ -361,7 +361,7 @@
       display: block; font-size: .72rem; font-weight: 800; letter-spacing: .06em;
       text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;
     }
-    .menu-section .lang-flags { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .menu-section .lang-flags { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
     .conx-modal-body {
       color: var(--text);
       line-height: 1.5;
@@ -375,10 +375,11 @@
     .conx-modal-actions .btn { min-width: 96px; justify-content: center; }
     html[dir="rtl"] .conx-modal-actions { justify-content: flex-start; }
     .lang-btn {
-      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-      padding: 8px 6px; border-radius: 12px; min-height: 38px;
+      display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+      padding: 6px 4px; border-radius: 10px; min-height: 36px;
       border: 1px solid var(--btn-border); background: var(--btn-bg); color: var(--btn-text);
-      cursor: pointer; font: inherit; width: 100%;
+      cursor: pointer; font: inherit; width: 100%; box-sizing: border-box;
+      box-shadow: inset 0 1px 0 var(--bevel-light), 0 1px 3px rgba(0,0,0,.14);
     }
     .lang-btn.active { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
     .lang-code { font-size: .72rem; font-weight: 800; letter-spacing: .06em; }
@@ -388,9 +389,18 @@
     .flag-il-star { color: #0038b8; font-size: 7px; line-height: 1; }
     .flag-gb { background: linear-gradient(90deg, transparent 44%, #fff 44%, #fff 56%, transparent 56%), linear-gradient(#fff 38%, transparent 38%, transparent 62%, #fff 62%), linear-gradient(90deg, transparent 46%, #c8102e 46%, #c8102e 54%, transparent 54%), linear-gradient(#c8102e 42%, transparent 42%, transparent 58%, #c8102e 58%), #012169; }
     .flag-ru { background: linear-gradient(to bottom, #fff 0 33%, #0039a6 33% 66%, #d52b1e 66% 100%); }
-    .menu-actions { display: grid; gap: 6px; }
-    .menu-actions .btn { width: 100%; justify-content: center; min-height: 38px; padding: 8px 12px; }
-    .menu-actions a.btn { text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
+    .menu-actions { display: grid; gap: 8px; }
+    .menu-action-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .menu-action-grid .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 100%; min-height: 38px; padding: 8px 10px; border-radius: 12px;
+      box-sizing: border-box; white-space: normal; line-height: 1.25; text-align: center;
+    }
+    .menu-action-grid .btn:last-child:nth-child(odd) { grid-column: 1 / -1; }
+    .menu-actions a.btn { text-decoration: none; }
     .app-menu .theme-swatches { gap: 8px; }
     .app-menu .theme-swatch { padding: 10px 8px; gap: 6px; }
     .app-menu .theme-swatch-face { width: 34px; height: 34px; }
@@ -597,6 +607,143 @@
       place-items: center;
       align-content: center;
     }
+    .faceplate-scheduler-next {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: center;
+      gap: 0.35rem 0.55rem;
+      margin-top: 0.45rem;
+      padding: 0.35rem 0.55rem;
+      font-size: 0.78rem;
+      line-height: 1.25;
+      color: #8b93a7;
+      text-align: center;
+    }
+    .faceplate-scheduler-next .scheduler-next-profile,
+    .faceplate-scheduler-next .scheduler-next-time {
+      font-weight: 600;
+      color: #e8ecf4;
+    }
+    .faceplate-holiday-badge {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      z-index: 4;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 7px;
+      color: #d4af61;
+      background: rgba(26, 29, 34, 0.72);
+      border: 1px solid rgba(212, 175, 97, 0.45);
+      pointer-events: none;
+    }
+    .faceplate-holiday-badge.visible { display: inline-flex; }
+    .conx-card[dir="rtl"] .faceplate-holiday-badge { right: auto; left: 8px; }
+    .faceplate-holiday-badge svg { width: 13px; height: 13px; display: block; }
+    .master-badge {
+      display: inline-block;
+      margin-inline-end: 0.35rem;
+      padding: 0.05rem 0.35rem;
+      border-radius: 0.25rem;
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      background: color-mix(in srgb, var(--accent) 22%, transparent);
+      color: var(--accent);
+    }
+    .scheduler-editor {
+      display: grid;
+      gap: 12px;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background:
+        linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 55%, transparent) 0%, transparent 42%),
+        var(--surface);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      margin-top: 10px;
+    }
+    .scheduler-field-block { display: grid; gap: 8px; }
+    .scheduler-field-label {
+      font-size: .78rem;
+      font-weight: 800;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--label, var(--text-muted));
+      line-height: 1.2;
+    }
+    .chip-row { display: grid; gap: 6px; }
+    .chip-row-days { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+    .chip-row-months { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .chip-row-panels { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); }
+    .chip {
+      appearance: none;
+      -webkit-appearance: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 40px;
+      padding: 8px 6px;
+      border-radius: 10px;
+      border: 1px solid var(--btn-border);
+      background: color-mix(in srgb, var(--btn-bg) 88%, #000);
+      color: var(--text-muted);
+      cursor: pointer;
+      font: inherit;
+      font-size: .78rem;
+      font-weight: 700;
+      letter-spacing: .01em;
+      line-height: 1.1;
+      text-align: center;
+      user-select: none;
+      transition: border-color 160ms ease, background 160ms ease, color 160ms ease, box-shadow 160ms ease;
+    }
+    .chip:hover:not(.active) {
+      border-color: color-mix(in srgb, var(--accent) 55%, var(--btn-border));
+      color: var(--text);
+      background: color-mix(in srgb, var(--btn-bg) 70%, var(--accent-soft, rgba(212,175,97,.16)));
+    }
+    .chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .chip.active {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: var(--accent-text);
+      font-weight: 800;
+      box-shadow: 0 1px 0 rgba(255,255,255,.22) inset, 0 2px 10px color-mix(in srgb, var(--accent) 28%, transparent);
+    }
+    .chip.active:hover {
+      border-color: var(--accent);
+      background: color-mix(in srgb, var(--accent) 88%, #fff);
+      color: var(--accent-text);
+    }
+    .scheduler-ranges,
+    .scheduler-conditions {
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: color-mix(in srgb, var(--surface-2) 82%, transparent);
+    }
+    .scheduler-range-row,
+    .scheduler-condition-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)) auto;
+      gap: 8px;
+      align-items: end;
+      padding: 8px;
+      border-radius: 10px;
+      border: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
+      background: var(--input-bg);
+    }
+    @media (max-width: 420px) {
+      .chip-row-months { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .chip { min-height: 38px; font-size: .74rem; padding: 7px 4px; }
+    }
     .ring {
       width: clamp(26px, 12.5cqw, 56px); height: clamp(26px, 12.5cqw, 56px);
       border-radius: 50%; border: 3px solid color-mix(in srgb, var(--ring-off) 70%, #9aa7b5);
@@ -627,7 +774,7 @@
     .settings-tabs.hidden-for-export { display: none; }
     .tab-bar {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 0;
       border-bottom: 1px solid var(--border);
       background: color-mix(in srgb, var(--surface) 70%, var(--surface-2));
@@ -1679,16 +1826,15 @@
       </div>
       <div class="menu-section">
         <span class="menu-label" data-i18n="card.step_transfer">ייצוא / ייבוא</span>
-        <div class="menu-actions">
+        <div class="menu-actions menu-action-grid">
           <button type="button" class="btn success" data-action="export" data-i18n="card.export">ייצוא</button>
-          <button type="button" class="btn primary" id="btn-open-export" data-i18n="card.open_export_wizard">אשף ייצוא</button>
           <button type="button" class="btn" id="btn-import-top" data-i18n="card.import_merge">ייבוא (מיזוג)</button>
           <button type="button" class="btn danger" id="btn-import-replace-menu" data-i18n="card.import_replace">ייבוא (החלפה)</button>
         </div>
       </div>
       <div class="menu-section">
         <span class="menu-label" data-i18n="card.more">עוד</span>
-        <div class="menu-actions">
+        <div class="menu-actions menu-action-grid">
           <button type="button" class="btn" id="btn-info-guide" data-i18n="card.info">מידע</button>
           <button type="button" class="btn" id="btn-automation-example" data-i18n="card.automation_example">דוגמה לאוטומציה</button>
           <a class="btn" href="conx-panel-wizard.html" id="link-standalone-wizard" data-i18n="card.open_standalone_wizard">אשף נפרד (HTML)</a>
@@ -1722,25 +1868,6 @@
         <div class="automation-actions">
           <button type="button" class="btn primary" id="automation-copy" data-i18n="card.copy_yaml">העתק YAML</button>
           <button type="button" class="btn" id="automation-close-2" data-i18n="card.close">סגירה</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="conx-layer" id="export-layer" hidden>
-      <div class="conx-panel wide" id="export-overlay" role="dialog" aria-modal="true" aria-labelledby="export-title" aria-hidden="true">
-        <div class="menu-head">
-          <div class="export-title" id="export-title" data-i18n="card.step_transfer">Export / Import</div>
-          <button type="button" class="menu-close" id="btn-back-editor" aria-label="Close">×</button>
-        </div>
-        <p class="export-hint" id="export-hint" data-i18n="card.step_transfer_hint">Download or upload portable JSON.</p>
-        <div class="export-actions">
-          <button type="button" class="btn success" data-action="export" data-i18n="card.export">Export</button>
-          <button type="button" class="btn" data-action="import-merge" data-i18n="card.import_merge">Import (merge)</button>
-          <button type="button" class="btn danger" data-action="import-replace" data-i18n="card.import_replace">Import (replace)</button>
-        </div>
-        <div class="export-footer">
-          <a class="export-link" href="conx-panel-wizard.html" id="link-wizard-from-export" data-i18n="card.open_standalone_wizard">Open standalone wizard</a>
-          <button type="button" class="btn" id="btn-back-editor-2" data-i18n="card.back_to_editor">← חזרה לעריכה</button>
         </div>
       </div>
     </div>
@@ -1806,12 +1933,21 @@
               <button type="button" class="faceplate-menu-btn" id="faceplate-menu" data-operate-menu aria-label="Settings" aria-expanded="false" aria-controls="app-menu" hidden>
                 <span></span><span></span><span></span>
               </button>
+              <span class="faceplate-holiday-badge" id="faceplate-holiday-badge" data-holiday-badge hidden title="Holiday mode on — schedulers paused" aria-label="Holiday mode on — schedulers paused" role="img">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 2a1 1 0 0 1 1 1v1.06A7.002 7.002 0 0 1 19 11v1.17l1.55 1.55a1 1 0 0 1-1.41 1.41L18 13.59V11a5 5 0 0 0-4-4.9V17a3 3 0 1 1-2 0V6.1A5 5 0 0 0 8 11v2.59l-1.14 1.14a1 1 0 1 1-1.41-1.41L7 12.17V11a7.002 7.002 0 0 1 6-6.94V3a1 1 0 0 1 1-1Zm-1 17a1 1 0 1 0 2 0 1 1 0 0 0-2 0Z"/></svg>
+              </span>
               <div class="faceplate-glass">
                 <div class="faceplate-labels" id="faceplate-labels"></div>
                 <div class="faceplate-touch">
                   <div class="faceplate-rings" id="faceplate-rings"></div>
                 </div>
               </div>
+            </div>
+            <div class="faceplate-scheduler-next" id="faceplate-scheduler-next" data-scheduler-next>
+              <span class="scheduler-next-label" data-i18n="scheduler.next_profile">Next</span>
+              <span class="scheduler-next-profile">Scenes</span>
+              <span class="scheduler-next-sep" data-i18n="scheduler.next_at">at</span>
+              <span class="scheduler-next-time">17:00</span>
             </div>
           </div>
           <div class="cover-control" id="cover-control" hidden></div>
@@ -1833,6 +1969,10 @@
           <button type="button" class="tab-btn" role="tab" id="tab-buttons" data-tab="buttons" aria-selected="false" aria-controls="panel-buttons">
             <span class="tab-step" data-i18n="card.step_3">שלב 3</span>
             <span class="tab-label" data-i18n="card.buttons">Buttons</span>
+          </button>
+          <button type="button" class="tab-btn" role="tab" id="tab-scheduler" data-tab="scheduler" aria-selected="false" aria-controls="panel-scheduler">
+            <span class="tab-step" data-i18n="card.step_4">שלב 4</span>
+            <span class="tab-label" data-i18n="card.scheduler">Scheduler</span>
           </button>
         </div>
         <div class="tab-panels">
@@ -1910,6 +2050,129 @@
               <div id="buttons-editor"></div>
             </div>
           </section>
+          <section class="tab-panel" role="tabpanel" id="panel-scheduler" data-section="scheduler" aria-labelledby="tab-scheduler" hidden>
+            <div class="section-body-inner scheduler-panel">
+              <p class="field-hint" data-i18n="scheduler.hint">Timeline ranges activate profiles automatically. The end time is exclusive — that minute starts the next range. Outside all ranges the default profile is used. Panel holiday pauses this panel; master holiday pauses every panel.</p>
+              <label class="field switch-row">
+                <span data-i18n="scheduler.holiday">Holiday mode (this panel)</span>
+                <label class="switch"><input type="checkbox" id="preview-holiday" /><span class="slider"></span></label>
+              </label>
+              <label class="field switch-row">
+                <span data-i18n="scheduler.master_holiday">Master holiday (all panels)</span>
+                <label class="switch"><input type="checkbox" id="preview-master-holiday" /><span class="slider"></span></label>
+              </label>
+              <p class="notice subtle" id="preview-holiday-notice" hidden data-i18n="scheduler.holiday_on">Schedulers paused on this panel</p>
+              <label class="field">
+                <span data-i18n="scheduler.default_profile">Default profile</span>
+                <select id="preview-default-profile">
+                  <option value="lighting">Lighting</option>
+                  <option value="scenes">Scenes</option>
+                </select>
+              </label>
+              <div class="menu-section scheduler-transfer">
+                <span class="menu-label" data-i18n="scheduler.transfer">Scheduler export / import</span>
+                <p class="field-hint" data-i18n="scheduler.import_hint">Export includes local tasks, default profile id, and master tasks that target this panel. Holiday mode (panel and master) is not exported. Merge updates by id; replace replaces local tasks only (masters in the file are merged).</p>
+                <div class="menu-actions menu-action-grid">
+                  <button type="button" class="btn success" data-i18n="scheduler.export">Export</button>
+                  <button type="button" class="btn" data-i18n="scheduler.import_merge">Import (merge)</button>
+                  <button type="button" class="btn danger" data-i18n="scheduler.import_replace">Import (replace)</button>
+                </div>
+              </div>
+              <div class="section-title" data-i18n="scheduler.local_tasks">This panel’s tasks</div>
+              <div class="scheduler-task-row" style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+                <div class="profile-chip active" style="flex:1;margin:0">
+                  <span class="chip-name">Weekday work</span>
+                  <span class="chip-id">08:00–17:00 → Scenes</span>
+                </div>
+                <label class="scheduler-enable" title="Enabled" style="display:inline-flex;align-items:center;gap:6px">
+                  <span class="switch-caption" data-i18n="scheduler.enabled">Enabled</span>
+                  <label class="switch"><input type="checkbox" checked aria-label="Enabled" /><span class="slider"></span></label>
+                </label>
+              </div>
+              <div class="scheduler-editor" data-scheduler-editor>
+                <label class="field">
+                  <span data-i18n="scheduler.task_name">Task name</span>
+                  <input type="text" value="Weekday work" />
+                </label>
+                <label class="field switch-row">
+                  <span data-i18n="scheduler.enabled">Enabled</span>
+                  <label class="switch"><input type="checkbox" checked /><span class="slider"></span></label>
+                </label>
+                <div class="scheduler-field-block">
+                  <div class="scheduler-field-label" data-i18n="scheduler.weekdays">Days</div>
+                  <div class="chip-row chip-row-days" role="group" aria-label="Days">
+                    <button type="button" class="chip active" aria-pressed="true" data-i18n="scheduler.day_mon">Mon</button>
+                    <button type="button" class="chip active" aria-pressed="true" data-i18n="scheduler.day_tue">Tue</button>
+                    <button type="button" class="chip active" aria-pressed="true" data-i18n="scheduler.day_wed">Wed</button>
+                    <button type="button" class="chip active" aria-pressed="true" data-i18n="scheduler.day_thu">Thu</button>
+                    <button type="button" class="chip active" aria-pressed="true" data-i18n="scheduler.day_fri">Fri</button>
+                    <button type="button" class="chip" aria-pressed="false" data-i18n="scheduler.day_sat">Sat</button>
+                    <button type="button" class="chip" aria-pressed="false" data-i18n="scheduler.day_sun">Sun</button>
+                  </div>
+                </div>
+                <div class="scheduler-field-block">
+                  <div class="scheduler-field-label" data-i18n="scheduler.months">Months</div>
+                  <div class="chip-row chip-row-months" role="group" aria-label="Months">
+                    <button type="button" class="chip active" aria-pressed="true" data-i18n="scheduler.month_1">Jan</button>
+                    <button type="button" class="chip active" aria-pressed="true" data-i18n="scheduler.month_2">Feb</button>
+                    <button type="button" class="chip active" aria-pressed="true" data-i18n="scheduler.month_3">Mar</button>
+                    <button type="button" class="chip" aria-pressed="false" data-i18n="scheduler.month_4">Apr</button>
+                    <button type="button" class="chip" aria-pressed="false" data-i18n="scheduler.month_5">May</button>
+                    <button type="button" class="chip" aria-pressed="false" data-i18n="scheduler.month_6">Jun</button>
+                    <button type="button" class="chip" aria-pressed="false" data-i18n="scheduler.month_7">Jul</button>
+                    <button type="button" class="chip" aria-pressed="false" data-i18n="scheduler.month_8">Aug</button>
+                    <button type="button" class="chip active" aria-pressed="true" data-i18n="scheduler.month_9">Sep</button>
+                    <button type="button" class="chip active" aria-pressed="true" data-i18n="scheduler.month_10">Oct</button>
+                    <button type="button" class="chip active" aria-pressed="true" data-i18n="scheduler.month_11">Nov</button>
+                    <button type="button" class="chip active" aria-pressed="true" data-i18n="scheduler.month_12">Dec</button>
+                  </div>
+                </div>
+                <p class="field-hint" data-i18n="scheduler.overnight_hint">If From is later than To (e.g. 22:00–06:00), the range crosses midnight and stays active until To (exclusive).</p>
+                <div class="scheduler-ranges">
+                  <div class="scheduler-field-label" data-i18n="scheduler.ranges">Timeline ranges</div>
+                  <div class="scheduler-range-row">
+                    <label class="field"><span data-i18n="scheduler.range_from">From</span><input type="time" value="08:00" /></label>
+                    <label class="field"><span data-i18n="scheduler.range_to">To</span><input type="time" value="17:00" /></label>
+                    <label class="field">
+                      <span data-i18n="scheduler.range_profile">Profile</span>
+                      <select><option>Scenes</option><option>Lighting</option></select>
+                    </label>
+                    <button type="button" class="btn danger" disabled data-i18n="scheduler.delete_range">Delete range</button>
+                  </div>
+                </div>
+                <div class="scheduler-conditions">
+                  <div class="scheduler-field-label" data-i18n="scheduler.conditions">Conditions</div>
+                  <p class="field-hint" data-i18n="scheduler.conditions_hint">Optional. When any condition fails the task is inactive for that moment.</p>
+                  <p class="field-hint" data-i18n="scheduler.conflict_conditions_note">Entity conditions do not override time conflicts.</p>
+                  <div class="scheduler-condition-row">
+                    <label class="field">
+                      <span data-i18n="scheduler.condition_entity">Entity</span>
+                      <input type="text" placeholder="binary_sensor.example" value="" />
+                    </label>
+                    <button type="button" class="btn danger" data-i18n="scheduler.delete_condition">Delete</button>
+                  </div>
+                </div>
+                <div class="profile-actions" style="margin-top:12px">
+                  <button type="button" class="btn primary" data-i18n="scheduler.save_task">Save task</button>
+                  <button type="button" class="btn" data-i18n="card.discard">Discard Changes</button>
+                  <button type="button" class="btn danger" data-i18n="scheduler.delete_task">Delete</button>
+                </div>
+              </div>
+              <div class="section-title" data-i18n="scheduler.master_tasks">Master tasks (multi-panel)</div>
+              <div class="scheduler-task-row" style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+                <div class="profile-chip" style="flex:1;margin:0">
+                  <span class="chip-name"><span class="master-badge" data-i18n="scheduler.master_badge">Master</span> Evening all panels</span>
+                  <span class="chip-id">18:00–22:00</span>
+                </div>
+                <label class="scheduler-enable" title="Enabled" style="display:inline-flex;align-items:center;gap:6px">
+                  <span class="switch-caption" data-i18n="scheduler.enabled">Enabled</span>
+                  <label class="switch"><input type="checkbox" checked aria-label="Enabled" /><span class="slider"></span></label>
+                </label>
+              </div>
+              <p class="field-hint" data-i18n="scheduler.master_hint">A master task uses the same days, ranges, and conditions on every selected panel.</p>
+              <p class="field-hint" data-i18n="scheduler.conflict_body">Two enabled ranges would activate different profiles at the same time.</p>
+            </div>
+          </section>
         </div>
       </div>
 
@@ -1955,6 +2218,20 @@
       "cover.open_cover",
       "cover.close_cover",
       "cover.stop_cover",
+      "cover.set_cover_position",
+      "climate.set_temperature",
+      "climate.set_hvac_mode",
+      "media_player.volume_set",
+      "media_player.play_media",
+      "fan.set_percentage",
+      "input_select.select_option",
+      "input_number.set_value",
+      "input_boolean.toggle",
+      "notify.notify",
+      "button.press",
+      "automation.trigger",
+      "lock.unlock",
+      "vacuum.start",
     ];
     const PREVIEW_ENTITIES = [
       "light.living_room",
@@ -1964,12 +2241,157 @@
       "script.good_night",
       "scene.movie",
       "cover.living_shutter",
+      "climate.living_room",
+      "media_player.living_room",
+      "fan.ceiling",
+      "input_select.day_mode",
+      "input_number.target_temp",
+      "input_boolean.guest_mode",
+      "lock.front_door",
+      "vacuum.robot",
+      "button.doorbell",
+      "automation.evening",
     ];
     function actionDomainPreview(action) {
       const value = String(action || "").trim();
       const dot = value.indexOf(".");
       if (dot <= 0 || dot === value.length - 1) return "";
       return value.slice(0, dot);
+    }
+    const ACTION_DATA_SERVICE_DEFAULTS = {
+      "light.turn_on": "brightness_pct: 70\nrgb_color: [255, 200, 120]",
+      "light.turn_off": "transition: 1",
+      "light.toggle": "",
+      "switch.turn_on": "",
+      "switch.turn_off": "",
+      "switch.toggle": "",
+      "cover.open_cover": "",
+      "cover.close_cover": "",
+      "cover.stop_cover": "",
+      "cover.set_cover_position": "position: 50",
+      "cover.set_cover_tilt_position": "tilt_position: 50",
+      "climate.set_temperature": "temperature: 22\nhvac_mode: heat",
+      "climate.set_hvac_mode": "hvac_mode: heat",
+      "media_player.volume_set": "volume_level: 0.5",
+      "media_player.play_media": "media_content_id: \"https://example.com/media.mp3\"\nmedia_content_type: music",
+      "fan.set_percentage": "percentage: 50",
+      "fan.turn_on": "percentage: 50",
+      "script.turn_on": "variables: {\"name\": \"day\", \"run\": true}",
+      "scene.turn_on": "transition: 2",
+      "input_select.select_option": "option: Morning",
+      "input_number.set_value": "value: 21",
+      "input_boolean.toggle": "",
+      "notify.notify": "message: \"Hello from ConX\"\ntitle: ConX",
+      "button.press": "",
+      "automation.trigger": "",
+      "lock.unlock": "",
+      "vacuum.start": "",
+    };
+    const ACTION_DATA_DOMAIN_DEFAULTS = {
+      light: "brightness_pct: 70",
+      switch: "",
+      cover: "position: 50",
+      climate: "temperature: 22",
+      media_player: "volume_level: 0.5",
+      fan: "percentage: 50",
+      script: "variables: {\"name\": \"day\", \"run\": true}",
+      scene: "transition: 2",
+      input_select: "option: Morning",
+      input_number: "value: 21",
+      notify: "message: \"Hello from ConX\"\ntitle: ConX",
+    };
+    const ACTION_DATA_EMPTY_SERVICES = new Set([
+      "toggle", "turn_off", "stop", "stop_cover", "open_cover", "close_cover",
+      "media_play", "media_pause", "media_stop", "press", "trigger", "lock", "unlock", "start",
+    ]);
+    function defaultActionDataYamlPreview(action) {
+      const trimmed = String(action || "").trim();
+      if (!trimmed) return "";
+      if (Object.prototype.hasOwnProperty.call(ACTION_DATA_SERVICE_DEFAULTS, trimmed)) {
+        return ACTION_DATA_SERVICE_DEFAULTS[trimmed];
+      }
+      const domain = actionDomainPreview(trimmed);
+      const dot = trimmed.indexOf(".");
+      const service = dot > 0 ? trimmed.slice(dot + 1) : "";
+      if (ACTION_DATA_EMPTY_SERVICES.has(service)) return "";
+      if (domain && Object.prototype.hasOwnProperty.call(ACTION_DATA_DOMAIN_DEFAULTS, domain)) {
+        return ACTION_DATA_DOMAIN_DEFAULTS[domain];
+      }
+      if (domain === "notify" || trimmed.startsWith("notify.")) {
+        return ACTION_DATA_DOMAIN_DEFAULTS.notify;
+      }
+      return "";
+    }
+    function actionDataEqualPreview(a, b) {
+      const norm = (value) => {
+        const obj = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+        const sorted = {};
+        Object.keys(obj).sort().forEach((key) => { sorted[key] = obj[key]; });
+        return JSON.stringify(sorted);
+      };
+      return norm(a) === norm(b);
+    }
+    function shouldReplaceActionDataYamlPreview(currentText, previousAutoDefault) {
+      const current = String(currentText || "").trim();
+      if (!current) return true;
+      if (previousAutoDefault === undefined) return false;
+      const previous = String(previousAutoDefault).trim();
+      if (current === previous) return true;
+      const curParsed = parseActionDataPreview(current);
+      const prevParsed = parseActionDataPreview(previous);
+      if (curParsed.ok && prevParsed.ok && actionDataEqualPreview(curParsed.data, prevParsed.data)) {
+        return true;
+      }
+      return false;
+    }
+    function nextActionDataPrefillPreview(action, currentText, previousAutoDefault) {
+      const nextAction = String(action || "").trim();
+      if (!nextAction) return { yaml: "", data: {} };
+      if (!shouldReplaceActionDataYamlPreview(currentText, previousAutoDefault)) return null;
+      const yamlRaw = defaultActionDataYamlPreview(nextAction);
+      const parsed = parseActionDataPreview(yamlRaw);
+      const data = parsed.ok ? parsed.data : {};
+      const normalized = serializeActionDataPreview(data);
+      return { yaml: normalized || yamlRaw, data };
+    }
+    function actionDataDisplayText(button) {
+      const index = button.index;
+      if (Object.prototype.hasOwnProperty.call(state.actionDataText || {}, index)) {
+        return state.actionDataText[index];
+      }
+      return serializeActionDataPreview(button.data || {});
+    }
+    function applyActionDataPrefillPreview(index, yaml, data) {
+      state.actionDataAutoDefault = { ...(state.actionDataAutoDefault || {}), [index]: yaml };
+      state.actionDataText = { ...(state.actionDataText || {}), [index]: yaml };
+      if (state.actionDataError) delete state.actionDataError[index];
+      const btn = state.draft.buttons.find((b) => b.index === index);
+      if (btn) btn.data = data || {};
+      if (String(yaml || "").trim()) {
+        if (!(state.actionDataOpen instanceof Set)) state.actionDataOpen = new Set();
+        state.actionDataOpen.add(index);
+      }
+    }
+    function clearActionDataPrefillPreview(index) {
+      if (state.actionDataText) delete state.actionDataText[index];
+      if (state.actionDataError) delete state.actionDataError[index];
+      if (state.actionDataAutoDefault) delete state.actionDataAutoDefault[index];
+    }
+    function maybePrefillActionDataOnActionChange(index, nextAction) {
+      const btn = state.draft.buttons.find((b) => b.index === index);
+      if (!btn) return;
+      const currentYaml = actionDataDisplayText(btn);
+      const previousAuto = Object.prototype.hasOwnProperty.call(state.actionDataAutoDefault || {}, index)
+        ? state.actionDataAutoDefault[index]
+        : undefined;
+      const prefill = nextActionDataPrefillPreview(nextAction, currentYaml, previousAuto);
+      if (!nextAction) {
+        clearActionDataPrefillPreview(index);
+        btn.data = {};
+        return;
+      }
+      if (prefill === null) return;
+      applyActionDataPrefillPreview(index, prefill.yaml, prefill.data);
     }
     function optionsHtml(options, selected, emptyLabel) {
       const values = [...options];
@@ -2037,21 +2459,18 @@
       return { ok: true, data };
     }
     function actionDataDisplay(button) {
-      const index = button.index;
-      if (Object.prototype.hasOwnProperty.call(state.actionDataText || {}, index)) {
-        return state.actionDataText[index];
-      }
-      return serializeActionDataPreview(button.data || {});
+      return actionDataDisplayText(button);
     }
     function actionDataEditorHtml(button) {
       const hasAction = Boolean(button.action);
       const open = state.actionDataOpen instanceof Set && state.actionDataOpen.has(button.index);
       const error = (state.actionDataError && state.actionDataError[button.index]) || "";
       const text = actionDataDisplay(button);
+      const placeholder = defaultActionDataYamlPreview(button.action) || t("card.action_data_placeholder");
       const editor = open ? `
         <label class="field action-data-editor">
           <textarea class="action-data-box" data-action-data data-button="${button.index}" rows="5" dir="ltr" lang="en"
-            spellcheck="false" placeholder="${String(t("card.action_data_placeholder")).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/\n/g, "&#10;")}"
+            spellcheck="false" placeholder="${String(placeholder).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/\n/g, "&#10;")}"
             ${hasAction ? "" : "disabled"}>${text.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</textarea>
           <span class="field-hint">${t("card.action_data_hint")}</span>
           ${error ? `<span class="field-error" data-action-data-error>${t("card.action_data_invalid")}: ${error}</span>` : ""}
@@ -2157,7 +2576,50 @@
         "card.create": "Create", "card.duplicate": "Duplicate",
         "card.rename": "Rename", "card.delete": "Delete",
         "card.profiles": "Profiles", "card.editor": "Appearance",
-        "card.buttons": "Buttons", "card.preview": "Panel preview",
+        "card.buttons": "Buttons", "card.scheduler": "Scheduler", "card.preview": "Panel preview",
+        "card.step_1": "Step 1", "card.step_2": "Step 2", "card.step_3": "Step 3", "card.step_4": "Step 4",
+        "scheduler.hint": "Timeline ranges activate profiles automatically. The end time is exclusive — that minute starts the next range (e.g. 08:00–12:00 ends just before 12:00). Outside all ranges the default profile is used. Panel holiday pauses this panel; master holiday pauses every panel.",
+        "scheduler.holiday": "Holiday mode (this panel)",
+        "scheduler.holiday_on": "Schedulers paused on this panel",
+        "scheduler.holiday_badge": "Holiday mode on — schedulers paused",
+        "scheduler.master_holiday": "Master holiday (all panels)",
+        "scheduler.master_holiday_on": "Master holiday pauses schedulers on every panel",
+        "scheduler.default_profile": "Default profile",
+        "scheduler.tasks": "Scheduled tasks",
+        "scheduler.local_tasks": "This panel’s tasks",
+        "scheduler.master_tasks": "Master tasks (multi-panel)",
+        "scheduler.master_badge": "Master",
+        "scheduler.master_hint": "A master task uses the same days, ranges, and conditions on every selected panel.",
+        "scheduler.conditions": "Conditions",
+        "scheduler.conditions_hint": "Optional. When any condition fails the task is inactive for that moment.",
+        "scheduler.condition_entity": "Entity",
+        "scheduler.conflict_conditions_note": "Entity conditions do not override time conflicts.",
+        "scheduler.next_profile": "Next",
+        "scheduler.next_at": "at",
+        "scheduler.delete_task": "Delete",
+        "scheduler.delete_range": "Delete range",
+        "scheduler.delete_condition": "Delete",
+        "scheduler.save_task": "Save task",
+        "scheduler.transfer": "Scheduler export / import",
+        "scheduler.export": "Export",
+        "scheduler.import_merge": "Import (merge)",
+        "scheduler.import_replace": "Import (replace)",
+        "scheduler.import_hint": "Export includes local tasks, default profile id, and master tasks that target this panel. Holiday mode (panel and master) is not exported. Merge updates by id; replace replaces local tasks only (masters in the file are merged).",
+        "scheduler.overnight_hint": "If From is later than To (e.g. 22:00–06:00), the range crosses midnight and stays active until To (exclusive).",
+        "scheduler.conflict_body": "Two enabled ranges would activate different profiles at the same time. Change the times, days, months, or profiles, then save again.",
+        "scheduler.task_name": "Task name",
+        "scheduler.enabled": "Enabled",
+        "scheduler.weekdays": "Days",
+        "scheduler.months": "Months",
+        "scheduler.ranges": "Timeline ranges",
+        "scheduler.range_from": "From",
+        "scheduler.range_to": "To",
+        "scheduler.range_profile": "Profile",
+        "scheduler.day_mon": "Mon", "scheduler.day_tue": "Tue", "scheduler.day_wed": "Wed",
+        "scheduler.day_thu": "Thu", "scheduler.day_fri": "Fri", "scheduler.day_sat": "Sat", "scheduler.day_sun": "Sun",
+        "scheduler.month_1": "Jan", "scheduler.month_2": "Feb", "scheduler.month_3": "Mar", "scheduler.month_4": "Apr",
+        "scheduler.month_5": "May", "scheduler.month_6": "Jun", "scheduler.month_7": "Jul", "scheduler.month_8": "Aug",
+        "scheduler.month_9": "Sep", "scheduler.month_10": "Oct", "scheduler.month_11": "Nov", "scheduler.month_12": "Dec",
         "card.actions": "Actions", "card.status": "Status",
         "card.mode": "Mode", "card.color_on": "Color ON", "card.color_off": "Color OFF",
         "card.radar": "Radar", "card.backlight": "Backlight",
@@ -2180,21 +2642,23 @@
         "theme.noir": "Noir gold", "theme.ivory": "Ivory stone",
         "card.child_lock": "Child lock", "card.button": "Button",
         "card.button_expand": "Expand button settings", "card.button_collapse": "Collapse button settings",
-        "card.label": "Label", "card.action": "Action", "card.entity_id": "Entity ID",
+        "card.label": "Label", "card.action": "Action",
+        "card.action_double": "Double-click action",
+        "card.multi_click_hint": "Optional. When double-click is set, presses are classified after a short pause — only one of single / double runs (not the single action twice). A double-click restores the button relay to its state before the two taps (suppressed), then runs the double action. Single-click keeps the normal toggle. Momentary and cover buttons do not restore.",
+        "card.entity_id": "Entity ID",
         "card.action_none": "No Home Assistant action",
         "card.entity_none": "No entity (optional)",
         "card.action_picker_hint": "Searchable Home Assistant service (preview sample list).",
         "card.entity_picker_hint": "Searchable entity list, filtered by the action domain when set.",
         "card.action_data": "Action data (YAML)",
-        "card.action_data_hint": "Optional service data fields (like Developer Tools → Actions → data:). One key: value per line, or a JSON object. Entity picker still sets target; use this for extra fields (name, value, run, …).",
-        "card.action_data_placeholder": "name: day\nvalue: Morning\nrun: true",
+        "card.action_data_hint": "A live example is filled for the selected domain/service — edit the fields you need. Optional service data (like Developer Tools → Actions → data:). One key: value per line, or a JSON object. Entity picker still sets target.",
+        "card.action_data_placeholder": "brightness_pct: 70",
         "card.action_data_invalid": "Invalid action data",
         "card.picker_search": "Search…",
         "card.unsaved": "Unsaved draft — physical presses still use the last saved profile. Save Draft to apply roles/actions; Sync updates panel labels and colors.",
         "card.sync_needed": "Draft saved. Press behavior already uses this draft. Sync to Panel to push labels, colors, and on-panel settings.",
         "card.missing_action": "No Home Assistant action — only the panel relay will change.",
-        "card.export": "Export", "card.open_export_wizard": "Export wizard",
-        "card.back_to_editor": "Back to editor",
+        "card.export": "Export",
         "card.open_standalone_wizard": "Standalone wizard (HTML)",
         "card.step_transfer": "Export / Import",
         "card.step_transfer_hint": "Download or upload portable JSON for Home Assistant.",
@@ -2237,7 +2701,7 @@
         "info.cover_title": "Cover motor vs HA entity",
         "info.cover_body": "Motor / Cover slot pairs open and close internally — it is not a Home Assistant cover.* entity. Travel times and opposite-press sit on the first cover-role card for that motor. Optionally link a cover.* entity to mirror open/close/stop for HA status and automations; panel relays still drive the physical motor.",
         "info.actions_title": "Actions & YAML data",
-        "info.actions_body": "Action is a Home Assistant service (domain.service). Entity sets the target. Action data (YAML) adds extra service data fields (name, value, run, …) without replacing the entity target.",
+        "info.actions_body": "Action is a Home Assistant service (domain.service). Entity sets the target. Action data (YAML) is prefilled with a live example for the selected domain/service — edit it as needed. Extra data fields never replace the entity target.",
         "info.menu_title": "Settings menu",
         "info.menu_body": "Language, theme, export/import, automation example YAML, and this Info guide.",
         "card.automation_example": "Automation example",
@@ -2299,6 +2763,49 @@
         "card.rename": "שנה שם", "card.delete": "מחק",
         "card.profiles": "פרופילים", "card.editor": "מראה",
         "card.buttons": "כפתורים", "card.preview": "תצוגת פאנל",
+        "card.scheduler": "תזמון",
+        "scheduler.hint": "טווחי זמן מפעילים פרופילים אוטומטית. שעת הסיום אינה כלולה — הדקה הזו מתחילה את הטווח הבא (למשל 08:00–12:00 מסתיים ממש לפני 12:00). מחוץ לכל הטווחים נבחר פרופיל ברירת המחדל. מצב חג בפאנל עוצר את התזמון כאן; מצב חג ראשי עוצר בכל הפאנלים.",
+        "scheduler.holiday": "מצב חג (פאנל זה)",
+        "scheduler.holiday_on": "התזמונים מושהים בפאנל זה",
+        "scheduler.holiday_badge": "מצב חג פעיל — התזמונים מושהים",
+        "scheduler.master_holiday": "מצב חג ראשי (כל הפאנלים)",
+        "scheduler.master_holiday_on": "מצב חג ראשי עוצר את התזמון בכל הפאנלים",
+        "scheduler.overnight_hint": "אם «מ־» מאוחר מ־«עד» (למשל 22:00–06:00), הטווח חוצה חצות ונשאר פעיל עד «עד» (לא כולל).",
+        "scheduler.local_tasks": "משימות הפאנל הזה",
+        "scheduler.master_tasks": "משימות ראשיות (רב־פאנל)",
+        "scheduler.master_badge": "ראשית",
+        "scheduler.master_hint": "משימה ראשית משתמשת באותם ימים, טווחים ותנאים בכל הפאנלים שנבחרו.",
+        "scheduler.conditions": "תנאים",
+        "scheduler.conditions_hint": "אופציונלי. כשתנאי נכשל המשימה אינה פעילה באותו רגע.",
+        "scheduler.delete_task": "מחק",
+        "scheduler.delete_range": "מחק טווח",
+        "scheduler.delete_condition": "מחק",
+        "scheduler.save_task": "שמור משימה",
+        "scheduler.enabled": "פעיל",
+        "scheduler.next_profile": "הבא",
+        "scheduler.next_at": "ב־",
+        "scheduler.import_hint": "הייצוא כולל משימות מקומיות, מזהה פרופיל ברירת מחדל, ומשימות ראשיות שמכוונות לפאנל זה. מצב חג (פאנל וראשי) אינו מיוצא. מיזוג מעדכן לפי מזהה; החלפה מחליפה רק משימות מקומיות (משימות ראשיות בקובץ ממוזגות).",
+        "scheduler.condition_entity": "ישות",
+        "scheduler.conflict_conditions_note": "תנאי ישויות אינם מבטלים התנגשויות זמן.",
+        "scheduler.next_profile": "הבא",
+        "scheduler.next_at": "ב־",
+        "scheduler.transfer": "ייצוא / ייבוא תזמון",
+        "scheduler.export": "ייצוא",
+        "scheduler.import_merge": "ייבוא (מיזוג)",
+        "scheduler.import_replace": "ייבוא (החלפה)",
+        "scheduler.task_name": "שם משימה",
+        "scheduler.enabled": "פעיל",
+        "scheduler.weekdays": "ימים",
+        "scheduler.months": "חודשים",
+        "scheduler.ranges": "טווחי זמן",
+        "scheduler.range_from": "מ־",
+        "scheduler.range_to": "עד",
+        "scheduler.range_profile": "פרופיל",
+        "scheduler.day_mon": "ב׳", "scheduler.day_tue": "ג׳", "scheduler.day_wed": "ד׳",
+        "scheduler.day_thu": "ה׳", "scheduler.day_fri": "ו׳", "scheduler.day_sat": "ש׳", "scheduler.day_sun": "א׳",
+        "scheduler.month_1": "ינו׳", "scheduler.month_2": "פבר׳", "scheduler.month_3": "מרץ", "scheduler.month_4": "אפר׳",
+        "scheduler.month_5": "מאי", "scheduler.month_6": "יונ׳", "scheduler.month_7": "יול׳", "scheduler.month_8": "אוג׳",
+        "scheduler.month_9": "ספט׳", "scheduler.month_10": "אוק׳", "scheduler.month_11": "נוב׳", "scheduler.month_12": "דצמ׳",
         "card.actions": "פעולות", "card.status": "סטטוס",
         "card.mode": "מצב", "card.color_on": "צבע דלוק", "card.color_off": "צבע כבוי",
         "card.radar": "רדאר", "card.backlight": "תאורת רקע",
@@ -2321,21 +2828,23 @@
         "theme.noir": "נואר זהב", "theme.ivory": "שנהב אבן",
         "card.child_lock": "נעילת ילדים", "card.button": "כפתור",
         "card.button_expand": "הרחב הגדרות כפתור", "card.button_collapse": "כווץ הגדרות כפתור",
-        "card.label": "תווית", "card.action": "פעולה", "card.entity_id": "מזהה ישות",
+        "card.label": "תווית", "card.action": "פעולה",
+        "card.action_double": "פעולת לחיצה כפולה",
+        "card.multi_click_hint": "אופציונלי. כשמגדירים לחיצה כפולה, הלחיצות מסווגות אחרי הפסקה קצרה — רצה רק אחת מבין יחידה / כפולה (לא הפעולה היחידה פעמיים). לחיצה כפולה מחזירה את ממסר הכפתור למצב שלפני שתי הלחיצות (עם דיכוי מעבר) ואז מריצה את פעולת הכפולה. לחיצה יחידה נשארת טוגל רגיל. כפתורי רגעי ותריס לא משחזרים.",
+        "card.entity_id": "מזהה ישות",
         "card.action_none": "ללא פעולת Home Assistant",
         "card.entity_none": "ללא ישות (אופציונלי)",
         "card.action_picker_hint": "שירות Home Assistant עם חיפוש (רשימת דמו בתצוגה המקדימה).",
         "card.entity_picker_hint": "רשימת ישויות עם חיפוש, מסוננת לפי דומיין הפעולה כשנבחרה.",
         "card.action_data": "נתוני פעולה (YAML)",
-        "card.action_data_hint": "שדות data אופציונליים לשירות (כמו כלי המפתחים → פעולות → data:). שורה לכל מפתח: ערך, או אובייקט JSON. בחירת הישות עדיין מגדירה את target; כאן מוסיפים שדות נוספים (name, value, run וכו').",
-        "card.action_data_placeholder": "name: day\nvalue: Morning\nrun: true",
+        "card.action_data_hint": "דוגמה חיה מתמלאת לפי הדומיין/השירות שנבחרו — ערכו רק את מה שצריך. שדות data אופציונליים (כמו כלי המפתחים → פעולות → data:). שורה לכל מפתח: ערך, או אובייקט JSON. בחירת הישות עדיין מגדירה את target.",
+        "card.action_data_placeholder": "brightness_pct: 70",
         "card.action_data_invalid": "נתוני פעולה לא תקינים",
         "card.picker_search": "חיפוש…",
         "card.unsaved": "יש שינויי טיוטה שלא נשמרו — לחיצות על הפאנל עדיין לפי הפרופיל השמור האחרון. שמרו טיוטה כדי להחיל תפקידים/פעולות; סנכרון מעדכן תוויות וצבעים בפאנל.",
         "card.sync_needed": "הטיוטה נשמרה. התנהגות הלחיצות כבר לפי הטיוטה. סנכרנו לפאנל כדי לדחוף תוויות, צבעים והגדרות על החומרה.",
         "card.missing_action": "אין פעולת Home Assistant — ישתנה רק ממסר הפאנל.",
-        "card.export": "ייצוא", "card.open_export_wizard": "אשף ייצוא",
-        "card.back_to_editor": "חזרה לעריכה",
+        "card.export": "ייצוא",
         "card.open_standalone_wizard": "אשף נפרד (HTML)",
         "card.step_transfer": "ייצוא / ייבוא",
         "card.step_transfer_hint": "הורידו או העלו קובץ JSON נייד עבור Home Assistant.",
@@ -2378,7 +2887,7 @@
         "info.cover_title": "מנוע תריס מול ישות HA",
         "info.cover_body": "מנוע / מזהה תריס מזווג פתיחה וסגירה פנימית — זו לא ישות cover.* של Home Assistant. זמני נסיעה ולחיצה הפוכה מופיעים בכרטיס תפקיד התריס הראשון של אותו מנוע. אפשר לקשר ישות cover.* כדי לשקף פתיחה/סגירה/עצירה לסטטוס ואוטומציות; ממסרי הפאנל עדיין מפעילים את המנוע.",
         "info.actions_title": "פעולות ונתוני YAML",
-        "info.actions_body": "פעולה היא שירות Home Assistant (דומיין.שירות). הישות מגדירה את היעד. נתוני פעולה (YAML) מוסיפים שדות data נוספים (name, value, run וכו') בלי להחליף את יעד הישות.",
+        "info.actions_body": "פעולה היא שירות Home Assistant (דומיין.שירות). הישות מגדירה את היעד. נתוני פעולה (YAML) מתמלאים בדוגמה חיה לפי הדומיין/השירות שנבחרו — ערכו לפי הצורך. שדות data נוספים לא מחליפים את יעד הישות.",
         "info.menu_title": "תפריט הגדרות",
         "info.menu_body": "שפה, ערכת נושא, ייצוא/ייבוא, דוגמת אוטומציה YAML, ומדריך המידע הזה.",
         "card.automation_example": "דוגמה לאוטומציה",
@@ -2440,6 +2949,46 @@
         "card.rename": "Переименовать", "card.delete": "Удалить",
         "card.profiles": "Профили", "card.editor": "Внешний вид",
         "card.buttons": "Кнопки", "card.preview": "Превью панели",
+        "card.scheduler": "Расписание",
+        "scheduler.hint": "Временные диапазоны автоматически активируют профили. Конец диапазона не включается — эта минута начинает следующий диапазон (например 08:00–12:00 действует до 12:00). Вне диапазонов используется профиль по умолчанию. Праздник панели останавливает планировщик здесь; мастер-праздник — на всех панелях.",
+        "scheduler.holiday": "Режим праздника (эта панель)",
+        "scheduler.holiday_on": "Планировщики на паузе на этой панели",
+        "scheduler.holiday_badge": "Режим праздника включён — планировщики на паузе",
+        "scheduler.master_holiday": "Мастер-праздник (все панели)",
+        "scheduler.master_holiday_on": "Мастер-праздник останавливает планировщики на всех панелях",
+        "scheduler.overnight_hint": "Если «С» позже «До» (например 22:00–06:00), диапазон переходит через полночь и действует до «До» (не включая эту минуту).",
+        "scheduler.local_tasks": "Задачи этой панели",
+        "scheduler.master_tasks": "Мастер-задачи (несколько панелей)",
+        "scheduler.master_badge": "Мастер",
+        "scheduler.master_hint": "Мастер-задача использует те же дни, диапазоны и условия на всех выбранных панелях.",
+        "scheduler.conditions": "Условия",
+        "scheduler.conditions_hint": "Необязательно. Если условие не выполняется, задача неактивна в этот момент.",
+        "scheduler.condition_entity": "Сущность",
+        "scheduler.conflict_conditions_note": "Условия сущностей не отменяют конфликты времени.",
+        "scheduler.next_profile": "Далее",
+        "scheduler.next_at": "в",
+        "scheduler.delete_task": "Удалить",
+        "scheduler.delete_range": "Удалить диапазон",
+        "scheduler.delete_condition": "Удалить",
+        "scheduler.save_task": "Сохранить задачу",
+        "scheduler.transfer": "Экспорт / импорт планировщика",
+        "scheduler.export": "Экспорт",
+        "scheduler.import_merge": "Импорт (слияние)",
+        "scheduler.import_replace": "Импорт (замена)",
+        "scheduler.import_hint": "Экспорт включает локальные задачи, id профиля по умолчанию и мастер-задачи для этой панели. Режим праздника (панель и мастер) не экспортируется. Слияние обновляет по id; замена заменяет только локальные задачи (мастер-задачи из файла сливаются).",
+        "scheduler.task_name": "Имя задачи",
+        "scheduler.enabled": "Включено",
+        "scheduler.weekdays": "Дни",
+        "scheduler.months": "Месяцы",
+        "scheduler.ranges": "Временные диапазоны",
+        "scheduler.range_from": "С",
+        "scheduler.range_to": "До",
+        "scheduler.range_profile": "Профиль",
+        "scheduler.day_mon": "Пн", "scheduler.day_tue": "Вт", "scheduler.day_wed": "Ср",
+        "scheduler.day_thu": "Чт", "scheduler.day_fri": "Пт", "scheduler.day_sat": "Сб", "scheduler.day_sun": "Вс",
+        "scheduler.month_1": "Янв", "scheduler.month_2": "Фев", "scheduler.month_3": "Мар", "scheduler.month_4": "Апр",
+        "scheduler.month_5": "Май", "scheduler.month_6": "Июн", "scheduler.month_7": "Июл", "scheduler.month_8": "Авг",
+        "scheduler.month_9": "Сен", "scheduler.month_10": "Окт", "scheduler.month_11": "Ноя", "scheduler.month_12": "Дек",
         "card.actions": "Действия", "card.status": "Статус",
         "card.mode": "Режим", "card.color_on": "Цвет ВКЛ", "card.color_off": "Цвет ВЫКЛ",
         "card.radar": "Радар", "card.backlight": "Подсветка",
@@ -2462,21 +3011,23 @@
         "theme.noir": "Нуар / золото", "theme.ivory": "Слоновая кость",
         "card.child_lock": "Блокировка", "card.button": "Кнопка",
         "card.button_expand": "Развернуть настройки кнопки", "card.button_collapse": "Свернуть настройки кнопки",
-        "card.label": "Название", "card.action": "Действие", "card.entity_id": "Entity ID",
+        "card.label": "Название", "card.action": "Действие",
+        "card.action_double": "Действие двойного нажатия",
+        "card.multi_click_hint": "Необязательно. Если задано двойное нажатие, нажатия классифицируются после короткой паузы — выполняется только одно из: одиночное / двойное (не одиночное дважды). Двойное нажатие возвращает реле кнопки в состояние до двух нажатий (с подавлением перехода), затем выполняет действие двойного нажатия. Одиночное нажатие остаётся обычным переключением. Импульсные и рольставни не восстанавливают реле.",
+        "card.entity_id": "Entity ID",
         "card.action_none": "Без действия Home Assistant",
         "card.entity_none": "Без сущности (необязательно)",
         "card.action_picker_hint": "Поиск службы Home Assistant (демо-список в превью).",
         "card.entity_picker_hint": "Поиск сущностей; фильтр по домену действия, если он выбран.",
         "card.action_data": "Данные действия (YAML)",
-        "card.action_data_hint": "Необязательные поля data службы (как Инструменты разработчика → Действия → data:). Одна строка key: value или JSON-объект. Выбор сущности по-прежнему задаёт target; здесь — доп. поля (name, value, run и т.д.).",
-        "card.action_data_placeholder": "name: day\nvalue: Morning\nrun: true",
+        "card.action_data_hint": "Живой пример заполняется для выбранного домена/службы — правьте только нужные поля. Необязательные поля data (как Инструменты разработчика → Действия → data:). Одна строка key: value или JSON-объект. Выбор сущности по-прежнему задаёт target.",
+        "card.action_data_placeholder": "brightness_pct: 70",
         "card.action_data_invalid": "Некорректные данные действия",
         "card.picker_search": "Поиск…",
         "card.unsaved": "Несохранённый черновик — нажатия на панели всё ещё по последнему сохранённому профилю. Сохраните черновик для ролей/действий; синхронизация обновляет подписи и цвета на панели.",
         "card.sync_needed": "Черновик сохранён. Поведение кнопок уже по этому черновику. Синхронизируйте панель, чтобы отправить подписи, цвета и настройки на железо.",
         "card.missing_action": "Нет действия Home Assistant — изменится только реле панели.",
-        "card.export": "Экспорт", "card.open_export_wizard": "Мастер экспорта",
-        "card.back_to_editor": "Назад к редактору",
+        "card.export": "Экспорт",
         "card.open_standalone_wizard": "Отдельный мастер (HTML)",
         "card.step_transfer": "Экспорт / импорт",
         "card.step_transfer_hint": "Скачайте или загрузите JSON для Home Assistant.",
@@ -2519,7 +3070,7 @@
         "info.cover_title": "Мотор ролеты и сущность HA",
         "info.cover_body": "Мотор / слот ролеты связывает открытие и закрытие внутри — это не сущность cover.* Home Assistant. Время хода и противоположное нажатие задаются на первой карточке роли cover для этого мотора. Можно связать cover.*, чтобы зеркалировать open/close/stop для статуса и автоматизаций; реле панели по-прежнему управляют мотором.",
         "info.actions_title": "Действия и YAML",
-        "info.actions_body": "Action — служба Home Assistant (домен.служба). Entity задаёт цель. Данные действия (YAML) добавляют поля data (name, value, run, …), не заменяя цель сущности.",
+        "info.actions_body": "Action — служба Home Assistant (домен.служба). Entity задаёт цель. Данные действия (YAML) заполняются живым примером для выбранного домена/службы — правьте по необходимости. Доп. поля data не заменяют цель сущности.",
         "info.menu_title": "Меню настроек",
         "info.menu_body": "Язык, тема, экспорт/импорт, пример автоматизации YAML и эта справка.",
         "card.automation_example": "Пример автоматизации",
@@ -2594,6 +3145,7 @@
       return {
         index, name: (b && b.name) || ("Button " + index),
         action: (b && b.action) || "", entity: (b && b.entity) || "",
+        action_double: (b && b.action_double) || "",
         data: (b && b.data && typeof b.data === "object" && !Array.isArray(b.data)) ? { ...b.data } : {},
         radio_member: !b || b.radio_member !== false,
         role,
@@ -2842,6 +3394,7 @@
         actionDataOpen: [],
         actionDataText: {},
         actionDataError: {},
+        actionDataAutoDefault: {},
         radioGroupsOpen: defaultRadioGroupsOpen(),
         profiles, draft: deepClone(profiles[activeId]), saved: deepClone(profiles[activeId]),
       };
@@ -2923,6 +3476,7 @@
       if (!(state.actionDataOpen instanceof Set)) state.actionDataOpen = new Set();
       if (!state.actionDataText || typeof state.actionDataText !== "object") state.actionDataText = {};
       if (!state.actionDataError || typeof state.actionDataError !== "object") state.actionDataError = {};
+      if (!state.actionDataAutoDefault || typeof state.actionDataAutoDefault !== "object") state.actionDataAutoDefault = {};
       state.activeTab = normalizeTabId(state.activeTab);
       if (typeof state.previewOpen !== "boolean") state.previewOpen = true;
       if (typeof state.operateMode !== "boolean") state.operateMode = loadStoredOperateMode();
@@ -2936,6 +3490,7 @@
       state.actionDataOpen = new Set();
       state.actionDataText = {};
       state.actionDataError = {};
+      state.actionDataAutoDefault = {};
       state.radioGroupsOpen = defaultRadioGroupsOpen();
     }
     // Faceplate-only momentary pulse timers (not persisted).
@@ -2974,6 +3529,11 @@
       labels: document.getElementById("faceplate-labels"),
       rings: document.getElementById("faceplate-rings"),
       faceplate: document.getElementById("faceplate"),
+      holidayBadge: document.getElementById("faceplate-holiday-badge"),
+      schedulerNext: document.getElementById("faceplate-scheduler-next"),
+      previewHoliday: document.getElementById("preview-holiday"),
+      previewMasterHoliday: document.getElementById("preview-master-holiday"),
+      previewHolidayNotice: document.getElementById("preview-holiday-notice"),
       btnSave: document.getElementById("btn-save"),
       btnDiscard: document.getElementById("btn-discard"),
       btnSync: document.getElementById("btn-sync"),
@@ -2995,8 +3555,6 @@
       statusActionBar: document.querySelector("[data-status-action-bar]"),
       previewChrome: document.querySelector("[data-preview-chrome]"),
       menuClose: document.getElementById("menu-close"),
-      exportLayer: document.getElementById("export-layer"),
-      exportOverlay: document.getElementById("export-overlay"),
       dialogLayer: document.getElementById("dialog-layer"),
       dialogPanel: document.getElementById("dialog-panel"),
       dialogTitle: document.getElementById("dialog-title"),
@@ -3533,6 +4091,12 @@
                 </select>
               </label>
               ${actionDataEditorHtml(button)}
+              <p class="field-hint multi-click-hint">${t("card.multi_click_hint")}</p>
+              <label class="field"><span>${t("card.action_double")}</span>
+                <select data-field="action_double" data-action-slot="double" data-button="${button.index}">
+                  ${optionsHtml(PREVIEW_SERVICES, button.action_double || "", t("card.action_none"))}
+                </select>
+              </label>
             </div>` : "";
           let coverFields = "";
           if (isCoverRole) {
@@ -3663,7 +4227,7 @@
             });
           });
         });
-        card.querySelectorAll("[data-action-picker], [data-entity-picker]").forEach((select) => {
+        card.querySelectorAll("[data-action-picker], [data-entity-picker], [data-action-slot]").forEach((select) => {
           select.addEventListener("change", () => {
             const btn = state.draft.buttons.find((b) => b.index === index);
             if (!btn) return;
@@ -3674,10 +4238,14 @@
               if (domain && btn.entity && !String(btn.entity).startsWith(domain + ".")) {
                 btn.entity = "";
               }
-              if (!btn.action) {
-                if (state.actionDataText) delete state.actionDataText[index];
-                if (state.actionDataError) delete state.actionDataError[index];
-              }
+              maybePrefillActionDataOnActionChange(index, btn.action);
+              markDirty(true);
+              renderMixedRolesSection();
+              renderButtonsEditor();
+              return;
+            }
+            if (field === "action_double") {
+              btn[field] = select.value;
               markDirty(true);
               renderMixedRolesSection();
               renderButtonsEditor();
@@ -4222,7 +4790,11 @@
               <select data-field="entity" ${b.action ? "" : "disabled"}>${optionsHtml(entityChoices, b.entity, t("card.entity_none"))}</select>
               <span class="field-hint">${t("card.entity_picker_hint")}</span>
             </label>
-            ${actionDataEditorHtml(b)}`;
+            ${actionDataEditorHtml(b)}
+            <p class="field-hint multi-click-hint">${t("card.multi_click_hint")}</p>
+            <label class="field"><span>${t("card.action_double")}</span>
+              <select data-field="action_double">${optionsHtml(PREVIEW_SERVICES, b.action_double || "", t("card.action_none"))}</select>
+            </label>`;
         return `<div class="button-edit ${open ? "open" : ""}" data-button="${b.index}">
           <button type="button" class="button-edit-toggle" aria-expanded="${open}">
             <span class="button-edit-chevron" aria-hidden="true"></span>
@@ -4264,10 +4836,7 @@
               if (domain && btn.entity && !String(btn.entity).startsWith(domain + ".")) {
                 btn.entity = "";
               }
-              if (!btn.action) {
-                if (state.actionDataText) delete state.actionDataText[index];
-                if (state.actionDataError) delete state.actionDataError[index];
-              }
+              maybePrefillActionDataOnActionChange(index, btn.action);
               markDirty(true);
               renderButtonsEditor();
               return;
@@ -4342,7 +4911,6 @@
       if (state.operateMode) {
         state.previewOpen = true;
         setMenuOpen(false);
-        setExportView(false);
       }
       applyOperateMode();
       persistState();
@@ -4528,12 +5096,8 @@
       }
     }
     function setExportView(open) {
-      state.view = open ? "export" : "editor";
-      if (els.exportLayer) {
-        els.exportLayer.hidden = !open;
-        els.exportLayer.classList.toggle("open", open);
-      }
-      if (els.exportOverlay) els.exportOverlay.setAttribute("aria-hidden", open ? "false" : "true");
+      // Export wizard overlay removed; keep view on editor.
+      state.view = "editor";
       if (open) setMenuOpen(false);
       persistState();
     }
@@ -4557,6 +5121,32 @@
         });
       });
     }
+    function updateHolidayFaceplate() {
+      const panelOn = Boolean(els.previewHoliday && els.previewHoliday.checked);
+      const masterOn = Boolean(els.previewMasterHoliday && els.previewMasterHoliday.checked);
+      const effective = panelOn || masterOn;
+      const badgeLabel = t("scheduler.holiday_badge");
+      if (els.holidayBadge) {
+        els.holidayBadge.hidden = !effective;
+        els.holidayBadge.classList.toggle("visible", effective);
+        els.holidayBadge.setAttribute("title", badgeLabel);
+        els.holidayBadge.setAttribute("aria-label", badgeLabel);
+      }
+      if (els.schedulerNext) {
+        els.schedulerNext.hidden = effective;
+      }
+      if (els.previewHolidayNotice) {
+        const show = effective;
+        els.previewHolidayNotice.hidden = !show;
+        els.previewHolidayNotice.setAttribute(
+          "data-i18n",
+          masterOn ? "scheduler.master_holiday_on" : "scheduler.holiday_on"
+        );
+        els.previewHolidayNotice.textContent = t(
+          masterOn ? "scheduler.master_holiday_on" : "scheduler.holiday_on"
+        );
+      }
+    }
     function applyI18n() {
       document.documentElement.lang = state.lang;
       const rtl = state.lang === "he";
@@ -4570,6 +5160,7 @@
       document.querySelectorAll(".lang-btn").forEach((btn) => btn.classList.toggle("active", btn.dataset.lang === state.lang));
       applyTheme();
       applyOperateMode();
+      updateHolidayFaceplate();
       if (!state.dirty) els.statusBadge.textContent = t("card.synced_demo");
       else { els.dirtyWarn.textContent = t("card.unsaved"); els.statusBadge.textContent = t("card.status") + ": pending"; }
       renderModePicker();
@@ -4710,11 +5301,6 @@
           if (event.target === els.menuLayer) setMenuOpen(false);
         });
       }
-      if (els.exportLayer) {
-        els.exportLayer.addEventListener("click", (event) => {
-          if (event.target === els.exportLayer) setExportView(false);
-        });
-      }
       if (els.dialogLayer) {
         els.dialogLayer.addEventListener("click", (event) => {
           if (event.target === els.dialogLayer) closeDialog(false);
@@ -4726,7 +5312,6 @@
         if (els.dialogLayer && els.dialogLayer.classList.contains("open")) closeDialog(false);
         else if (els.automationLayer && els.automationLayer.classList.contains("open")) setAutomationOpen(false);
         else if (els.infoLayer && els.infoLayer.classList.contains("open")) setInfoOpen(false);
-        else if (els.exportLayer && els.exportLayer.classList.contains("open")) setExportView(false);
         else setMenuOpen(false);
       });
 
@@ -4734,12 +5319,13 @@
         btn.addEventListener("click", () => setActiveTab(btn.dataset.tab));
       });
 
-      const openExport = document.getElementById("btn-open-export");
-      if (openExport) openExport.addEventListener("click", () => { setMenuOpen(false); setExportView(true); });
-      ["btn-back-editor", "btn-back-editor-2"].forEach((id) => {
-        const el = document.getElementById(id);
-        if (el) el.addEventListener("click", () => setExportView(false));
+      document.querySelectorAll("[data-scheduler-editor] .chip").forEach((chip) => {
+        chip.addEventListener("click", () => {
+          const on = chip.classList.toggle("active");
+          chip.setAttribute("aria-pressed", on ? "true" : "false");
+        });
       });
+
       const importTop = document.getElementById("btn-import-top");
       if (importTop) importTop.addEventListener("click", () => { setMenuOpen(false); openImportPicker("merge"); });
       const importReplaceMenu = document.getElementById("btn-import-replace-menu");
@@ -4914,11 +5500,17 @@
       }
       applyPreviewToggle();
       applyOperateMode();
+      if (els.previewHoliday) {
+        els.previewHoliday.addEventListener("change", () => updateHolidayFaceplate());
+      }
+      if (els.previewMasterHoliday) {
+        els.previewMasterHoliday.addEventListener("change", () => updateHolidayFaceplate());
+      }
       setActiveTab(state.activeTab || "profiles");
       applyI18n();
       syncFormFromDraft();
       markDirty(Boolean(state.dirty));
-      setExportView(state.view === "export");
+      state.view = "editor";
     } catch (initErr) {
       console.error("ConX preview init failed", initErr);
       try { localStorage.removeItem(STORAGE_KEY); } catch (_e) {}

@@ -176,6 +176,18 @@ def install() -> None:
 
     event_helpers = module("homeassistant.helpers.event")
     event_helpers.async_track_state_change_event = lambda *args, **kwargs: lambda: None
+    event_helpers.async_track_point_in_time = lambda *args, **kwargs: lambda: None
+
+    util = module("homeassistant.util")
+    dt_util = module("homeassistant.util.dt")
+
+    def _utcnow():
+        from datetime import UTC, datetime
+
+        return datetime.now(UTC)
+
+    dt_util.utcnow = _utcnow
+    dt_util.now = _utcnow
 
     entity = module("homeassistant.helpers.entity")
 

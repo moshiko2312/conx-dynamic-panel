@@ -74,6 +74,52 @@ def _migrate_mixed_fields(data: dict[str, Any]) -> None:
         _normalize_button_roles(snapshot)
 
 
+def _migrate_v2_to_v3(data: dict[str, Any]) -> None:
+    """Schema 2 → 3: default profile + per-panel scheduler tasks (preserve profiles)."""
+    if "scheduler_tasks" not in data or not isinstance(data.get("scheduler_tasks"), dict):
+        data["scheduler_tasks"] = {}
+    profiles = data.get("profiles")
+    active = data.get("active_profile_id")
+    default = data.get("default_profile_id")
+    if default and isinstance(profiles, dict) and default in profiles:
+        data["default_profile_id"] = default
+    elif active and isinstance(profiles, dict) and active in profiles:
+        data["default_profile_id"] = active
+    elif isinstance(profiles, dict) and profiles:
+        data["default_profile_id"] = next(iter(profiles))
+    else:
+        data["default_profile_id"] = None
+
+
+def _migrate_v3_to_v4(data: dict[str, Any]) -> None:
+    """Schema 3 → 4: conditions + local scope on per-panel scheduler tasks."""
+    raw_tasks = data.get("scheduler_tasks")
+    if not isinstance(raw_tasks, dict):
+        data["scheduler_tasks"] = {}
+        return
+    for key, value in raw_tasks.items():
+        if not isinstance(value, dict):
+            continue
+        value.setdefault("id", key)
+        value["scope"] = "local"
+        value["entry_ids"] = []
+        if "conditions" not in value or not isinstance(value.get("conditions"), list):
+            value["conditions"] = []
+
+
+def _migrate_v4_to_v5(data: dict[str, Any]) -> None:
+    """Schema 4 → 5: per-panel holiday mode (schedulers suspended for this entry).
+
+    Does not copy the old domain global holiday onto every panel — that flag
+    migrates to *master* holiday in ``holiday_store`` and still pauses all
+    panels when ON. Local default is False.
+    """
+    if "holiday_mode" not in data:
+        data["holiday_mode"] = False
+    else:
+        data["holiday_mode"] = bool(data.get("holiday_mode"))
+
+
 def _migrate(data: dict[str, Any]) -> dict[str, Any]:
     """Migrate storage payload to the current schema version."""
     version = int(data.get("schema_version") or 1)
@@ -83,8 +129,14 @@ def _migrate(data: dict[str, Any]) -> dict[str, Any]:
         )
     if version < 2:
         _migrate_v1_to_v2(data)
-    # Additive mixed-mode fields (role / pulse_time_s) — keep schema at 2.
+    # Additive mixed-mode fields (role / pulse_time_s) — kept across versions.
     _migrate_mixed_fields(data)
+    if version < 3:
+        _migrate_v2_to_v3(data)
+    if version < 4:
+        _migrate_v3_to_v4(data)
+    if version < 5:
+        _migrate_v4_to_v5(data)
     # Future migrations append here while preserving profiles and snapshots.
     data["schema_version"] = STORAGE_VERSION
     return data

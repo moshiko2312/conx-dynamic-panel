@@ -62,6 +62,7 @@ const sampleProfile: Profile = {
       index: 1,
       name: "Living room",
       action: null,
+      action_double: null,
       radio_member: true,
       role: "toggle",
       pulse_time_s: 2,
@@ -71,6 +72,7 @@ const sampleProfile: Profile = {
       index: 2,
       name: "Kitchen",
       action: null,
+      action_double: null,
       radio_member: true,
       role: "toggle",
       pulse_time_s: 2,
@@ -80,6 +82,7 @@ const sampleProfile: Profile = {
       index: 3,
       name: "Outdoor",
       action: null,
+      action_double: null,
       radio_member: true,
       role: "toggle",
       pulse_time_s: 2,
@@ -89,6 +92,7 @@ const sampleProfile: Profile = {
       index: 4,
       name: "All off",
       action: null,
+      action_double: null,
       radio_member: true,
       role: "toggle",
       pulse_time_s: 2,
@@ -206,6 +210,18 @@ describe("localize", () => {
     expect(localize("ru", "card.operate_exit")).toBe("Настройки");
   });
 
+  it("localizes holiday badge and delete labels in EN HE RU", () => {
+    expect(localize("en", "scheduler.delete_task")).toBe("Delete");
+    expect(localize("he", "scheduler.delete_task")).toBe("מחק");
+    expect(localize("ru", "scheduler.delete_task")).toBe("Удалить");
+    expect(localize("en", "scheduler.delete_range")).toBe("Delete range");
+    expect(localize("he", "scheduler.delete_range")).toBe("מחק טווח");
+    expect(localize("en", "scheduler.holiday_badge")).toContain("Holiday");
+    expect(localize("he", "scheduler.holiday_badge")).toContain("חג");
+    expect(localize("en", "scheduler.master_holiday")).toContain("Master");
+    expect(localize("he", "scheduler.master_holiday")).toContain("ראשי");
+  });
+
   it("persists operate mode preference", () => {
     clearStoredOperateMode();
     expect(loadStoredOperateMode()).toBe(false);
@@ -307,6 +323,63 @@ describe("custom elements", () => {
     expect(el.shadowRoot?.querySelector(".faceplate-labels")).toBeTruthy();
     expect(el.shadowRoot?.querySelector(".faceplate-touch")).toBeTruthy();
     expect(ringsStyle).toBeTruthy();
+  });
+
+  it("shows holiday badge on faceplate when holiday_mode is on and hides next footer", async () => {
+    const callWS = vi.fn().mockResolvedValue(
+      panelPayload({
+        sync_status: "synced",
+        holiday_mode: true,
+        panel_holiday_mode: true,
+        master_holiday_mode: false,
+        scheduler_active: false,
+        scheduler_next: null,
+      })
+    );
+    const el = await mountCard({ language: "en", callWS });
+    const badge = el.shadowRoot?.querySelector("[data-holiday-badge]");
+    expect(badge).toBeTruthy();
+    expect(badge?.getAttribute("aria-label")).toContain("Holiday");
+    expect(el.shadowRoot?.querySelector("[data-scheduler-next]")).toBeFalsy();
+  });
+
+  it("shows scheduler next footer when active with scheduler_next payload", async () => {
+    const callWS = vi.fn().mockResolvedValue(
+      panelPayload({
+        sync_status: "synced",
+        holiday_mode: false,
+        panel_holiday_mode: false,
+        master_holiday_mode: false,
+        scheduler_active: true,
+        scheduler_next: {
+          profile_id: "scenes",
+          profile_name: "Scenes",
+          at: "2026-03-02T08:00:00",
+          at_time: "08:00",
+        },
+      })
+    );
+    const el = await mountCard({ language: "en", callWS });
+    expect(el.shadowRoot?.querySelector("[data-holiday-badge]")).toBeFalsy();
+    const footer = el.shadowRoot?.querySelector("[data-scheduler-next]");
+    expect(footer).toBeTruthy();
+    expect(footer?.textContent).toContain("Scenes");
+    expect(footer?.textContent).toContain("08:00");
+  });
+
+  it("shows compact scheduler-active footer when next is missing", async () => {
+    const callWS = vi.fn().mockResolvedValue(
+      panelPayload({
+        sync_status: "synced",
+        holiday_mode: false,
+        scheduler_active: true,
+        scheduler_next: null,
+      })
+    );
+    const el = await mountCard({ language: "en", callWS });
+    const footer = el.shadowRoot?.querySelector("[data-scheduler-active-only]");
+    expect(footer).toBeTruthy();
+    expect(footer?.textContent).toContain("Scheduler on");
   });
 
   it("matches HTML preview chrome: brand title, fonts, settings tabs, bezel metrics", async () => {
@@ -1483,30 +1556,36 @@ describe("custom elements", () => {
     expect(sheetText).toMatch(/\.warn\.unsaved-draft\s*\{[^}]*font-size:\s*1\.2rem/s);
   });
 
-  it("opens export wizard from main editor and returns with back control", async () => {
+  it("settings menu uses compact language and action grids without export wizard", async () => {
     const callWS = vi.fn().mockResolvedValue(panelPayload({ sync_status: "synced" }));
     const el = await mountCard({ language: "en", callWS });
-    expect(el._view).toBe("editor");
-    expect(el.shadowRoot?.textContent).toMatch(/Profiles|Appearance/i);
-    el._openExportWizard();
+    const menuBtn = el.shadowRoot?.querySelector(".menu-btn") as HTMLButtonElement;
+    expect(menuBtn).toBeTruthy();
+    menuBtn.click();
     await el.updateComplete;
-    expect(el._view).toBe("export");
-    expect(el.shadowRoot?.querySelector(".conx-layer")).toBeTruthy();
-    expect(el.shadowRoot?.textContent).toContain("Import (merge)");
-    expect(el.shadowRoot?.textContent).toContain("Back to editor");
-    expect(el.shadowRoot?.textContent).toContain("schema_version");
-    const yamlBox = el.shadowRoot?.querySelector("textarea.yaml-box") as HTMLTextAreaElement;
-    expect(yamlBox?.value).toContain("conx_dynamic_panel.import_profiles");
-    el._backToEditor();
-    await el.updateComplete;
-    expect(el._view).toBe("editor");
-    expect(el.shadowRoot?.querySelector(".tab-bar")).toBeTruthy();
+    const settingsMenu = el.shadowRoot?.querySelector(
+      "[data-settings-menu]"
+    ) as HTMLElement;
+    expect(settingsMenu).toBeTruthy();
+    const text = settingsMenu.textContent || "";
+    expect(text).toMatch(/Export/i);
+    expect(text).toMatch(/Import \(merge\)/i);
+    expect(text).toMatch(/Import \(replace\)/i);
+    expect(text).not.toMatch(/Export wizard/i);
+    expect(settingsMenu.querySelector(".lang-flags")).toBeTruthy();
+    expect(settingsMenu.querySelectorAll(".lang-btn").length).toBe(3);
+    expect(settingsMenu.querySelectorAll(".menu-action-grid").length).toBeGreaterThanOrEqual(2);
+    expect(settingsMenu.querySelector(".theme-swatches, .theme-picker")).toBeTruthy();
+    const ctor = el.constructor as { styles?: { cssText?: string } | Array<{ cssText?: string }> };
+    const sheets = Array.isArray(ctor.styles) ? ctor.styles : ctor.styles ? [ctor.styles] : [];
+    const sheetText = sheets.map((sheet) => sheet.cssText || String(sheet)).join("\n");
+    expect(sheetText).toMatch(/\.lang-flags\s*\{[^}]*grid-template-columns:\s*repeat\(3/s);
+    expect(sheetText).toMatch(/\.menu-action-grid\s*\{[^}]*grid-template-columns:\s*repeat\(2/s);
   });
 
   it("defaults to single-page main editor with all key sections", async () => {
     const callWS = vi.fn().mockResolvedValue(panelPayload({ sync_status: "synced" }));
     const el = await mountCard({ language: "en", callWS });
-    expect(el._view).toBe("editor");
     const text = el.shadowRoot?.textContent || "";
     expect(text).toMatch(/Profiles/i);
     expect(text).toMatch(/Appearance|Buttons/i);
@@ -1985,6 +2064,30 @@ describe("custom elements", () => {
       },
     });
 
+    expect(toggleCard.querySelector(".multi-click-hint")).toBeTruthy();
+    expect(
+      toggleCard.querySelector('.multi-click-slot[data-multi-click-slot="triple"]')
+    ).toBeNull();
+    const doubleSlot = toggleCard.querySelector(
+      '.multi-click-slot[data-multi-click-slot="double"]'
+    ) as HTMLElement;
+    expect(doubleSlot).toBeTruthy();
+    const doubleOpenBtn = doubleSlot.querySelector(
+      "[data-multi-click-toggle]"
+    ) as HTMLButtonElement;
+    expect(doubleOpenBtn).toBeTruthy();
+    doubleOpenBtn.click();
+    await el.updateComplete;
+    const doubleSelect = toggleCard.querySelector(
+      '[data-action-picker][data-action-slot="double"][data-button="1"]'
+    ) as HTMLSelectElement;
+    expect(doubleSelect).toBeTruthy();
+    doubleSelect.value = "light.turn_on";
+    doubleSelect.dispatchEvent(new Event("change", { bubbles: true }));
+    await el.updateComplete;
+    expect(el._draft?.buttons[0].action_double?.action).toBe("light.turn_on");
+    expect(el._draft?.buttons[0].action?.action).toBe("light.toggle");
+
     (toggleCard.querySelector('[data-role="momentary"]') as HTMLButtonElement).click();
     await el.updateComplete;
     const momentaryCard = el.shadowRoot?.querySelector(
@@ -2026,7 +2129,10 @@ describe("custom elements", () => {
     expect(localize("he", "card.action_data")).toBe("נתוני פעולה (YAML)");
     expect(localize("ru", "card.action_data")).toContain("YAML");
     expect(localize("en", "card.action_data_hint")).toMatch(/data:/i);
+    expect(localize("en", "card.action_data_hint")).toMatch(/live example/i);
     expect(localize("he", "card.action_data_hint")).toContain("data");
+    expect(localize("he", "card.action_data_hint")).toContain("דוגמה חיה");
+    expect(localize("ru", "card.action_data_hint")).toMatch(/живой пример/i);
     expect(localize("en", "card.mixed_roles")).toBe("Per-button roles");
     expect(localize("en", "role.radio")).toBe("Radio group");
     expect(localize("he", "card.unsaved")).toContain("שמרו טיוטה");
@@ -2255,6 +2361,67 @@ describe("custom elements", () => {
     await el.updateComplete;
     expect(el._infoOpen).toBe(false);
     expect(el.shadowRoot?.querySelector("[data-info-guide]")).toBeFalsy();
+  });
+
+  it("renders scheduler day/month chips with clear active classes and toggles", async () => {
+    const callWS = vi.fn().mockResolvedValue(
+      panelPayload({
+        sync_status: "synced",
+        scheduler_tasks: {},
+        master_scheduler_tasks: {},
+        default_profile_id: "lighting",
+      })
+    );
+    const el = await mountCard({ language: "en", callWS });
+    el._activeTab = "scheduler";
+    await el.updateComplete;
+    (el.shadowRoot?.querySelector("[data-scheduler-add-local]") as HTMLButtonElement).click();
+    await el.updateComplete;
+    expect(el._schedulerDraft).toBeTruthy();
+
+    const dayRow = el.shadowRoot?.querySelector(".chip-row-days") as HTMLElement;
+    const monthRow = el.shadowRoot?.querySelector(".chip-row-months") as HTMLElement;
+    expect(dayRow).toBeTruthy();
+    expect(monthRow).toBeTruthy();
+
+    const dayChips = [...(dayRow.querySelectorAll("button.chip") || [])] as HTMLButtonElement[];
+    const monthChips = [
+      ...(monthRow.querySelectorAll("button.chip") || []),
+    ] as HTMLButtonElement[];
+    expect(dayChips).toHaveLength(7);
+    expect(monthChips).toHaveLength(12);
+    expect(dayChips.every((chip) => chip.classList.contains("active"))).toBe(true);
+    expect(monthChips.every((chip) => chip.classList.contains("active"))).toBe(true);
+
+    const styles = String((el.constructor as typeof HTMLElement & { styles?: unknown }).styles || "");
+    expect(styles).toContain(".chip.active");
+    expect(styles).toContain("background: var(--accent)");
+    expect(styles).toContain("color: var(--accent-text)");
+    expect(styles).toContain(".chip-row-days");
+    expect(styles).toContain(".chip-row-months");
+
+    dayChips[0].click();
+    await el.updateComplete;
+    expect(el._schedulerDraft?.weekdays.includes(0)).toBe(false);
+    expect(
+      (el.shadowRoot?.querySelector(".chip-row-days button.chip") as HTMLButtonElement).classList.contains(
+        "active"
+      )
+    ).toBe(false);
+    expect(
+      (el.shadowRoot?.querySelector(".chip-row-days button.chip") as HTMLButtonElement).getAttribute(
+        "aria-pressed"
+      )
+    ).toBe("false");
+
+    monthChips[0].click();
+    await el.updateComplete;
+    expect(el._schedulerDraft?.months.includes(1)).toBe(false);
+    expect(
+      (
+        el.shadowRoot?.querySelector(".chip-row-months button.chip") as HTMLButtonElement
+      ).classList.contains("active")
+    ).toBe(false);
   });
 });
 
