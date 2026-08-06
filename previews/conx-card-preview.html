@@ -786,83 +786,163 @@
     }
     .mixed-roles-section {
       display: grid;
-      gap: 4px;
-      margin: 0 0 8px;
-      padding: 6px;
-      border-radius: 10px;
+      gap: 3px;
+      margin: 0 0 6px;
+      padding: 4px;
+      border-radius: 8px;
       border: 1px solid var(--border, var(--conx-border));
       background: var(--surface);
       color: var(--text);
+      container-type: inline-size;
+      container-name: mixed-roles;
     }
     .mixed-roles-section[hidden] { display: none !important; }
     .mixed-roles-section > .radio-groups-hint {
-      margin: 0 0 2px;
-      font-size: .72rem;
-      line-height: 1.25;
+      margin: 0 0 1px;
+      font-size: .68rem;
+      line-height: 1.2;
       color: var(--text-muted);
     }
     .mixed-roles-head .menu-label {
       margin-bottom: 0;
-      font-size: .82rem;
+      font-size: .78rem;
       font-weight: 700;
       color: var(--text);
     }
     .mixed-role-card {
       display: grid;
-      gap: 3px;
-      padding: 4px 6px;
-      border-radius: 8px;
+      gap: 2px;
+      padding: 3px 5px;
+      border-radius: 7px;
       border: 1px solid var(--border, var(--conx-border));
       background: var(--surface-2);
       color: var(--text);
     }
+    .mixed-role-card-main {
+      display: grid;
+      grid-template-columns: minmax(2.2rem, 4.2rem) minmax(0, 1fr);
+      align-items: center;
+      gap: 3px 6px;
+      min-width: 0;
+    }
     .mixed-role-card-head {
       display: flex;
-      align-items: baseline;
-      gap: 6px;
-      flex-wrap: wrap;
-      min-height: 1.1rem;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0;
+      min-width: 0;
+      min-height: 0;
     }
     .mixed-role-l {
       font-weight: 800;
       letter-spacing: 0.04em;
-      font-size: .78rem;
+      font-size: .7rem;
+      line-height: 1.15;
       color: var(--text);
     }
     .mixed-role-name {
-      font-size: .78rem;
+      font-size: .65rem;
       font-weight: 600;
+      line-height: 1.15;
       color: var(--text);
       opacity: 1;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     .mixed-role-picker {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 3px;
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 2px;
       width: 100%;
+      min-width: 0;
     }
     .mixed-role-picker .radio-member {
-      flex: 1 1 calc(20% - 3px);
-      min-width: 3.2rem;
-      padding: 3px 2px;
-      min-height: 26px;
-      border-radius: 7px;
+      flex: none;
+      width: 100%;
+      min-width: 0;
+      padding: 2px 1px;
+      min-height: 22px;
+      border-radius: 6px;
     }
     .mixed-role-picker .radio-member-label {
-      font-size: .65rem;
+      font-size: .58rem;
       font-weight: 650;
       text-align: center;
-      line-height: 1.1;
+      line-height: 1.05;
       white-space: normal;
+      overflow-wrap: anywhere;
+      hyphens: auto;
+    }
+    .mixed-role-extras {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 3px 8px;
+      min-width: 0;
     }
     .mixed-role-card .radio-groups-hint {
       margin: 0;
-      font-size: .68rem;
-      line-height: 1.2;
+      font-size: .62rem;
+      line-height: 1.15;
+      flex: 1 1 8rem;
     }
-    .mixed-pulse, .mixed-cover-id { width: max-content; max-width: 100%; margin-top: 2px; }
-    .mixed-pulse input[type="number"] { width: 5rem; min-height: 32px; padding: 6px 8px; }
-    .mixed-cover-id select { min-width: 7rem; max-width: 14rem; }
+    .mixed-pulse, .mixed-cover-id {
+      width: max-content;
+      max-width: 100%;
+      margin-top: 0;
+      margin-bottom: 0;
+      gap: 3px;
+    }
+    .mixed-pulse span, .mixed-cover-id span {
+      font-size: .62rem;
+      color: var(--text-muted);
+    }
+    .mixed-pulse input[type="number"] {
+      width: 3.8rem;
+      min-height: 24px;
+      padding: 2px 4px;
+      font-size: .72rem;
+    }
+    .mixed-cover-id select {
+      min-width: 5.5rem;
+      max-width: 9rem;
+      min-height: 24px;
+      padding: 2px 4px;
+      font-size: .72rem;
+    }
+    .cover-section-mixed {
+      margin: 2px 0 6px;
+      padding: 6px;
+    }
+    .cover-section-mixed .cover-head { margin-bottom: 4px; }
+    .cover-section-mixed .cover-block { margin-top: 4px; padding-top: 4px; }
+    .cover-section-mixed .cover-times {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
+      gap: 6px 10px;
+      margin-bottom: 6px;
+    }
+    .cover-section-mixed .cover-times .field { margin-bottom: 0; }
+    .cover-section-mixed .cover-times input[type="number"] {
+      min-height: 28px;
+      padding: 4px 6px;
+    }
+    @container mixed-roles (max-width: 360px) {
+      .mixed-role-card-main {
+        grid-template-columns: 1fr;
+        gap: 2px;
+      }
+      .mixed-role-card-head {
+        flex-direction: row;
+        align-items: baseline;
+        gap: 5px;
+      }
+      .mixed-role-picker {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
     .color-select { display:grid; grid-template-columns:18px 1fr; align-items:center; gap:8px; }
     .swatch { width:18px; height:18px; border-radius:50%; border:1px solid rgba(0,0,0,.25); }
     .toggle-row { display:grid; gap:10px; }
@@ -1633,9 +1713,22 @@
       // Z2M "blue" is a cyan LED on these panels — match hardware, not true blue.
       red: "#ff1744", blue: "#00c8de", green: "#00e676", white: "#f5f7fa",
       yellow: "#ffea00", magenta: "#f50057", cyan: "#00e5ff",
+      // Legacy CSS only — warm_* hang Z2M panels; pickers never offer them.
       warm_white: "#ffe0b2", warm_yellow: "#ffc400",
     };
-    const COLORS = Object.keys(COLOR_PREVIEW);
+    const BROKEN_WARM_LED = new Set(["warm_white", "warm_yellow", "warmwhite", "warmyellow"]);
+    function isBrokenWarmLed(value) {
+      const key = String(value || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+      return BROKEN_WARM_LED.has(key) || BROKEN_WARM_LED.has(key.replace(/_/g, ""));
+    }
+    function remapBrokenWarmLed(value) {
+      const key = String(value || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+      if (key === "warm_white" || key === "warmwhite") return "white";
+      if (key === "warm_yellow" || key === "warmyellow") return "yellow";
+      return String(value || "").trim();
+    }
+    // Never offer warm_* in color pickers (Z2M converter hang — use white/yellow).
+    const COLORS = Object.keys(COLOR_PREVIEW).filter((c) => !isBrokenWarmLed(c));
     const STORAGE_KEY = "conx-card-preview-state-v11";
     /** Same key as the Lit card so operate preference survives refresh. */
     const OPERATE_MODE_STORAGE_KEY = "conx-dynamic-panel-operate";
@@ -2053,7 +2146,10 @@
     function t(key) {
       return (I18N[state.lang] && I18N[state.lang][key]) || I18N.en[key] || key;
     }
-    function resolveColor(name, fallback) { return COLOR_PREVIEW[name] || name || fallback; }
+    function resolveColor(name, fallback) {
+      const remapped = remapBrokenWarmLed(name);
+      return COLOR_PREVIEW[remapped] || COLOR_PREVIEW[name] || remapped || fallback;
+    }
     function deepClone(obj) { return JSON.parse(JSON.stringify(obj)); }
     function normalizeThemeId(value) {
       if (!value) return "noir";
@@ -2258,13 +2354,15 @@
       profile.covers = normalizeCovers(profile);
       delete profile.cover;
       if (typeof profile.backlight_brightness !== "number") profile.backlight_brightness = 100;
+      if (isBrokenWarmLed(profile.color_on)) profile.color_on = remapBrokenWarmLed(profile.color_on);
+      if (isBrokenWarmLed(profile.color_off)) profile.color_off = remapBrokenWarmLed(profile.color_off);
       return profile;
     }
     function createDefaultProfiles() {
       return {
         evening: makeProfile("evening", "Evening"),
         day: makeProfile("day", "Day", {
-          color_on: "warm_yellow", color_off: "warm_white",
+          color_on: "yellow", color_off: "white",
           buttons: [
             { index: 1, name: "Main", action: "light.toggle", entity: "light.main" },
             { index: 2, name: "Spot", action: "light.toggle", entity: "light.spot" },
@@ -2929,13 +3027,18 @@
               </select>
             </label>
             <p class="radio-groups-hint" data-mixed-cover-hint>${t("card.mixed_cover_hint")}</p>` : "";
+          const extras = pulse || radioHint || coverFields
+            ? `<div class="mixed-role-extras">${pulse}${radioHint}${coverFields}</div>`
+            : "";
           return `<div class="mixed-role-card" data-mixed-role="${button.index}">
-            <div class="mixed-role-card-head">
-              <span class="mixed-role-l" dir="ltr">L${button.index}</span>
-              <span class="mixed-role-name">${label}</span>
+            <div class="mixed-role-card-main">
+              <div class="mixed-role-card-head">
+                <span class="mixed-role-l" dir="ltr">L${button.index}</span>
+                <span class="mixed-role-name">${label}</span>
+              </div>
+              <div class="mixed-role-picker" role="radiogroup" aria-label="${t("card.button_role")}">${chips}</div>
             </div>
-            <div class="mode-picker mixed-role-picker" role="radiogroup" aria-label="${t("card.button_role")}">${chips}</div>
-            ${pulse}${radioHint}${coverFields}
+            ${extras}
           </div>`;
         }).join("")}`;
       els.mixedRolesSection.querySelectorAll("[data-mixed-role]").forEach((card) => {

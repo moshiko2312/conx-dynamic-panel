@@ -14,7 +14,7 @@ import {
   persistOperateMode,
 } from "../src/operateMode";
 import type { Profile } from "../src/types";
-import { COLOR_PREVIEW, ensureSelectOptions, formatColorOptionLabel, formatRadarOptionLabel, resolveLedPreviewColor } from "../src/card";
+import { COLOR_PREVIEW, ensureColorSelectOptions, ensureSelectOptions, filterUiColorOptions, formatColorOptionLabel, formatRadarOptionLabel, isBrokenWarmLedColor, remapBrokenWarmLedColor, resolveLedPreviewColor } from "../src/card";
 import {
   AUTOMATION_EXAMPLE_ENTRY_PLACEHOLDER,
   buildAutomationExampleYaml,
@@ -433,7 +433,7 @@ describe("custom elements", () => {
 
   it("maps LED color names to CSS preview colors", () => {
     expect(resolveLedPreviewColor("red")).toBe(COLOR_PREVIEW.red);
-    expect(resolveLedPreviewColor("warm_yellow")).toBe(COLOR_PREVIEW.warm_yellow);
+    expect(resolveLedPreviewColor("warm_yellow")).toBe(COLOR_PREVIEW.yellow);
     // Hardware: Z2M "blue" is cyan-looking; still distinct from the cyan option.
     expect(resolveLedPreviewColor("blue")).toBe("#00c8de");
     expect(resolveLedPreviewColor("cyan")).toBe("#00e5ff");
@@ -445,6 +445,31 @@ describe("custom elements", () => {
     expect(formatColorOptionLabel("blue", "he")).toContain("סיאן");
     expect(formatColorOptionLabel("cyan", "he")).toBe("סיאן");
     expect(formatRadarOptionLabel("none", "he")).toContain("ללא");
+  });
+
+  it("filters broken warm LED colors from picker options", () => {
+    expect(
+      filterUiColorOptions([
+        "red",
+        "warm_white",
+        "white",
+        "warm_yellow",
+        "yellow",
+      ])
+    ).toEqual(["red", "white", "yellow"]);
+    expect(remapBrokenWarmLedColor("warm_white")).toBe("white");
+    expect(remapBrokenWarmLedColor("warm_yellow")).toBe("yellow");
+    expect(isBrokenWarmLedColor("warmwhite")).toBe(true);
+    expect(ensureColorSelectOptions(["blue", "cyan", "warm_white"], "warm_yellow")).toEqual([
+      "blue",
+      "cyan",
+      "yellow",
+    ]);
+    expect(ensureColorSelectOptions(["blue", "cyan"], "warm_white", "blue")).toEqual([
+      "blue",
+      "cyan",
+      "white",
+    ]);
   });
 
   it("keeps draft select values when live options omit them", () => {
@@ -464,7 +489,17 @@ describe("custom elements", () => {
     const callWS = vi.fn().mockResolvedValue(
       panelPayload({
         capabilities: {
-          colors: ["red", "blue", "green", "white", "yellow", "magenta", "cyan"],
+          colors: [
+            "red",
+            "blue",
+            "green",
+            "white",
+            "yellow",
+            "magenta",
+            "cyan",
+            "warm_white",
+            "warm_yellow",
+          ],
           radar: ["none", "10s", "20s", "30s", "45s", "60s"],
           modes: [
             "toggle",
@@ -517,9 +552,76 @@ describe("custom elements", () => {
     );
     expect(colorSelect).toBeTruthy();
     expect([...colorSelect!.options].map((o) => o.value)).not.toContain("warm_white");
+    expect([...colorSelect!.options].map((o) => o.value)).not.toContain("warm_yellow");
     expect(radarSelect).toBeTruthy();
     expect(radarSelect!.value).toBe("none");
     expect([...radarSelect!.options].map((o) => o.value)).toContain("none");
+  });
+
+  it("migrates draft warm_* colors to white/yellow on load", async () => {
+    const callWS = vi.fn().mockResolvedValue(
+      panelPayload({
+        capabilities: {
+          colors: [
+            "red",
+            "blue",
+            "green",
+            "white",
+            "yellow",
+            "magenta",
+            "cyan",
+            "warm_white",
+            "warm_yellow",
+          ],
+          radar: ["none", "10s", "30s"],
+          modes: [
+            "toggle",
+            "radio_mandatory",
+            "radio_optional",
+            "radio_split",
+            "mixed",
+            "cover",
+          ],
+          button_count: 4,
+          gang_count_min: 1,
+          gang_count_max: 4,
+          cover: {
+            min_time_s: 1,
+            max_time_s: 600,
+            min_settle_s: 0,
+            max_settle_s: 5,
+            opposite_press: ["stop_only", "stop_then_reverse"],
+            max_covers: 2,
+          },
+          mixed: {
+            roles: ["toggle", "momentary", "radio", "cover_open", "cover_close"],
+            min_pulse_s: 0.1,
+            max_pulse_s: 600,
+            default_pulse_s: 2,
+          },
+        },
+        profiles: {
+          lighting: {
+            ...sampleProfile,
+            color_on: "warm_yellow",
+            color_off: "warm_white",
+          },
+        },
+      })
+    );
+    const el = await mountCard({ language: "en", callWS });
+    expect(el._draft?.color_on).toBe("yellow");
+    expect(el._draft?.color_off).toBe("white");
+    expect(el._dirty).toBe(true);
+    (el as any)._activeTab = "appearance";
+    await el.updateComplete;
+    const appearancePanel = el.shadowRoot?.querySelector(
+      ".tab-panel.active"
+    ) as HTMLElement;
+    const selects = [...(appearancePanel?.querySelectorAll("select") || [])];
+    const values = selects.flatMap((sel) => [...sel.options].map((o) => o.value));
+    expect(values).not.toContain("warm_white");
+    expect(values).not.toContain("warm_yellow");
   });
 
   it("updates faceplate ring CSS vars when draft color_on/color_off change", async () => {
@@ -577,7 +679,7 @@ describe("custom elements", () => {
             mode: "radio_optional",
             selected_button: 3,
             color_on: "magenta",
-            color_off: "warm_white",
+            color_off: "white",
           },
         },
       })
@@ -588,7 +690,7 @@ describe("custom elements", () => {
       COLOR_PREVIEW.magenta
     );
     expect(faceplate.style.getPropertyValue("--ring-off").trim()).toBe(
-      COLOR_PREVIEW.warm_white
+      COLOR_PREVIEW.white
     );
     const rings = [...(el.shadowRoot?.querySelectorAll(".ring") || [])];
     expect(rings.map((r) => r.classList.contains("on"))).toEqual([
@@ -1846,10 +1948,51 @@ describe("custom elements", () => {
     expect(sheetText).toMatch(/:host\s*\{[^}]*width:\s*100%/s);
     expect(sheetText).toMatch(/ha-card\.conx-card\s*\{[^}]*max-width:\s*none/s);
     expect(sheetText).toMatch(/\.faceplate-bezel\s*\{[^}]*width:\s*100%/s);
-    expect(sheetText).toMatch(/\.mixed-role-picker\s+\.radio-member\s*\{[^}]*min-height:\s*26px/s);
+    expect(sheetText).toMatch(
+      /\.mixed-role-picker\s*\{[^}]*grid-template-columns:\s*repeat\(5,\s*minmax\(0,\s*1fr\)\)/s
+    );
+    expect(sheetText).toMatch(
+      /\.mixed-role-card-main\s*\{[^}]*grid-template-columns:\s*minmax\(2\.2rem,\s*4\.2rem\)\s+minmax\(0,\s*1fr\)/s
+    );
+    expect(sheetText).toMatch(/\.mixed-role-picker\s+\.radio-member\s*\{[^}]*min-height:\s*22px/s);
+    expect(sheetText).toMatch(
+      /\.cover-section-mixed\s+\.cover-times\s*\{[^}]*grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(6\.5rem,\s*1fr\)\)/s
+    );
     expect(sheetText).toMatch(/\.radio-member\.on\s*\{[^}]*color:\s*var\(--accent-text\)/s);
     expect(sheetText).toMatch(/\.mixed-role-l\s*\{[^}]*color:\s*var\(--text\)/s);
     expect(sheetText).toMatch(/\.actions-grid\s+\.btn\s*\{[^}]*min-height:\s*32px/s);
+  });
+
+  it("keeps free-mix role chips in a width grid row", async () => {
+    const callWS = vi.fn().mockResolvedValue(panelPayload({ sync_status: "synced" }));
+    const el = await mountCard({ language: "he", callWS });
+    el._activeTab = "buttons";
+    await el.updateComplete;
+    (el.shadowRoot?.querySelector('[data-mode="mixed"]') as HTMLButtonElement).click();
+    await el.updateComplete;
+    const card = el.shadowRoot?.querySelector(
+      '[data-mixed-role="1"]'
+    ) as HTMLElement;
+    expect(card.querySelector(".mixed-role-card-main")).toBeTruthy();
+    expect(card.querySelector(".mixed-role-picker")).toBeTruthy();
+    expect(card.querySelector(".mixed-role-extras")).toBeFalsy();
+    const roles = [...(card.querySelectorAll("[data-role]") || [])].map(
+      (chip) => chip.getAttribute("data-role")
+    );
+    expect(roles).toEqual([
+      "toggle",
+      "momentary",
+      "radio",
+      "cover_open",
+      "cover_close",
+    ]);
+    (card.querySelector('[data-role="cover_close"]') as HTMLButtonElement).click();
+    await el.updateComplete;
+    const updated = el.shadowRoot?.querySelector(
+      '[data-mixed-role="1"]'
+    ) as HTMLElement;
+    expect(updated.querySelector(".mixed-role-extras")).toBeTruthy();
+    expect(updated.querySelector("[data-cover-id]")).toBeTruthy();
   });
 
   it("opens a copyable automation example from the settings menu", async () => {

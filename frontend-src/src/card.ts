@@ -109,6 +109,8 @@ const WIZARD_STEPS: WizardStep[] = [
  * CSS colors for Zemismart LED name options (adapter select values).
  * Z2M's `blue` option lights a cyan LED on these panels — preview matches hardware,
  * not a true deep blue. `cyan` stays a slightly brighter / cooler cyan.
+ * `warm_white` / `warm_yellow` stay in the map for legacy draft preview only;
+ * pickers never offer them (Z2M converter hang — use white/yellow).
  */
 export const COLOR_PREVIEW: Record<string, string> = {
   red: "#ff1744",
@@ -121,6 +123,14 @@ export const COLOR_PREVIEW: Record<string, string> = {
   warm_white: "#ffe0b2",
   warm_yellow: "#ffc400",
 };
+
+/** Z2M warm LED enums that hang Zemismart panels — never offer or sync as-is. */
+export const BROKEN_WARM_LED_COLORS = new Set([
+  "warm_white",
+  "warm_yellow",
+  "warmwhite",
+  "warmyellow",
+]);
 
 const DEFAULT_RING_ON = "#00e5ff";
 const DEFAULT_RING_OFF = "#00c8de";
@@ -150,6 +160,44 @@ function storeRadioGroupsOpen(open: boolean): void {
   }
 }
 
+function normalizeColorOptionKey(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-./]+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_|_$/g, "");
+}
+
+/** True for known-broken Z2M warm LED enum values. */
+export function isBrokenWarmLedColor(value: string | undefined): boolean {
+  if (!value) {
+    return false;
+  }
+  const key = normalizeColorOptionKey(value);
+  if (BROKEN_WARM_LED_COLORS.has(key)) {
+    return true;
+  }
+  return BROKEN_WARM_LED_COLORS.has(key.replace(/_/g, ""));
+}
+
+/** Map broken warm_* colors to working white/yellow for display and sync safety. */
+export function remapBrokenWarmLedColor(value: string): string {
+  const key = normalizeColorOptionKey(value);
+  if (key === "warm_white" || key === "warmwhite") {
+    return "white";
+  }
+  if (key === "warm_yellow" || key === "warmyellow") {
+    return "yellow";
+  }
+  return value.trim();
+}
+
+/** Drop broken warm LED enums from color picker option lists. */
+export function filterUiColorOptions(options: string[] | undefined): string[] {
+  return (options || []).filter((option) => !isBrokenWarmLedColor(option));
+}
+
 /** Map a profile LED color name to a CSS color for the faceplate rings. */
 export function resolveLedPreviewColor(
   name: string | undefined,
@@ -158,8 +206,37 @@ export function resolveLedPreviewColor(
   if (!name) {
     return fallback;
   }
-  const key = name.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  const remapped = remapBrokenWarmLedColor(name);
+  const key = remapped.trim().toLowerCase().replace(/[\s-]+/g, "_");
   return COLOR_PREVIEW[key] || COLOR_PREVIEW[key.replace(/_/g, "")] || fallback;
+}
+
+/**
+ * Prefer live select options for color pickers; never offer broken warm_* enums.
+ * Remap a stale draft warm_* value to white/yellow so the picker shows a working color.
+ */
+export function ensureColorSelectOptions(
+  live: string[] | undefined,
+  ...current: Array<string | undefined>
+): string[] {
+  const options = filterUiColorOptions(live);
+  const seen = new Set(options.map((o) => normalizeColorOptionKey(o)));
+  for (const value of current) {
+    const trimmed = String(value || "").trim();
+    if (!trimmed) {
+      continue;
+    }
+    const safe = isBrokenWarmLedColor(trimmed)
+      ? remapBrokenWarmLedColor(trimmed)
+      : trimmed;
+    const key = normalizeColorOptionKey(safe);
+    if (!key || seen.has(key)) {
+      continue;
+    }
+    options.push(safe);
+    seen.add(key);
+  }
+  return options;
 }
 
 /** Prefer live select options; keep the current draft value visible if missing. */
@@ -794,11 +871,34 @@ export class ConXDynamicPanelCard extends LitElement {
     const profile = activeId ? panel.profiles[activeId] : undefined;
     this._saved = profile ? cloneProfile(profile) : undefined;
     this._draft = profile ? cloneProfile(profile) : undefined;
+    // Migrate broken warm_* LED colors in the in-memory draft so Sync cannot hang
+    // the panel; leave _saved as stored so Save Draft can persist white/yellow.
+    this._migrateBrokenWarmLedDraftColors();
     this._clearFaceplatePreview();
     if (this._draft?.mode === "radio_split") {
       this._radioGroupsOpen = loadStoredRadioGroupsOpen() ?? true;
     }
     this._syncMomentaryFromRuntime(panel.momentary_active);
+  }
+
+  /** Remap draft warm_white/warm_yellow → white/yellow (Z2M hang workaround). */
+  private _migrateBrokenWarmLedDraftColors(): void {
+    if (!this._draft) {
+      return;
+    }
+    let changed = false;
+    if (isBrokenWarmLedColor(this._draft.color_on)) {
+      this._draft.color_on = remapBrokenWarmLedColor(this._draft.color_on);
+      changed = true;
+    }
+    if (isBrokenWarmLedColor(this._draft.color_off)) {
+      this._draft.color_off = remapBrokenWarmLedColor(this._draft.color_off);
+      changed = true;
+    }
+    // Mutating draft vs saved flips the computed _dirty getter.
+    if (changed) {
+      this.requestUpdate();
+    }
   }
 
   /** Merge coordinator runtime push — never overwrites draft / saved profiles. */
@@ -1836,6 +1936,7 @@ export class ConXDynamicPanelCard extends LitElement {
       this._applyPanel(panel);
       this._saved = cloneProfile(saved);
       this._draft = cloneProfile(saved);
+      this._migrateBrokenWarmLedDraftColors();
     } catch (err) {
       this._error = err instanceof Error ? err.message : String(err);
     } finally {
@@ -1846,6 +1947,7 @@ export class ConXDynamicPanelCard extends LitElement {
   private _discard(): void {
     if (this._saved) {
       this._draft = cloneProfile(this._saved);
+      this._migrateBrokenWarmLedDraftColors();
       this._clearFaceplatePreview();
     }
   }
@@ -2866,11 +2968,17 @@ export class ConXDynamicPanelCard extends LitElement {
     if (!this._panel || !this._draft) {
       return nothing;
     }
-    const colorOptions = ensureSelectOptions(
+    const colorOptions = ensureColorSelectOptions(
       this._panel.capabilities.colors,
       this._draft.color_on,
       this._draft.color_off
     );
+    const colorOn = isBrokenWarmLedColor(this._draft.color_on)
+      ? remapBrokenWarmLedColor(this._draft.color_on)
+      : this._draft.color_on;
+    const colorOff = isBrokenWarmLedColor(this._draft.color_off)
+      ? remapBrokenWarmLedColor(this._draft.color_off)
+      : this._draft.color_off;
     const radarOptions = ensureSelectOptions(
       this._panel.capabilities.radar,
       this._draft.radar
@@ -2882,10 +2990,10 @@ export class ConXDynamicPanelCard extends LitElement {
               <div class="select-wrap color-select">
                 <span
                   class="swatch"
-                  style="background:${resolveLedPreviewColor(this._draft.color_on)}"
+                  style="background:${resolveLedPreviewColor(colorOn)}"
                 ></span>
                 <select
-                  .value=${this._draft.color_on}
+                  .value=${colorOn}
                   ?disabled=${this._busy}
                   @change=${(e: Event) =>
                     this._patchDraft((draft) => {
@@ -2907,10 +3015,10 @@ export class ConXDynamicPanelCard extends LitElement {
               <div class="select-wrap color-select">
                 <span
                   class="swatch"
-                  style="background:${resolveLedPreviewColor(this._draft.color_off)}"
+                  style="background:${resolveLedPreviewColor(colorOff)}"
                 ></span>
                 <select
-                  .value=${this._draft.color_off}
+                  .value=${colorOff}
                   ?disabled=${this._busy}
                   @change=${(e: Event) =>
                     this._patchDraft((draft) => {
@@ -3029,101 +3137,122 @@ export class ConXDynamicPanelCard extends LitElement {
             String(button.cover_id || covers[0]?.id || "cover_1").trim() ||
             "cover_1";
           const label = (button.name || "").trim() || "—";
+          const extras =
+            role === "momentary" ||
+            role === "radio" ||
+            role === "cover_open" ||
+            role === "cover_close";
           return html`
             <div class="mixed-role-card" data-mixed-role=${button.index}>
-              <div class="mixed-role-card-head">
-                <span class="mixed-role-l" dir="ltr">L${button.index}</span>
-                <span class="mixed-role-name">${label}</span>
-              </div>
-              <div
-                class="mode-picker mixed-role-picker"
-                role="radiogroup"
-                aria-label=${this.t("card.button_role")}
-              >
-                ${roles.map(
-                  (item) => html`
-                    <button
-                      type="button"
-                      class="radio-member ${role === item ? "on" : ""}"
-                      role="radio"
-                      aria-checked=${role === item ? "true" : "false"}
-                      data-role=${item}
-                      ?disabled=${this._busy}
-                      @click=${() => this._setButtonRole(button.index, item)}
-                    >
-                      <span class="radio-member-label"
-                        >${this.t(`role.${item}`)}</span
-                      >
-                    </button>
-                  `
-                )}
-              </div>
-              ${role === "momentary"
-                ? html`
-                    <label class="field field-inline mixed-pulse">
-                      <span
-                        >${this.t("card.pulse_time")} (${this.t(
-                          "card.cover_seconds"
-                        )})</span
-                      >
-                      <input
-                        type="number"
-                        data-pulse-time
-                        min=${PULSE_TIME_MIN}
-                        max=${PULSE_TIME_MAX}
-                        step="0.1"
-                        .value=${String(pulse)}
+              <div class="mixed-role-card-main">
+                <div class="mixed-role-card-head">
+                  <span class="mixed-role-l" dir="ltr">L${button.index}</span>
+                  <span class="mixed-role-name">${label}</span>
+                </div>
+                <div
+                  class="mixed-role-picker"
+                  role="radiogroup"
+                  aria-label=${this.t("card.button_role")}
+                >
+                  ${roles.map(
+                    (item) => html`
+                      <button
+                        type="button"
+                        class="radio-member ${role === item ? "on" : ""}"
+                        role="radio"
+                        aria-checked=${role === item ? "true" : "false"}
+                        data-role=${item}
                         ?disabled=${this._busy}
-                        @change=${(e: Event) => {
-                          const value = Number(
-                            (e.target as HTMLInputElement).value
-                          );
-                          this._patchDraft((draft) => {
-                            const target = draft.buttons.find(
-                              (item) => item.index === button.index
-                            );
-                            if (!target) return;
-                            target.pulse_time_s = clampPulseTime(
-                              value,
-                              DEFAULT_PULSE_TIME
-                            );
-                          });
-                        }}
-                      />
-                    </label>
-                  `
-                : nothing}
-              ${role === "radio"
-                ? html`<p class="radio-groups-hint" data-mixed-radio-hint>
-                    ${this.t("card.mixed_radio_hint")}
-                  </p>`
-                : nothing}
-              ${role === "cover_open" || role === "cover_close"
-                ? html`
-                    <label class="field field-inline mixed-cover-id">
-                      <span>${this.t("card.cover_id")}</span>
-                      <div class="select-wrap">
-                        <select
-                          data-cover-id
-                          .value=${coverId}
-                          ?disabled=${this._busy || covers.length === 0}
-                          @change=${(e: Event) =>
-                            this._setButtonCoverId(
-                              button.index,
-                              (e.target as HTMLSelectElement).value
-                            )}
+                        @click=${() => this._setButtonRole(button.index, item)}
+                      >
+                        <span class="radio-member-label"
+                          >${this.t(`role.${item}`)}</span
                         >
-                          ${covers.map(
-                            (cover) => html`
-                              <option value=${cover.id}>${cover.id}</option>
-                            `
-                          )}
-                        </select>
-                      </div>
-                    </label>
-                    <p class="radio-groups-hint" data-mixed-cover-hint>
-                      ${this.t("card.mixed_cover_hint")}
-                    </p>
+                      </button>
+                    `
+                  )}
+                </div>
+              </div>
+              ${extras
+                ? html`
+                    <div class="mixed-role-extras">
+                      ${role === "momentary"
+                        ? html`
+                            <label class="field field-inline mixed-pulse">
+                              <span
+                                >${this.t("card.pulse_time")} (${this.t(
+                                  "card.cover_seconds"
+                                )})</span
+                              >
+                              <input
+                                type="number"
+                                data-pulse-time
+                                min=${PULSE_TIME_MIN}
+                                max=${PULSE_TIME_MAX}
+                                step="0.1"
+                                .value=${String(pulse)}
+                                ?disabled=${this._busy}
+                                @change=${(e: Event) => {
+                                  const value = Number(
+                                    (e.target as HTMLInputElement).value
+                                  );
+                                  this._patchDraft((draft) => {
+                                    const target = draft.buttons.find(
+                                      (item) => item.index === button.index
+                                    );
+                                    if (!target) return;
+                                    target.pulse_time_s = clampPulseTime(
+                                      value,
+                                      DEFAULT_PULSE_TIME
+                                    );
+                                  });
+                                }}
+                              />
+                            </label>
+                          `
+                        : nothing}
+                      ${role === "radio"
+                        ? html`<p
+                            class="radio-groups-hint"
+                            data-mixed-radio-hint
+                          >
+                            ${this.t("card.mixed_radio_hint")}
+                          </p>`
+                        : nothing}
+                      ${role === "cover_open" || role === "cover_close"
+                        ? html`
+                            <label class="field field-inline mixed-cover-id">
+                              <span>${this.t("card.cover_id")}</span>
+                              <div class="select-wrap">
+                                <select
+                                  data-cover-id
+                                  .value=${coverId}
+                                  ?disabled=${this._busy || covers.length === 0}
+                                  @change=${(e: Event) =>
+                                    this._setButtonCoverId(
+                                      button.index,
+                                      (e.target as HTMLSelectElement).value
+                                    )}
+                                >
+                                  ${covers.map(
+                                    (cover) => html`
+                                      <option value=${cover.id}
+                                        >${cover.id}</option
+                                      >
+                                    `
+                                  )}
+                                </select>
+                              </div>
+                            </label>
+                            <p
+                              class="radio-groups-hint"
+                              data-mixed-cover-hint
+                            >
+                              ${this.t("card.mixed_cover_hint")}
+                            </p>
+                          `
+                        : nothing}
+                    </div>
                   `
                 : nothing}
             </div>
@@ -4864,99 +4993,172 @@ export class ConXDynamicPanelCard extends LitElement {
 
     .mixed-roles-section {
       display: grid;
-      gap: 4px;
-      margin: 0 0 8px;
-      padding: 6px;
-      border-radius: 10px;
+      gap: 3px;
+      margin: 0 0 6px;
+      padding: 4px;
+      border-radius: 8px;
       border: 1px solid var(--border, var(--conx-border, rgba(255, 255, 255, 0.12)));
       background: var(--surface);
       color: var(--text);
+      container-type: inline-size;
+      container-name: mixed-roles;
     }
     .mixed-roles-section > .radio-groups-hint {
-      margin: 0 0 2px;
-      font-size: 0.72rem;
-      line-height: 1.25;
+      margin: 0 0 1px;
+      font-size: 0.68rem;
+      line-height: 1.2;
       color: var(--text-muted);
     }
     .mixed-roles-head .menu-label {
       margin-bottom: 0;
-      font-size: 0.82rem;
+      font-size: 0.78rem;
       font-weight: 700;
       color: var(--text);
     }
     .mixed-role-card {
       display: grid;
-      gap: 3px;
-      padding: 4px 6px;
-      border-radius: 8px;
+      gap: 2px;
+      padding: 3px 5px;
+      border-radius: 7px;
       border: 1px solid var(--border, var(--conx-border, rgba(255, 255, 255, 0.1)));
       background: var(--surface-2);
       color: var(--text);
     }
+    .mixed-role-card-main {
+      display: grid;
+      grid-template-columns: minmax(2.2rem, 4.2rem) minmax(0, 1fr);
+      align-items: center;
+      gap: 3px 6px;
+      min-width: 0;
+    }
     .mixed-role-card-head {
       display: flex;
-      align-items: baseline;
-      gap: 6px;
-      flex-wrap: wrap;
-      min-height: 1.1rem;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0;
+      min-width: 0;
+      min-height: 0;
     }
     .mixed-role-l {
       font-weight: 800;
       letter-spacing: 0.04em;
-      font-size: 0.78rem;
+      font-size: 0.7rem;
+      line-height: 1.15;
       color: var(--text);
     }
     .mixed-role-name {
-      font-size: 0.78rem;
+      font-size: 0.65rem;
       font-weight: 600;
+      line-height: 1.15;
       color: var(--text);
       opacity: 1;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     .mixed-role-picker {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 3px;
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 2px;
       width: 100%;
+      min-width: 0;
     }
     .mixed-role-picker .radio-member {
-      flex: 1 1 calc(20% - 3px);
-      min-width: 3.2rem;
-      padding: 3px 2px;
-      min-height: 26px;
-      border-radius: 7px;
+      flex: none;
+      width: 100%;
+      min-width: 0;
+      padding: 2px 1px;
+      min-height: 22px;
+      border-radius: 6px;
     }
     .mixed-role-picker .radio-member-label {
-      font-size: 0.65rem;
+      font-size: 0.58rem;
       font-weight: 650;
       text-align: center;
-      line-height: 1.1;
+      line-height: 1.05;
       white-space: normal;
+      overflow-wrap: anywhere;
+      hyphens: auto;
+    }
+    .mixed-role-extras {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 3px 8px;
+      min-width: 0;
     }
     .mixed-role-card .radio-groups-hint {
       margin: 0;
-      font-size: 0.68rem;
-      line-height: 1.2;
+      font-size: 0.62rem;
+      line-height: 1.15;
+      flex: 1 1 8rem;
     }
     .mixed-pulse,
     .mixed-cover-id {
       width: max-content;
       max-width: 100%;
       margin-top: 0;
-      gap: 4px;
+      margin-bottom: 0;
+      gap: 3px;
     }
     .mixed-pulse span,
     .mixed-cover-id span {
-      font-size: 0.7rem;
+      font-size: 0.62rem;
       color: var(--text-muted);
     }
     .mixed-pulse input[type="number"] {
-      width: 4.5rem;
+      width: 3.8rem;
+      min-height: 24px;
+      padding: 2px 4px;
+      font-size: 0.72rem;
+    }
+    .mixed-cover-id .select-wrap {
+      min-width: 5.5rem;
+      max-width: 9rem;
+    }
+    .mixed-cover-id select {
+      min-height: 24px;
+      padding: 2px 4px;
+      font-size: 0.72rem;
+    }
+    .cover-section-mixed {
+      margin: 2px 0 6px;
+      padding: 6px;
+    }
+    .cover-section-mixed .cover-head {
+      margin-bottom: 4px;
+    }
+    .cover-section-mixed .cover-block {
+      margin-top: 4px;
+      padding-top: 4px;
+    }
+    .cover-section-mixed .cover-times {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
+      gap: 6px 10px;
+      margin-bottom: 6px;
+    }
+    .cover-section-mixed .cover-times .field {
+      margin-bottom: 0;
+    }
+    .cover-section-mixed .cover-times input[type="number"] {
       min-height: 28px;
       padding: 4px 6px;
     }
-    .mixed-cover-id .select-wrap {
-      min-width: 6.5rem;
-      max-width: 12rem;
+    @container mixed-roles (max-width: 360px) {
+      .mixed-role-card-main {
+        grid-template-columns: 1fr;
+        gap: 2px;
+      }
+      .mixed-role-card-head {
+        flex-direction: row;
+        align-items: baseline;
+        gap: 5px;
+      }
+      .mixed-role-picker {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
     }
 
     .mode-picker {
