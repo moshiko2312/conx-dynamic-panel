@@ -51,15 +51,16 @@ These IDs are examples and test fixtures only. Never hard-code them into product
 Colors:
 
 ```text
-red, blue, green, white, yellow, magenta, cyan, warm_white, warm_yellow
+red, blue, green, white, yellow, magenta, cyan
 ```
 
-These match Zigbee2MQTT ZMS-206 exposes. Prefer live Home Assistant select
-`options` over defaults. Note: some Z2M converter builds mismatch
+These match working Zigbee2MQTT ZMS-206 LED options. Prefer live Home Assistant
+select `options` over defaults. Note: Z2M converter builds mismatch
 `warm_white`/`warm_yellow` (expose) vs `warmwhite`/`warmyellow` (lookup); those
-values may fail on the wire even outside ConX. Also, Z2M option `blue` lights a
-cyan LED on these panels (no true deep blue); keep wire value `blue`, label/swatch
-honestly in the card.
+values hang the panel select. ConX never offers or writes warm_* — always remap to
+`white`/`yellow` until Z2M is fixed. Also, Z2M option `blue` lights a cyan LED on
+these panels (no true deep blue); keep wire value `blue`, label/swatch honestly in
+the card.
 
 Radar:
 

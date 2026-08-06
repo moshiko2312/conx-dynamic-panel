@@ -15,8 +15,11 @@ from custom_components.conx_dynamic_panel.exceptions import HardwareWriteError
 from custom_components.conx_dynamic_panel.models import EntityMapping
 from custom_components.conx_dynamic_panel.option_match import (
     compact_select_option_key,
+    filter_ui_color_options,
+    is_broken_warm_led_color,
     normalize_select_option_key,
     options_match,
+    remap_broken_warm_led_color,
     resolve_select_option,
 )
 from custom_components.conx_dynamic_panel.suppression import SuppressionTracker
@@ -47,21 +50,44 @@ def test_options_match_ignores_formatting() -> None:
 
 
 def test_resolve_select_option_exact() -> None:
-    assert resolve_select_option("warm_white", ["blue", "warm_white"]) == "warm_white"
+    assert resolve_select_option("white", ["blue", "white"]) == "white"
     assert resolve_select_option("none", ["none", "10s", "30s"]) == "none"
 
 
 def test_resolve_select_option_fuzzy() -> None:
-    assert resolve_select_option("warm_white", ["Blue", "Warm White", "Cyan"]) == "Warm White"
-    assert resolve_select_option("Warm White", ["blue", "warm_white"]) == "warm_white"
-    assert resolve_select_option("warm_white", ["blue", "warmwhite"]) == "warmwhite"
+    assert resolve_select_option("White", ["Blue", "White", "Cyan"]) == "White"
+    assert resolve_select_option("Warm White", ["blue", "white"]) == "white"
+    assert resolve_select_option("warm_white", ["blue", "warmwhite", "white"]) == "white"
     assert resolve_select_option("None", ["none", "30s"]) == "none"
 
 
 def test_resolve_select_option_color_closest_alias() -> None:
-    """When warm variants are absent, map to closest supported LED color."""
+    """When warm variants are requested, always map to white/yellow."""
     assert resolve_select_option("warm_white", ["red", "blue", "white", "yellow"]) == "white"
     assert resolve_select_option("warm_yellow", ["red", "blue", "white", "yellow"]) == "yellow"
+
+
+def test_resolve_never_writes_warm_even_when_in_options() -> None:
+    """Live HA options may still list warm_*; never return them as write targets."""
+    options = ["red", "blue", "white", "yellow", "warm_white", "warm_yellow"]
+    assert resolve_select_option("warm_white", options) == "white"
+    assert resolve_select_option("warm_yellow", options) == "yellow"
+    assert resolve_select_option("Warm White", options) == "white"
+    assert resolve_select_option("warmwhite", options) == "white"
+    assert not is_broken_warm_led_color(resolve_select_option("warm_white", options))
+
+
+def test_remap_and_filter_broken_warm_led_colors() -> None:
+    assert remap_broken_warm_led_color("warm_white") == "white"
+    assert remap_broken_warm_led_color("warm_yellow") == "yellow"
+    assert remap_broken_warm_led_color("WarmYellow") == "yellow"
+    assert remap_broken_warm_led_color("blue") == "blue"
+    assert is_broken_warm_led_color("warm_white")
+    assert is_broken_warm_led_color("warmyellow")
+    assert not is_broken_warm_led_color("white")
+    assert filter_ui_color_options(
+        ["red", "warm_white", "white", "Warm Yellow", "yellow", "cyan"]
+    ) == ["red", "white", "yellow", "cyan"]
 
 
 def test_resolve_select_option_radar_none_aliases() -> None:
@@ -75,8 +101,10 @@ def test_resolve_select_option_radar_none_aliases() -> None:
 
 
 def test_resolve_select_option_empty_options_passthrough() -> None:
-    assert resolve_select_option("warm_white", []) == "warm_white"
-    assert resolve_select_option("warm_white", None) == "warm_white"
+    # Empty options still remaps broken warm enums so Sync cannot hang the panel.
+    assert resolve_select_option("warm_white", []) == "white"
+    assert resolve_select_option("warm_white", None) == "white"
+    assert resolve_select_option("warm_yellow", []) == "yellow"
     assert resolve_select_option("none", []) == "none"
 
 
@@ -122,16 +150,19 @@ def _mapping() -> EntityMapping:
 
 @pytest.mark.asyncio
 async def test_select_option_fuzzy_write_and_confirm() -> None:
-    """Profile warm_white maps to HA 'Warm White' and confirms with fuzzy wait."""
+    """Profile warm_white maps to white (never writes warm_*) and confirms."""
     states = {
-        "select.off": _state("Blue", options=["Blue", "Warm White", "Cyan"]),
+        "select.off": _state("Blue", options=["Blue", "Warm White", "White", "Cyan"]),
     }
 
     async def async_call(domain: str, service: str, data: dict[str, Any], **_: Any) -> None:
         assert domain == "select"
         assert service == "select_option"
-        assert data["option"] == "Warm White"
-        states[data["entity_id"]] = _state(data["option"], options=["Blue", "Warm White", "Cyan"])
+        assert data["option"] == "White"
+        assert data["option"] != "Warm White"
+        states[data["entity_id"]] = _state(
+            data["option"], options=["Blue", "Warm White", "White", "Cyan"]
+        )
 
     hass = SimpleNamespace(
         states=FakeStates(states),
@@ -145,14 +176,41 @@ async def test_select_option_fuzzy_write_and_confirm() -> None:
         confirm_timeout=1.0,
     )
     await adapter._async_select_option("select.off", "warm_white")
-    assert states["select.off"].state == "Warm White"
+    assert states["select.off"].state == "White"
     assert hass.services.async_call.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_select_option_never_writes_warm_when_listed() -> None:
+    """Even when HA options include warm_white, ConX writes white instead."""
+    options = ["blue", "warm_white", "white", "cyan"]
+    states = {
+        "select.off": _state("blue", options=options),
+    }
+
+    async def async_call(domain: str, service: str, data: dict[str, Any], **_: Any) -> None:
+        assert data["option"] == "white"
+        assert data["option"] != "warm_white"
+        states[data["entity_id"]] = _state(data["option"], options=options)
+
+    hass = SimpleNamespace(
+        states=FakeStates(states),
+        services=SimpleNamespace(async_call=AsyncMock(side_effect=async_call)),
+    )
+    adapter = Zemismart4GangAdapter(
+        hass,  # type: ignore[arg-type]
+        _mapping(),
+        SuppressionTracker(),
+        confirm_timeout=1.0,
+    )
+    await adapter._async_select_option("select.off", "warm_white")
+    assert states["select.off"].state == "white"
 
 
 @pytest.mark.asyncio
 async def test_select_option_skips_when_already_set() -> None:
     states = {
-        "select.off": _state("Warm White", options=["Blue", "Warm White"]),
+        "select.off": _state("White", options=["Blue", "Warm White", "White"]),
     }
     hass = SimpleNamespace(
         states=FakeStates(states),
@@ -171,7 +229,7 @@ async def test_select_option_skips_when_already_set() -> None:
 @pytest.mark.asyncio
 async def test_select_option_timeout_lists_available_options() -> None:
     states = {
-        "select.off": _state("blue", options=["blue", "warm_white", "cyan"]),
+        "select.off": _state("blue", options=["blue", "warm_white", "cyan", "white"]),
     }
     hass = SimpleNamespace(
         states=FakeStates(states),
@@ -186,7 +244,7 @@ async def test_select_option_timeout_lists_available_options() -> None:
     with pytest.raises(HardwareWriteError, match="available options=") as exc_info:
         await adapter._async_select_option("select.off", "warm_white")
     message = str(exc_info.value)
-    assert "warm_white" in message
+    assert "white" in message
     assert "blue" in message
     assert "entity=select.off" in message
     # Retries should re-issue the select service call.
@@ -196,14 +254,17 @@ async def test_select_option_timeout_lists_available_options() -> None:
 @pytest.mark.asyncio
 async def test_select_option_retries_until_state_confirms() -> None:
     states = {
-        "select.off": _state("blue", options=["blue", "warm_white"]),
+        "select.off": _state("blue", options=["blue", "warm_white", "white"]),
     }
     calls = {"n": 0}
 
     async def async_call(domain: str, service: str, data: dict[str, Any], **_: Any) -> None:
+        assert data["option"] == "white"
         calls["n"] += 1
         if calls["n"] >= 2:
-            states[data["entity_id"]] = _state(data["option"], options=["blue", "warm_white"])
+            states[data["entity_id"]] = _state(
+                data["option"], options=["blue", "warm_white", "white"]
+            )
 
     hass = SimpleNamespace(
         states=FakeStates(states),
@@ -216,7 +277,7 @@ async def test_select_option_retries_until_state_confirms() -> None:
         confirm_timeout=0.2,
     )
     await adapter._async_select_option("select.off", "warm_white")
-    assert states["select.off"].state == "warm_white"
+    assert states["select.off"].state == "white"
     assert calls["n"] == 2
 
 
@@ -297,8 +358,14 @@ async def test_radar_none_timeout_lists_options_and_current() -> None:
 
 def test_supported_colors_and_radar_prefer_live_options() -> None:
     states = {
-        "select.on": _state("blue", options=["red", "blue", "green", "white", "yellow"]),
-        "select.off": _state("red", options=["red", "blue", "green", "white", "yellow"]),
+        "select.on": _state(
+            "blue",
+            options=["red", "blue", "green", "white", "yellow", "warm_white", "warm_yellow"],
+        ),
+        "select.off": _state(
+            "red",
+            options=["red", "blue", "green", "white", "yellow", "warm_white", "warm_yellow"],
+        ),
         "select.radar": _state("unknown", options=["none", "10s", "30s"]),
     }
     hass = SimpleNamespace(states=FakeStates(states))
@@ -316,4 +383,5 @@ def test_supported_colors_and_radar_prefer_live_options() -> None:
         "yellow",
     ]
     assert "warm_white" not in adapter.supported_colors()
+    assert "warm_yellow" not in adapter.supported_colors()
     assert adapter.supported_radar() == ["none", "10s", "30s"]

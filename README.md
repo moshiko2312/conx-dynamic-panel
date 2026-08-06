@@ -78,27 +78,26 @@ white
 yellow
 magenta
 cyan
-warm_white
-warm_yellow
 ```
 
-These match the Zigbee2MQTT ZMS-206 / TS0601 expose list for `switch_color_on` /
-`switch_color_off`. The card prefers **live** `options` from the mapped Home Assistant
-`select` entities when available; defaults above are fallbacks only.
+These match the working Zigbee2MQTT ZMS-206 / TS0601 LED options for
+`switch_color_on` / `switch_color_off`. The card prefers **live** `options` from the
+mapped Home Assistant `select` entities when available; defaults above are fallbacks
+only. ConX also filters known-broken warm enums out of the picker even if HA still
+lists them.
 
 **Note (hardware LEDs):** on these panels the Z2M option named `blue` lights a **cyan**
 LED — there is no true deep-blue LED. ConX keeps the wire value `blue` (what Z2M/HA
 expect) but the card swatch and Hebrew/English labels say that blue looks cyan on the
 panel. `cyan` remains a separate Z2M option with a slightly brighter preview.
 
-**Note (Z2M / hardware):** current `zigbee-herdsman-converters` exposes
-`warm_white` / `warm_yellow` but the Tuya datapoint lookup keys are `warmwhite` /
-`warmyellow` (no underscore). Setting the underscored values via Z2M or HA often
-times out and the select stays on the previous color (e.g. `blue`). That is a
-Zigbee2MQTT converter mismatch, not a ConX-only bug. If your HA `options` list
-omits the warm variants, ConX maps them to the closest supported colors
-(`white` / `yellow`). Prefer colors that already work when you set them manually
-in Developer Tools.
+**Note (Z2M warm white / warm yellow — HE/EN):** current `zigbee-herdsman-converters`
+exposes `warm_white` / `warm_yellow`, but the Tuya datapoint lookup keys are
+`warmwhite` / `warmyellow` (no underscore). Setting the underscored values via Z2M or
+HA often times out and can stick/freeze the panel select. Until the Z2M converter is
+fixed, ConX **does not offer** these colors in the card and **never writes** them to
+the device — profile values are remapped to `white` / `yellow` instead.
+עברית: לבן חם / צהוב חם לא זמינים כרגע (בעיית Z2M) — בחרו `white` / `yellow`.
 
 ### Supported radar values
 

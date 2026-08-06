@@ -50,6 +50,8 @@ from .const import (
     SYNC_SYNCED,
 )
 
+from .option_match import filter_ui_color_options
+
 
 def clamp_backlight_brightness(value: Any) -> int:
     """Clamp backlight brightness to the supported 0–100 range."""
@@ -991,7 +993,7 @@ class PanelStorageData:
             id="scenes",
             name="Scenes",
             mode=MODE_TOGGLE,  # type: ignore[arg-type]
-            color_on="warm_white",
+            color_on="white",
             color_off="blue",
             buttons=[
                 ButtonConfig(index=1, name="Morning"),
@@ -1092,7 +1094,7 @@ class EntityMapping:
 def capability_defaults() -> dict[str, Any]:
     """Adapter capability defaults exposed to the frontend."""
     return {
-        "colors": list(DEFAULT_COLORS),
+        "colors": filter_ui_color_options(list(DEFAULT_COLORS)),
         "radar": list(DEFAULT_RADAR),
         "modes": list(SUPPORTED_MODES),
         "button_count": BUTTON_COUNT,

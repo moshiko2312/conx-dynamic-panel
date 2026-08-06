@@ -29,7 +29,13 @@ from ..models import (
     SyncResult,
     clamp_backlight_brightness,
 )
-from ..option_match import options_match, resolve_select_option
+from ..option_match import (
+    filter_ui_color_options,
+    is_broken_warm_led_color,
+    options_match,
+    remap_broken_warm_led_color,
+    resolve_select_option,
+)
 from ..suppression import SuppressionTracker
 from .base import PanelAdapter
 
@@ -230,11 +236,14 @@ class Zemismart4GangAdapter(PanelAdapter):
         await self._async_set_switch(self.mapping.child_lock_entity, enabled)
 
     def supported_colors(self) -> list[str]:
-        """Prefer live select options, fall back to defaults."""
+        """Prefer live select options, fall back to defaults.
+
+        Known-broken Z2M warm LED enums are filtered even when HA still lists them.
+        """
         options = self._options(self.mapping.color_on_entity) or self._options(
             self.mapping.color_off_entity
         )
-        return options or list(DEFAULT_COLORS)
+        return filter_ui_color_options(options or list(DEFAULT_COLORS))
 
     def supported_radar(self) -> list[str]:
         """Prefer live radar options, fall back to defaults."""
@@ -277,6 +286,19 @@ class Zemismart4GangAdapter(PanelAdapter):
 
     async def _async_select_option(self, entity_id: str, option: str) -> None:
         await self._async_wait_for_select_ready(entity_id)
+        # Color selects: never write broken warm_* enums (Z2M converter hang).
+        if entity_id in {
+            self.mapping.color_off_entity,
+            self.mapping.color_on_entity,
+        } and is_broken_warm_led_color(option):
+            remapped = remap_broken_warm_led_color(option)
+            _LOGGER.debug(
+                "Remapping broken warm LED color %s → %s on %s (never write warm_*)",
+                option,
+                remapped,
+                entity_id,
+            )
+            option = remapped
         options = self._options(entity_id)
         resolved = option
         try:
@@ -287,6 +309,16 @@ class Zemismart4GangAdapter(PanelAdapter):
 
         if options and resolved != option:
             _LOGGER.debug("Resolved select option %s → %s on %s", option, resolved, entity_id)
+        if is_broken_warm_led_color(resolved):
+            # Belt-and-suspenders: resolve must never return warm_* for a write.
+            safe = remap_broken_warm_led_color(resolved)
+            _LOGGER.debug(
+                "Blocked broken warm LED write %s → %s on %s",
+                resolved,
+                safe,
+                entity_id,
+            )
+            resolved = safe
 
         current = self._state_str(entity_id)
         if current and options and options_match(current, resolved):
@@ -299,6 +331,8 @@ class Zemismart4GangAdapter(PanelAdapter):
             options = self._options(entity_id) or options
             try:
                 resolved = resolve_select_option(option, options)
+                if is_broken_warm_led_color(resolved):
+                    resolved = remap_broken_warm_led_color(resolved)
             except HardwareWriteError as err:
                 last_error = HardwareWriteError(
                     f"{err}; entity={entity_id}; current={self._select_current_label(entity_id)}"
