@@ -4,6 +4,10 @@ All notable changes to this private project will be documented here.
 
 ## [Unreleased]
 
+### Added
+
+- **Sync matches linked HA entity → panel LED/relay:** after applying names/colors/modes on Sync (and activate+sync), toggle buttons set each relay ON/OFF from the linked entity state (`action.target.entity_id`). Lights/switches `on`→ON / `off`→OFF; domain-aware mapping for covers/media/locks when used as toggles. Mixed mode syncs `toggle` (and ungrouped `radio`); `cover_*` and `momentary` stay OFF. Radio groups prefer the member whose entity is ON when exactly one is active; cover direction relays never stay ON after sync.
+
 ### Changed
 
 - **Free-mix role cards show Action + searchable Entity:** Toggle / Momentary / Radio extras include primary HA Action + Entity pickers in the same role window (not only buried in the button accordion). Uses `ha-service-picker` / `ha-entity-picker` when Home Assistant provides them; otherwise searchable filter + select. Cover roles keep motor-slot + inline travel times only (no fake HA entity for `cover_1`). Hint copy (EN/HE/RU) no longer says “look below”.

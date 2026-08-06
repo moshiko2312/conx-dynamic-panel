@@ -14,15 +14,24 @@ from ..const import (
     BACKLIGHT_BRIGHTNESS_MAX,
     BACKLIGHT_BRIGHTNESS_MIN,
     BUTTON_COUNT,
+    BUTTON_ROLE_RADIO,
+    BUTTON_ROLE_TOGGLE,
     DEFAULT_BACKLIGHT_BRIGHTNESS,
     DEFAULT_COLORS,
     DEFAULT_RADAR,
     MODE_COVER,
+    MODE_MIXED,
+    MODE_RADIO_MANDATORY,
+    MODE_RADIO_OPTIONAL,
+    MODE_RADIO_SPLIT,
+    MODE_TOGGLE,
     SELECT_CONFIRM_TIMEOUT_FLOOR,
     SELECT_WRITE_ATTEMPTS,
 )
+from ..entity_relay import entity_state_to_relay_on, linked_entity_id_from_action
 from ..exceptions import HardwareWriteError, MappingValidationError
 from ..models import (
+    ButtonConfig,
     EntityMapping,
     HardwareState,
     Profile,
@@ -250,35 +259,142 @@ class Zemismart4GangAdapter(PanelAdapter):
         return self._options(self.mapping.radar_entity) or list(DEFAULT_RADAR)
 
     async def _async_apply_relay_mode(self, profile: Profile) -> None:
-        """Apply relay pattern required by the profile mode for radio members only."""
+        """Apply safe relay patterns, then match linked HA entity states.
+
+        Cover direction relays and momentary pulses always end OFF after sync.
+        Toggle (and ungrouped radio) buttons with a linked entity sync ON/OFF
+        from that entity. Radio exclusivity groups pick the member whose entity
+        is ON when exactly one is active; otherwise they keep the profile
+        selection (mandatory/optional) or leave relays alone (split ambiguity).
+        """
         if profile.mode == MODE_COVER:
             # A synced cover always lands de-energized: every direction relay OFF.
             for index in profile.all_cover_relay_indexes():
-                await self.async_set_relay(index, False, suppress_event=True)
+                await self._async_set_relay_if_needed(index, False)
             return
-        if profile.mode == "mixed":
-            # Cover directions and momentary pulses start safe (OFF). Toggle/radio
-            # buttons keep their latched state; exclusivity is enforced on press.
+
+        if profile.mode == MODE_MIXED:
             for index in profile.all_cover_relay_indexes():
-                await self.async_set_relay(index, False, suppress_event=True)
+                await self._async_set_relay_if_needed(index, False)
             for index in profile.momentary_button_indexes():
-                await self.async_set_relay(index, False, suppress_event=True)
+                await self._async_set_relay_if_needed(index, False)
+            grouped: set[int] = set()
+            for group in profile.radio_groups:
+                members = [
+                    index
+                    for index in group.buttons
+                    if index <= profile.gang_count
+                    and profile.button_role(index) == BUTTON_ROLE_RADIO
+                ]
+                grouped.update(members)
+                await self._async_apply_radio_member_states(
+                    profile,
+                    members,
+                    selected_fallback=None,
+                    require_selection=False,
+                )
+            for button in profile.visible_buttons():
+                if button.is_cover_role or button.is_momentary:
+                    continue
+                if button.index in grouped:
+                    continue
+                # Toggle and ungrouped radio behave as independent latches.
+                if button.role in {BUTTON_ROLE_TOGGLE, BUTTON_ROLE_RADIO}:
+                    await self._async_sync_button_from_entity(button)
             return
-        # Toggle and radio_split leave relays as-is; exclusivity is enforced on press.
-        if profile.mode in {"toggle", "radio_split"}:
+
+        if profile.mode == MODE_TOGGLE:
+            for button in profile.visible_buttons():
+                await self._async_sync_button_from_entity(button)
             return
-        members = set(profile.radio_member_indexes())
-        selected = profile.selected_button
-        if selected not in members:
+
+        if profile.mode == MODE_RADIO_SPLIT:
+            grouped = set()
+            for group in profile.radio_groups:
+                members = [index for index in group.buttons if index <= profile.gang_count]
+                grouped.update(members)
+                await self._async_apply_radio_member_states(
+                    profile,
+                    members,
+                    selected_fallback=None,
+                    require_selection=False,
+                )
+            for button in profile.visible_buttons():
+                if button.index not in grouped:
+                    await self._async_sync_button_from_entity(button)
+            return
+
+        # radio_mandatory / radio_optional
+        members = profile.radio_member_indexes()
+        member_set = set(members)
+        for button in profile.visible_buttons():
+            if button.index not in member_set:
+                await self._async_sync_button_from_entity(button)
+        selected = profile.selected_button if profile.selected_button in member_set else None
+        require_selection = profile.mode in {MODE_RADIO_MANDATORY, MODE_RADIO_OPTIONAL}
+        await self._async_apply_radio_member_states(
+            profile,
+            members,
+            selected_fallback=selected,
+            require_selection=require_selection,
+        )
+
+    async def _async_set_relay_if_needed(self, index: int, state: bool) -> None:
+        """Write a relay only when the mapped switch differs (avoids Zigbee chatter)."""
+        if self.relay_is_on(index) == state:
+            return
+        await self.async_set_relay(index, state, suppress_event=True)
+
+    async def _async_sync_button_from_entity(self, button: ButtonConfig) -> None:
+        """Match one button's relay to its linked HA entity state when known."""
+        entity_id = linked_entity_id_from_action(button.action)
+        if not entity_id:
+            return
+        desired = entity_state_to_relay_on(self.hass, entity_id)
+        if desired is None:
+            return
+        await self._async_set_relay_if_needed(button.index, desired)
+
+    async def _async_apply_radio_member_states(
+        self,
+        profile: Profile,
+        members: list[int],
+        *,
+        selected_fallback: int | None,
+        require_selection: bool,
+    ) -> None:
+        """Apply radio exclusivity, preferring a unique ON linked entity."""
+        if not members:
+            return
+        member_set = set(members)
+        entity_on: list[int] = []
+        for index in members:
+            button = profile.button_by_index(index)
+            if button is None:
+                continue
+            entity_id = linked_entity_id_from_action(button.action)
+            if not entity_id:
+                continue
+            mapped = entity_state_to_relay_on(self.hass, entity_id)
+            if mapped is True:
+                entity_on.append(index)
+
+        selected = entity_on[0] if len(entity_on) == 1 else selected_fallback
+        if selected is not None and selected not in member_set:
             selected = None
-        if profile.mode in {"radio_mandatory", "radio_optional"} and selected is None:
+        if require_selection and selected is None:
             selected = next(iter(sorted(members)), 1)
-            profile.selected_button = selected
-        elif selected is not None:
+        if selected is None and not require_selection and len(entity_on) != 1:
+            # Ambiguous split group: leave latched relays alone.
+            return
+        if selected is not None and profile.mode in {
+            MODE_RADIO_MANDATORY,
+            MODE_RADIO_OPTIONAL,
+        }:
             profile.selected_button = selected
         for index in sorted(members):
             desired = selected == index
-            await self.async_set_relay(index, desired, suppress_event=True)
+            await self._async_set_relay_if_needed(index, desired)
 
     def _select_confirm_timeout(self) -> float:
         """Select entities often need longer Zigbee report-back than switches."""

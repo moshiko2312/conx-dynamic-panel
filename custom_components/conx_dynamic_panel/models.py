@@ -49,7 +49,6 @@ from .const import (
     SYNC_PENDING,
     SYNC_SYNCED,
 )
-
 from .option_match import filter_ui_color_options
 
 
@@ -506,6 +505,20 @@ class ButtonAction:
     def to_dict(self) -> dict[str, Any]:
         """Serialize action."""
         return {"action": self.action, "target": deepcopy(self.target), "data": deepcopy(self.data)}
+
+    def linked_entity_id(self) -> str | None:
+        """Return the primary target/data entity_id for sync and pickers."""
+        for source in (self.target, self.data):
+            raw = source.get("entity_id")
+            if isinstance(raw, str):
+                entity_id = raw.strip()
+                if entity_id:
+                    return entity_id
+            elif isinstance(raw, (list, tuple)):
+                for item in raw:
+                    if isinstance(item, str) and item.strip():
+                        return item.strip()
+        return None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any] | None) -> ButtonAction | None:
