@@ -337,8 +337,10 @@ async def test_opposite_press_stop_then_reverse_stops_before_starting() -> None:
     adapter.relay_calls.clear()
     await coordinator._async_handle_physical_press(CLOSE_BUTTON, True)
     assert runtime.cover.direction == "close"
+    assert runtime.cover.moving is True
+    assert runtime.cover.timer is not None
     # Active open is killed first, then close OFF, settle re-asserts both OFF,
-    # then start forces both OFF again before close ON — never both true.
+    # then start forces opposite OFF again before close ON — never both true.
     first_close_on = adapter.relay_calls.index((CLOSE_BUTTON, True))
     prefix = adapter.relay_calls[:first_close_on]
     assert (OPEN_BUTTON, False) in prefix
@@ -346,6 +348,79 @@ async def test_opposite_press_stop_then_reverse_stops_before_starting() -> None:
     assert all(state is False for _index, state in prefix)
     assert adapter.relays[OPEN_BUTTON] is False
     assert adapter.relays[CLOSE_BUTTON] is True
+    _assert_no_both_on_window(adapter.relay_calls, OPEN_BUTTON, CLOSE_BUTTON)
+    await coordinator._async_cover_abort("test")
+
+
+@pytest.mark.asyncio
+async def test_stop_then_reverse_energizes_when_relay_is_on_is_stale() -> None:
+    """After halt both are OFF; reverse must turn_on even if is_on lies."""
+    coordinator, adapter, _store, _profile, runtime = _build(
+        opposite_press=COVER_OPPOSITE_STOP_THEN_REVERSE,
+        settle=0.0,
+        open_time=5.0,
+        close_time=5.0,
+    )
+    await coordinator._async_handle_physical_press(OPEN_BUTTON, True)
+    adapter.relay_calls.clear()
+
+    real_is_on = adapter.relay_is_on
+
+    def stale_is_on(index: int) -> bool:
+        # Simulate HA still reporting the reverse target ON from the physical
+        # press even though halt already wrote it OFF.
+        if index == CLOSE_BUTTON and adapter.relays[CLOSE_BUTTON] is False:
+            return True
+        return real_is_on(index)
+
+    adapter.relay_is_on = stale_is_on  # type: ignore[method-assign]
+    await coordinator._async_handle_physical_press(CLOSE_BUTTON, True)
+    assert runtime.cover.direction == "close"
+    assert runtime.cover.timer is not None
+    assert adapter.relays[CLOSE_BUTTON] is True
+    assert (CLOSE_BUTTON, True) in adapter.relay_calls
+    _assert_no_both_on_window(adapter.relay_calls, OPEN_BUTTON, CLOSE_BUTTON)
+    await coordinator._async_cover_abort("test")
+
+
+@pytest.mark.asyncio
+async def test_inactive_direction_off_after_reverse_does_not_abort() -> None:
+    """Duplicate Zigbee OFF on the previous direction must not kill reverse."""
+    coordinator, adapter, _store, _profile, runtime = _build(
+        opposite_press=COVER_OPPOSITE_STOP_THEN_REVERSE,
+        settle=0.0,
+        open_time=5.0,
+        close_time=5.0,
+    )
+    await coordinator._async_handle_physical_press(OPEN_BUTTON, True)
+    await coordinator._async_handle_physical_press(CLOSE_BUTTON, True)
+    assert runtime.cover.direction == "close"
+    assert adapter.relays[CLOSE_BUTTON] is True
+    adapter.relay_calls.clear()
+    await coordinator._async_handle_physical_press(OPEN_BUTTON, False)
+    assert runtime.cover.direction == "close"
+    assert adapter.relays[CLOSE_BUTTON] is True
+    assert adapter.relay_calls == []
+    await coordinator._async_cover_abort("test")
+
+
+@pytest.mark.asyncio
+async def test_cover_command_stop_then_reverse_energizes_opposite() -> None:
+    coordinator, adapter, _store, _profile, runtime = _build(
+        opposite_press=COVER_OPPOSITE_STOP_THEN_REVERSE,
+        settle=0.0,
+        open_time=5.0,
+        close_time=5.0,
+    )
+    await coordinator.async_cover_command("open")
+    adapter.relay_calls.clear()
+    result = await coordinator.async_cover_command("close")
+    assert result["state"] == "close"
+    assert runtime.cover.direction == "close"
+    assert runtime.cover.timer is not None
+    assert adapter.relays[OPEN_BUTTON] is False
+    assert adapter.relays[CLOSE_BUTTON] is True
+    assert (CLOSE_BUTTON, True) in adapter.relay_calls
     _assert_no_both_on_window(adapter.relay_calls, OPEN_BUTTON, CLOSE_BUTTON)
     await coordinator._async_cover_abort("test")
 

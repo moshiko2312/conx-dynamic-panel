@@ -466,9 +466,12 @@ class PanelCoordinator:
         async with self.runtime.cover.lock:
             motion = self.runtime.cover.get(cover.id)
             if not turned_on:
-                # A direction relay switching OFF can never mean "start moving":
-                # it is either the stop press for the current travel or hardware
-                # drift. Both cases resolve to a full halt for this cover.
+                # OFF on the inactive direction must not abort travel. After
+                # stop_then_reverse the previous direction often reports a
+                # duplicate Zigbee OFF; treating that as a stop killed reverse.
+                if motion.moving and motion.direction != direction:
+                    return
+                # Active-direction OFF is a stop press; idle OFF is safety.
                 await self._async_cover_halt(
                     cover,
                     reason=COVER_REASON_STOP_PRESS if motion.moving else COVER_REASON_SAFETY,
@@ -483,6 +486,15 @@ class PanelCoordinator:
                 ):
                     return
                 await self._async_cover_settle(cover)
+                # Halt just forced both OFF — always re-energize reverse.
+                await self._async_cover_start(
+                    cover,
+                    profile,
+                    direction,
+                    COVER_REASON_PRESS,
+                    force_energize=True,
+                )
+                return
             await self._async_cover_start(cover, profile, direction, COVER_REASON_PRESS)
 
     async def async_cover_command(
@@ -522,7 +534,17 @@ class PanelCoordinator:
                 ):
                     return self.cover_state_payload(cover_id=cover.id)
                 await self._async_cover_settle(cover)
-            await self._async_cover_start(cover, profile, direction, COVER_REASON_COMMAND)
+                await self._async_cover_start(
+                    cover,
+                    profile,
+                    direction,
+                    COVER_REASON_COMMAND,
+                    force_energize=True,
+                )
+            else:
+                await self._async_cover_start(
+                    cover, profile, direction, COVER_REASON_COMMAND
+                )
         return self.cover_state_payload(cover_id=cover.id)
 
     def _resolve_cover(self, profile: Profile, cover_id: str | None) -> CoverConfig:
@@ -535,26 +557,36 @@ class PanelCoordinator:
                 if cover.id == cover_id:
                     return cover
             # Fall back to full list for clearer errors on stale ids.
-            cover = profile.cover_by_id(cover_id)
-            if cover is None:
+            found = profile.cover_by_id(cover_id)
+            if found is None:
                 raise ValueError(f"Unknown cover id: {cover_id}")
-            if profile.mode == MODE_MIXED and cover not in covers:
+            if profile.mode == MODE_MIXED and found not in covers:
                 raise ValueError(f"Cover '{cover_id}' is not bound to mixed cover roles")
-            return cover
+            return found
         if not covers:
             raise ValueError("Cover mode requires at least one cover mapping")
         return covers[0]
 
     async def _async_cover_start(
-        self, cover: CoverConfig, profile: Profile, direction: str, reason: str
+        self,
+        cover: CoverConfig,
+        profile: Profile,
+        direction: str,
+        reason: str,
+        *,
+        force_energize: bool = False,
     ) -> None:
         """Energize one direction. Caller must hold the cover lock.
 
         Latching-relay hard mutex (Zemismart / Zigbee):
           1. Force only the OPPOSITE direction OFF and confirm.
-          2. If the target is already ON (physical press), do not pulse it
-             OFF→ON — that chatter drives panels into feedback loops.
-          3. Otherwise energize the target once (card/service command path).
+          2. If the target is already ON (physical press from idle), do not
+             pulse it OFF→ON — that chatter drives panels into feedback loops.
+          3. Otherwise energize the target once (card/service, or reverse
+             after halt when both relays were forced OFF).
+          4. ``force_energize`` (stop_then_reverse after settle) always issues
+             turn_on even if ``relay_is_on`` still looks stale-ON from the
+             physical reverse press that we just halted off.
         Stop / travel-complete / abort still force both relays OFF.
         """
         if profile.mode == MODE_MIXED:
@@ -564,11 +596,12 @@ class PanelCoordinator:
         opposite = cover.button_for(cover.opposite_direction(direction))
         duration = cover.duration_for(direction)
 
-        # Opposite OFF first — never both ON. Do not touch an already-ON target.
+        # Opposite OFF first — never both ON. Do not touch an already-ON target
+        # unless this start must re-energize after an intentional halt.
         if not await self._async_cover_relay_off(opposite):
             await self._async_cover_halt(cover, reason=COVER_REASON_ERROR)
             return
-        if not self.runtime.adapter.relay_is_on(target):
+        if force_energize or not self.runtime.adapter.relay_is_on(target):
             try:
                 await self.runtime.adapter.async_set_relay(target, True, suppress_event=True)
             except Exception as err:  # noqa: BLE001
