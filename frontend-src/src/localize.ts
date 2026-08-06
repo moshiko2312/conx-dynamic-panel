@@ -66,6 +66,9 @@ const EN: Record<string, string> = {
   "card.cover_open_time": "Open travel time",
   "card.cover_close_time": "Close travel time",
   "card.cover_settle": "Direction change delay",
+  "card.cover_times": "Shutter travel times",
+  "card.mixed_cover_times_hint":
+    "Open/close buttons come from the roles above. Set travel times and reverse behavior here.",
   "card.cover_settle_hint":
     "Dead time between switching one direction off and the other on. Keep it above zero for motor relay safety.",
   "card.cover_opposite": "Opposite direction press",
@@ -243,6 +246,9 @@ const HE: Record<string, string> = {
   "card.cover_open_time": "זמן פתיחה",
   "card.cover_close_time": "זמן סגירה",
   "card.cover_settle": "השהיה בהחלפת כיוון",
+  "card.cover_times": "זמני נסיעת תריס",
+  "card.mixed_cover_times_hint":
+    "כפתורי פתיחה/סגירה נקבעים בתפקידים למעלה. כאן מגדירים זמני נסיעה והתנהגות היפוך.",
   "card.cover_settle_hint":
     "זמן מת בין כיבוי כיוון אחד להפעלת השני. מומלץ להשאיר מעל אפס לבטיחות ממסרי המנוע.",
   "card.cover_opposite": "לחיצה על הכיוון ההפוך",
@@ -420,6 +426,9 @@ const RU: Record<string, string> = {
   "card.cover_open_time": "Время открытия",
   "card.cover_close_time": "Время закрытия",
   "card.cover_settle": "Задержка смены направления",
+  "card.cover_times": "Время хода роллеты",
+  "card.mixed_cover_times_hint":
+    "Кнопки открыть/закрыть задаются ролями выше. Здесь — время хода и поведение реверса.",
   "card.cover_settle_hint":
     "Пауза между выключением одного направления и включением другого. Держите её выше нуля для безопасности реле мотора.",
   "card.cover_opposite": "Нажатие противоположного направления",

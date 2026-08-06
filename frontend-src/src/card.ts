@@ -1482,17 +1482,17 @@ export class ConXDynamicPanelCard extends LitElement {
         ${mixed
           ? html`<p class="radio-groups-hint">${this.t("card.mixed_cover_times_hint")}</p>`
           : html`
-        <div class="cover-grid">
-          <div class="cover-field">
-            <span class="cover-label">${this.t("card.cover_open_button")}</span>
-            ${this._renderCoverButtonPicker(cover, "open")}
-          </div>
-          <div class="cover-field">
-            <span class="cover-label">${this.t("card.cover_close_button")}</span>
-            ${this._renderCoverButtonPicker(cover, "close")}
-          </div>
-        </div>
-        `}
+              <div class="cover-grid">
+                <div class="cover-field">
+                  <span class="cover-label">${this.t("card.cover_open_button")}</span>
+                  ${this._renderCoverButtonPicker(cover, "open")}
+                </div>
+                <div class="cover-field">
+                  <span class="cover-label">${this.t("card.cover_close_button")}</span>
+                  ${this._renderCoverButtonPicker(cover, "close")}
+                </div>
+              </div>
+            `}
         <div class="cover-times">
           <label class="field">
             <span>${this.t("card.cover_open_time")} (${unit})</span>
@@ -1643,15 +1643,24 @@ export class ConXDynamicPanelCard extends LitElement {
               button.index <= this._gangCount() &&
               (button.role === "cover_open" || button.role === "cover_close")
           )
-          .map((button) => String(button.cover_id || "cover_1").trim() || "cover_1")
+          .map(
+            (button) => String(button.cover_id || "cover_1").trim() || "cover_1"
+          )
       );
       const bound = covers.filter((cover) => boundIds.has(cover.id));
+      const shown = bound.length ? bound : covers.slice(0, 1);
       return html`
-        <div class="cover-section cover-section-mixed" data-cover-editor data-mixed-cover-times>
+        <div
+          class="cover-section cover-section-mixed"
+          data-cover-editor
+          data-mixed-cover-times
+        >
           <div class="cover-head">
             <span class="menu-label">${this.t("card.cover_times")}</span>
           </div>
-          ${bound.map((cover, index) => this._renderOneCoverEditor(cover, index, true))}
+          ${shown.map((cover, index) =>
+            this._renderOneCoverEditor(cover, index, true)
+          )}
           <p class="cover-safety">${this.t("card.cover_safety")}</p>
         </div>
       `;
@@ -2976,8 +2985,11 @@ export class ConXDynamicPanelCard extends LitElement {
                 <span class="mixed-role-l" dir="ltr">L${button.index}</span>
                 <span class="mixed-role-name">${label}</span>
               </div>
-              <span class="cover-label">${this.t("card.button_role")}</span>
-              <div class="mode-picker mixed-role-picker" role="radiogroup">
+              <div
+                class="mode-picker mixed-role-picker"
+                role="radiogroup"
+                aria-label=${this.t("card.button_role")}
+              >
                 ${roles.map(
                   (item) => html`
                     <button
@@ -3077,8 +3089,8 @@ export class ConXDynamicPanelCard extends LitElement {
     }
     return html`
       ${this._renderModePicker()} ${this._renderMixedRolesSection()}
-      ${this._renderCoverEditor()}
       ${this._renderRadioGroupsEditor()}
+      ${this._renderCoverEditor()}
           <div class="buttons-accordion">
             ${this._draft.buttons
               .filter((button) => button.index <= this._gangCount())
@@ -3899,7 +3911,7 @@ export class ConXDynamicPanelCard extends LitElement {
       --text-muted: #5c636e;
       --accent: #8a7348;
       --accent-soft: rgba(138, 115, 72, 0.12);
-      --accent-text: #ffffff;
+      --accent-text: #111318;
       --danger: #b42318;
       --unsaved-warn-text: #c62828;
       --btn-bg: #e8ecf1;
@@ -4749,95 +4761,120 @@ export class ConXDynamicPanelCard extends LitElement {
 
     .mixed-roles-section {
       display: grid;
-      gap: 6px;
-      margin: 2px 0 10px;
-      padding: 8px 8px 8px;
-      border-radius: 12px;
-      border: 1px solid var(--conx-border, rgba(255, 255, 255, 0.12));
-      background: color-mix(in srgb, var(--conx-surface, #1a1d22) 88%, transparent);
+      gap: 4px;
+      margin: 0 0 8px;
+      padding: 6px;
+      border-radius: 10px;
+      border: 1px solid var(--border, var(--conx-border, rgba(255, 255, 255, 0.12)));
+      background: var(--surface);
+      color: var(--text);
+    }
+    .mixed-roles-section > .radio-groups-hint {
+      margin: 0 0 2px;
+      font-size: 0.72rem;
+      line-height: 1.25;
+      color: var(--text-muted);
     }
     .mixed-roles-head .menu-label {
       margin-bottom: 0;
-      font-size: 0.92rem;
+      font-size: 0.82rem;
       font-weight: 700;
+      color: var(--text);
     }
     .mixed-role-card {
       display: grid;
-      gap: 4px;
-      padding: 6px 8px;
-      border-radius: 10px;
-      border: 1px solid var(--conx-border, rgba(255, 255, 255, 0.1));
-      background: color-mix(in srgb, var(--conx-panel, #121418) 70%, transparent);
+      gap: 3px;
+      padding: 4px 6px;
+      border-radius: 8px;
+      border: 1px solid var(--border, var(--conx-border, rgba(255, 255, 255, 0.1)));
+      background: var(--surface-2);
+      color: var(--text);
     }
     .mixed-role-card-head {
       display: flex;
       align-items: baseline;
       gap: 6px;
       flex-wrap: wrap;
+      min-height: 1.1rem;
     }
     .mixed-role-l {
       font-weight: 800;
       letter-spacing: 0.04em;
-      font-size: 0.9rem;
-      color: var(--conx-accent, #d4af61);
+      font-size: 0.78rem;
+      color: var(--text);
     }
     .mixed-role-name {
-      opacity: 0.85;
-      font-size: 0.82rem;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text);
+      opacity: 1;
     }
     .mixed-role-picker {
       display: flex;
       flex-wrap: wrap;
-      gap: 4px;
+      gap: 3px;
       width: 100%;
     }
     .mixed-role-picker .radio-member {
-      flex: 1 1 calc(20% - 4px);
-      min-width: 3.6rem;
-      padding: 5px 4px;
-      min-height: 30px;
+      flex: 1 1 calc(20% - 3px);
+      min-width: 3.2rem;
+      padding: 3px 2px;
+      min-height: 26px;
+      border-radius: 7px;
     }
     .mixed-role-picker .radio-member-label {
-      font-size: 0.7rem;
+      font-size: 0.65rem;
       font-weight: 650;
       text-align: center;
-      line-height: 1.15;
+      line-height: 1.1;
       white-space: normal;
+    }
+    .mixed-role-card .radio-groups-hint {
+      margin: 0;
+      font-size: 0.68rem;
+      line-height: 1.2;
     }
     .mixed-pulse,
     .mixed-cover-id {
       width: max-content;
       max-width: 100%;
-      margin-top: 2px;
+      margin-top: 0;
+      gap: 4px;
+    }
+    .mixed-pulse span,
+    .mixed-cover-id span {
+      font-size: 0.7rem;
+      color: var(--text-muted);
     }
     .mixed-pulse input[type="number"] {
-      width: 5rem;
-      min-height: 32px;
-      padding: 6px 8px;
+      width: 4.5rem;
+      min-height: 28px;
+      padding: 4px 6px;
     }
     .mixed-cover-id .select-wrap {
-      min-width: 7rem;
-      max-width: 14rem;
+      min-width: 6.5rem;
+      max-width: 12rem;
     }
 
     .mode-picker {
       display: flex;
       flex-wrap: wrap;
-      gap: 4px;
+      gap: 3px;
       width: 100%;
     }
     .mode-picker .radio-member {
-      flex: 1 1 calc(25% - 4px);
-      min-width: 4rem;
-      padding: 6px 4px;
-      min-height: 32px;
+      flex: 1 1 calc(25% - 3px);
+      min-width: 3.6rem;
+      padding: 4px 3px;
+      min-height: 28px;
+      border-radius: 8px;
     }
     .mode-picker .radio-member-label {
-      font-size: 0.72rem;
+      font-size: 0.68rem;
       font-weight: 800;
       white-space: normal;
       text-align: center;
-      line-height: 1.15;
+      line-height: 1.1;
     }
 
     .color-select {
@@ -4990,9 +5027,9 @@ export class ConXDynamicPanelCard extends LitElement {
     }
     .radio-member.on {
       border-color: var(--accent);
-      background: var(--accent-soft);
-      color: var(--text);
-      box-shadow: inset 0 0 0 1px var(--accent);
+      background: var(--accent);
+      color: var(--accent-text);
+      box-shadow: none;
     }
     .radio-member:disabled {
       cursor: default;
@@ -5023,23 +5060,6 @@ export class ConXDynamicPanelCard extends LitElement {
       border-radius: 12px;
       border: 1px solid var(--border);
       background: color-mix(in srgb, var(--surface-2, var(--surface)) 88%, transparent);
-      color: var(--text);
-    }
-    .cover-section-mixed {
-      margin: 0 0 8px;
-      padding: 6px;
-    }
-    .cover-block-mixed {
-      margin-top: 4px;
-      padding-top: 6px;
-    }
-    .cover-section-mixed .cover-times .field span {
-      font-size: 0.72rem;
-    }
-    .cover-section-mixed .cover-times input,
-    .cover-section-mixed .select-wrap select {
-      min-height: 30px;
-      padding: 4px 6px;
     }
     .cover-block {
       margin-top: 8px;

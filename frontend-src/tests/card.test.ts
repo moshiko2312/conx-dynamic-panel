@@ -1569,6 +1569,20 @@ describe("custom elements", () => {
     expect(el._draft?.buttons[0].role).toBe("cover_open");
     expect(roleRow.querySelector("[data-cover-id]")).toBeTruthy();
     expect(el.shadowRoot?.querySelector("[data-cover-editor]")).toBeTruthy();
+    // Travel times appear immediately under free-mix roles (not buried).
+    expect(el.shadowRoot?.querySelector("[data-mixed-cover-times]")).toBeTruthy();
+    expect(el.shadowRoot?.querySelector("[data-cover-open-time]")).toBeTruthy();
+    expect(el.shadowRoot?.querySelector("[data-cover-close-time]")).toBeTruthy();
+    expect(el.shadowRoot?.querySelector("[data-cover-settle]")).toBeTruthy();
+    expect(el.shadowRoot?.querySelector("[data-cover-opposite]")).toBeTruthy();
+
+    const roleRow2 = el.shadowRoot?.querySelector(
+      '[data-mixed-role="2"]'
+    ) as HTMLElement;
+    (roleRow2.querySelector('[data-role="cover_close"]') as HTMLButtonElement).click();
+    await el.updateComplete;
+    expect(el._draft?.buttons[1].role).toBe("cover_close");
+    expect(el.shadowRoot?.querySelector("[data-mixed-cover-times]")).toBeTruthy();
 
     (roleRow.querySelector('[data-role="radio"]') as HTMLButtonElement).click();
     await el.updateComplete;
@@ -1683,7 +1697,9 @@ describe("custom elements", () => {
     expect(sheetText).toMatch(/:host\s*\{[^}]*width:\s*100%/s);
     expect(sheetText).toMatch(/ha-card\.conx-card\s*\{[^}]*max-width:\s*none/s);
     expect(sheetText).toMatch(/\.faceplate-bezel\s*\{[^}]*width:\s*100%/s);
-    expect(sheetText).toMatch(/\.mixed-role-picker\s+\.radio-member\s*\{[^}]*min-height:\s*30px/s);
+    expect(sheetText).toMatch(/\.mixed-role-picker\s+\.radio-member\s*\{[^}]*min-height:\s*26px/s);
+    expect(sheetText).toMatch(/\.radio-member\.on\s*\{[^}]*color:\s*var\(--accent-text\)/s);
+    expect(sheetText).toMatch(/\.mixed-role-l\s*\{[^}]*color:\s*var\(--text\)/s);
     expect(sheetText).toMatch(/\.actions-grid\s+\.btn\s*\{[^}]*min-height:\s*32px/s);
   });
 

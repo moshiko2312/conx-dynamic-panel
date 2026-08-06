@@ -180,6 +180,12 @@ class Zemismart4GangAdapter(PanelAdapter):
         )
         await self._async_wait_for_state(entity_id, expected)
 
+    def relay_is_on(self, index: int) -> bool:
+        """Return whether a mapped relay currently reads ON."""
+        if index < 1 or index > BUTTON_COUNT:
+            return False
+        return self._state_bool(self.mapping.relay_entities[index - 1])
+
     async def async_set_names(self, names: tuple[str, str, str, str]) -> None:
         """Set text name entities."""
         for entity_id, name in zip(self.mapping.name_entities, names, strict=True):

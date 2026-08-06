@@ -28,6 +28,10 @@ class PanelAdapter(ABC):
     ) -> None:
         """Set one relay state."""
 
+    def relay_is_on(self, index: int) -> bool:
+        """Return whether a relay currently reads ON (best-effort)."""
+        return False
+
     @abstractmethod
     async def async_set_names(self, names: tuple[str, str, str, str]) -> None:
         """Set button name labels."""

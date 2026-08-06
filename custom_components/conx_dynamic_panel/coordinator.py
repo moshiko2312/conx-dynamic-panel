@@ -448,6 +448,8 @@ class PanelCoordinator:
 
     async def _async_cover_press(self, profile: Profile, index: int, turned_on: bool) -> None:
         """Route a physical relay transition while a cover profile is active."""
+        if profile.mode == MODE_MIXED:
+            profile.sync_covers_from_roles()
         cover = profile.cover_for_button(index)
         if cover is None:
             # Buttons outside every cover pair stay independent toggles.
@@ -492,9 +494,15 @@ class PanelCoordinator:
         profile = self.data.active_profile()
         if profile is None:
             raise ProfileNotFoundError("No active profile")
-        if profile.mode != MODE_COVER:
+        if profile.mode == MODE_COVER:
+            validate_covers(profile.covers, gang_count=profile.gang_count)
+        elif profile.mode == MODE_MIXED:
+            profile.sync_covers_from_roles()
+            validate_mixed_profile(profile)
+            if not profile.active_covers():
+                raise ValueError("Mixed profile has no cover roles configured")
+        else:
             raise ValueError("Active profile is not in cover mode")
-        validate_covers(profile.covers, gang_count=profile.gang_count)
         cover = self._resolve_cover(profile, cover_id)
 
         async with self.runtime.cover.lock:
@@ -518,48 +526,61 @@ class PanelCoordinator:
         return self.cover_state_payload(cover_id=cover.id)
 
     def _resolve_cover(self, profile: Profile, cover_id: str | None) -> CoverConfig:
-        """Resolve a cover by id, defaulting to the first cover on the profile."""
+        """Resolve a cover by id, defaulting to the first active cover on the profile."""
+        covers = (
+            profile.active_covers() if profile.mode == MODE_MIXED else list(profile.covers)
+        )
         if cover_id:
+            for cover in covers:
+                if cover.id == cover_id:
+                    return cover
+            # Fall back to full list for clearer errors on stale ids.
             cover = profile.cover_by_id(cover_id)
             if cover is None:
                 raise ValueError(f"Unknown cover id: {cover_id}")
+            if profile.mode == MODE_MIXED and cover not in covers:
+                raise ValueError(f"Cover '{cover_id}' is not bound to mixed cover roles")
             return cover
-        if not profile.covers:
+        if not covers:
             raise ValueError("Cover mode requires at least one cover mapping")
-        return profile.covers[0]
+        return covers[0]
 
     async def _async_cover_start(
         self, cover: CoverConfig, profile: Profile, direction: str, reason: str
     ) -> None:
         """Energize one direction. Caller must hold the cover lock.
 
-        Hard mutex (zero both-ON window for this cover pair):
-          1. Cancel any residual travel bookkeeping is the caller's job.
-          2. Force BOTH direction relays OFF and confirm each write.
-          3. Only then energize the chosen direction.
-        Opposite OFF always precedes direction ON; never parallel writes.
+        Latching-relay hard mutex (Zemismart / Zigbee):
+          1. Force only the OPPOSITE direction OFF and confirm.
+          2. If the target is already ON (physical press), do not pulse it
+             OFF→ON — that chatter drives panels into feedback loops.
+          3. Otherwise energize the target once (card/service command path).
+        Stop / travel-complete / abort still force both relays OFF.
         """
+        if profile.mode == MODE_MIXED:
+            profile.sync_covers_from_roles()
         motion = self.runtime.cover.get(cover.id)
         target = cover.button_for(direction)
         opposite = cover.button_for(cover.opposite_direction(direction))
         duration = cover.duration_for(direction)
 
-        # Belt-and-suspenders: both OFF before any ON (not only opposite).
-        if not await self._async_cover_ensure_pair_off(cover, prefer_off_first=opposite):
+        # Opposite OFF first — never both ON. Do not touch an already-ON target.
+        if not await self._async_cover_relay_off(opposite):
             await self._async_cover_halt(cover, reason=COVER_REASON_ERROR)
             return
-        try:
-            await self.runtime.adapter.async_set_relay(target, True, suppress_event=True)
-        except Exception as err:  # noqa: BLE001
-            _LOGGER.error(
-                "Cover %s %s failed to energize relay %s: %s",
-                cover.id,
-                direction,
-                target,
-                err,
-            )
-            await self._async_cover_halt(cover, reason=COVER_REASON_ERROR)
-            return
+        if not self.runtime.adapter.relay_is_on(target):
+            try:
+                await self.runtime.adapter.async_set_relay(target, True, suppress_event=True)
+            except Exception as err:  # noqa: BLE001
+                _LOGGER.error(
+                    "Cover %s %s failed to energize relay %s: %s",
+                    cover.id,
+                    direction,
+                    target,
+                    err,
+                )
+                await self._async_cover_halt(cover, reason=COVER_REASON_ERROR)
+                return
 
         motion.direction = direction
         motion.duration = duration
@@ -715,10 +736,15 @@ class PanelCoordinator:
 
     def _cover_is_usable(self, profile: Profile, cover: CoverConfig) -> bool:
         try:
-            validate_covers(profile.covers, gang_count=profile.gang_count)
-            # Also ensure this specific cover is still present after validation.
-            if profile.cover_by_id(cover.id) is None:
-                raise ValueError(f"Unknown cover id: {cover.id}")
+            if profile.mode == MODE_MIXED:
+                profile.sync_covers_from_roles()
+                validate_mixed_profile(profile)
+                if cover.id not in {item.id for item in profile.active_covers()}:
+                    raise ValueError(f"Cover '{cover.id}' is not bound to mixed cover roles")
+            else:
+                validate_covers(profile.covers, gang_count=profile.gang_count)
+                if profile.cover_by_id(cover.id) is None:
+                    raise ValueError(f"Unknown cover id: {cover.id}")
         except ValueError as err:
             _LOGGER.error("Cover configuration is unsafe, refusing to move: %s", err)
             return False
