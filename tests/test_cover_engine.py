@@ -812,6 +812,119 @@ async def test_cover_halt_mirrors_ha_stop_cover() -> None:
 
 
 @pytest.mark.asyncio
+async def test_stop_then_reverse_mirrors_final_direction_not_stop() -> None:
+    """Reverse must not emit stop_cover before open/close — late stop kills travel."""
+    coordinator, adapter, _store, profile, runtime = _build(
+        opposite_press=COVER_OPPOSITE_STOP_THEN_REVERSE,
+        settle=0.0,
+        open_time=5.0,
+        close_time=5.0,
+    )
+    profile.cover.ha_entity_id = "cover.living_shutter"
+    await coordinator._async_handle_physical_press(OPEN_BUTTON, True)
+    runtime.hass.services.async_call.reset_mock()
+    await coordinator._async_handle_physical_press(CLOSE_BUTTON, True)
+
+    assert runtime.cover.direction == "close"
+    assert adapter.relays[CLOSE_BUTTON] is True
+    services = [call.args[1] for call in runtime.hass.services.async_call.await_args_list]
+    assert services == ["close_cover"]
+    assert "stop_cover" not in services
+    await coordinator._async_cover_abort("test")
+
+
+@pytest.mark.asyncio
+async def test_stop_only_still_mirrors_ha_stop_on_opposite_press() -> None:
+    coordinator, adapter, _store, profile, runtime = _build(
+        opposite_press=COVER_OPPOSITE_STOP_ONLY,
+        open_time=5.0,
+    )
+    profile.cover.ha_entity_id = "cover.living_shutter"
+    await coordinator._async_handle_physical_press(OPEN_BUTTON, True)
+    runtime.hass.services.async_call.reset_mock()
+    await coordinator._async_handle_physical_press(CLOSE_BUTTON, True)
+    assert runtime.cover.moving is False
+    _assert_all_cover_relays_off(adapter)
+    services = [call.args[1] for call in runtime.hass.services.async_call.await_args_list]
+    assert services == ["stop_cover"]
+
+
+@pytest.mark.asyncio
+async def test_command_reverse_mirrors_close_without_stop() -> None:
+    coordinator, adapter, _store, profile, runtime = _build(
+        opposite_press=COVER_OPPOSITE_STOP_THEN_REVERSE,
+        settle=0.0,
+        open_time=5.0,
+        close_time=5.0,
+    )
+    profile.cover.ha_entity_id = "cover.living_shutter"
+    await coordinator.async_cover_command("open")
+    runtime.hass.services.async_call.reset_mock()
+    await coordinator.async_cover_command("close")
+    assert runtime.cover.direction == "close"
+    assert adapter.relays[CLOSE_BUTTON] is True
+    services = [call.args[1] for call in runtime.hass.services.async_call.await_args_list]
+    assert services == ["close_cover"]
+    assert "stop_cover" not in services
+    await coordinator._async_cover_abort("test")
+
+
+@pytest.mark.asyncio
+async def test_late_off_after_grace_window_still_rearmed_within_extended_grace() -> None:
+    """Deferred OFF near the end of post-reverse grace must not kill travel."""
+    from custom_components.conx_dynamic_panel.const import COVER_POST_START_OFF_GRACE_S
+
+    coordinator, adapter, _store, profile, runtime = _build(
+        opposite_press=COVER_OPPOSITE_STOP_THEN_REVERSE,
+        settle=0.0,
+        open_time=5.0,
+        close_time=5.0,
+    )
+    await coordinator._async_handle_physical_press(OPEN_BUTTON, True)
+    await coordinator._async_handle_physical_press(CLOSE_BUTTON, True)
+    motion = runtime.cover.get(profile.cover.id)
+    assert motion.suppress_stale_off_until is not None
+    # Still inside the extended grace, but past the old 1.5s window.
+    motion.suppress_stale_off_until = coordinator._monotonic() + 0.2
+    assert COVER_POST_START_OFF_GRACE_S >= 2.5
+    adapter.relays[CLOSE_BUTTON] = False
+    adapter.relay_calls.clear()
+    runtime.suppression.clear()
+    await coordinator._async_handle_physical_press(CLOSE_BUTTON, False)
+    assert runtime.cover.direction == "close"
+    assert adapter.relays[CLOSE_BUTTON] is True
+    await coordinator._async_cover_abort("test")
+
+
+@pytest.mark.asyncio
+async def test_simulated_late_stop_cover_off_during_grace_keeps_reverse_on() -> None:
+    """HA stop_cover ordered after close_cover must not abort reverse travel.
+
+    Models a deferred stop that turns the reverse relay OFF after start; grace
+    re-asserts ON so travel continues for the full duration.
+    """
+    coordinator, adapter, _store, _profile, runtime = _build(
+        opposite_press=COVER_OPPOSITE_STOP_THEN_REVERSE,
+        settle=0.0,
+        open_time=5.0,
+        close_time=5.0,
+    )
+    await coordinator._async_handle_physical_press(OPEN_BUTTON, True)
+    await coordinator._async_handle_physical_press(CLOSE_BUTTON, True)
+    assert runtime.cover.direction == "close"
+    # Late stop_cover feedback: relay drops with no matching suppression.
+    adapter.relays[CLOSE_BUTTON] = False
+    runtime.suppression.clear()
+    adapter.relay_calls.clear()
+    await coordinator._async_handle_physical_press(CLOSE_BUTTON, False)
+    assert runtime.cover.moving is True
+    assert runtime.cover.direction == "close"
+    assert adapter.relays[CLOSE_BUTTON] is True
+    assert runtime.cover.timer is not None
+    await coordinator._async_cover_abort("test")
+
+
+@pytest.mark.asyncio
 async def test_cover_ha_mirror_failure_does_not_block_motor() -> None:
     coordinator, adapter, _store, profile, runtime = _build(open_time=5.0)
     profile.cover.ha_entity_id = "cover.living_shutter"

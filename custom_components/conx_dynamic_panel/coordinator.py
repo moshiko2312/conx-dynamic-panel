@@ -629,11 +629,18 @@ class PanelCoordinator:
                 return
             if motion.moving:
                 previous = motion.direction
-                await self._async_cover_halt(cover, reason=COVER_REASON_STOP_PRESS)
-                if (
-                    previous == direction
-                    or cover.opposite_press != COVER_OPPOSITE_STOP_THEN_REVERSE
-                ):
+                will_reverse = (
+                    previous != direction
+                    and cover.opposite_press == COVER_OPPOSITE_STOP_THEN_REVERSE
+                )
+                # Reverse transition: do not mirror cover.stop_cover — a deferred
+                # HA/Zigbee stop after close/open_cover kills the new direction.
+                await self._async_cover_halt(
+                    cover,
+                    reason=COVER_REASON_STOP_PRESS,
+                    mirror_ha=not will_reverse,
+                )
+                if not will_reverse:
                     return
                 await self._async_cover_settle(cover)
                 # Halt just forced both OFF — always re-energize reverse.
@@ -677,11 +684,16 @@ class PanelCoordinator:
             )
             if motion.moving:
                 previous = motion.direction
-                await self._async_cover_halt(cover, reason=COVER_REASON_COMMAND)
-                if (
-                    previous == direction
-                    or cover.opposite_press != COVER_OPPOSITE_STOP_THEN_REVERSE
-                ):
+                will_reverse = (
+                    previous != direction
+                    and cover.opposite_press == COVER_OPPOSITE_STOP_THEN_REVERSE
+                )
+                await self._async_cover_halt(
+                    cover,
+                    reason=COVER_REASON_COMMAND,
+                    mirror_ha=not will_reverse,
+                )
+                if not will_reverse:
                     return self.cover_state_payload(cover_id=cover.id)
                 await self._async_cover_settle(cover)
                 await self._async_cover_start(
@@ -804,17 +816,29 @@ class PanelCoordinator:
                 return
             await self._async_cover_halt(cover, reason=COVER_REASON_TRAVEL_COMPLETE)
 
-    async def _async_cover_halt(self, cover: CoverConfig | None, *, reason: str) -> None:
+    async def _async_cover_halt(
+        self,
+        cover: CoverConfig | None,
+        *,
+        reason: str,
+        mirror_ha: bool = True,
+    ) -> None:
         """Cancel any travel timer and force both direction relays OFF for one cover.
 
         Caller must hold the cover lock. The relay pair that was last energized
         is always included, so a profile switch mid-travel still de-energizes the
         buttons that are actually wired to the motor.
+
+        ``mirror_ha`` is False during stop_then_reverse transitions so a deferred
+        ``cover.stop_cover`` cannot arrive after the reverse ``open/close_cover``
+        and kill the newly started direction on linked HA cover entities.
         """
         if cover is None:
             return
         motion = self.runtime.cover.get(cover.id)
-        await self._async_cover_halt_motion(motion, cover=cover, reason=reason)
+        await self._async_cover_halt_motion(
+            motion, cover=cover, reason=reason, mirror_ha=mirror_ha
+        )
 
     async def _async_cover_halt_motion(
         self,
@@ -822,6 +846,7 @@ class PanelCoordinator:
         *,
         cover: CoverConfig | None,
         reason: str,
+        mirror_ha: bool = True,
     ) -> None:
         """Halt one motion entry. Caller must hold the cover lock.
 
@@ -847,14 +872,18 @@ class PanelCoordinator:
             timer.cancel()
         for index in indexes:
             await self._async_cover_relay_off(index)
-        if cover is not None and (
-            was_moving
-            or reason
-            in {
-                COVER_REASON_COMMAND,
-                COVER_REASON_STOP_PRESS,
-                COVER_REASON_TRAVEL_COMPLETE,
-            }
+        if (
+            mirror_ha
+            and cover is not None
+            and (
+                was_moving
+                or reason
+                in {
+                    COVER_REASON_COMMAND,
+                    COVER_REASON_STOP_PRESS,
+                    COVER_REASON_TRAVEL_COMPLETE,
+                }
+            )
         ):
             await self._async_cover_mirror_ha(cover, "stop")
         if was_moving or reason in {COVER_REASON_SAFETY, COVER_REASON_ERROR}:
@@ -924,6 +953,10 @@ class PanelCoordinator:
         """Best-effort mirror open/close/stop to an optional linked HA cover entity.
 
         Motor relay control must not fail when the HA service call fails.
+
+        Reverse transitions must not call ``stop`` here: halt→start already
+        settles the relays, and a deferred ``stop_cover`` after ``open/close_cover``
+        can turn the linked cover (and any shared switches) back off.
         """
         entity_id = (cover.ha_entity_id or "").strip()
         if not entity_id:
