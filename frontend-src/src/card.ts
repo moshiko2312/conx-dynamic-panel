@@ -338,6 +338,7 @@ export class ConXDynamicPanelCard extends LitElement {
   @state() private _activeTab: "profiles" | "appearance" | "buttons" = "profiles";
   @state() private _menuOpen = false;
   @state() private _automationOpen = false;
+  @state() private _infoOpen = false;
   @state() private _previewOpen = true;
   @state() private _panelNameDraft = "";
   /** Single open/collapsed state for the whole radio_split groups block. */
@@ -412,6 +413,7 @@ export class ConXDynamicPanelCard extends LitElement {
       this._previewOpen = true;
       this._menuOpen = false;
       this._automationOpen = false;
+      this._infoOpen = false;
       if (this._view === "export") {
         this._view = "editor";
       }
@@ -1557,7 +1559,6 @@ export class ConXDynamicPanelCard extends LitElement {
                 </select>
               </div>
             `}
-        <span class="field-hint">${this.t("card.cover_ha_entity_hint")}</span>
       </label>
     `;
   }
@@ -1711,103 +1712,179 @@ export class ConXDynamicPanelCard extends LitElement {
     return match?.index ?? null;
   }
 
-  private _renderInlineCoverTimes(cover: CoverConfig) {
+  private _renderInlineCoverTimeFields(cover: CoverConfig) {
     const limits = this._panel?.capabilities.cover;
     const minTime = limits?.min_time_s ?? COVER_TIME_MIN;
     const maxTime = limits?.max_time_s ?? COVER_TIME_MAX;
     const unit = this.t("card.cover_seconds");
     return html`
-      <div class="mixed-cover-times" data-inline-cover-times data-cover-id=${cover.id}>
-        <div class="cover-times cover-times-compact">
-          <label class="field">
-            <span>${this.t("card.cover_open_time")} (${unit})</span>
-            <input
-              type="number"
-              data-cover-open-time
-              min=${minTime}
-              max=${maxTime}
-              step="0.5"
-              .value=${String(cover.open_time_s)}
-              ?disabled=${this._busy}
-              @change=${(e: Event) =>
-                this._setCoverTime(
-                  cover.id,
-                  "open",
-                  Number((e.target as HTMLInputElement).value)
-                )}
-            />
-          </label>
-          <label class="field">
-            <span>${this.t("card.cover_close_time")} (${unit})</span>
-            <input
-              type="number"
-              data-cover-close-time
-              min=${minTime}
-              max=${maxTime}
-              step="0.5"
-              .value=${String(cover.close_time_s)}
-              ?disabled=${this._busy}
-              @change=${(e: Event) =>
-                this._setCoverTime(
-                  cover.id,
-                  "close",
-                  Number((e.target as HTMLInputElement).value)
-                )}
-            />
-          </label>
-          <label class="field">
-            <span>${this.t("card.cover_settle")} (${unit})</span>
-            <input
-              type="number"
-              data-cover-settle
-              min=${limits?.min_settle_s ?? COVER_SETTLE_MIN}
-              max=${limits?.max_settle_s ?? COVER_SETTLE_MAX}
-              step="0.1"
-              .value=${String(cover.direction_settle_s)}
-              ?disabled=${this._busy}
-              @change=${(e: Event) => {
-                const value = Number((e.target as HTMLInputElement).value);
-                this._patchCovers((covers) => {
-                  const target = covers.find((item) => item.id === cover.id);
-                  if (!target) return;
-                  target.direction_settle_s = Math.max(
-                    COVER_SETTLE_MIN,
-                    Math.min(
-                      COVER_SETTLE_MAX,
-                      Number.isFinite(value) ? value : 0
-                    )
-                  );
-                });
-              }}
-            />
-          </label>
-          <label class="field field-compact-select">
-            <span>${this.t("card.cover_opposite")}</span>
-            <div class="select-wrap">
-              <select
-                data-cover-opposite
-                .value=${cover.opposite_press}
-                ?disabled=${this._busy}
-                @change=${(e: Event) => {
-                  const value = (e.target as HTMLSelectElement).value;
-                  this._patchCovers((covers) => {
-                    const target = covers.find((item) => item.id === cover.id);
-                    if (!target) return;
-                    target.opposite_press =
-                      value === "stop_then_reverse"
-                        ? "stop_then_reverse"
-                        : "stop_only";
-                  });
-                }}
-              >
-                <option value="stop_only">${this.t("cover.stop_only")}</option>
-                <option value="stop_then_reverse">
-                  ${this.t("cover.stop_then_reverse")}
-                </option>
-              </select>
-            </div>
-          </label>
+      <label class="field">
+        <span>${this.t("card.cover_open_time")} (${unit})</span>
+        <input
+          type="number"
+          data-cover-open-time
+          min=${minTime}
+          max=${maxTime}
+          step="0.5"
+          .value=${String(cover.open_time_s)}
+          ?disabled=${this._busy}
+          @change=${(e: Event) =>
+            this._setCoverTime(
+              cover.id,
+              "open",
+              Number((e.target as HTMLInputElement).value)
+            )}
+        />
+      </label>
+      <label class="field">
+        <span>${this.t("card.cover_close_time")} (${unit})</span>
+        <input
+          type="number"
+          data-cover-close-time
+          min=${minTime}
+          max=${maxTime}
+          step="0.5"
+          .value=${String(cover.close_time_s)}
+          ?disabled=${this._busy}
+          @change=${(e: Event) =>
+            this._setCoverTime(
+              cover.id,
+              "close",
+              Number((e.target as HTMLInputElement).value)
+            )}
+        />
+      </label>
+      <label class="field">
+        <span>${this.t("card.cover_settle")} (${unit})</span>
+        <input
+          type="number"
+          data-cover-settle
+          min=${limits?.min_settle_s ?? COVER_SETTLE_MIN}
+          max=${limits?.max_settle_s ?? COVER_SETTLE_MAX}
+          step="0.1"
+          .value=${String(cover.direction_settle_s)}
+          ?disabled=${this._busy}
+          @change=${(e: Event) => {
+            const value = Number((e.target as HTMLInputElement).value);
+            this._patchCovers((covers) => {
+              const target = covers.find((item) => item.id === cover.id);
+              if (!target) return;
+              target.direction_settle_s = Math.max(
+                COVER_SETTLE_MIN,
+                Math.min(
+                  COVER_SETTLE_MAX,
+                  Number.isFinite(value) ? value : 0
+                )
+              );
+            });
+          }}
+        />
+      </label>
+      <label class="field field-compact-select">
+        <span>${this.t("card.cover_opposite")}</span>
+        <div class="select-wrap">
+          <select
+            data-cover-opposite
+            .value=${cover.opposite_press}
+            ?disabled=${this._busy}
+            @change=${(e: Event) => {
+              const value = (e.target as HTMLSelectElement).value;
+              this._patchCovers((covers) => {
+                const target = covers.find((item) => item.id === cover.id);
+                if (!target) return;
+                target.opposite_press =
+                  value === "stop_then_reverse"
+                    ? "stop_then_reverse"
+                    : "stop_only";
+              });
+            }}
+          >
+            <option value="stop_only">${this.t("cover.stop_only")}</option>
+            <option value="stop_then_reverse">
+              ${this.t("cover.stop_then_reverse")}
+            </option>
+          </select>
         </div>
+      </label>
+    `;
+  }
+
+  private _renderMixedCoverExtras(options: {
+    buttonIndex: number;
+    cover: CoverConfig;
+    coverId: string;
+    covers: CoverConfig[];
+    multiCover: boolean;
+    showTimes: boolean;
+    showTimesPointer: boolean;
+    timesOwner: number | null;
+  }) {
+    const {
+      buttonIndex,
+      cover,
+      coverId,
+      covers,
+      multiCover,
+      showTimes,
+      showTimesPointer,
+      timesOwner,
+    } = options;
+    return html`
+      <div class="mixed-cover-extras" data-mixed-cover-extras>
+        <div
+          class="mixed-cover-grid"
+          data-mixed-cover-grid
+          data-inline-cover-times=${showTimes ? cover.id : nothing}
+        >
+          ${multiCover
+            ? html`
+                <label class="field mixed-cover-id">
+                  <span>${this.t("card.cover_id")}</span>
+                  <div class="select-wrap">
+                    <select
+                      data-cover-id
+                      .value=${coverId}
+                      ?disabled=${this._busy || covers.length === 0}
+                      @change=${(e: Event) =>
+                        this._setButtonCoverId(
+                          buttonIndex,
+                          (e.target as HTMLSelectElement).value
+                        )}
+                    >
+                      ${covers.map(
+                        (item) => html`
+                          <option value=${item.id}>${item.id}</option>
+                        `
+                      )}
+                    </select>
+                  </div>
+                </label>
+              `
+            : html`
+                <div class="field mixed-cover-slot-field">
+                  <span>${this.t("card.cover_id")}</span>
+                  <span
+                    class="mixed-cover-slot"
+                    data-cover-id
+                    data-cover-slot=${coverId}
+                    >${coverId}</span
+                  >
+                </div>
+              `}
+          ${this._renderCoverHaEntityPicker(cover)}
+          ${showTimes ? this._renderInlineCoverTimeFields(cover) : nothing}
+        </div>
+        ${showTimesPointer && timesOwner != null
+          ? html`<p
+              class="radio-groups-hint mixed-cover-times-on"
+              data-mixed-cover-times-on
+            >
+              ${this.t("card.mixed_cover_times_on").replace(
+                "{n}",
+                String(timesOwner)
+              )}
+            </p>`
+          : nothing}
       </div>
     `;
   }
@@ -3511,9 +3588,6 @@ export class ConXDynamicPanelCard extends LitElement {
         <div class="mixed-roles-head">
           <span class="menu-label">${this.t("card.mixed_roles")}</span>
         </div>
-        <p class="radio-groups-hint" data-mixed-hint>
-          ${this.t("card.mixed_hint")}
-        </p>
         ${buttons.map((button) => {
           const role = (button.role || "toggle") as ButtonRole;
           const pulse = button.pulse_time_s ?? DEFAULT_PULSE_TIME;
@@ -3611,14 +3685,6 @@ export class ConXDynamicPanelCard extends LitElement {
                             </label>
                           `
                         : nothing}
-                      ${role === "radio"
-                        ? html`<p
-                            class="radio-groups-hint"
-                            data-mixed-radio-hint
-                          >
-                            ${this.t("card.mixed_radio_hint")}
-                          </p>`
-                        : nothing}
                       ${needsActionEntity
                         ? html`
                             <div
@@ -3633,76 +3699,19 @@ export class ConXDynamicPanelCard extends LitElement {
                             </div>
                           `
                         : nothing}
-                      ${isCoverRole
-                        ? html`
-                            ${multiCover
-                              ? html`
-                                  <label
-                                    class="field field-inline mixed-cover-id"
-                                  >
-                                    <span>${this.t("card.cover_id")}</span>
-                                    <div class="select-wrap">
-                                      <select
-                                        data-cover-id
-                                        .value=${coverId}
-                                        ?disabled=${this._busy ||
-                                        covers.length === 0}
-                                        @change=${(e: Event) =>
-                                          this._setButtonCoverId(
-                                            button.index,
-                                            (
-                                              e.target as HTMLSelectElement
-                                            ).value
-                                          )}
-                                      >
-                                        ${covers.map(
-                                          (item) => html`
-                                            <option value=${item.id}
-                                              >${item.id}</option
-                                            >
-                                          `
-                                        )}
-                                      </select>
-                                    </div>
-                                  </label>
-                                `
-                              : html`<span
-                                  class="mixed-cover-slot"
-                                  data-cover-id
-                                  data-cover-slot=${coverId}
-                                  >${this.t("card.cover_id")}:
-                                  ${coverId}</span
-                                >`}
-                            <p
-                              class="radio-groups-hint"
-                              data-cover-id-hint
-                            >
-                              ${this.t("card.cover_id_hint")}
-                            </p>
-                            ${cover
-                              ? this._renderCoverHaEntityPicker(cover)
-                              : nothing}
-                            <p
-                              class="radio-groups-hint"
-                              data-mixed-cover-hint
-                            >
-                              ${this.t("card.mixed_cover_hint")}
-                            </p>
-                            ${showTimes && cover
-                              ? this._renderInlineCoverTimes(cover)
-                              : nothing}
-                            ${showTimesPointer && timesOwner != null
-                              ? html`<p
-                                  class="radio-groups-hint"
-                                  data-mixed-cover-times-on
-                                >
-                                  ${this.t("card.mixed_cover_times_on").replace(
-                                    "{n}",
-                                    String(timesOwner)
-                                  )}
-                                </p>`
-                              : nothing}
-                          `
+                      ${isCoverRole && cover
+                        ? this._renderMixedCoverExtras({
+                            buttonIndex: button.index,
+                            cover,
+                            coverId,
+                            covers,
+                            multiCover,
+                            showTimes: Boolean(showTimes),
+                            showTimesPointer: Boolean(
+                              showTimesPointer && timesOwner != null
+                            ),
+                            timesOwner,
+                          })
                         : nothing}
                     </div>
                   `
@@ -4011,12 +4020,17 @@ export class ConXDynamicPanelCard extends LitElement {
 
     const compact = Boolean(this._config.compact);
     const operate = this._operateMode;
+    const overlayOpen =
+      this._menuOpen ||
+      this._automationOpen ||
+      this._infoOpen ||
+      this._view === "export";
     return html`
       <ha-card
         dir=${rtl ? "rtl" : "ltr"}
         data-theme=${this._theme}
         data-operate=${operate ? "true" : "false"}
-        class="conx-card theme-${this._theme} ${this._view === "export" ? "export-open" : "editor-open"} ${this._menuOpen ? "menu-open" : ""} ${compact ? "compact" : ""} ${operate ? "operate-mode" : ""} ${this._syncPulse ? "syncing-pulse" : ""}"
+        class="conx-card theme-${this._theme} ${this._view === "export" ? "export-open" : "editor-open"} ${this._menuOpen ? "menu-open" : ""} ${overlayOpen ? "overlay-open" : ""} ${compact ? "compact" : ""} ${operate ? "operate-mode" : ""} ${this._syncPulse ? "syncing-pulse" : ""}"
       >
         <div class="atmosphere"></div>
         ${operate
@@ -4083,6 +4097,7 @@ export class ConXDynamicPanelCard extends LitElement {
         ${this._renderMainEditor()}
         ${this._menuOpen ? this._renderSettingsMenu() : nothing}
         ${this._automationOpen ? this._renderAutomationExample() : nothing}
+        ${this._infoOpen ? this._renderInfoGuide() : nothing}
         ${this._view === "export" ? this._renderExportView() : nothing}
       </ha-card>
     `;
@@ -4206,6 +4221,17 @@ export class ConXDynamicPanelCard extends LitElement {
             <div class="menu-actions">
               <button
                 type="button"
+                class="btn info-menu-btn"
+                data-info-menu
+                @click=${() => {
+                  this._menuOpen = false;
+                  this._infoOpen = true;
+                }}
+              >
+                ${this.t("card.info")}
+              </button>
+              <button
+                type="button"
                 class="btn automation-menu-btn"
                 @click=${() => {
                   this._menuOpen = false;
@@ -4217,6 +4243,73 @@ export class ConXDynamicPanelCard extends LitElement {
             </div>
           </div>
         </aside>
+      </div>
+    `;
+  }
+
+  private _renderInfoGuide() {
+    const sections: Array<{ title: string; body: string }> = [
+      { title: "info.profiles_title", body: "info.profiles_body" },
+      { title: "info.appearance_title", body: "info.appearance_body" },
+      { title: "info.buttons_title", body: "info.buttons_body" },
+      { title: "info.modes_title", body: "info.modes_body" },
+      { title: "info.roles_title", body: "info.roles_body" },
+      { title: "info.sync_title", body: "info.sync_body" },
+      { title: "info.operate_title", body: "info.operate_body" },
+      { title: "info.cover_title", body: "info.cover_body" },
+      { title: "info.actions_title", body: "info.actions_body" },
+      { title: "info.menu_title", body: "info.menu_body" },
+    ];
+    return html`
+      <div
+        class="conx-layer"
+        @click=${(e: Event) => {
+          if (e.target === e.currentTarget) this._infoOpen = false;
+        }}
+      >
+        <div
+          class="conx-panel xwide info-panel"
+          role="dialog"
+          aria-modal="true"
+          data-info-guide
+        >
+          <div class="menu-head">
+            <div class="menu-title">${this.t("info.title")}</div>
+            <button
+              type="button"
+              class="menu-close"
+              data-info-close
+              @click=${() => {
+                this._infoOpen = false;
+              }}
+            >
+              ×
+            </button>
+          </div>
+          <p class="info-intro">${this.t("info.intro")}</p>
+          <div class="info-sections">
+            ${sections.map(
+              (section) => html`
+                <section class="info-section">
+                  <h3 class="info-section-title">${this.t(section.title)}</h3>
+                  <p class="info-section-body">${this.t(section.body)}</p>
+                </section>
+              `
+            )}
+          </div>
+          <div class="automation-actions">
+            <button
+              type="button"
+              class="btn"
+              data-info-close
+              @click=${() => {
+                this._infoOpen = false;
+              }}
+            >
+              ${this.t("card.close")}
+            </button>
+          </div>
+        </div>
       </div>
     `;
   }
@@ -5494,14 +5587,18 @@ export class ConXDynamicPanelCard extends LitElement {
     }
     .cover-times-compact {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr));
-      gap: 4px 8px;
+      grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+      gap: 6px 10px;
       margin-bottom: 0;
       width: 100%;
+      align-items: start;
     }
     .cover-times-compact .field {
       margin-bottom: 0;
       gap: 2px;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
     }
     .cover-times-compact .field > span {
       font-size: 0.62rem;
@@ -5514,10 +5611,12 @@ export class ConXDynamicPanelCard extends LitElement {
       padding: 2px 4px;
       font-size: 0.72rem;
       width: 100%;
-      max-width: 6.5rem;
+      max-width: none;
+      box-sizing: border-box;
     }
     .cover-times-compact .field-compact-select .select-wrap {
-      max-width: 9rem;
+      max-width: none;
+      width: 100%;
     }
     .cover-section .cover-times-compact {
       margin-bottom: 4px;
@@ -5658,18 +5757,16 @@ export class ConXDynamicPanelCard extends LitElement {
     }
     .mixed-role-extras {
       display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 3px 8px;
+      flex-direction: column;
+      gap: 6px;
       min-width: 0;
+      width: 100%;
     }
     .mixed-action-entity {
-      flex: 1 1 100%;
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
       gap: 6px 10px;
       width: 100%;
-      margin-top: 2px;
     }
     .mixed-action-entity .field {
       margin: 0;
@@ -5684,22 +5781,13 @@ export class ConXDynamicPanelCard extends LitElement {
       margin-bottom: 3px;
       font-size: 0.7rem;
     }
-    .mixed-role-card .radio-groups-hint {
-      margin: 0;
-      font-size: 0.62rem;
-      line-height: 1.15;
-      flex: 1 1 8rem;
-    }
-    .mixed-pulse,
-    .mixed-cover-id {
+    .mixed-pulse {
       width: max-content;
       max-width: 100%;
-      margin-top: 0;
-      margin-bottom: 0;
+      margin: 0;
       gap: 3px;
     }
-    .mixed-pulse span,
-    .mixed-cover-id span {
+    .mixed-pulse span {
       font-size: 0.62rem;
       color: var(--text-muted);
     }
@@ -5709,37 +5797,67 @@ export class ConXDynamicPanelCard extends LitElement {
       padding: 2px 4px;
       font-size: 0.72rem;
     }
-    .mixed-cover-id .select-wrap {
-      min-width: 5.5rem;
-      max-width: 9rem;
+    .mixed-cover-extras {
+      width: 100%;
+      display: grid;
+      gap: 4px;
     }
-    .mixed-cover-id select {
+    .mixed-cover-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+      gap: 6px 10px;
+      width: 100%;
+      align-items: start;
+    }
+    .mixed-cover-grid > .field,
+    .mixed-cover-grid > .mixed-cover-slot-field {
+      margin: 0;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .mixed-cover-grid > .field > span,
+    .mixed-cover-grid > .mixed-cover-slot-field > span:first-child {
+      font-size: 0.62rem;
+      color: var(--text-muted);
+      line-height: 1.15;
+    }
+    .mixed-cover-grid input[type="number"],
+    .mixed-cover-grid select,
+    .mixed-cover-grid .select-wrap,
+    .mixed-cover-grid ha-entity-picker {
+      width: 100%;
+      max-width: none;
+      box-sizing: border-box;
+    }
+    .mixed-cover-grid input[type="number"],
+    .mixed-cover-grid select {
       min-height: 24px;
       padding: 2px 4px;
       font-size: 0.72rem;
     }
+    .mixed-cover-id .select-wrap {
+      min-width: 0;
+    }
+    .mixed-cover-slot-field .mixed-cover-slot,
     .mixed-cover-slot {
-      font-size: 0.62rem;
+      font-size: 0.72rem;
       font-weight: 650;
-      color: var(--text-muted);
-      line-height: 1.15;
+      color: var(--text);
+      line-height: 1.3;
+      min-height: 24px;
+      display: flex;
+      align-items: center;
     }
     .mixed-cover-ha-entity {
-      flex: 1 1 100%;
+      grid-column: 1 / -1;
       width: 100%;
-      margin-top: 2px;
     }
-    .mixed-cover-ha-entity .field-hint {
+    .mixed-cover-times-on {
+      margin: 0;
       font-size: 0.62rem;
-      line-height: 1.25;
-    }
-    .mixed-cover-times {
-      flex: 1 1 100%;
-      width: 100%;
-      margin-top: 2px;
-    }
-    .mixed-cover-times .cover-times-compact {
-      grid-template-columns: repeat(auto-fit, minmax(5.2rem, 1fr));
+      line-height: 1.15;
     }
     @container mixed-roles (max-width: 360px) {
       .mixed-role-card-main {
@@ -5753,6 +5871,9 @@ export class ConXDynamicPanelCard extends LitElement {
       }
       .mixed-role-picker {
         grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+      .mixed-cover-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
     }
 
@@ -6543,6 +6664,52 @@ export class ConXDynamicPanelCard extends LitElement {
       margin-top: 0;
       padding: 10px;
     }
+    /*
+      Operate mode shrinks the card to the faceplate. Absolute .conx-layer
+      overlays are clipped to that short box and force awkward inner scroll.
+      When any modal is open, inflate the card so menus/modals open full-size.
+    */
+    ha-card.conx-card.operate-mode.overlay-open {
+      min-height: min(92dvh, 720px);
+    }
+    ha-card.conx-card.operate-mode.overlay-open .conx-layer {
+      align-items: center;
+      justify-content: center;
+      padding: clamp(12px, 2.5vw, 20px);
+      overflow: auto;
+    }
+    ha-card.conx-card.operate-mode.overlay-open .conx-panel.compact {
+      width: min(440px, 100%);
+      max-height: none;
+      overflow: visible;
+      margin: auto;
+    }
+    ha-card.conx-card.operate-mode.overlay-open .conx-panel.wide,
+    ha-card.conx-card.operate-mode.overlay-open .conx-panel.xwide {
+      width: min(100%, 680px);
+      max-height: calc(100% - 24px);
+      overflow: hidden;
+      margin: auto;
+    }
+    ha-card.conx-card.operate-mode.overlay-open .info-panel {
+      display: flex;
+      flex-direction: column;
+    }
+    ha-card.conx-card.operate-mode.overlay-open .info-panel .info-sections {
+      max-height: none;
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: auto;
+    }
+    ha-card.conx-card.operate-mode.overlay-open .automation-panel {
+      display: flex;
+      flex-direction: column;
+    }
+    ha-card.conx-card.operate-mode.overlay-open .automation-panel .automation-yaml {
+      max-height: none;
+      flex: 1 1 auto;
+      min-height: 0;
+    }
     .menu-btn {
       width: 46px;
       height: 46px;
@@ -6608,6 +6775,12 @@ export class ConXDynamicPanelCard extends LitElement {
         inset 0 1px 0 var(--conx-bevel-light);
       animation: conx-panel-in 180ms ease;
     }
+    /* Short settings menu: size to content — no inner scrollbar when it fits. */
+    .conx-panel.compact {
+      width: min(420px, 100%);
+      max-height: none;
+      overflow: visible;
+    }
     @keyframes conx-panel-in {
       from {
         transform: scale(0.96) translateY(8px);
@@ -6625,6 +6798,36 @@ export class ConXDynamicPanelCard extends LitElement {
       color: var(--text-muted);
       font-size: 0.9rem;
       line-height: 1.5;
+    }
+    .info-intro {
+      margin: 0 0 12px;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      line-height: 1.45;
+    }
+    .info-sections {
+      display: grid;
+      gap: 12px;
+      max-height: min(58vh, 520px);
+      overflow: auto;
+      padding-inline-end: 4px;
+    }
+    .info-section {
+      margin: 0;
+      padding: 0;
+    }
+    .info-section-title {
+      margin: 0 0 4px;
+      font-size: 0.95rem;
+      font-weight: 750;
+      color: var(--text);
+      line-height: 1.25;
+    }
+    .info-section-body {
+      margin: 0;
+      font-size: 0.82rem;
+      line-height: 1.45;
+      color: var(--text-muted);
     }
     .automation-yaml {
       margin: 0;

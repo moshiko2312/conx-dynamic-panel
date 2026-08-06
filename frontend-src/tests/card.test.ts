@@ -1602,6 +1602,13 @@ describe("custom elements", () => {
     faceMenu.click();
     await el.updateComplete;
     expect(el._menuOpen).toBe(true);
+    expect(card?.classList.contains("overlay-open")).toBe(true);
+    expect(card?.classList.contains("menu-open")).toBe(true);
+    const settingsMenu = el.shadowRoot?.querySelector(
+      "[data-settings-menu]"
+    ) as HTMLElement;
+    expect(settingsMenu).toBeTruthy();
+    expect(settingsMenu.classList.contains("compact")).toBe(true);
     const exitBtn = el.shadowRoot?.querySelector(
       "[data-operate-exit]"
     ) as HTMLButtonElement;
@@ -1612,6 +1619,9 @@ describe("custom elements", () => {
     expect(el._operateMode).toBe(false);
     expect(loadStoredOperateMode()).toBe(false);
     expect(el._menuOpen).toBe(false);
+    expect(
+      el.shadowRoot?.querySelector("ha-card")?.classList.contains("overlay-open")
+    ).toBe(false);
     expect(el.shadowRoot?.querySelector("[data-editor-chrome]")).toBeTruthy();
     expect(el.shadowRoot?.querySelector("[data-actions='top']")).toBeTruthy();
     expect(el.shadowRoot?.querySelector("[data-panel-title]")).toBeTruthy();
@@ -1797,7 +1807,7 @@ describe("custom elements", () => {
     await el.updateComplete;
     expect(el._draft?.mode).toBe("mixed");
     expect(el.shadowRoot?.querySelector("[data-mixed-roles]")).toBeTruthy();
-    expect(el.shadowRoot?.querySelector("[data-mixed-hint]")).toBeTruthy();
+    expect(el.shadowRoot?.querySelector("[data-mixed-hint]")).toBeFalsy();
     // Roles are always visible — no accordion expand required.
     const roleCards = [
       ...(el.shadowRoot?.querySelectorAll("[data-mixed-role]") || []),
@@ -1821,19 +1831,14 @@ describe("custom elements", () => {
     await el.updateComplete;
     expect(el._draft?.buttons[0].role).toBe("cover_open");
     expect(roleRow.querySelector("[data-cover-id]")).toBeTruthy();
-    expect(roleRow.querySelector("[data-cover-id-hint]")?.textContent || "").toMatch(
-      /not a Home Assistant|לא ישות|не сущность/i
-    );
+    expect(roleRow.querySelector("[data-cover-id-hint]")).toBeFalsy();
+    expect(roleRow.querySelector("[data-mixed-cover-hint]")).toBeFalsy();
+    expect(roleRow.querySelector("[data-mixed-cover-grid]")).toBeTruthy();
     expect(roleRow.querySelector("[data-cover-ha-entity]")?.textContent || "").toMatch(
       /HA cover entity|ישות תריס|Сущность cover/i
     );
+    expect(roleRow.querySelector("[data-cover-ha-entity] .field-hint")).toBeFalsy();
     expect(roleRow.querySelector("[data-cover-ha-entity-picker]")).toBeTruthy();
-    expect(roleRow.querySelector("[data-mixed-cover-hint]")?.textContent || "").toMatch(
-      /cover\.\*|מנוע תריס|Мотор ролеты/
-    );
-    expect(roleRow.querySelector("[data-mixed-cover-hint]")?.textContent || "").not.toMatch(
-      /look below|see below/i
-    );
     // Travel times sit inside the cover-role card; bottom mixed editor is gone.
     expect(el.shadowRoot?.querySelector("[data-cover-editor]")).toBeFalsy();
     expect(el.shadowRoot?.querySelector("[data-mixed-cover-times]")).toBeFalsy();
@@ -2005,13 +2010,16 @@ describe("custom elements", () => {
     expect(localize("he", "card.cover_id")).toBe("מנוע / מזהה תריס");
     expect(localize("en", "card.cover_id")).toBe("Motor / Cover slot");
     expect(localize("ru", "card.cover_id")).toBe("Мотор / слот ролеты");
-    expect(localize("he", "card.mixed_cover_hint")).toContain("ישות");
+    expect(localize("he", "card.info")).toBe("מידע");
+    expect(localize("en", "card.info")).toBe("Info");
+    expect(localize("ru", "card.info")).toBe("Справка");
+    expect(localize("he", "info.cover_body")).toContain("ישות");
+    expect(localize("he", "info.cover_body")).toContain("מנוע");
+    expect(localize("en", "info.cover_body")).toMatch(/cover\.\*/i);
+    expect(localize("en", "info.cover_body")).not.toMatch(/look below/i);
     expect(localize("he", "card.cover_ha_entity")).toContain("אופציונלי");
     expect(localize("en", "card.cover_ha_entity")).toMatch(/HA cover entity/i);
     expect(localize("ru", "card.cover_ha_entity")).toMatch(/cover/i);
-    expect(localize("he", "card.mixed_cover_hint")).toContain("מנוע");
-    expect(localize("en", "card.mixed_cover_hint")).toMatch(/cover\.\*/i);
-    expect(localize("en", "card.mixed_cover_hint")).not.toMatch(/look below/i);
     expect(localize("en", "card.picker_search")).toBe("Search…");
     expect(localize("he", "card.picker_search")).toBe("חיפוש…");
     expect(localize("en", "card.action_data")).toBe("Action data (YAML)");
@@ -2127,9 +2135,12 @@ describe("custom elements", () => {
     );
     expect(sheetText).toMatch(/\.mixed-role-picker\s+\.radio-member\s*\{[^}]*min-height:\s*22px/s);
     expect(sheetText).toMatch(
-      /\.cover-times-compact\s*\{[^}]*grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(5\.5rem,\s*1fr\)\)/s
+      /\.cover-times-compact\s*\{[^}]*grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(7rem,\s*1fr\)\)/s
     );
-    expect(sheetText).toMatch(/\.mixed-cover-times\s*\{[^}]*flex:\s*1\s+1\s+100%/s);
+    expect(sheetText).toMatch(
+      /\.mixed-cover-grid\s*\{[^}]*grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(7rem,\s*1fr\)\)/s
+    );
+    expect(sheetText).toMatch(/\.mixed-cover-ha-entity\s*\{[^}]*grid-column:\s*1\s*\/\s*-1/s);
     expect(sheetText).toMatch(/\.mixed-action-entity\s*\{[^}]*grid-template-columns:\s*repeat\(auto-fit/s);
     expect(sheetText).toMatch(/\.radio-member\.on\s*\{[^}]*color:\s*var\(--accent-text\)/s);
     expect(sheetText).toMatch(/\.mixed-role-l\s*\{[^}]*color:\s*var\(--text\)/s);
@@ -2215,6 +2226,35 @@ describe("custom elements", () => {
     await el.updateComplete;
     expect(el._automationOpen).toBe(false);
     expect(el.shadowRoot?.querySelector(".automation-panel")).toBeFalsy();
+  });
+
+  it("opens the Info guide from the settings menu", async () => {
+    const callWS = vi.fn().mockResolvedValue(panelPayload({ sync_status: "synced" }));
+    const el = await mountCard({ language: "he", callWS });
+    (el.shadowRoot?.querySelector(".menu-btn") as HTMLButtonElement).click();
+    await el.updateComplete;
+    const infoBtn = el.shadowRoot?.querySelector(
+      "[data-info-menu]"
+    ) as HTMLButtonElement;
+    expect(infoBtn).toBeTruthy();
+    expect(infoBtn.textContent?.trim()).toBe("מידע");
+
+    infoBtn.click();
+    await el.updateComplete;
+    expect(el._menuOpen).toBe(false);
+    expect(el._infoOpen).toBe(true);
+
+    const guide = el.shadowRoot?.querySelector("[data-info-guide]") as HTMLElement;
+    expect(guide).toBeTruthy();
+    expect(guide.textContent || "").toContain("מדריך לכרטיס");
+    expect(guide.textContent || "").toMatch(/שמירת טיוטה|סנכרון/);
+    expect(guide.textContent || "").toMatch(/מנוע|cover\.\*/i);
+    expect(guide.querySelectorAll(".info-section").length).toBeGreaterThanOrEqual(8);
+
+    (guide.querySelector("[data-info-close]") as HTMLButtonElement).click();
+    await el.updateComplete;
+    expect(el._infoOpen).toBe(false);
+    expect(el.shadowRoot?.querySelector("[data-info-guide]")).toBeFalsy();
   });
 });
 
