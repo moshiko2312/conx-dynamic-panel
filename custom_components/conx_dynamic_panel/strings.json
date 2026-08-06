@@ -63,8 +63,8 @@
       "init": {
         "title": "ConX Dynamic Panel options",
         "data": {
-          "sync_timeout": "Sync timeout (seconds)",
-          "confirm_timeout": "Confirmation timeout (seconds)",
+          "sync_timeout": "Sync timeout (seconds; raise for slow Zigbee panels)",
+          "confirm_timeout": "Confirmation timeout (seconds; color/radar selects use at least 20s)",
           "auto_sync": "Auto-sync after draft changes",
           "log_level": "Log level"
         }

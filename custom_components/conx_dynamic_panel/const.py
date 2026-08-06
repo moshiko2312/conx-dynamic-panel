@@ -33,8 +33,12 @@ CONF_LOG_LEVEL: Final = "log_level"
 
 ADAPTER_ZEMISMART_4GANG: Final = "zemismart_4gang"
 
-DEFAULT_SYNC_TIMEOUT: Final = 30.0
-DEFAULT_CONFIRM_TIMEOUT: Final = 10.0
+DEFAULT_SYNC_TIMEOUT: Final = 90.0
+# Zigbee select entities (colors/radar) often need longer than relays to report back.
+DEFAULT_CONFIRM_TIMEOUT: Final = 20.0
+# Floor applied to select.write confirmation even when options lower confirm_timeout.
+SELECT_CONFIRM_TIMEOUT_FLOOR: Final = 20.0
+SELECT_WRITE_ATTEMPTS: Final = 3
 DEFAULT_AUTO_SYNC: Final = False
 DEFAULT_LOG_LEVEL: Final = "info"
 

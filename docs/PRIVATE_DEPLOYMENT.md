@@ -170,8 +170,8 @@ panel's own `entry_id` and profile ids. The same example is committed to
 
 ## Troubleshooting
 
+- **Sync timeouts / color stays unchanged:** raise Confirm timeout and Sync timeout in the integration Options (defaults are now 20s / 90s). In Developer Tools → States, open `select.*_switch_color_off` / `_color_on` and confirm the `options` list includes the color you want (e.g. `warm_white` vs `Warm White`). Try `select.select_option` manually; if the state does not change, fix Zigbee2MQTT / the entity before Syncing from ConX.
 - **Resource 404:** rebuild with `./scripts/build_frontend.sh`, reinstall/update, restart Home Assistant, then hard-refresh the browser.
-- **Sync timeouts:** raise confirm/sync timeouts in Options; verify Zigbee2MQTT and entity availability.
 - **Out of sync:** hardware no longer matches the last applied snapshot. Pull, review the draft, then Sync.
 - **Profiles missing after update:** never delete `.storage` files for this integration; restore from backup if storage was removed.
 - **Reconfigure created a second panel:** use the Reconfigure entry action on the existing config entry (0.1.0+ updates in place).

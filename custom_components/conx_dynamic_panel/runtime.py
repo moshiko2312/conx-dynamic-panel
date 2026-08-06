@@ -11,7 +11,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
 from .adapters.base import PanelAdapter
-from .const import COVER_DEFAULT_ID
+from .const import COVER_DEFAULT_ID, DEFAULT_CONFIRM_TIMEOUT, DEFAULT_SYNC_TIMEOUT
 from .models import EntityMapping
 from .storage import PanelStore
 from .suppression import SuppressionTracker
@@ -169,12 +169,12 @@ class PanelRuntime:
     @property
     def confirm_timeout(self) -> float:
         """Hardware confirmation timeout."""
-        return float(self.entry.options.get("confirm_timeout", 10.0))
+        return float(self.entry.options.get("confirm_timeout", DEFAULT_CONFIRM_TIMEOUT))
 
     @property
     def sync_timeout(self) -> float:
         """Overall sync operation timeout."""
-        return float(self.entry.options.get("sync_timeout", 30.0))
+        return float(self.entry.options.get("sync_timeout", DEFAULT_SYNC_TIMEOUT))
 
     def async_add_listener(self, callback: Callable[[], None]) -> Callable[[], None]:
         """Register a UI/entity update callback."""

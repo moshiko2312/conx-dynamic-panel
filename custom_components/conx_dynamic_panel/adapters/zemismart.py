@@ -18,6 +18,8 @@ from ..const import (
     DEFAULT_COLORS,
     DEFAULT_RADAR,
     MODE_COVER,
+    SELECT_CONFIRM_TIMEOUT_FLOOR,
+    SELECT_WRITE_ATTEMPTS,
 )
 from ..exceptions import HardwareWriteError, MappingValidationError
 from ..models import (
@@ -27,6 +29,7 @@ from ..models import (
     SyncResult,
     clamp_backlight_brightness,
 )
+from ..option_match import options_match, resolve_select_option
 from ..suppression import SuppressionTracker
 from .base import PanelAdapter
 
@@ -262,19 +265,58 @@ class Zemismart4GangAdapter(PanelAdapter):
             desired = selected == index
             await self.async_set_relay(index, desired, suppress_event=True)
 
+    def _select_confirm_timeout(self) -> float:
+        """Select entities often need longer Zigbee report-back than switches."""
+        return max(float(self.confirm_timeout), float(SELECT_CONFIRM_TIMEOUT_FLOOR))
+
     async def _async_select_option(self, entity_id: str, option: str) -> None:
         options = self._options(entity_id)
-        if options and option not in options:
-            raise HardwareWriteError(
-                f"Option '{option}' is not available on {entity_id}; choices={options}"
+        resolved = resolve_select_option(option, options)
+        if resolved != option:
+            _LOGGER.debug(
+                "Resolved select option %s → %s on %s", option, resolved, entity_id
             )
-        await self.hass.services.async_call(
-            "select",
-            "select_option",
-            {"entity_id": entity_id, "option": option},
-            blocking=True,
+
+        current = self._state_str(entity_id)
+        if current and options_match(current, resolved):
+            return
+
+        timeout = self._select_confirm_timeout()
+        last_error: HardwareWriteError | None = None
+        for attempt in range(1, SELECT_WRITE_ATTEMPTS + 1):
+            try:
+                await self.hass.services.async_call(
+                    "select",
+                    "select_option",
+                    {"entity_id": entity_id, "option": resolved},
+                    blocking=True,
+                )
+                await self._async_wait_for_state(
+                    entity_id,
+                    resolved,
+                    confirm_for=timeout,
+                    fuzzy=True,
+                )
+                return
+            except HardwareWriteError as err:
+                last_error = err
+                _LOGGER.warning(
+                    "Select write attempt %s/%s failed for %s → %s: %s",
+                    attempt,
+                    SELECT_WRITE_ATTEMPTS,
+                    entity_id,
+                    resolved,
+                    err,
+                )
+                if attempt < SELECT_WRITE_ATTEMPTS:
+                    await asyncio.sleep(0.5)
+
+        choices = options if options else "unknown"
+        detail = str(last_error) if last_error else "unknown error"
+        raise HardwareWriteError(
+            f"{detail}; wrote '{resolved}' (from '{option}'); "
+            f"available options={choices}"
         )
-        await self._async_wait_for_state(entity_id, option)
 
     async def _async_set_switch(self, entity_id: str, enabled: bool) -> None:
         expected = "on" if enabled else "off"
@@ -287,13 +329,24 @@ class Zemismart4GangAdapter(PanelAdapter):
         )
         await self._async_wait_for_state(entity_id, expected)
 
-    async def _async_wait_for_state(self, entity_id: str, expected: Any) -> None:
+    async def _async_wait_for_state(
+        self,
+        entity_id: str,
+        expected: Any,
+        *,
+        confirm_for: float | None = None,
+        fuzzy: bool = False,
+    ) -> None:
         expected_str = str(expected)
-        deadline = asyncio.get_running_loop().time() + self.confirm_timeout
+        wait_for = float(self.confirm_timeout if confirm_for is None else confirm_for)
+        deadline = asyncio.get_running_loop().time() + wait_for
         while asyncio.get_running_loop().time() < deadline:
             state = self.hass.states.get(entity_id)
-            if state is not None and state.state == expected_str:
-                return
+            if state is not None:
+                if fuzzy and options_match(state.state, expected_str):
+                    return
+                if not fuzzy and state.state == expected_str:
+                    return
             await asyncio.sleep(0.1)
         current = self.hass.states.get(entity_id)
         current_state = current.state if current else "missing"
