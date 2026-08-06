@@ -3710,7 +3710,11 @@ export class ConXDynamicPanelCard extends LitElement {
           data-hero-preview
         >
           ${operate
-            ? nothing
+            ? html`
+                <header class="section-head operate-profile-only" data-operate-profile>
+                  <div class="hero-profile-name" aria-live="polite">${this._draft.name}</div>
+                </header>
+              `
             : html`
                 <header class="section-head" data-preview-chrome>
                   <div class="section-head-main">
@@ -5716,6 +5720,22 @@ export class ConXDynamicPanelCard extends LitElement {
       border: 0;
       background: transparent;
       box-shadow: none;
+    }
+    ha-card.conx-card.operate-mode .section-head.operate-profile-only {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      padding: 4px 8px 10px;
+      border-bottom: 0;
+      background: transparent;
+    }
+    ha-card.conx-card.operate-mode .section-head.operate-profile-only .hero-profile-name {
+      position: static;
+      left: auto;
+      transform: none;
+      max-width: min(90%, 320px);
+      pointer-events: auto;
     }
     ha-card.conx-card.operate-mode .hero-body {
       padding: 0;

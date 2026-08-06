@@ -1482,6 +1482,12 @@ describe("custom elements", () => {
     expect(el.shadowRoot?.querySelector(".layout-hint")).toBeFalsy();
     expect(el.shadowRoot?.querySelector("[data-actions='top']")).toBeFalsy();
     expect(el.shadowRoot?.querySelector(".settings-tabs")).toBeFalsy();
+    expect(el.shadowRoot?.querySelector(".section-title")).toBeFalsy();
+    const operateProfile = el.shadowRoot?.querySelector(
+      "[data-operate-profile] .hero-profile-name"
+    );
+    expect(operateProfile).toBeTruthy();
+    expect(operateProfile?.textContent?.trim()).toBe("Lighting");
     expect(el.shadowRoot?.querySelector(".faceplate")).toBeTruthy();
     expect(el.shadowRoot?.querySelector(".hero-preview.open.operate-hero")).toBeTruthy();
     const faceMenu = el.shadowRoot?.querySelector(

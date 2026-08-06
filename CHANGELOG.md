@@ -6,7 +6,7 @@ All notable changes to this private project will be documented here.
 
 ### Added
 
-- **Operate / תפעול card mode:** after setup, **Operate** shows **only the faceplate card** (pressable rings + labels) and live cover open/stop/close when relevant — no ConX brand header, status pills, large Settings button, draft/sync banners, or “Panel preview” section chrome. A small RTL-aware hamburger sits on a corner of the faceplate bezel; the menu exits to full Settings (**הגדרות** / Settings / Настройки) and keeps theme/language/export/automation. Preference persists in `localStorage` (`conx-dynamic-panel-operate`), EN/HE/RU, mirrored in the HTML preview.
+- **Operate / תפעול card mode:** after setup, **Operate** shows **only the faceplate card** (pressable rings + labels) and live cover open/stop/close when relevant — no ConX brand header, status pills, large Settings button, draft/sync banners, or “Panel preview” / תצוגת פאנל section chrome (profile name stays visible above the faceplate). A small RTL-aware hamburger sits on a corner of the faceplate bezel; the menu exits to full Settings (**הגדרות** / Settings / Настройки) and keeps theme/language/export/automation. Preference persists in `localStorage` (`conx-dynamic-panel-operate`), EN/HE/RU, mirrored in the HTML preview.
 
 ### Fixed
 

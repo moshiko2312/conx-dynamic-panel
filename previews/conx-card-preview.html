@@ -493,7 +493,8 @@
     .operate-mode .panel-title,
     .operate-mode .header,
     .operate-mode .status-action-bar,
-    .operate-mode .hero-preview > .section-head,
+    .operate-mode .hero-preview > .section-head .section-head-main,
+    .operate-mode .hero-preview > .section-head > .switch,
     .operate-mode .layout-hint,
     .operate-mode .settings-tabs,
     .operate-mode .actions-dock { display: none !important; }
@@ -507,6 +508,22 @@
       border: 0;
       background: transparent;
       box-shadow: none;
+    }
+    .conx-card.operate-mode .hero-preview > .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      padding: 4px 8px 10px;
+      border-bottom: 0;
+      background: transparent;
+    }
+    .conx-card.operate-mode .hero-preview > .section-head .hero-profile-name {
+      position: static;
+      left: auto;
+      transform: none;
+      max-width: min(90%, 320px);
+      pointer-events: auto;
     }
     .conx-card.operate-mode .hero-body {
       padding: 0;
@@ -3487,7 +3504,14 @@
       if (els.panelTitle) els.panelTitle.hidden = operate;
       if (els.cardHeader) els.cardHeader.hidden = operate;
       if (els.statusActionBar) els.statusActionBar.hidden = operate;
-      if (els.previewChrome) els.previewChrome.hidden = operate;
+      if (els.previewChrome) {
+        els.previewChrome.hidden = false;
+        els.previewChrome.classList.toggle("operate-profile-only", operate);
+        const titleBlock = els.previewChrome.querySelector(".section-head-main");
+        const toggle = els.previewChrome.querySelector(":scope > .switch");
+        if (titleBlock) titleBlock.hidden = operate;
+        if (toggle) toggle.hidden = operate;
+      }
       if (els.hero) els.hero.classList.toggle("operate-hero", operate);
       if (els.faceplateMenu) {
         els.faceplateMenu.hidden = !operate;
