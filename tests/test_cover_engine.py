@@ -65,6 +65,13 @@ class CoverAdapter:
         self.fail_on: set[tuple[int, bool]] = set()
         self.apply_result = SyncResult(success=True, confirmed_steps=["relays"])
         self.cover_pairs: list[tuple[int, int]] = [(OPEN_BUTTON, CLOSE_BUTTON)]
+        self.suppression: SuppressionTracker | None = None
+        self.relay_entities: tuple[str, ...] = (
+            "switch.l1",
+            "switch.l2",
+            "switch.l3",
+            "switch.l4",
+        )
 
     async def async_set_relay(
         self, index: int, state: bool, *, suppress_event: bool = True
@@ -78,6 +85,13 @@ class CoverAdapter:
                     raise BothDirectionsEnergized(
                         f"relay {index} turned on while relay {other} is still on"
                     )
+        if suppress_event and self.suppression is not None:
+            entity_id = self.relay_entities[index - 1]
+            self.suppression.register(
+                entity_id,
+                "on" if state else "off",
+                operation_id=f"test-{index}-{'on' if state else 'off'}",
+            )
         self.relays[index] = state
         self.relay_calls.append((index, state))
 
@@ -127,13 +141,16 @@ def _runtime(adapter: CoverAdapter, store: FakeStore) -> Any:
         async_create_task=lambda coro: asyncio.create_task(coro),
     )
     entry = SimpleNamespace(entry_id="entry-1", options={"auto_sync": False})
+    suppression = SuppressionTracker()
+    adapter.suppression = suppression
+    adapter.relay_entities = mapping.relay_entities
     return SimpleNamespace(
         hass=hass,
         entry=entry,
         mapping=mapping,
         store=store,
         adapter=adapter,
-        suppression=SuppressionTracker(),
+        suppression=suppression,
         sync_lock=asyncio.Lock(),
         cover=CoverRuntime(),
         momentary=MomentaryRuntime(),
@@ -185,9 +202,7 @@ def _assert_all_cover_relays_off(adapter: CoverAdapter) -> None:
     assert adapter.relays[CLOSE_BUTTON] is False
 
 
-def _assert_no_both_on_window(
-    calls: list[tuple[int, bool]], left: int, right: int
-) -> None:
+def _assert_no_both_on_window(calls: list[tuple[int, bool]], left: int, right: int) -> None:
     """Replay write order; left and right must never both be True."""
     state = {left: False, right: False}
     for index, value in calls:
@@ -245,9 +260,7 @@ async def test_cover_command_turns_target_on_when_off() -> None:
 @pytest.mark.asyncio
 async def test_arbitrary_buttons_can_be_mapped_to_directions() -> None:
     coordinator, adapter, store, profile, runtime = _build()
-    profile.covers = [
-        CoverConfig(open_button=4, close_button=2, open_time_s=5.0, close_time_s=5.0)
-    ]
+    profile.covers = [CoverConfig(open_button=4, close_button=2, open_time_s=5.0, close_time_s=5.0)]
     adapter.cover_pairs = [(4, 2)]
     adapter.relays[4] = True
     await coordinator._async_handle_physical_press(4, True)
@@ -404,6 +417,100 @@ async def test_inactive_direction_off_after_reverse_does_not_abort() -> None:
     await coordinator._async_cover_abort("test")
 
 
+def _relay_event(entity_id: str, old: str, new: str) -> SimpleNamespace:
+    return SimpleNamespace(
+        data={
+            "entity_id": entity_id,
+            "old_state": SimpleNamespace(state=old),
+            "new_state": SimpleNamespace(state=new),
+        }
+    )
+
+
+@pytest.mark.asyncio
+async def test_late_off_after_reverse_start_stays_on() -> None:
+    """Deferred halt OFF after force ON must not kill the new direction.
+
+    Reproduces the HA bus race: halt registers OFF, reverse registers ON
+    (queue keeps both), then the deferred OFF event arrives after start.
+    Single-slot suppression used to overwrite OFF with ON so the late OFF
+    was treated as a stop press (ON → immediate OFF).
+    """
+    coordinator, adapter, _store, _profile, runtime = _build(
+        opposite_press=COVER_OPPOSITE_STOP_THEN_REVERSE,
+        settle=0.0,
+        open_time=5.0,
+        close_time=5.0,
+    )
+    close_entity = runtime.mapping.relay_entities[CLOSE_BUTTON - 1]
+
+    await coordinator._async_handle_physical_press(OPEN_BUTTON, True)
+    await coordinator._async_handle_physical_press(CLOSE_BUTTON, True)
+    assert runtime.cover.direction == "close"
+    assert adapter.relays[CLOSE_BUTTON] is True
+    assert runtime.cover.timer is not None
+
+    # Simulate the deferred halt OFF that was still queued on the bus when
+    # reverse turn_on overwrote the single-slot expectation (pre-fix).
+    runtime.suppression.register(close_entity, "off", operation_id="halt-off")
+    runtime.suppression.register(close_entity, "on", operation_id="reverse-on")
+    adapter.relay_calls.clear()
+    await coordinator._async_handle_relay_event(_relay_event(close_entity, "on", "off"))
+
+    assert runtime.cover.direction == "close"
+    assert runtime.cover.moving is True
+    assert runtime.cover.timer is not None
+    assert adapter.relays[CLOSE_BUTTON] is True
+    # Suppression consumed the OFF; no halt writes.
+    assert adapter.relay_calls == []
+    await coordinator._async_cover_abort("test")
+
+
+@pytest.mark.asyncio
+async def test_active_off_during_post_start_grace_reasserts_on() -> None:
+    """If a stale OFF slips past suppression, grace re-energizes and keeps travel."""
+    coordinator, adapter, _store, _profile, runtime = _build(
+        opposite_press=COVER_OPPOSITE_STOP_THEN_REVERSE,
+        settle=0.0,
+        open_time=5.0,
+        close_time=5.0,
+    )
+    await coordinator._async_handle_physical_press(OPEN_BUTTON, True)
+    await coordinator._async_handle_physical_press(CLOSE_BUTTON, True)
+    assert runtime.cover.direction == "close"
+    # Simulate HA reporting OFF (stale) without going through suppression.
+    adapter.relays[CLOSE_BUTTON] = False
+    adapter.relay_calls.clear()
+    runtime.suppression.clear()
+    await coordinator._async_handle_physical_press(CLOSE_BUTTON, False)
+
+    assert runtime.cover.direction == "close"
+    assert runtime.cover.timer is not None
+    assert adapter.relays[CLOSE_BUTTON] is True
+    assert (CLOSE_BUTTON, True) in adapter.relay_calls
+    await coordinator._async_cover_abort("test")
+
+
+@pytest.mark.asyncio
+async def test_active_off_after_grace_still_stops() -> None:
+    """Deliberate stop after the reverse post-start grace must halt as before."""
+    coordinator, adapter, _store, _profile, runtime = _build(
+        opposite_press=COVER_OPPOSITE_STOP_THEN_REVERSE,
+        settle=0.0,
+        open_time=5.0,
+        close_time=5.0,
+    )
+    await coordinator._async_handle_physical_press(OPEN_BUTTON, True)
+    await coordinator._async_handle_physical_press(CLOSE_BUTTON, True)
+    motion = runtime.cover.get(_profile.cover.id)
+    assert motion.suppress_stale_off_until is not None
+    motion.suppress_stale_off_until = 0.0  # expire grace
+    adapter.relay_calls.clear()
+    await coordinator._async_handle_physical_press(CLOSE_BUTTON, False)
+    assert runtime.cover.moving is False
+    _assert_all_cover_relays_off(adapter)
+
+
 @pytest.mark.asyncio
 async def test_cover_command_stop_then_reverse_energizes_opposite() -> None:
     coordinator, adapter, _store, _profile, runtime = _build(
@@ -437,9 +544,7 @@ async def test_stop_then_reverse_settles_with_both_off() -> None:
     await coordinator._async_handle_physical_press(OPEN_BUTTON, True)
     adapter.relay_calls.clear()
 
-    task = asyncio.create_task(
-        coordinator._async_handle_physical_press(CLOSE_BUTTON, True)
-    )
+    task = asyncio.create_task(coordinator._async_handle_physical_press(CLOSE_BUTTON, True))
     await asyncio.sleep(0.02)  # mid-settle
     assert adapter.relays[OPEN_BUTTON] is False
     assert adapter.relays[CLOSE_BUTTON] is False
@@ -459,9 +564,7 @@ async def test_start_clears_stale_opposite_on_without_pulsing_target() -> None:
     # Simulate illegal hardware state without going through the adapter guard.
     adapter.relays[OPEN_BUTTON] = True
     adapter.relays[CLOSE_BUTTON] = True
-    await coordinator._async_cover_start(
-        _profile.cover, _profile, "open", "test"
-    )
+    await coordinator._async_cover_start(_profile.cover, _profile, "open", "test")
     assert adapter.relay_calls == [(CLOSE_BUTTON, False)]
     assert adapter.relays[OPEN_BUTTON] is True
     assert adapter.relays[CLOSE_BUTTON] is False

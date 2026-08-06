@@ -23,6 +23,7 @@ from .const import (
     COVER_DIRECTION_CLOSE,
     COVER_DIRECTION_OPEN,
     COVER_OPPOSITE_STOP_THEN_REVERSE,
+    COVER_POST_START_OFF_GRACE_S,
     COVER_REASON_ABORT,
     COVER_REASON_COMMAND,
     COVER_REASON_ERROR,
@@ -471,6 +472,31 @@ class PanelCoordinator:
                 # duplicate Zigbee OFF; treating that as a stop killed reverse.
                 if motion.moving and motion.direction != direction:
                     return
+                # After stop_then_reverse force_energize only: active-direction
+                # OFF shortly after start is usually a deferred halt/settle echo
+                # that lost the suppression race. Ignore it and re-assert ON if
+                # HA flipped off. Idle starts still treat immediate OFF as stop.
+                if (
+                    motion.moving
+                    and motion.direction == direction
+                    and motion.suppress_stale_off_until is not None
+                    and self._monotonic() < motion.suppress_stale_off_until
+                ):
+                    target = cover.button_for(direction)
+                    if not self.runtime.adapter.relay_is_on(target):
+                        try:
+                            await self.runtime.adapter.async_set_relay(
+                                target, True, suppress_event=True
+                            )
+                        except Exception as err:  # noqa: BLE001
+                            _LOGGER.error(
+                                "Cover %s failed to re-assert %s after stale OFF: %s",
+                                cover.id,
+                                direction,
+                                err,
+                            )
+                            await self._async_cover_halt(cover, reason=COVER_REASON_ERROR)
+                    return
                 # Active-direction OFF is a stop press; idle OFF is safety.
                 await self._async_cover_halt(
                     cover,
@@ -542,16 +568,12 @@ class PanelCoordinator:
                     force_energize=True,
                 )
             else:
-                await self._async_cover_start(
-                    cover, profile, direction, COVER_REASON_COMMAND
-                )
+                await self._async_cover_start(cover, profile, direction, COVER_REASON_COMMAND)
         return self.cover_state_payload(cover_id=cover.id)
 
     def _resolve_cover(self, profile: Profile, cover_id: str | None) -> CoverConfig:
         """Resolve a cover by id, defaulting to the first active cover on the profile."""
-        covers = (
-            profile.active_covers() if profile.mode == MODE_MIXED else list(profile.covers)
-        )
+        covers = profile.active_covers() if profile.mode == MODE_MIXED else list(profile.covers)
         if cover_id:
             for cover in covers:
                 if cover.id == cover_id:
@@ -620,6 +642,11 @@ class PanelCoordinator:
         motion.started_at = self._monotonic()
         motion.last_reason = reason
         motion.relays = cover.relay_indexes()
+        # Only reverse-after-halt needs the stale-OFF grace; idle starts must
+        # still treat an immediate latching OFF as a deliberate stop.
+        motion.suppress_stale_off_until = (
+            motion.started_at + COVER_POST_START_OFF_GRACE_S if force_energize else None
+        )
         motion.timer = self.hass.async_create_task(
             self._async_cover_travel_timer(profile.id, cover.id, direction, duration)
         )
@@ -1226,9 +1253,7 @@ class PanelCoordinator:
         if button < 1 or button > BUTTON_COUNT:
             raise ValueError("Button must be 1-4")
         if button > int(profile.gang_count or BUTTON_COUNT):
-            raise ValueError(
-                f"Button {button} is outside gang_count {profile.gang_count}"
-            )
+            raise ValueError(f"Button {button} is outside gang_count {profile.gang_count}")
         await self._async_virtual_press(profile, button)
 
     async def _async_virtual_press(self, profile: Profile, index: int) -> None:
@@ -1258,9 +1283,7 @@ class PanelCoordinator:
         current = self._relay_currently_on(index)
         new_state = True if current is None else (not current)
         try:
-            await self.runtime.adapter.async_set_relay(
-                index, new_state, suppress_event=True
-            )
+            await self.runtime.adapter.async_set_relay(index, new_state, suppress_event=True)
         except Exception as err:  # noqa: BLE001
             _LOGGER.error("Virtual toggle failed for button %s: %s", index, err)
             raise
@@ -1280,9 +1303,7 @@ class PanelCoordinator:
             raise
         await self._async_radio_mandatory(profile, index, True)
 
-    async def _async_virtual_radio_split_press(
-        self, profile: Profile, index: int
-    ) -> None:
+    async def _async_virtual_radio_split_press(self, profile: Profile, index: int) -> None:
         """Radio-split virtual press: group exclusivity or independent toggle."""
         group = profile.radio_group_for(index)
         if group is None:
@@ -1295,9 +1316,7 @@ class PanelCoordinator:
         try:
             await self.runtime.adapter.async_set_relay(index, True, suppress_event=True)
         except Exception as err:  # noqa: BLE001
-            _LOGGER.error(
-                "Virtual radio-split press failed for button %s: %s", index, err
-            )
+            _LOGGER.error("Virtual radio-split press failed for button %s: %s", index, err)
             raise
         await self._async_radio_split(profile, index, True)
 
@@ -1315,9 +1334,7 @@ class PanelCoordinator:
             return
         await self._async_virtual_toggle_press(profile, index)
 
-    async def _async_virtual_momentary_press(
-        self, profile: Profile, index: int
-    ) -> None:
+    async def _async_virtual_momentary_press(self, profile: Profile, index: int) -> None:
         """Card/service momentary: energize (+ pulse) or cancel like a re-press."""
         armed = index in self.runtime.momentary.timers
         current = self._relay_currently_on(index)
@@ -1328,21 +1345,15 @@ class PanelCoordinator:
         if current is True:
             # Latched ON without an armed timer — force OFF (fail-safe).
             try:
-                await self.runtime.adapter.async_set_relay(
-                    index, False, suppress_event=True
-                )
+                await self.runtime.adapter.async_set_relay(index, False, suppress_event=True)
             except Exception as err:  # noqa: BLE001
-                _LOGGER.error(
-                    "Virtual momentary cancel failed for button %s: %s", index, err
-                )
+                _LOGGER.error("Virtual momentary cancel failed for button %s: %s", index, err)
             self.runtime.async_notify()
             return
         try:
             await self.runtime.adapter.async_set_relay(index, True, suppress_event=True)
         except Exception as err:  # noqa: BLE001
-            _LOGGER.error(
-                "Virtual momentary ON failed for button %s: %s", index, err
-            )
+            _LOGGER.error("Virtual momentary ON failed for button %s: %s", index, err)
             raise
         await self._async_momentary_press(profile, index, True)
         self.runtime.async_notify()

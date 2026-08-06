@@ -59,6 +59,9 @@ class CoverMotion:
     # Relay pair that was energized last, kept so a halt can de-energize the
     # right buttons even after the profile or its mapping changed.
     relays: tuple[int, int] | None = None
+    # After stop_then_reverse force_energize, ignore active-direction OFF echoes
+    # until this monotonic deadline (deferred halt events / suppression races).
+    suppress_stale_off_until: float | None = None
 
     @property
     def moving(self) -> bool:
@@ -72,6 +75,7 @@ class CoverMotion:
         self.started_at = None
         self.duration = None
         self.relays = None
+        self.suppress_stale_off_until = None
         if reason is not None:
             self.last_reason = reason
 

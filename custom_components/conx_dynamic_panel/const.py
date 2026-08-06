@@ -98,6 +98,8 @@ COVER_DEFAULT_CLOSE_TIME: Final = 20.0
 COVER_SETTLE_MIN: Final = 0.0
 COVER_SETTLE_MAX: Final = 5.0
 COVER_DEFAULT_SETTLE: Final = 0.5
+# Ignore active-direction OFF echoes shortly after start (halt→reverse race).
+COVER_POST_START_OFF_GRACE_S: Final = 1.5
 COVER_DEFAULT_OPEN_BUTTON: Final = 1
 COVER_DEFAULT_CLOSE_BUTTON: Final = 2
 COVER_DEFAULT_ID: Final = "cover_1"
