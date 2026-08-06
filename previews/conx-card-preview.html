@@ -431,7 +431,7 @@
     }
     .faceplate-glass {
       height: 100%; border-radius: 16px; overflow: hidden;
-      display: grid; grid-template-rows: 24% 76%; background: #fff;
+      display: grid; grid-template-rows: 28% 72%; background: #fff;
       box-shadow: inset 0 0 0 1px rgba(0,0,0,.08);
     }
     .faceplate-labels {
@@ -439,25 +439,32 @@
       grid-template-columns: repeat(var(--conx-gang-count, 4), 1fr);
       align-items: center;
       background: linear-gradient(180deg, #2a3038 0%, #1a1d22 100%); color: #f0f2f5; padding: 0 6px;
+      min-height: 0;
+      z-index: 2;
     }
     .faceplate-label {
-      text-align: center; font-size: clamp(.78rem, 5.5cqw, 1.25rem); font-weight: 600;
+      text-align: center; font-size: clamp(.7rem, 4.2cqw, 1.05rem); font-weight: 600;
+      line-height: 1.15;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 4px;
       font-family: var(--font);
     }
     .faceplate-touch {
-      display:flex; align-items:flex-end; justify-content:stretch;
+      display:flex; align-items:center; justify-content:stretch;
       background: linear-gradient(180deg, #ffffff 0%, #f7f5f1 70%, #efebe4 100%);
-      padding: 0 2% 11%;
+      padding: 10% 3% 14%;
+      min-height: 0;
+      overflow: hidden;
+      box-sizing: border-box;
     }
     .faceplate-rings {
       display: grid;
       grid-template-columns: repeat(var(--conx-gang-count, 4), 1fr);
       width: 100%;
       place-items: center;
+      align-content: center;
     }
     .ring {
-      width: clamp(30px, 16cqw, 72px); height: clamp(30px, 16cqw, 72px);
+      width: clamp(26px, 12.5cqw, 56px); height: clamp(26px, 12.5cqw, 56px);
       border-radius: 50%; border: 3px solid color-mix(in srgb, var(--ring-off) 70%, #9aa7b5);
       background: transparent; padding: 0; cursor: pointer; position: relative;
       box-shadow: 0 0 8px color-mix(in srgb, var(--ring-off) 40%, transparent);

@@ -365,11 +365,19 @@ describe("custom elements", () => {
       ? Card.styles.map((part) => part.cssText).join("\n")
       : Card.styles.cssText;
     expect(cssText).toContain("aspect-ratio: calc(0.66 * 4) / 1");
-    expect(cssText).toContain("width: clamp(30px, 16cqw, 72px)");
+    expect(cssText).toContain("width: clamp(26px, 12.5cqw, 56px)");
     expect(cssText).toContain("container-type: inline-size");
     expect(cssText).toContain(
       "grid-template-columns: repeat(var(--conx-gang-count, 4), 1fr);"
     );
+    // Rings sit in the light body with a clear gap under the label bar (no overlap).
+    expect(cssText).toMatch(
+      /\.faceplate-glass\s*\{[^}]*grid-template-rows:\s*28%\s+72%/s
+    );
+    expect(cssText).toMatch(
+      /\.faceplate-touch\s*\{[^}]*align-items:\s*center[^}]*padding:\s*10%\s+3%\s+14%/s
+    );
+    expect(cssText).toMatch(/\.faceplate-touch\s*\{[^}]*overflow:\s*hidden/s);
     expect(cssText).toContain(".settings-tabs");
     expect(cssText).toContain("border-bottom: 2px solid transparent");
     expect(cssText).not.toContain("min-width: calc(100px * 4)");

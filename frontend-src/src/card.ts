@@ -1452,17 +1452,21 @@ export class ConXDynamicPanelCard extends LitElement {
     `;
   }
 
-  private _renderOneCoverEditor(cover: CoverConfig, index: number) {
+  private _renderOneCoverEditor(
+    cover: CoverConfig,
+    index: number,
+    mixed = false
+  ) {
     const limits = this._panel?.capabilities.cover;
     const minTime = limits?.min_time_s ?? COVER_TIME_MIN;
     const maxTime = limits?.max_time_s ?? COVER_TIME_MAX;
     const unit = this.t("card.cover_seconds");
-    const canRemove = this._covers().length > 1;
+    const canRemove = !mixed && this._covers().length > 1;
     return html`
-      <div class="cover-block" data-cover-id=${cover.id}>
+      <div class="cover-block ${mixed ? "cover-block-mixed" : ""}" data-cover-id=${cover.id}>
         <div class="cover-head">
           <span class="menu-label"
-            >${this.t("card.cover")} ${index + 1}</span
+            >${this.t("card.cover")} ${mixed ? cover.id : index + 1}</span
           >
           ${canRemove
             ? html`<button
@@ -1475,6 +1479,9 @@ export class ConXDynamicPanelCard extends LitElement {
               </button>`
             : nothing}
         </div>
+        ${mixed
+          ? html`<p class="radio-groups-hint">${this.t("card.mixed_cover_times_hint")}</p>`
+          : html`
         <div class="cover-grid">
           <div class="cover-field">
             <span class="cover-label">${this.t("card.cover_open_button")}</span>
@@ -1485,6 +1492,7 @@ export class ConXDynamicPanelCard extends LitElement {
             ${this._renderCoverButtonPicker(cover, "close")}
           </div>
         </div>
+        `}
         <div class="cover-times">
           <label class="field">
             <span>${this.t("card.cover_open_time")} (${unit})</span>
@@ -1576,7 +1584,7 @@ export class ConXDynamicPanelCard extends LitElement {
             </select>
           </div>
         </label>
-        ${cover.open_button === cover.close_button
+        ${!mixed && cover.open_button === cover.close_button
           ? html`<div class="radio-groups-error">
               ${this.t("card.cover_same_button")}
             </div>`
@@ -1612,7 +1620,8 @@ export class ConXDynamicPanelCard extends LitElement {
     if (!this._draft) {
       return nothing;
     }
-    if (this._draft.mode === "mixed") {
+    const mixed = this._draft.mode === "mixed";
+    if (mixed) {
       const hasCover = this._draft.buttons.some(
         (button) =>
           button.index <= this._gangCount() &&
@@ -1625,6 +1634,28 @@ export class ConXDynamicPanelCard extends LitElement {
       return nothing;
     }
     const covers = this._covers();
+    if (mixed) {
+      // Timing only — open/close buttons come from free-mix roles.
+      const boundIds = new Set(
+        this._draft.buttons
+          .filter(
+            (button) =>
+              button.index <= this._gangCount() &&
+              (button.role === "cover_open" || button.role === "cover_close")
+          )
+          .map((button) => String(button.cover_id || "cover_1").trim() || "cover_1")
+      );
+      const bound = covers.filter((cover) => boundIds.has(cover.id));
+      return html`
+        <div class="cover-section cover-section-mixed" data-cover-editor data-mixed-cover-times>
+          <div class="cover-head">
+            <span class="menu-label">${this.t("card.cover_times")}</span>
+          </div>
+          ${bound.map((cover, index) => this._renderOneCoverEditor(cover, index, true))}
+          <p class="cover-safety">${this.t("card.cover_safety")}</p>
+        </div>
+      `;
+    }
     const maxCovers = maxCoversForGangs(this._gangCount());
     const slots = Array.from(
       { length: Math.max(maxCovers, covers.length) },
@@ -2501,9 +2532,10 @@ export class ConXDynamicPanelCard extends LitElement {
     const ringOff = this._ringOffColor();
     return html`
       <!--
-        Faceplate matches product photos: black label bar (~20–25%), white
-        touch face, N equal columns (L1 leftmost … Ln). Outer bezel keeps the
-        landscape 4-gang footprint; rings use color_on / color_off.
+        Faceplate matches product photos: black label bar (~28%), white touch
+        face with rings centered in the lower body (clear gap under labels),
+        N equal columns (L1 leftmost … Ln). Outer bezel keeps the landscape
+        4-gang footprint; rings use color_on / color_off.
         Photo skin hook: --conx-faceplate-skin on .faceplate.
       -->
       <div
@@ -3045,8 +3077,8 @@ export class ConXDynamicPanelCard extends LitElement {
     }
     return html`
       ${this._renderModePicker()} ${this._renderMixedRolesSection()}
-      ${this._renderRadioGroupsEditor()}
       ${this._renderCoverEditor()}
+      ${this._renderRadioGroupsEditor()}
           <div class="buttons-accordion">
             ${this._draft.buttons
               .filter((button) => button.index <= this._gangCount())
@@ -4991,6 +5023,23 @@ export class ConXDynamicPanelCard extends LitElement {
       border-radius: 12px;
       border: 1px solid var(--border);
       background: color-mix(in srgb, var(--surface-2, var(--surface)) 88%, transparent);
+      color: var(--text);
+    }
+    .cover-section-mixed {
+      margin: 0 0 8px;
+      padding: 6px;
+    }
+    .cover-block-mixed {
+      margin-top: 4px;
+      padding-top: 6px;
+    }
+    .cover-section-mixed .cover-times .field span {
+      font-size: 0.72rem;
+    }
+    .cover-section-mixed .cover-times input,
+    .cover-section-mixed .select-wrap select {
+      min-height: 30px;
+      padding: 4px 6px;
     }
     .cover-block {
       margin-top: 8px;
@@ -5324,7 +5373,8 @@ export class ConXDynamicPanelCard extends LitElement {
       border-radius: 16px;
       overflow: hidden;
       display: grid;
-      grid-template-rows: 24% 76%;
+      /* Label bar ~28%: room for HE names; rings stay in the light body only. */
+      grid-template-rows: 28% 72%;
       background: #fff;
       box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
     }
@@ -5336,12 +5386,15 @@ export class ConXDynamicPanelCard extends LitElement {
       background: linear-gradient(180deg, #2a3038 0%, #1a1d22 100%);
       color: #f0f2f5;
       padding: 0 6px;
+      min-height: 0;
+      z-index: 2;
     }
 
     .faceplate-label {
       text-align: center;
-      font-size: clamp(0.78rem, 5.5cqw, 1.25rem);
+      font-size: clamp(0.7rem, 4.2cqw, 1.05rem);
       font-weight: 600;
+      line-height: 1.15;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -5351,10 +5404,14 @@ export class ConXDynamicPanelCard extends LitElement {
 
     .faceplate-touch {
       display: flex;
-      align-items: flex-end;
+      align-items: center;
       justify-content: stretch;
       background: linear-gradient(180deg, #ffffff 0%, #f7f5f1 70%, #efebe4 100%);
-      padding: 0 2% 11%;
+      /* Top pad clears the label bar; bottom bias keeps rings in the lower body. */
+      padding: 10% 3% 14%;
+      min-height: 0;
+      overflow: hidden;
+      box-sizing: border-box;
     }
 
     .faceplate-rings {
@@ -5362,11 +5419,12 @@ export class ConXDynamicPanelCard extends LitElement {
       grid-template-columns: repeat(var(--conx-gang-count, 4), 1fr);
       width: 100%;
       place-items: center;
+      align-content: center;
     }
 
     .ring {
-      width: clamp(30px, 16cqw, 72px);
-      height: clamp(30px, 16cqw, 72px);
+      width: clamp(26px, 12.5cqw, 56px);
+      height: clamp(26px, 12.5cqw, 56px);
       border-radius: 50%;
       border: 3px solid
         color-mix(in srgb, var(--ring-off, var(--conx-ring-off)) 70%, #9aa7b5);
