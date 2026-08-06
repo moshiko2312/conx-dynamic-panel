@@ -7,8 +7,12 @@ from typing import Any
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
+
+try:
+    from homeassistant.config_entries import ConfigFlowResult as FlowResult
+except ImportError:  # pragma: no cover - older Home Assistant
+    from homeassistant.data_entry_flow import FlowResult
 
 from .adapters import create_adapter
 from .const import (
@@ -34,6 +38,10 @@ from .const import (
     DOMAIN,
 )
 from .exceptions import MappingValidationError
+from .mapping_discovery import (
+    discover_mapping_from_hass,
+    normalize_device_prefix,
+)
 from .models import EntityMapping
 from .suppression import SuppressionTracker
 
@@ -42,6 +50,11 @@ STEP_RELAYS = "relays"
 STEP_NAMES = "names"
 STEP_SETTINGS = "settings"
 STEP_SUMMARY = "summary"
+
+CONF_DEVICE_PREFIX = "device_prefix"
+CONF_MAPPING_MODE = "mapping_mode"
+MAPPING_MODE_PREFIX = "prefix"
+MAPPING_MODE_MANUAL = "manual"
 
 
 def _entity_selector(domain: str) -> selector.EntitySelector:
@@ -77,20 +90,60 @@ class ConXDynamicPanelConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def __init__(self) -> None:
         self._data: dict[str, Any] = {}
         self._reconfigure = False
+        self._discovery_missing: tuple[str, ...] = ()
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> FlowResult:
-        """Collect panel identity."""
+        """Collect panel identity and optional Zigbee device prefix."""
         errors: dict[str, str] = {}
         if user_input is not None:
             self._data[CONF_PANEL_NAME] = user_input[CONF_PANEL_NAME]
             self._data[CONF_ADAPTER_TYPE] = user_input[CONF_ADAPTER_TYPE]
-            return await self.async_step_relays()
+            mapping_mode = user_input.get(CONF_MAPPING_MODE, MAPPING_MODE_PREFIX)
+            self._data[CONF_MAPPING_MODE] = mapping_mode
+            prefix = str(user_input.get(CONF_DEVICE_PREFIX) or user_input[CONF_PANEL_NAME]).strip()
+            self._data[CONF_DEVICE_PREFIX] = prefix
+
+            if mapping_mode == MAPPING_MODE_PREFIX:
+                discovered = discover_mapping_from_hass(self.hass, prefix)
+                self._data.update(discovered.as_defaults())
+                self._discovery_missing = discovered.missing
+                if not discovered.relay_entities:
+                    errors["base"] = "prefix_not_found"
+                else:
+                    return await self.async_step_relays()
+            else:
+                self._discovery_missing = ()
+                return await self.async_step_relays()
+
+        default_prefix = self._data.get(CONF_DEVICE_PREFIX) or self._data.get(CONF_PANEL_NAME, "")
         schema = vol.Schema(
             {
                 vol.Required(
                     CONF_PANEL_NAME,
                     default=self._data.get(CONF_PANEL_NAME, ""),
                 ): str,
+                vol.Required(
+                    CONF_DEVICE_PREFIX,
+                    default=default_prefix,
+                ): str,
+                vol.Required(
+                    CONF_MAPPING_MODE,
+                    default=self._data.get(CONF_MAPPING_MODE, MAPPING_MODE_PREFIX),
+                ): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=[
+                            {
+                                "value": MAPPING_MODE_PREFIX,
+                                "label": "Auto by device prefix (recommended)",
+                            },
+                            {
+                                "value": MAPPING_MODE_MANUAL,
+                                "label": "Manual entity selection",
+                            },
+                        ],
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
                 vol.Required(
                     CONF_ADAPTER_TYPE,
                     default=self._data.get(CONF_ADAPTER_TYPE, ADAPTER_ZEMISMART_4GANG),
@@ -107,7 +160,14 @@ class ConXDynamicPanelConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 ),
             }
         )
-        return self.async_show_form(step_id=STEP_USER, data_schema=schema, errors=errors)
+        return self.async_show_form(
+            step_id=STEP_USER,
+            data_schema=schema,
+            errors=errors,
+            description_placeholders={
+                "prefix_hint": normalize_device_prefix(str(default_prefix or "tp4")) or "tp4"
+            },
+        )
 
     async def async_step_relays(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Collect four relay switch entities."""
@@ -136,8 +196,12 @@ class ConXDynamicPanelConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         schema_dict: dict[Any, Any] = {}
         for index, key in enumerate(("relay_l1", "relay_l2", "relay_l3", "relay_l4")):
             schema_dict.update(_required_entity(key, "switch", defaults[index] or None))
+        missing = ", ".join(self._discovery_missing) if self._discovery_missing else ""
         return self.async_show_form(
-            step_id=STEP_RELAYS, data_schema=vol.Schema(schema_dict), errors=errors
+            step_id=STEP_RELAYS,
+            data_schema=vol.Schema(schema_dict),
+            errors=errors,
+            description_placeholders={"missing": missing},
         )
 
     async def async_step_names(self, user_input: dict[str, Any] | None = None) -> FlowResult:

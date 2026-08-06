@@ -26,8 +26,15 @@ BACKUP="$HA_CONFIG/custom_components/conx_dynamic_panel.backup_$STAMP"
 cp -R "$DEST" "$BACKUP"
 
 # Replace integration code only. Never touch Home Assistant .storage.
+# Exclude iCloud conflict duplicates ("* 2.py") and local caches.
 rm -rf "$DEST"
-cp -R "$ROOT/custom_components/conx_dynamic_panel" "$DEST"
+mkdir -p "$DEST"
+rsync -a \
+  --exclude='__pycache__/' \
+  --exclude='*.pyc' \
+  --exclude='* 2.*' \
+  --exclude='* 2' \
+  "$ROOT/custom_components/conx_dynamic_panel/" "$DEST/"
 
 echo "Updated ConX Dynamic Panel at $DEST"
 echo "Backup saved at $BACKUP"

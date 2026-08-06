@@ -22,7 +22,13 @@ fi
 DEST="$HA_CONFIG/custom_components/conx_dynamic_panel"
 mkdir -p "$HA_CONFIG/custom_components"
 rm -rf "$DEST"
-cp -R "$ROOT/custom_components/conx_dynamic_panel" "$DEST"
+# Copy without iCloud conflict duplicates ("* 2.py") or local caches.
+rsync -a \
+  --exclude='__pycache__/' \
+  --exclude='*.pyc' \
+  --exclude='* 2.*' \
+  --exclude='* 2' \
+  "$ROOT/custom_components/conx_dynamic_panel/" "$DEST/"
 
 echo "Installed ConX Dynamic Panel to $DEST"
 echo "Next steps:"

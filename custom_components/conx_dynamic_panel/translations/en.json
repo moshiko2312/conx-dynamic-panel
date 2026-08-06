@@ -3,15 +3,17 @@
     "step": {
       "user": {
         "title": "Panel identity",
-        "description": "Name this physical panel and choose its adapter.",
+        "description": "Name this panel and enter the Zigbee2MQTT device name/prefix (example: {prefix_hint}). Auto mode maps L1–L4, names, colors, radar, backlight, and child lock from that prefix.",
         "data": {
           "panel_name": "Panel name",
+          "device_prefix": "Device prefix (Z2M name)",
+          "mapping_mode": "Mapping mode",
           "adapter_type": "Adapter type"
         }
       },
       "relays": {
         "title": "Relay entities",
-        "description": "Select the four switch entities used as physical buttons.",
+        "description": "Confirm the four switch entities used as physical buttons. Auto-fill may leave gaps: {missing}",
         "data": {
           "relay_l1": "Relay L1",
           "relay_l2": "Relay L2",
@@ -49,7 +51,8 @@
     "error": {
       "duplicate_relays": "Relay entities must be unique.",
       "duplicate_names": "Name entities must be unique.",
-      "invalid_mapping": "Mapping validation failed: {error}"
+      "invalid_mapping": "Mapping validation failed: {error}",
+      "prefix_not_found": "Could not find L1–L4 switches for that device prefix. Check the Zigbee2MQTT name or switch to manual mapping."
     },
     "abort": {
       "already_configured": "This relay set is already configured."

@@ -9,6 +9,10 @@ All notable changes to this private project will be documented here.
 - **Cover motor hard mutex (never both direction relays ON):** before energizing any cover direction, both open/close relays are forced OFF (serialized; active/opposite first). `stop_then_reverse` cancels the travel timer, forces both OFF, keeps both OFF through settle, then starts the new direction — opposite OFF always precedes direction ON with zero both-true window. Halt kills the active direction first for fastest stop. Applies to cover mode, multi-cover, mixed cover roles, card/service `execute_button`, and `cover_command`. Adapter “both on” guard + strengthened call-order tests.
 - **Card faceplate presses now drive the physical panel:** ring clicks were left as local LED preview only (to avoid dirty drafts), so the card never called the integration. Presses now call WebSocket `conx_dynamic_panel/execute_button`, which toggles/drives mapped relays and runs the same engines as a physical press (toggle, radio exclusivity, momentary pulse, cover). Draft stays clean — no Save Draft prompt. Live relay/`subscribe` updates still refresh the rings.
 
+### Added
+
+- **Config flow device-prefix auto-mapping:** enter the Zigbee2MQTT device name (e.g. `tp4`) and ConX fills L1–L4 relays, name texts, color ON/OFF, radar, backlight, brightness, and child lock from that prefix (or matching HA device). Manual entity picking remains available. Review/edit steps stay so you can override before create.
+
 ### Fixed
 
 - **HA Lit card visual parity with HTML preview:** faceplate bezel/rings/labels (warm stone gradient, larger rings, slate header bar), Manrope + Cormorant Garamond fonts (was Outfit/Sora), ConX brand + panel name title, settings-tabs underline chrome, pill buttons, theme swatch cards, menu bevel, centered hero profile name, and dimmer % pill — so the Lovelace card matches `previews/conx-card-preview.html` graphics. Behavior (free-mix roles, momentary pulse, Save Draft vs Sync, gang/cover rules) was already aligned; modal overlays stay absolute inside `ha-card` (preview uses viewport-fixed siblings).

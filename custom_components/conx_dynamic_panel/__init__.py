@@ -9,7 +9,6 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
-from homeassistant.helpers.http import StaticPathConfig
 
 from .adapters import create_adapter
 from .const import (
@@ -140,6 +139,8 @@ async def _async_register_frontend(hass: HomeAssistant) -> None:
         _LOGGER.debug("Frontend bundle not built yet at %s", script_path)
         return
     try:
+        from homeassistant.helpers.http import StaticPathConfig
+
         await hass.http.async_register_static_paths(
             [
                 StaticPathConfig(
