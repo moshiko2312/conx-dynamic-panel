@@ -42,6 +42,14 @@ import {
   validateProfilesExport,
 } from "./exportSchema";
 import {
+  actionDomain,
+  ensureHaEntityPickerLoaded,
+  isHaEntityPickerRegistered,
+  listEntityIds,
+  listServiceActions,
+  withCurrentOption,
+} from "./haPickers";
+import {
   LANGUAGE_OPTIONS,
   type CardLanguage,
   isRtl,
@@ -197,8 +205,11 @@ export class ConXDynamicPanelCard extends LitElement {
   @state() private _panelNameDraft = "";
   /** Single open/collapsed state for the whole radio_split groups block. */
   @state() private _radioGroupsOpen = true;
+  /** True when HA's native `ha-entity-picker` is registered (or preload succeeded). */
+  @state() private _haEntityPickerReady = false;
 
   private _importInput?: HTMLInputElement;
+  private _haPickerLoadStarted = false;
   /** Unsubscribe from conx_dynamic_panel/subscribe runtime pushes. */
   private _unsubRuntime?: () => void;
   private _runtimeEntryId?: string;
@@ -236,6 +247,7 @@ export class ConXDynamicPanelCard extends LitElement {
     this._theme = resolveTheme(this._config?.theme, loadStoredTheme());
     this._ensureFonts();
     void this._ensureRuntimeSubscription();
+    void this._ensureHaEntityPicker();
   }
 
   disconnectedCallback(): void {
@@ -1968,27 +1980,55 @@ export class ConXDynamicPanelCard extends LitElement {
     });
   }
 
-  private _onButtonActionInput(index: number, e: Event): void {
-    const action = (e.target as HTMLInputElement).value.trim();
+  private async _ensureHaEntityPicker(): Promise<void> {
+    if (this._haPickerLoadStarted) {
+      return;
+    }
+    this._haPickerLoadStarted = true;
+    if (isHaEntityPickerRegistered()) {
+      this._haEntityPickerReady = true;
+      return;
+    }
+    this._haEntityPickerReady = await ensureHaEntityPickerLoaded();
+  }
+
+  private _setButtonAction(index: number, action: string, entityId?: string | null): void {
+    const nextAction = action.trim();
     this._patchDraft((draft) => {
       const button = draft.buttons.find((item) => item.index === index);
       if (!button) {
         return;
       }
-      if (!action) {
+      if (!nextAction) {
         button.action = null;
         return;
       }
+      const previousEntity = (
+        button.action?.target as { entity_id?: string } | undefined
+      )?.entity_id;
+      const domain = actionDomain(nextAction);
+      let nextEntity =
+        entityId === undefined
+          ? previousEntity?.trim() || ""
+          : (entityId ?? "").trim();
+      if (domain && nextEntity && !nextEntity.startsWith(`${domain}.`)) {
+        nextEntity = "";
+      }
       button.action = {
-        action,
-        target: button.action?.target || {},
+        action: nextAction,
+        target: nextEntity ? { entity_id: nextEntity } : {},
         data: button.action?.data || {},
       };
     });
   }
 
-  private _onButtonEntityInput(index: number, e: Event): void {
-    const entityId = (e.target as HTMLInputElement).value.trim();
+  private _onButtonActionSelect(index: number, e: Event): void {
+    const action = (e.target as HTMLSelectElement).value.trim();
+    this._setButtonAction(index, action);
+  }
+
+  private _onButtonEntitySelect(index: number, e: Event): void {
+    const entityId = (e.target as HTMLSelectElement).value.trim();
     this._patchDraft((draft) => {
       const button = draft.buttons.find((item) => item.index === index);
       if (!button) {
@@ -2005,6 +2045,87 @@ export class ConXDynamicPanelCard extends LitElement {
         data: button.action?.data || {},
       };
     });
+  }
+
+  private _onHaEntityPickerChanged(index: number, e: Event): void {
+    e.stopPropagation();
+    const detail = (e as CustomEvent<{ value?: string | null }>).detail;
+    const entityId = (detail?.value ?? "").trim();
+    this._onButtonEntitySelect(index, {
+      target: { value: entityId },
+    } as unknown as Event);
+  }
+
+  private _renderActionEntityPickers(
+    buttonIndex: number,
+    action: string,
+    entityId: string
+  ) {
+    const serviceOptions = withCurrentOption(
+      listServiceActions(this.hass?.services),
+      action
+    );
+    const domain = actionDomain(action);
+    const entityOptions = withCurrentOption(
+      listEntityIds(this.hass?.states, domain),
+      entityId
+    );
+    const useHaPicker = this._haEntityPickerReady && !!this.hass;
+    return html`
+      <label class="field">
+        <span>${this.t("card.action")}</span>
+        <div class="select-wrap select-wrap-wide">
+          <select
+            data-action-picker
+            data-button=${buttonIndex}
+            .value=${action}
+            ?disabled=${this._busy}
+            @change=${(e: Event) => this._onButtonActionSelect(buttonIndex, e)}
+          >
+            <option value="">${this.t("card.action_none")}</option>
+            ${serviceOptions.map(
+              (service) => html`<option value=${service}>${service}</option>`
+            )}
+          </select>
+        </div>
+        <span class="field-hint">${this.t("card.action_picker_hint")}</span>
+      </label>
+      <label class="field">
+        <span>${this.t("card.entity_id")}</span>
+        ${useHaPicker
+          ? html`
+              <ha-entity-picker
+                data-entity-picker
+                data-button=${buttonIndex}
+                .hass=${this.hass}
+                .value=${entityId || undefined}
+                .includeDomains=${domain ? [domain] : undefined}
+                allow-custom-entity
+                ?disabled=${this._busy || !action}
+                @value-changed=${(e: Event) =>
+                  this._onHaEntityPickerChanged(buttonIndex, e)}
+              ></ha-entity-picker>
+            `
+          : html`
+              <div class="select-wrap select-wrap-wide">
+                <select
+                  data-entity-picker
+                  data-button=${buttonIndex}
+                  .value=${entityId}
+                  ?disabled=${this._busy || !action}
+                  @change=${(e: Event) =>
+                    this._onButtonEntitySelect(buttonIndex, e)}
+                >
+                  <option value="">${this.t("card.entity_none")}</option>
+                  ${entityOptions.map(
+                    (id) => html`<option value=${id}>${id}</option>`
+                  )}
+                </select>
+              </div>
+            `}
+        <span class="field-hint">${this.t("card.entity_picker_hint")}</span>
+      </label>
+    `;
   }
 
   private _buttonEntityId(buttonIndex: number): string | null {
@@ -2950,34 +3071,11 @@ export class ConXDynamicPanelCard extends LitElement {
                                         ${this.t("card.missing_action")}
                                       </p>`
                                     : nothing}
-                                  <label class="field">
-                                    <span>${this.t("card.action")}</span>
-                                    <input
-                                      type="text"
-                                      .value=${action}
-                                      placeholder="light.toggle"
-                                      ?disabled=${this._busy}
-                                      @input=${(e: Event) =>
-                                        this._onButtonActionInput(
-                                          button.index,
-                                          e
-                                        )}
-                                    />
-                                  </label>
-                                  <label class="field">
-                                    <span>${this.t("card.entity_id")}</span>
-                                    <input
-                                      type="text"
-                                      .value=${entityId}
-                                      placeholder="light.living_room"
-                                      ?disabled=${this._busy}
-                                      @input=${(e: Event) =>
-                                        this._onButtonEntityInput(
-                                          button.index,
-                                          e
-                                        )}
-                                    />
-                                  </label>
+                                  ${this._renderActionEntityPickers(
+                                    button.index,
+                                    action,
+                                    entityId
+                                  )}
                                 `}
                             ${radioMode
                               ? html`
@@ -3582,6 +3680,9 @@ export class ConXDynamicPanelCard extends LitElement {
   static styles = css`
     :host {
       display: block;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
       --conx-font: "Manrope", "Outfit", ui-sans-serif, sans-serif;
       --conx-display: "Cormorant Garamond", "Sora", Georgia, serif;
       --conx-steel: #8b949e;
@@ -3596,13 +3697,16 @@ export class ConXDynamicPanelCard extends LitElement {
       --conx-ring-off: #2979ff;
       --conx-danger: #c62828;
       --conx-radius: 18px;
-      --conx-gap: 12px;
+      --conx-gap: 10px;
     }
 
 
     ha-card.conx-card {
       position: relative;
       overflow: hidden;
+      width: 100%;
+      max-width: none;
+      box-sizing: border-box;
       font-family: var(--conx-font);
       color: var(--text);
       background:
@@ -3610,7 +3714,7 @@ export class ConXDynamicPanelCard extends LitElement {
         linear-gradient(165deg, #262b34 0%, #1a1d22 44%, #15181e 100%);
       border: 1px solid var(--border);
       box-shadow: var(--card-shadow);
-      padding: 18px;
+      padding: 12px 14px 14px;
 
       /* Noir gold — elevated charcoal/slate with 3D depth */
       --bg: #1a1d22;
@@ -4407,9 +4511,9 @@ export class ConXDynamicPanelCard extends LitElement {
     .field {
       display: flex;
       flex-direction: column;
-      gap: 5px;
-      margin-bottom: 10px;
-      font-size: 0.9rem;
+      gap: 3px;
+      margin-bottom: 6px;
+      font-size: 0.86rem;
     }
 
     .field > span {
@@ -4469,6 +4573,19 @@ export class ConXDynamicPanelCard extends LitElement {
       position: relative;
       max-width: 22rem;
     }
+    .select-wrap-wide {
+      max-width: 100%;
+    }
+    .field-hint {
+      font-size: 0.78rem;
+      opacity: 0.7;
+      line-height: 1.35;
+    }
+    ha-entity-picker {
+      display: block;
+      width: 100%;
+      --mdc-theme-primary: var(--conx-accent, #d4af61);
+    }
 
     .field-inline {
       display: flex;
@@ -4514,104 +4631,111 @@ export class ConXDynamicPanelCard extends LitElement {
       max-width: none;
     }
     .profile-gang .gang-picker .radio-member {
-      min-height: 42px;
+      min-height: 34px;
+      padding: 6px 4px;
     }
     .cover-section .gang-picker {
       grid-template-columns: repeat(4, minmax(0, 1fr));
       width: 100%;
       max-width: none;
-      margin-bottom: 4px;
+      margin-bottom: 2px;
     }
     .cover-section .gang-picker .radio-member {
-      min-height: 42px;
+      min-height: 34px;
+      padding: 6px 4px;
     }
 
     .mixed-roles-section {
       display: grid;
-      gap: 12px;
-      margin: 4px 0 14px;
-      padding: 14px 12px 12px;
-      border-radius: 14px;
+      gap: 6px;
+      margin: 2px 0 10px;
+      padding: 8px 8px 8px;
+      border-radius: 12px;
       border: 1px solid var(--conx-border, rgba(255, 255, 255, 0.12));
       background: color-mix(in srgb, var(--conx-surface, #1a1d22) 88%, transparent);
     }
     .mixed-roles-head .menu-label {
       margin-bottom: 0;
-      font-size: 1.05rem;
+      font-size: 0.92rem;
       font-weight: 700;
     }
     .mixed-role-card {
       display: grid;
-      gap: 8px;
-      padding: 12px 10px;
-      border-radius: 12px;
+      gap: 4px;
+      padding: 6px 8px;
+      border-radius: 10px;
       border: 1px solid var(--conx-border, rgba(255, 255, 255, 0.1));
       background: color-mix(in srgb, var(--conx-panel, #121418) 70%, transparent);
     }
     .mixed-role-card-head {
       display: flex;
       align-items: baseline;
-      gap: 10px;
+      gap: 6px;
       flex-wrap: wrap;
     }
     .mixed-role-l {
       font-weight: 800;
       letter-spacing: 0.04em;
-      font-size: 1.05rem;
+      font-size: 0.9rem;
       color: var(--conx-accent, #d4af61);
     }
     .mixed-role-name {
       opacity: 0.85;
-      font-size: 0.95rem;
+      font-size: 0.82rem;
     }
     .mixed-role-picker {
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
+      gap: 4px;
       width: 100%;
     }
     .mixed-role-picker .radio-member {
-      flex: 1 1 0;
-      min-width: min(100%, 5.25rem);
-      padding: 12px 8px;
-      min-height: 44px;
+      flex: 1 1 calc(20% - 4px);
+      min-width: 3.6rem;
+      padding: 5px 4px;
+      min-height: 30px;
     }
     .mixed-role-picker .radio-member-label {
-      font-size: 0.9rem;
+      font-size: 0.7rem;
       font-weight: 650;
       text-align: center;
-      line-height: 1.2;
+      line-height: 1.15;
+      white-space: normal;
     }
     .mixed-pulse,
     .mixed-cover-id {
       width: max-content;
       max-width: 100%;
+      margin-top: 2px;
     }
     .mixed-pulse input[type="number"] {
-      width: 5.5rem;
+      width: 5rem;
+      min-height: 32px;
+      padding: 6px 8px;
     }
     .mixed-cover-id .select-wrap {
-      min-width: 8rem;
+      min-width: 7rem;
+      max-width: 14rem;
     }
 
     .mode-picker {
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
+      gap: 4px;
       width: 100%;
     }
     .mode-picker .radio-member {
-      flex: 1 1 0;
-      min-width: min(100%, 5.25rem);
-      padding: 12px 8px;
-      min-height: 44px;
+      flex: 1 1 calc(25% - 4px);
+      min-width: 4rem;
+      padding: 6px 4px;
+      min-height: 32px;
     }
     .mode-picker .radio-member-label {
-      font-size: 0.82rem;
+      font-size: 0.72rem;
       font-weight: 800;
       white-space: normal;
       text-align: center;
-      line-height: 1.2;
+      line-height: 1.15;
     }
 
     .color-select {
@@ -4660,9 +4784,9 @@ export class ConXDynamicPanelCard extends LitElement {
     }
 
     .radio-groups-section {
-      margin: 4px 0 10px;
-      padding: 12px;
-      border-radius: 14px;
+      margin: 2px 0 8px;
+      padding: 8px;
+      border-radius: 12px;
       border: 1px solid var(--border);
       background: color-mix(in srgb, var(--surface-2, var(--surface)) 88%, transparent);
     }
@@ -4704,17 +4828,17 @@ export class ConXDynamicPanelCard extends LitElement {
       padding-bottom: 8px;
     }
     .radio-groups-hint {
-      margin: 8px 0 10px;
-      font-size: 0.85rem;
+      margin: 4px 0 6px;
+      font-size: 0.78rem;
       color: var(--text-muted);
-      line-height: 1.45;
+      line-height: 1.35;
     }
     .radio-group-card {
-      padding: 10px;
-      border-radius: 12px;
+      padding: 6px 8px;
+      border-radius: 10px;
       border: 1px solid var(--border);
       background: var(--input-bg, var(--surface));
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
     .radio-group-card:last-child {
       margin-bottom: 0;
@@ -4792,25 +4916,25 @@ export class ConXDynamicPanelCard extends LitElement {
     }
 
     .cover-section {
-      margin: 4px 0 10px;
-      padding: 12px;
-      border-radius: 14px;
+      margin: 2px 0 8px;
+      padding: 8px;
+      border-radius: 12px;
       border: 1px solid var(--border);
       background: color-mix(in srgb, var(--surface-2, var(--surface)) 88%, transparent);
     }
     .cover-block {
-      margin-top: 12px;
-      padding-top: 10px;
+      margin-top: 8px;
+      padding-top: 8px;
       border-top: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
     }
     .cover-block:first-of-type {
-      margin-top: 8px;
-      padding-top: 10px;
+      margin-top: 6px;
+      padding-top: 8px;
     }
     .cover-block-empty {
-      padding: 12px;
+      padding: 8px;
       border: 1px dashed var(--border);
-      border-radius: 12px;
+      border-radius: 10px;
       border-top: 1px dashed var(--border);
       background: color-mix(in srgb, var(--surface) 70%, transparent);
     }
@@ -4938,9 +5062,10 @@ export class ConXDynamicPanelCard extends LitElement {
       border-radius: 999px;
       border: 1px solid var(--btn-border, var(--border));
       background: var(--btn-bg);
-      padding: 9px 14px;
+      padding: 6px 10px;
       font-weight: 700;
-      min-height: 42px;
+      font-size: 0.88rem;
+      min-height: 34px;
       box-shadow:
         inset 0 1px 0 var(--bevel-light),
         0 2px 6px rgba(0, 0, 0, 0.18);
@@ -5085,21 +5210,24 @@ export class ConXDynamicPanelCard extends LitElement {
       margin-bottom: 0;
     }
 
-    /* Product-photo faceplate: N equal columns, fixed landscape bezel (matches HTML preview). */
+    /* Product-photo faceplate: fill ha-card width; keep 4-gang landscape proportions. */
     .faceplate {
       width: 100%;
-      overflow-x: auto;
+      max-width: 100%;
+      container-type: inline-size;
+      container-name: faceplate;
     }
 
     .faceplate-bezel {
       position: relative;
-      /* Landscape footprint stays similar across gang counts (product photos). */
-      min-width: calc(100px * 4);
-      width: min(100%, calc(230px * 4));
-      margin: 0 auto;
+      width: 100%;
+      max-width: none;
+      min-width: 0;
+      margin: 0;
       aspect-ratio: calc(0.66 * 4) / 1;
       border-radius: 22px;
       padding: 7px;
+      box-sizing: border-box;
       background: linear-gradient(145deg, #f2f0ea 0%, #b8b0a4 36%, #ebe6dc 62%, #8a8378 100%);
       box-shadow:
         inset 0 1px 1px #fff,
@@ -5142,12 +5270,12 @@ export class ConXDynamicPanelCard extends LitElement {
 
     .faceplate-label {
       text-align: center;
-      font-size: clamp(0.85rem, 2.4vw, 1.2rem);
+      font-size: clamp(0.78rem, 5.5cqw, 1.25rem);
       font-weight: 600;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      padding: 0 6px;
+      padding: 0 4px;
       font-family: var(--conx-font);
     }
 
@@ -5167,8 +5295,8 @@ export class ConXDynamicPanelCard extends LitElement {
     }
 
     .ring {
-      width: clamp(28px, 7vw, 48px);
-      height: clamp(28px, 7vw, 48px);
+      width: clamp(30px, 16cqw, 72px);
+      height: clamp(30px, 16cqw, 72px);
       border-radius: 50%;
       border: 3px solid
         color-mix(in srgb, var(--ring-off, var(--conx-ring-off)) 70%, #9aa7b5);
@@ -5404,13 +5532,13 @@ export class ConXDynamicPanelCard extends LitElement {
       gap: 6px;
     }
     .hero-preview {
-      border-radius: 18px;
+      border-radius: 16px;
       border: 1px solid var(--border);
       background:
         linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 40%),
         var(--surface-2);
       overflow: hidden;
-      margin-bottom: 14px;
+      margin-bottom: 10px;
       box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset;
     }
     ha-card.conx-card[data-theme="ivory"] .hero-preview {
@@ -5458,7 +5586,7 @@ export class ConXDynamicPanelCard extends LitElement {
       pointer-events: none;
     }
     .hero-body {
-      padding: 18px 16px 22px;
+      padding: 12px 10px 14px;
       background: var(--faceplate-well);
     }
     .hero-preview.closed .hero-body {
@@ -5492,7 +5620,7 @@ export class ConXDynamicPanelCard extends LitElement {
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 2px;
+      gap: 1px;
       border: 0;
       border-radius: 0;
       border-bottom: 2px solid transparent;
@@ -5500,8 +5628,8 @@ export class ConXDynamicPanelCard extends LitElement {
       color: var(--text-muted);
       font: inherit;
       font-weight: 700;
-      min-height: 54px;
-      padding: 10px 8px;
+      min-height: 42px;
+      padding: 6px 6px;
       cursor: pointer;
       transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
     }
@@ -5568,9 +5696,9 @@ export class ConXDynamicPanelCard extends LitElement {
       top: 0;
       z-index: 5;
       display: grid;
-      gap: 8px;
-      margin: 0 0 12px;
-      padding: 0 0 4px;
+      gap: 6px;
+      margin: 0 0 8px;
+      padding: 0 0 2px;
       background: linear-gradient(
         to bottom,
         var(--card-background-color, var(--ha-card-background, var(--surface, #12141a))) 70%,
@@ -5579,21 +5707,23 @@ export class ConXDynamicPanelCard extends LitElement {
     }
     .actions-dock { margin-top: 0; }
     .actions-dock-top {
-      border-radius: 14px;
+      border-radius: 12px;
       border: 1px solid var(--border, var(--divider-color, #333));
       background: var(--surface-2, color-mix(in srgb, var(--card-background-color, #1a1d24) 92%, #000));
-      padding: 10px;
+      padding: 6px;
     }
     .actions-grid {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 8px;
+      gap: 6px;
       margin: 0;
     }
     .actions-grid .btn {
       width: 100%;
       justify-content: center;
-      min-height: 42px;
+      min-height: 32px;
+      padding: 5px 8px;
+      font-size: 0.82rem;
     }
     @media (max-width: 720px) {
       .actions-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

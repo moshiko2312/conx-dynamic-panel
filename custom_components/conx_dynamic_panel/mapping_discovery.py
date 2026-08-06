@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Iterable
+from typing import TYPE_CHECKING, Any
 
 from .const import (
     CONF_BACKLIGHT_BRIGHTNESS_ENTITY,
@@ -18,7 +19,7 @@ from .const import (
 )
 
 if TYPE_CHECKING:
-    from homeassistant.core import HomeAssistant, State
+    from homeassistant.core import HomeAssistant
 
 
 _SLUG_RE = re.compile(r"[^a-z0-9]+")

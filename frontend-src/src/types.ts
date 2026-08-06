@@ -189,4 +189,6 @@ export interface HomeAssistant {
   connection?: HassConnection;
   themes?: Record<string, unknown>;
   states?: Record<string, HassEntity>;
+  /** domain → service → description (used for action pickers). */
+  services?: Record<string, Record<string, unknown>>;
 }

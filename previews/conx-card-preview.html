@@ -132,7 +132,7 @@
         linear-gradient(165deg, #f4f6f9 0%, #e8ecf1 55%, #e2e7ee 100%);
     }
 
-    .page { max-width: 1120px; margin: 0 auto; }
+    .page { max-width: min(1400px, 100%); margin: 0 auto; width: 100%; }
     .page-intro {
       margin-bottom: 22px;
       display: flex;
@@ -148,7 +148,8 @@
     .page-intro h1 .gold { color: var(--accent); }
 
     .conx-card {
-      position: relative; overflow: hidden; border-radius: 20px; padding: 18px;
+      position: relative; overflow: hidden; border-radius: 20px; padding: 12px 14px 14px;
+      width: 100%; max-width: none; box-sizing: border-box;
       color: var(--text);
       background: var(--surface-fill, var(--surface));
       border: 1px solid var(--border);
@@ -171,9 +172,9 @@
       top: 0;
       z-index: 6;
       display: grid;
-      gap: 8px;
-      margin: 0 0 12px;
-      padding: 0 0 4px;
+      gap: 6px;
+      margin: 0 0 8px;
+      padding: 0 0 2px;
       background: linear-gradient(to bottom, var(--surface, #12141a) 72%, transparent);
     }
     .panel-title {
@@ -407,19 +408,24 @@
       text-overflow: ellipsis;
       pointer-events: none;
     }
-    .hero-body { padding: 18px 16px 22px; background: var(--faceplate-well); }
+    .hero-body { padding: 12px 10px 14px; background: var(--faceplate-well); }
     .hero-preview.collapsed .hero-body { display: none; }
     .hero-preview.collapsed .section-head { border-bottom: 0; }
 
-    .faceplate { width: 100%; }
+    .faceplate {
+      width: 100%;
+      max-width: 100%;
+      container-type: inline-size;
+      container-name: faceplate;
+    }
     .faceplate-bezel {
       position: relative;
-      /* Landscape footprint stays similar across gang counts (product photos). */
-      min-width: calc(100px * 4);
-      width: min(100%, calc(230px * 4));
-      margin: 0 auto;
+      width: 100%;
+      max-width: none;
+      min-width: 0;
+      margin: 0;
       aspect-ratio: calc(0.66 * 4) / 1;
-      border-radius: 22px; padding: 7px;
+      border-radius: 22px; padding: 7px; box-sizing: border-box;
       background: linear-gradient(145deg, #f2f0ea 0%, #b8b0a4 36%, #ebe6dc 62%, #8a8378 100%);
       box-shadow: inset 0 1px 1px #fff, inset 0 -1px 2px rgba(0,0,0,.35), 0 16px 36px rgba(0,0,0,.35);
     }
@@ -435,8 +441,8 @@
       background: linear-gradient(180deg, #2a3038 0%, #1a1d22 100%); color: #f0f2f5; padding: 0 6px;
     }
     .faceplate-label {
-      text-align: center; font-size: clamp(.85rem, 2.4vw, 1.2rem); font-weight: 600;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 6px;
+      text-align: center; font-size: clamp(.78rem, 5.5cqw, 1.25rem); font-weight: 600;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 4px;
       font-family: var(--font);
     }
     .faceplate-touch {
@@ -451,7 +457,7 @@
       place-items: center;
     }
     .ring {
-      width: clamp(28px, 7vw, 48px); height: clamp(28px, 7vw, 48px);
+      width: clamp(30px, 16cqw, 72px); height: clamp(30px, 16cqw, 72px);
       border-radius: 50%; border: 3px solid color-mix(in srgb, var(--ring-off) 70%, #9aa7b5);
       background: transparent; padding: 0; cursor: pointer; position: relative;
       box-shadow: 0 0 8px color-mix(in srgb, var(--ring-off) 40%, transparent);
@@ -492,14 +498,14 @@
       color: var(--text-muted);
       font: inherit;
       font-weight: 700;
-      min-height: 54px;
-      padding: 10px 8px;
+      min-height: 42px;
+      padding: 6px 6px;
       cursor: pointer;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 2px;
+      gap: 1px;
       border-bottom: 2px solid transparent;
       transition: color .15s ease, background .15s ease, border-color .15s ease;
     }
@@ -585,7 +591,7 @@
       .profile-name-row { grid-template-columns: 1fr; }
     }
 
-    .field { display:flex; flex-direction:column; gap:5px; margin-bottom:10px; font-size:.9rem; }
+    .field { display:flex; flex-direction:column; gap:3px; margin-bottom:6px; font-size:.86rem; }
     .field > span, .field > span span { font-weight:600; color: var(--label); }
     input[type="text"], input[type="number"], select {
       font:inherit; color: var(--input-text); background: var(--input-bg);
@@ -612,6 +618,13 @@
       outline:none; border-color: var(--focus); box-shadow: 0 0 0 3px rgba(215,181,109,.15);
     }
     .select-wrap { max-width: 22rem; }
+    .field-hint {
+      font-weight: 400 !important;
+      font-size: 0.78rem;
+      opacity: 0.7;
+      line-height: 1.35;
+      color: inherit !important;
+    }
     .cover-times {
       display: flex;
       flex-wrap: wrap;
@@ -642,83 +655,84 @@
       max-width: none;
       margin-bottom: 4px;
     }
-    .cover-section .gang-picker .radio-member { min-height: 42px; }
+    .cover-section .gang-picker .radio-member { min-height: 34px; padding: 6px 4px; }
     .mode-picker {
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
+      gap: 4px;
       width: 100%;
     }
     .mode-picker .radio-member {
-      flex: 1 1 0;
-      min-width: min(100%, 5.25rem);
-      padding: 12px 8px;
-      min-height: 44px;
+      flex: 1 1 calc(25% - 4px);
+      min-width: 4rem;
+      padding: 6px 4px;
+      min-height: 32px;
     }
     .mode-picker .radio-member-label {
-      font-size: .82rem;
+      font-size: .72rem;
       font-weight: 800;
       white-space: normal;
       text-align: center;
-      line-height: 1.2;
+      line-height: 1.15;
     }
     .mixed-roles-section {
       display: grid;
-      gap: 12px;
-      margin: 4px 0 14px;
-      padding: 14px 12px 12px;
-      border-radius: 14px;
+      gap: 6px;
+      margin: 2px 0 10px;
+      padding: 8px;
+      border-radius: 12px;
       border: 1px solid var(--conx-border);
       background: color-mix(in srgb, var(--conx-surface) 88%, transparent);
     }
     .mixed-roles-section[hidden] { display: none !important; }
     .mixed-roles-head .menu-label {
       margin-bottom: 0;
-      font-size: 1.05rem;
+      font-size: .92rem;
       font-weight: 700;
     }
     .mixed-role-card {
       display: grid;
-      gap: 8px;
-      padding: 12px 10px;
-      border-radius: 12px;
+      gap: 4px;
+      padding: 6px 8px;
+      border-radius: 10px;
       border: 1px solid var(--conx-border);
       background: color-mix(in srgb, var(--conx-panel, var(--conx-surface)) 70%, transparent);
     }
     .mixed-role-card-head {
       display: flex;
       align-items: baseline;
-      gap: 10px;
+      gap: 6px;
       flex-wrap: wrap;
     }
     .mixed-role-l {
       font-weight: 800;
       letter-spacing: 0.04em;
-      font-size: 1.05rem;
+      font-size: .9rem;
       color: var(--conx-accent);
     }
-    .mixed-role-name { opacity: .85; font-size: .95rem; }
+    .mixed-role-name { opacity: .85; font-size: .82rem; }
     .mixed-role-picker {
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
+      gap: 4px;
       width: 100%;
     }
     .mixed-role-picker .radio-member {
-      flex: 1 1 0;
-      min-width: min(100%, 5.25rem);
-      padding: 12px 8px;
-      min-height: 44px;
+      flex: 1 1 calc(20% - 4px);
+      min-width: 3.6rem;
+      padding: 5px 4px;
+      min-height: 30px;
     }
     .mixed-role-picker .radio-member-label {
-      font-size: .9rem;
+      font-size: .7rem;
       font-weight: 650;
       text-align: center;
-      line-height: 1.2;
+      line-height: 1.15;
+      white-space: normal;
     }
-    .mixed-pulse, .mixed-cover-id { width: max-content; max-width: 100%; }
-    .mixed-pulse input[type="number"] { width: 5.5rem; }
-    .mixed-cover-id select { min-width: 8rem; }
+    .mixed-pulse, .mixed-cover-id { width: max-content; max-width: 100%; margin-top: 2px; }
+    .mixed-pulse input[type="number"] { width: 5rem; min-height: 32px; padding: 6px 8px; }
+    .mixed-cover-id select { min-width: 7rem; max-width: 14rem; }
     .color-select { display:grid; grid-template-columns:18px 1fr; align-items:center; gap:8px; }
     .swatch { width:18px; height:18px; border-radius:50%; border:1px solid rgba(0,0,0,.25); }
     .toggle-row { display:grid; gap:10px; }
@@ -738,7 +752,7 @@
     .btn {
       font:inherit; cursor:pointer; border-radius:999px;
       border:1px solid var(--btn-border); background: var(--btn-bg); color: var(--btn-text);
-      padding:9px 14px; font-weight:700; min-height:42px;
+      padding:6px 10px; font-weight:700; font-size:.88rem; min-height:34px;
     }
     .btn:hover:not(:disabled) { filter: brightness(1.06); }
     .btn.primary { background: var(--btn-primary-bg); color: var(--btn-primary-text); border-color: var(--btn-primary-bg); }
@@ -914,17 +928,20 @@
     .button-edit.open .button-edit-fields .field:first-child { margin-top:10px; }
 
     .actions-dock {
-      margin-top: 0; border-radius: 14px; border: 1px solid var(--border);
-      background: var(--surface-2); padding: 12px;
+      margin-top: 0; border-radius: 12px; border: 1px solid var(--border);
+      background: var(--surface-2); padding: 6px;
     }
     .actions-dock.hidden-for-export { display: none; }
     .actions-grid {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 10px;
+      gap: 6px;
       margin: 0;
     }
-    .actions-grid .btn { width: 100%; justify-content: center; }
+    .actions-grid .btn {
+      width: 100%; justify-content: center;
+      min-height: 32px; padding: 5px 8px; font-size: .82rem;
+    }
     @media (max-width: 720px) {
       .actions-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
@@ -1094,9 +1111,9 @@
     .radio-groups-error[hidden] { display: none !important; }
 
     .cover-section {
-      margin: 4px 0 10px;
-      padding: 12px;
-      border-radius: 14px;
+      margin: 2px 0 8px;
+      padding: 8px;
+      border-radius: 12px;
       border: 1px solid var(--border);
       background: color-mix(in srgb, var(--surface-2) 88%, transparent);
     }
@@ -1478,6 +1495,43 @@
     };
     const COLORS = Object.keys(COLOR_PREVIEW);
     const STORAGE_KEY = "conx-card-preview-state-v11";
+    /** Standalone preview sample lists (HA live card uses hass.services / hass.states). */
+    const PREVIEW_SERVICES = [
+      "light.toggle",
+      "light.turn_on",
+      "light.turn_off",
+      "switch.toggle",
+      "switch.turn_on",
+      "switch.turn_off",
+      "script.turn_on",
+      "scene.turn_on",
+      "cover.open_cover",
+      "cover.close_cover",
+      "cover.stop_cover",
+    ];
+    const PREVIEW_ENTITIES = [
+      "light.living_room",
+      "light.kitchen",
+      "switch.living",
+      "switch.kitchen",
+      "script.good_night",
+      "scene.movie",
+      "cover.living_shutter",
+    ];
+    function actionDomainPreview(action) {
+      const value = String(action || "").trim();
+      const dot = value.indexOf(".");
+      if (dot <= 0 || dot === value.length - 1) return "";
+      return value.slice(0, dot);
+    }
+    function optionsHtml(options, selected, emptyLabel) {
+      const values = [...options];
+      const current = String(selected || "").trim();
+      if (current && !values.includes(current)) values.unshift(current);
+      return `<option value="">${emptyLabel}</option>` + values.map((value) =>
+        `<option value="${value}" ${value === current ? "selected" : ""}>${value}</option>`
+      ).join("");
+    }
     const LEGACY_KEYS = ["conx-card-preview-state-v2", "conx-card-preview-state-v3", "conx-card-preview-state-v4", "conx-card-preview-state-v5", "conx-card-preview-state-v6", "conx-card-preview-state-v7", "conx-card-preview-state-v8", "conx-card-preview-state-v9", "conx-card-preview-state-v10"];
     const PROFILE_MODES = ["toggle", "radio_mandatory", "radio_optional", "radio_split", "mixed", "cover"];
     const BUTTON_ROLES = ["toggle", "momentary", "radio", "cover_open", "cover_close"];
@@ -1560,6 +1614,10 @@
         "card.child_lock": "Child lock", "card.button": "Button",
         "card.button_expand": "Expand button settings", "card.button_collapse": "Collapse button settings",
         "card.label": "Label", "card.action": "Action", "card.entity_id": "Entity ID",
+        "card.action_none": "No Home Assistant action",
+        "card.entity_none": "No entity (optional)",
+        "card.action_picker_hint": "Choose a service from Home Assistant (preview sample list).",
+        "card.entity_picker_hint": "Entities are filtered by the action domain when set.",
         "card.unsaved": "Unsaved draft — physical presses still use the last saved profile. Save Draft to apply roles/actions; Sync updates panel labels and colors.",
         "card.sync_needed": "Draft saved. Press behavior already uses this draft. Sync to Panel to push labels, colors, and on-panel settings.",
         "card.missing_action": "No Home Assistant action — only the panel relay will change.",
@@ -1660,6 +1718,10 @@
         "card.child_lock": "נעילת ילדים", "card.button": "כפתור",
         "card.button_expand": "הרחב הגדרות כפתור", "card.button_collapse": "כווץ הגדרות כפתור",
         "card.label": "תווית", "card.action": "פעולה", "card.entity_id": "מזהה ישות",
+        "card.action_none": "ללא פעולת Home Assistant",
+        "card.entity_none": "ללא ישות (אופציונלי)",
+        "card.action_picker_hint": "בחרו שירות מרשימת Home Assistant (רשימת דמו בתצוגה המקדימה).",
+        "card.entity_picker_hint": "הישויות מסוננות לפי דומיין הפעולה כשנבחרה.",
         "card.unsaved": "יש שינויי טיוטה שלא נשמרו — לחיצות על הפאנל עדיין לפי הפרופיל השמור האחרון. שמרו טיוטה כדי להחיל תפקידים/פעולות; סנכרון מעדכן תוויות וצבעים בפאנל.",
         "card.sync_needed": "הטיוטה נשמרה. התנהגות הלחיצות כבר לפי הטיוטה. סנכרנו לפאנל כדי לדחוף תוויות, צבעים והגדרות על החומרה.",
         "card.missing_action": "אין פעולת Home Assistant — ישתנה רק ממסר הפאנל.",
@@ -1760,6 +1822,10 @@
         "card.child_lock": "Блокировка", "card.button": "Кнопка",
         "card.button_expand": "Развернуть настройки кнопки", "card.button_collapse": "Свернуть настройки кнопки",
         "card.label": "Название", "card.action": "Действие", "card.entity_id": "Entity ID",
+        "card.action_none": "Без действия Home Assistant",
+        "card.entity_none": "Без сущности (необязательно)",
+        "card.action_picker_hint": "Выберите службу из списка Home Assistant (демо-список в превью).",
+        "card.entity_picker_hint": "Сущности фильтруются по домену действия, если он выбран.",
         "card.unsaved": "Несохранённый черновик — нажатия на панели всё ещё по последнему сохранённому профилю. Сохраните черновик для ролей/действий; синхронизация обновляет подписи и цвета на панели.",
         "card.sync_needed": "Черновик сохранён. Поведение кнопок уже по этому черновику. Синхронизируйте панель, чтобы отправить подписи, цвета и настройки на железо.",
         "card.missing_action": "Нет действия Home Assistant — изменится только реле панели.",
@@ -3173,9 +3239,19 @@
         const meta = buttonMetaLabel(b);
         const mixedRole = state.draft.mode === "mixed" ? normalizeButtonRole(b.role) : null;
         const isCoverMapped = mixedRole === "cover_open" || mixedRole === "cover_close";
+        const domain = actionDomainPreview(b.action);
+        const entityChoices = domain
+          ? PREVIEW_ENTITIES.filter((id) => id.startsWith(domain + "."))
+          : PREVIEW_ENTITIES;
         const actionFields = isCoverMapped ? "" : `
-            <label class="field"><span>${t("card.action")}</span><input type="text" data-field="action" value="${b.action || ""}" placeholder="light.toggle" /></label>
-            <label class="field"><span>${t("card.entity_id")}</span><input type="text" data-field="entity" value="${b.entity || ""}" placeholder="light.living_room" /></label>`;
+            <label class="field"><span>${t("card.action")}</span>
+              <select data-field="action">${optionsHtml(PREVIEW_SERVICES, b.action, t("card.action_none"))}</select>
+              <span class="field-hint">${t("card.action_picker_hint")}</span>
+            </label>
+            <label class="field"><span>${t("card.entity_id")}</span>
+              <select data-field="entity" ${b.action ? "" : "disabled"}>${optionsHtml(entityChoices, b.entity, t("card.entity_none"))}</select>
+              <span class="field-hint">${t("card.entity_picker_hint")}</span>
+            </label>`;
         return `<div class="button-edit ${open ? "open" : ""}" data-button="${b.index}">
           <button type="button" class="button-edit-toggle" aria-expanded="${open}">
             <span class="button-edit-chevron" aria-hidden="true"></span>
@@ -3211,6 +3287,15 @@
             const field = input.dataset.field;
             if (field === "radio_member") btn.radio_member = input.value === "true";
             else btn[field] = input.value;
+            if (field === "action") {
+              const domain = actionDomainPreview(btn.action);
+              if (domain && btn.entity && !String(btn.entity).startsWith(domain + ".")) {
+                btn.entity = "";
+              }
+              markDirty(true);
+              renderButtonsEditor();
+              return;
+            }
             markDirty(true);
             const summaryTitle = row.querySelector(".button-edit-title");
             const summaryMeta = row.querySelector(".button-edit-meta");

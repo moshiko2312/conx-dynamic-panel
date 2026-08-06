@@ -12,6 +12,11 @@ All notable changes to this private project will be documented here.
 ### Added
 
 - **Config flow device-prefix auto-mapping:** enter the Zigbee2MQTT device name (e.g. `tp4`) and ConX fills L1–L4 relays, name texts, color ON/OFF, radar, backlight, brightness, and child lock from that prefix (or matching HA device). Manual entity picking remains available. Review/edit steps stay so you can override before create.
+- **HA live Action / Entity pickers on the Buttons tab:** Action is a select built from `hass.services` (`domain.service`); Entity uses native `ha-entity-picker` when Home Assistant has loaded it, otherwise a select from `hass.states` filtered to the action’s domain. Clearing action clears the HA call; changing domain clears a mismatched entity. Same stored schema (`action` + `target.entity_id`). Standalone HTML preview uses sample service/entity lists. EN/HE/RU.
+
+### Changed
+
+- **Wider card + denser Buttons UI:** host/`ha-card` fill the Lovelace column (`width: 100%`, no small max-width). Faceplate bezel uses full card width with container-query ring/label scaling (keeps 4-gang landscape proportions). Sticky action pills, mode chips, free-mix role cards/chips, cover/radio blocks, tabs, and field spacing are tightened so Hebrew cover roles fit a denser wrapping row. Standalone HTML preview matches.
 
 ### Fixed
 

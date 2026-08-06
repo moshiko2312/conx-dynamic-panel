@@ -20,6 +20,12 @@ import {
   buildProfilesExport,
   validateProfilesExport,
 } from "../src/exportSchema";
+import {
+  actionDomain,
+  listEntityIds,
+  listServiceActions,
+  withCurrentOption,
+} from "../src/haPickers";
 import "../src/card";
 import "../src/editor";
 
@@ -351,24 +357,23 @@ describe("custom elements", () => {
         (node) => node.textContent?.trim()
       )
     ).toEqual(["Living room", "Kitchen"]);
-    // Outer bezel stays landscape 4-gang size; columns follow --conx-gang-count.
+    // Faceplate fills card width with 4-gang landscape proportions; columns follow --conx-gang-count.
     const Card = customElements.get("conx-dynamic-panel-card") as unknown as {
       styles: { cssText: string } | Array<{ cssText: string }>;
     };
     const cssText = Array.isArray(Card.styles)
       ? Card.styles.map((part) => part.cssText).join("\n")
       : Card.styles.cssText;
-    expect(cssText).toContain("min-width: calc(100px * 4)");
     expect(cssText).toContain("aspect-ratio: calc(0.66 * 4) / 1");
-    expect(cssText).toContain("width: clamp(28px, 7vw, 48px)");
+    expect(cssText).toContain("width: clamp(30px, 16cqw, 72px)");
+    expect(cssText).toContain("container-type: inline-size");
     expect(cssText).toContain(
       "grid-template-columns: repeat(var(--conx-gang-count, 4), 1fr);"
     );
     expect(cssText).toContain(".settings-tabs");
     expect(cssText).toContain("border-bottom: 2px solid transparent");
-    expect(cssText).not.toContain(
-      "min-width: calc(80px * 4)"
-    );
+    expect(cssText).not.toContain("min-width: calc(100px * 4)");
+    expect(cssText).not.toContain("width: min(100%, calc(230px * 4))");
     expect(cssText).not.toContain(
       "min-width: calc(100px * var(--conx-gang-count"
     );
@@ -1570,6 +1575,25 @@ describe("custom elements", () => {
     expect(el.shadowRoot?.querySelector(".actions-dock-footer")).toBeFalsy();
   });
 
+  it("fills column width and keeps dense mixed-role chip styles", async () => {
+    const callWS = vi.fn().mockResolvedValue(panelPayload({ sync_status: "synced" }));
+    const el = await mountCard({ language: "en", callWS });
+    const ctor = el.constructor as {
+      styles?: { cssText?: string } | Array<{ cssText?: string }>;
+    };
+    const sheets = Array.isArray(ctor.styles)
+      ? ctor.styles
+      : ctor.styles
+        ? [ctor.styles]
+        : [];
+    const sheetText = sheets.map((sheet) => sheet.cssText || String(sheet)).join("\n");
+    expect(sheetText).toMatch(/:host\s*\{[^}]*width:\s*100%/s);
+    expect(sheetText).toMatch(/ha-card\.conx-card\s*\{[^}]*max-width:\s*none/s);
+    expect(sheetText).toMatch(/\.faceplate-bezel\s*\{[^}]*width:\s*100%/s);
+    expect(sheetText).toMatch(/\.mixed-role-picker\s+\.radio-member\s*\{[^}]*min-height:\s*30px/s);
+    expect(sheetText).toMatch(/\.actions-grid\s+\.btn\s*\{[^}]*min-height:\s*32px/s);
+  });
+
   it("opens a copyable automation example from the settings menu", async () => {
     const callWS = vi.fn().mockResolvedValue(panelPayload({ sync_status: "synced" }));
     const writeText = vi.fn().mockResolvedValue(undefined);
@@ -1903,6 +1927,122 @@ describe("automation example yaml", () => {
     expect(yaml.match(/sync: true/g)?.length).toBe(3);
     expect(yaml.match(/- trigger: time/g)?.length).toBe(3);
     expect(yaml).not.toContain("service:");
+  });
+});
+
+describe("ha pickers", () => {
+  it("lists domain.service actions from hass.services", () => {
+    expect(
+      listServiceActions({
+        light: { toggle: {}, turn_on: {} },
+        switch: { toggle: {} },
+      })
+    ).toEqual(["light.toggle", "light.turn_on", "switch.toggle"]);
+  });
+
+  it("filters entity ids by action domain", () => {
+    expect(actionDomain("light.toggle")).toBe("light");
+    expect(
+      listEntityIds(
+        {
+          "light.living_room": { state: "on" },
+          "switch.kitchen": { state: "off" },
+        },
+        "light"
+      )
+    ).toEqual(["light.living_room"]);
+    expect(withCurrentOption(["light.a"], "light.legacy")).toEqual([
+      "light.legacy",
+      "light.a",
+    ]);
+  });
+
+  it("renders service and entity selects from hass and marks draft dirty", async () => {
+    const callWS = vi.fn().mockResolvedValue(
+      panelPayload({
+        profiles: {
+          lighting: {
+            ...sampleProfile,
+            buttons: [
+              {
+                index: 1,
+                name: "Living room",
+                action: {
+                  action: "light.toggle",
+                  target: { entity_id: "light.living_room" },
+                  data: {},
+                },
+              },
+              ...sampleProfile.buttons.slice(1),
+            ],
+          },
+        },
+      })
+    );
+    const el = await mountCard({
+      language: "en",
+      callWS,
+      services: {
+        light: { toggle: {}, turn_on: {} },
+        switch: { toggle: {} },
+      },
+      states: {
+        "light.living_room": { state: "on" },
+        "light.kitchen": { state: "off" },
+        "switch.porch": { state: "off" },
+      },
+    });
+    el._activeTab = "buttons";
+    await el.updateComplete;
+    (
+      el.shadowRoot?.querySelector(
+        '.button-edit[data-button="1"] .button-edit-toggle'
+      ) as HTMLButtonElement
+    ).click();
+    await el.updateComplete;
+
+    const actionSelect = el.shadowRoot?.querySelector(
+      '[data-action-picker][data-button="1"]'
+    ) as HTMLSelectElement;
+    const entitySelect = el.shadowRoot?.querySelector(
+      '[data-entity-picker][data-button="1"]'
+    ) as HTMLSelectElement;
+    expect(actionSelect).toBeTruthy();
+    expect(entitySelect).toBeTruthy();
+    expect([...actionSelect.options].map((opt) => opt.value)).toEqual(
+      expect.arrayContaining(["", "light.toggle", "light.turn_on", "switch.toggle"])
+    );
+    expect([...entitySelect.options].map((opt) => opt.value)).toEqual([
+      "",
+      "light.kitchen",
+      "light.living_room",
+    ]);
+    expect(entitySelect.options).not.toContainEqual(
+      expect.objectContaining({ value: "switch.porch" })
+    );
+
+    actionSelect.value = "switch.toggle";
+    actionSelect.dispatchEvent(new Event("change", { bubbles: true }));
+    await el.updateComplete;
+    expect(el._dirty).toBe(true);
+    expect(el._draft.buttons[0].action?.action).toBe("switch.toggle");
+    expect(el._draft.buttons[0].action?.target).toEqual({});
+
+    const entityAfter = el.shadowRoot?.querySelector(
+      '[data-entity-picker][data-button="1"]'
+    ) as HTMLSelectElement;
+    expect([...entityAfter.options].map((opt) => opt.value)).toEqual([
+      "",
+      "switch.porch",
+    ]);
+    entityAfter.value = "switch.porch";
+    entityAfter.dispatchEvent(new Event("change", { bubbles: true }));
+    await el.updateComplete;
+    expect(el._draft.buttons[0].action).toEqual({
+      action: "switch.toggle",
+      target: { entity_id: "switch.porch" },
+      data: {},
+    });
   });
 });
 
