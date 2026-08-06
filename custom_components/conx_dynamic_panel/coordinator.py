@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
@@ -48,6 +49,12 @@ from .const import (
     SYNC_SYNCED,
     SYNC_SYNCING,
 )
+from .entity_relay import (
+    EntityRelayBinding,
+    iter_entity_relay_bindings,
+    resolve_radio_selected_from_entities,
+    state_value_to_relay_on,
+)
 from .exceptions import (
     ActionExecutionError,
     ProfileNotFoundError,
@@ -79,6 +86,9 @@ class PanelCoordinator:
         self.hass = runtime.hass
         # When True, config-entry update listener skips a full reload (panel rename).
         self.skip_next_reload = False
+        # Live HA entity → panel relay listeners (separate from mapped hardware).
+        self._entity_relay_unsubs: list[Callable[[], None]] = []
+        self._entity_relay_bindings: dict[str, list[EntityRelayBinding]] = {}
 
     @property
     def data(self) -> PanelStorageData:
@@ -95,6 +105,7 @@ class PanelCoordinator:
         await self.runtime.store.async_load()
         self.data.refresh_pending_status()
         self._attach_listeners()
+        self._rebuild_entity_relay_listeners()
         # A restart must never inherit an energized motor: start from both off so
         # the engine's belief and the hardware agree.
         await self._async_cover_abort(COVER_REASON_SAFETY)
@@ -129,6 +140,118 @@ class PanelCoordinator:
                 async_track_state_change_event(self.hass, other_ids, _on_mapped_change)
             )
 
+    def _clear_entity_relay_listeners(self) -> None:
+        """Detach live linked-entity → relay subscriptions."""
+        for remove in self._entity_relay_unsubs:
+            remove()
+        self._entity_relay_unsubs.clear()
+        self._entity_relay_bindings.clear()
+
+    def _rebuild_entity_relay_listeners(self) -> None:
+        """Subscribe to linked HA entities for the active profile (live LED sync).
+
+        Uses the same toggle/safe-radio rules as Sync. Cover and momentary
+        buttons are never tracked as latched ON. Rebuild after profile/sync
+        changes; unload clears subscriptions.
+        """
+        self._clear_entity_relay_listeners()
+        if self.runtime.unloading:
+            return
+        profile = self.data.active_profile()
+        if profile is None:
+            return
+        by_entity: dict[str, list[EntityRelayBinding]] = {}
+        for binding in iter_entity_relay_bindings(profile):
+            by_entity.setdefault(binding.entity_id, []).append(binding)
+        self._entity_relay_bindings = by_entity
+        entity_ids = list(by_entity)
+        if not entity_ids:
+            return
+
+        @callback
+        def _on_linked_entity_change(event: Event) -> None:
+            self.hass.async_create_task(self._async_handle_linked_entity_event(event))
+
+        self._entity_relay_unsubs.append(
+            async_track_state_change_event(self.hass, entity_ids, _on_linked_entity_change)
+        )
+
+    async def _async_handle_linked_entity_event(self, event: Event) -> None:
+        """Mirror linked HA on/off state onto the panel relay (suppressed write)."""
+        if self.runtime.unloading:
+            return
+        if self.data.sync_status == SYNC_SYNCING or self.runtime.sync_lock.locked():
+            return
+        entity_id = event.data.get("entity_id")
+        old_state = event.data.get("old_state")
+        new_state = event.data.get("new_state")
+        if entity_id is None or new_state is None:
+            return
+        if old_state is not None and old_state.state == new_state.state:
+            return
+        desired = state_value_to_relay_on(str(entity_id), new_state.state)
+        if desired is None:
+            return
+        bindings = self._entity_relay_bindings.get(str(entity_id)) or []
+        if not bindings:
+            return
+        profile = self.data.active_profile()
+        if profile is None:
+            return
+
+        handled_radio: set[tuple[int, ...]] = set()
+        for binding in bindings:
+            if binding.radio_members is not None:
+                if binding.radio_members in handled_radio:
+                    continue
+                handled_radio.add(binding.radio_members)
+                await self._async_live_sync_radio_group(
+                    profile,
+                    list(binding.radio_members),
+                    require_selection=binding.radio_require_selection,
+                )
+            else:
+                await self._async_live_set_relay(binding.button_index, desired)
+        self.runtime.async_notify()
+
+    async def _async_live_set_relay(self, index: int, state: bool) -> None:
+        """Write a relay only when it differs (transition suppression on write)."""
+        if self.runtime.adapter.relay_is_on(index) == state:
+            return
+        await self.runtime.adapter.async_set_relay(index, state, suppress_event=True)
+
+    async def _async_live_sync_radio_group(
+        self,
+        profile: Profile,
+        members: list[int],
+        *,
+        require_selection: bool,
+    ) -> None:
+        """Recompute radio exclusivity from linked entity states (live)."""
+        if not members:
+            return
+        member_set = set(members)
+        selected_fallback = (
+            profile.selected_button if profile.selected_button in member_set else None
+        )
+        selection = resolve_radio_selected_from_entities(
+            self.hass,
+            profile,
+            members,
+            selected_fallback=selected_fallback,
+            require_selection=require_selection,
+        )
+        if selection.leave_unchanged:
+            return
+        selected = selection.selected
+        if selected is not None and profile.mode in {
+            MODE_RADIO_MANDATORY,
+            MODE_RADIO_OPTIONAL,
+        }:
+            profile.selected_button = selected
+        for index in sorted(members):
+            await self._async_live_set_relay(index, selected == index)
+
     async def async_unload(self) -> None:
         """Stop the motor, detach listeners, and mark unloading."""
         # De-energize before dropping listeners so a cover can never be left
@@ -136,6 +259,7 @@ class PanelCoordinator:
         await self._async_cover_abort(COVER_REASON_ABORT)
         await self._async_momentary_abort()
         self.runtime.unloading = True
+        self._clear_entity_relay_listeners()
         for remove in self.runtime.listeners:
             remove()
         self.runtime.listeners.clear()
@@ -968,6 +1092,7 @@ class PanelCoordinator:
                 self.data.last_error = result.error
                 self.data.sync_status = SYNC_ERROR  # type: ignore[assignment]
             await self.runtime.store.async_save()
+            self._rebuild_entity_relay_listeners()
             self.runtime.async_notify()
             if not result.success:
                 raise RuntimeError(result.error or "Sync failed")
@@ -1042,6 +1167,7 @@ class PanelCoordinator:
             await self._async_momentary_abort()
         self.data.refresh_pending_status()
         await self.runtime.store.async_save()
+        self._rebuild_entity_relay_listeners()
         self.runtime.async_notify()
         if sync or self.runtime.auto_sync:
             await self.async_sync()
@@ -1229,6 +1355,7 @@ class PanelCoordinator:
                 SYNC_SYNCED if self.data.draft_matches_snapshot() else SYNC_PENDING
             )  # type: ignore[assignment]
         await self.runtime.store.async_save()
+        self._rebuild_entity_relay_listeners()
         self.runtime.async_notify()
         if self.runtime.auto_sync and self.data.sync_status == SYNC_PENDING:
             await self.async_sync()

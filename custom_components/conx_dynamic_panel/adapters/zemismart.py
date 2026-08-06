@@ -28,7 +28,11 @@ from ..const import (
     SELECT_CONFIRM_TIMEOUT_FLOOR,
     SELECT_WRITE_ATTEMPTS,
 )
-from ..entity_relay import entity_state_to_relay_on, linked_entity_id_from_action
+from ..entity_relay import (
+    entity_state_to_relay_on,
+    linked_entity_id_from_action,
+    resolve_radio_selected_from_entities,
+)
 from ..exceptions import HardwareWriteError, MappingValidationError
 from ..models import (
     ButtonConfig,
@@ -366,27 +370,17 @@ class Zemismart4GangAdapter(PanelAdapter):
         """Apply radio exclusivity, preferring a unique ON linked entity."""
         if not members:
             return
-        member_set = set(members)
-        entity_on: list[int] = []
-        for index in members:
-            button = profile.button_by_index(index)
-            if button is None:
-                continue
-            entity_id = linked_entity_id_from_action(button.action)
-            if not entity_id:
-                continue
-            mapped = entity_state_to_relay_on(self.hass, entity_id)
-            if mapped is True:
-                entity_on.append(index)
-
-        selected = entity_on[0] if len(entity_on) == 1 else selected_fallback
-        if selected is not None and selected not in member_set:
-            selected = None
-        if require_selection and selected is None:
-            selected = next(iter(sorted(members)), 1)
-        if selected is None and not require_selection and len(entity_on) != 1:
+        selection = resolve_radio_selected_from_entities(
+            self.hass,
+            profile,
+            members,
+            selected_fallback=selected_fallback,
+            require_selection=require_selection,
+        )
+        if selection.leave_unchanged:
             # Ambiguous split group: leave latched relays alone.
             return
+        selected = selection.selected
         if selected is not None and profile.mode in {
             MODE_RADIO_MANDATORY,
             MODE_RADIO_OPTIONAL,
