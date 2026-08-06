@@ -455,6 +455,64 @@
       background: linear-gradient(145deg, #f2f0ea 0%, #b8b0a4 36%, #ebe6dc 62%, #8a8378 100%);
       box-shadow: inset 0 1px 1px #fff, inset 0 -1px 2px rgba(0,0,0,.35), 0 16px 36px rgba(0,0,0,.35);
     }
+    .faceplate-menu-btn {
+      position: absolute;
+      top: 6px;
+      z-index: 5;
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      border: 1px solid rgba(0, 0, 0, 0.28);
+      background: rgba(26, 29, 34, 0.78);
+      color: #f0f2f5;
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.18) inset, 0 2px 6px rgba(0, 0, 0, 0.28);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      cursor: pointer;
+      padding: 0;
+      backdrop-filter: blur(4px);
+      left: 6px;
+      right: auto;
+    }
+    .conx-card[dir="rtl"] .faceplate-menu-btn {
+      left: auto;
+      right: 6px;
+    }
+    .operate-mode .faceplate-menu-btn { display: inline-flex; }
+    .faceplate-menu-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .faceplate-menu-btn span {
+      display: block;
+      width: 12px;
+      height: 1.5px;
+      border-radius: 1px;
+      background: currentColor;
+    }
+    .operate-mode .panel-title,
+    .operate-mode .header,
+    .operate-mode .status-action-bar,
+    .operate-mode .hero-preview > .section-head,
+    .operate-mode .layout-hint,
+    .operate-mode .settings-tabs,
+    .operate-mode .actions-dock { display: none !important; }
+    body.operate-chrome-hidden .panel-title { display: none !important; }
+    .conx-card.operate-mode {
+      padding: 8px;
+    }
+    .conx-card.operate-mode .hero-preview {
+      margin: 0;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      box-shadow: none;
+    }
+    .conx-card.operate-mode .hero-body {
+      padding: 0;
+      background: transparent;
+      gap: 10px;
+    }
     .faceplate-glass {
       height: 100%; border-radius: 16px; overflow: hidden;
       display: grid; grid-template-rows: 28% 72%; background: #fff;
@@ -1302,6 +1360,11 @@
         <div class="menu-title" id="menu-title" data-i18n="card.menu">הגדרות</div>
         <button type="button" class="menu-close" id="menu-close" aria-label="Close">×</button>
       </div>
+      <div class="menu-section" id="operate-exit-section" data-operate-exit-section hidden>
+        <div class="menu-actions">
+          <button type="button" class="btn primary" id="operate-exit" data-operate-exit data-i18n="card.operate_exit">הגדרות</button>
+        </div>
+      </div>
       <div class="menu-section">
         <span class="menu-label" data-i18n="card.language">שפה</span>
         <div class="lang-flags" role="group" aria-label="Language">
@@ -1386,19 +1449,19 @@
       </div>
     </div>
 
-    <div class="panel-title" id="panel-title">
+    <div class="panel-title" id="panel-title" data-panel-title>
       <div class="brand" dir="ltr" lang="en">ConX</div>
       <div class="title" id="panel-name">Living Room Panel</div>
     </div>
 
-    <article class="conx-card" id="card" dir="rtl">
-      <div class="header" dir="ltr">
+    <article class="conx-card" id="card" dir="rtl" data-operate="false">
+      <div class="header" dir="ltr" data-card-header>
         <div class="header-side">
           <div class="badge status-synced" id="status-badge">Status: synced</div>
           <button type="button" class="operate-btn" id="operate-toggle" data-operate-toggle aria-pressed="false" data-i18n="card.operate" title="">
             תפעול
           </button>
-          <button type="button" class="menu-btn" id="menu-open" aria-label="Open settings menu" aria-expanded="false" aria-controls="app-menu">
+          <button type="button" class="menu-btn" id="menu-open" data-header-menu aria-label="Open settings menu" aria-expanded="false" aria-controls="app-menu">
             <span></span><span></span><span></span>
           </button>
         </div>
@@ -1419,8 +1482,8 @@
       </div>
 
       <!-- HERO: panel preview -->
-      <section class="hero-preview open" id="hero-preview" data-section="preview">
-        <header class="section-head">
+      <section class="hero-preview open" id="hero-preview" data-section="preview" data-hero-preview>
+        <header class="section-head" data-preview-chrome>
           <div class="section-head-main">
             <div class="section-title" data-i18n="card.preview">Panel preview</div>
           </div>
@@ -1433,6 +1496,9 @@
         <div class="hero-body">
           <div class="faceplate" id="faceplate" role="img" aria-label="Panel preview" dir="ltr">
             <div class="faceplate-bezel">
+              <button type="button" class="faceplate-menu-btn" id="faceplate-menu" data-operate-menu aria-label="Settings" aria-expanded="false" aria-controls="app-menu" hidden>
+                <span></span><span></span><span></span>
+              </button>
               <div class="faceplate-glass">
                 <div class="faceplate-labels" id="faceplate-labels"></div>
                 <div class="faceplate-touch">
@@ -2362,6 +2428,13 @@
       menuLayer: document.getElementById("menu-layer"),
       menuOpen: document.getElementById("menu-open"),
       operateToggle: document.getElementById("operate-toggle"),
+      operateExit: document.getElementById("operate-exit"),
+      operateExitSection: document.getElementById("operate-exit-section"),
+      faceplateMenu: document.getElementById("faceplate-menu"),
+      panelTitle: document.getElementById("panel-title"),
+      cardHeader: document.querySelector("[data-card-header]"),
+      statusActionBar: document.querySelector("[data-status-action-bar]"),
+      previewChrome: document.querySelector("[data-preview-chrome]"),
       menuClose: document.getElementById("menu-close"),
       exportLayer: document.getElementById("export-layer"),
       exportOverlay: document.getElementById("export-overlay"),
@@ -3406,15 +3479,27 @@
       const operate = Boolean(state.operateMode);
       if (operate) state.previewOpen = true;
       els.card.classList.toggle("operate-mode", operate);
+      els.card.dataset.operate = operate ? "true" : "false";
+      document.body.classList.toggle("operate-chrome-hidden", operate);
       if (els.mainLayout) els.mainLayout.hidden = operate;
       if (els.layoutHint) els.layoutHint.hidden = operate;
       if (els.actionsDock) els.actionsDock.hidden = operate;
+      if (els.panelTitle) els.panelTitle.hidden = operate;
+      if (els.cardHeader) els.cardHeader.hidden = operate;
+      if (els.statusActionBar) els.statusActionBar.hidden = operate;
+      if (els.previewChrome) els.previewChrome.hidden = operate;
+      if (els.hero) els.hero.classList.toggle("operate-hero", operate);
+      if (els.faceplateMenu) {
+        els.faceplateMenu.hidden = !operate;
+        els.faceplateMenu.setAttribute("aria-label", t("card.menu"));
+      }
+      if (els.operateExitSection) els.operateExitSection.hidden = !operate;
+      if (els.operateExit) els.operateExit.textContent = t("card.operate_exit");
       if (els.operateToggle) {
-        els.operateToggle.classList.toggle("active", operate);
-        els.operateToggle.setAttribute("aria-pressed", operate ? "true" : "false");
-        els.operateToggle.textContent = t(operate ? "card.operate_exit" : "card.operate");
-        els.operateToggle.title = t(operate ? "card.operate_exit" : "card.operate_hint");
-        els.operateToggle.setAttribute("aria-label", t(operate ? "card.operate_exit" : "card.operate"));
+        els.operateToggle.setAttribute("aria-pressed", "false");
+        els.operateToggle.textContent = t("card.operate");
+        els.operateToggle.title = t("card.operate_hint");
+        els.operateToggle.setAttribute("aria-label", t("card.operate"));
       }
       applyPreviewToggle();
     }
@@ -3495,11 +3580,12 @@
       });
     }
     function setMenuOpen(open) {
-      if (!els.menu || !els.menuLayer || !els.menuOpen) return;
+      if (!els.menu || !els.menuLayer) return;
       els.menuLayer.hidden = !open;
       els.menuLayer.classList.toggle("open", open);
       els.menu.setAttribute("aria-hidden", open ? "false" : "true");
-      els.menuOpen.setAttribute("aria-expanded", open ? "true" : "false");
+      if (els.menuOpen) els.menuOpen.setAttribute("aria-expanded", open ? "true" : "false");
+      if (els.faceplateMenu) els.faceplateMenu.setAttribute("aria-expanded", open ? "true" : "false");
       if (open) setExportView(false);
     }
     const AUTOMATION_ENTRY_PLACEHOLDER = "YOUR_ENTRY_ID";
@@ -3804,7 +3890,19 @@
         });
       });
       if (els.operateToggle) {
-        els.operateToggle.addEventListener("click", () => setOperateMode(!state.operateMode));
+        els.operateToggle.addEventListener("click", () => setOperateMode(true));
+      }
+      if (els.faceplateMenu) {
+        els.faceplateMenu.addEventListener("click", (event) => {
+          event.stopPropagation();
+          setMenuOpen(!(els.menuLayer && els.menuLayer.classList.contains("open")));
+        });
+      }
+      if (els.operateExit) {
+        els.operateExit.addEventListener("click", () => {
+          setMenuOpen(false);
+          setOperateMode(false);
+        });
       }
       const automationOpen = document.getElementById("btn-automation-example");
       if (automationOpen) automationOpen.addEventListener("click", () => setAutomationOpen(true));

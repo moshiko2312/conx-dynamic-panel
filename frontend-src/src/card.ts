@@ -310,7 +310,11 @@ export class ConXDynamicPanelCard extends LitElement {
   }
 
   private _toggleOperateMode(): void {
-    this._operateMode = !this._operateMode;
+    this._setOperateMode(!this._operateMode);
+  }
+
+  private _setOperateMode(operate: boolean): void {
+    this._operateMode = operate;
     persistOperateMode(this._operateMode);
     if (this._operateMode) {
       this._previewOpen = true;
@@ -320,6 +324,11 @@ export class ConXDynamicPanelCard extends LitElement {
         this._view = "editor";
       }
     }
+  }
+
+  private _exitOperateMode(): void {
+    this._setOperateMode(false);
+    this._menuOpen = false;
   }
 
   disconnectedCallback(): void {
@@ -2578,6 +2587,24 @@ export class ConXDynamicPanelCard extends LitElement {
         aria-label=${this.t("card.preview")}
       >
         <div class="faceplate-bezel">
+          ${this._operateMode
+            ? html`
+                <button
+                  type="button"
+                  class="faceplate-menu-btn"
+                  data-operate-menu
+                  aria-label=${this.t("card.menu")}
+                  aria-expanded=${this._menuOpen ? "true" : "false"}
+                  ?disabled=${this._busy}
+                  @click=${(e: Event) => {
+                    e.stopPropagation();
+                    this._menuOpen = !this._menuOpen;
+                  }}
+                >
+                  <span></span><span></span><span></span>
+                </button>
+              `
+            : nothing}
           <div class="faceplate-skin"></div>
           <div class="faceplate-glass">
             <div class="faceplate-labels">
@@ -3407,64 +3434,70 @@ export class ConXDynamicPanelCard extends LitElement {
       <ha-card
         dir=${rtl ? "rtl" : "ltr"}
         data-theme=${this._theme}
+        data-operate=${operate ? "true" : "false"}
         class="conx-card theme-${this._theme} ${this._view === "export" ? "export-open" : "editor-open"} ${this._menuOpen ? "menu-open" : ""} ${compact ? "compact" : ""} ${operate ? "operate-mode" : ""} ${this._syncPulse ? "syncing-pulse" : ""}"
       >
         <div class="atmosphere"></div>
-        <div class="panel-title">
-          <div class="brand" dir="ltr" lang="en">ConX</div>
-          <div class="title">${this._panel.panel_name || this.t("card.title")}</div>
-        </div>
-        <div class="header" dir="ltr">
-          <div class="header-side">
-            <div class="badge status-${this._panel.sync_status}">
-              ${this.t("card.status")}: ${this._panel.sync_status}
-            </div>
-            <button
-              type="button"
-              class="operate-btn ${operate ? "active" : ""}"
-              data-operate-toggle
-              aria-pressed=${operate ? "true" : "false"}
-              aria-label=${operate ? this.t("card.operate_exit") : this.t("card.operate")}
-              title=${operate ? this.t("card.operate_exit") : this.t("card.operate_hint")}
-              ?disabled=${this._busy}
-              @click=${this._toggleOperateMode}
-            >
-              ${operate ? this.t("card.operate_exit") : this.t("card.operate")}
-            </button>
-            <button
-              type="button"
-              class="menu-btn"
-              aria-label=${this.t("card.menu")}
-              aria-expanded=${this._menuOpen ? "true" : "false"}
-              ?disabled=${this._busy}
-              @click=${() => {
-                this._menuOpen = !this._menuOpen;
-              }}
-            >
-              <span></span><span></span><span></span>
-            </button>
-          </div>
-        </div>
+        ${operate
+          ? nothing
+          : html`
+              <div class="panel-title" data-panel-title>
+                <div class="brand" dir="ltr" lang="en">ConX</div>
+                <div class="title">${this._panel.panel_name || this.t("card.title")}</div>
+              </div>
+              <div class="header" dir="ltr" data-card-header>
+                <div class="header-side">
+                  <div class="badge status-${this._panel.sync_status}">
+                    ${this.t("card.status")}: ${this._panel.sync_status}
+                  </div>
+                  <button
+                    type="button"
+                    class="operate-btn"
+                    data-operate-toggle
+                    aria-pressed="false"
+                    aria-label=${this.t("card.operate")}
+                    title=${this.t("card.operate_hint")}
+                    ?disabled=${this._busy}
+                    @click=${this._toggleOperateMode}
+                  >
+                    ${this.t("card.operate")}
+                  </button>
+                  <button
+                    type="button"
+                    class="menu-btn"
+                    data-header-menu
+                    aria-label=${this.t("card.menu")}
+                    aria-expanded=${this._menuOpen ? "true" : "false"}
+                    ?disabled=${this._busy}
+                    @click=${() => {
+                      this._menuOpen = !this._menuOpen;
+                    }}
+                  >
+                    <span></span><span></span><span></span>
+                  </button>
+                </div>
+              </div>
 
-        <div class="status-action-bar" data-status-action-bar>
-          ${this._dirty
-            ? html`<div class="warn unsaved-draft" role="status">${this.t("card.unsaved")}</div>`
-            : nothing}
-          ${!this._dirty &&
-          (this._panel.sync_status === "pending" ||
-            this._panel.sync_status === "out_of_sync")
-            ? html`<div class="notice sync-needed" role="status" data-sync-needed>
-                ${this.t("card.sync_needed")}
-              </div>`
-            : nothing}
-          ${this._notice
-            ? html`<div class="notice">${this._notice}</div>`
-            : nothing}
-          ${this._error || this._panel.last_error
-            ? html`<div class="error">${this._error || this._panel.last_error}</div>`
-            : nothing}
-          ${operate ? nothing : this._renderActionButtons("top")}
-        </div>
+              <div class="status-action-bar" data-status-action-bar>
+                ${this._dirty
+                  ? html`<div class="warn unsaved-draft" role="status">${this.t("card.unsaved")}</div>`
+                  : nothing}
+                ${!this._dirty &&
+                (this._panel.sync_status === "pending" ||
+                  this._panel.sync_status === "out_of_sync")
+                  ? html`<div class="notice sync-needed" role="status" data-sync-needed>
+                      ${this.t("card.sync_needed")}
+                    </div>`
+                  : nothing}
+                ${this._notice
+                  ? html`<div class="notice">${this._notice}</div>`
+                  : nothing}
+                ${this._error || this._panel.last_error
+                  ? html`<div class="error">${this._error || this._panel.last_error}</div>`
+                  : nothing}
+                ${this._renderActionButtons("top")}
+              </div>
+            `}
 
         ${this._renderMainEditor()}
         ${this._menuOpen ? this._renderSettingsMenu() : nothing}
@@ -3475,6 +3508,7 @@ export class ConXDynamicPanelCard extends LitElement {
   }
 
   private _renderSettingsMenu() {
+    const operate = this._operateMode;
     return html`
       <div
         class="conx-layer"
@@ -3482,7 +3516,7 @@ export class ConXDynamicPanelCard extends LitElement {
           if (e.target === e.currentTarget) this._menuOpen = false;
         }}
       >
-        <aside class="conx-panel compact" role="dialog" aria-modal="true">
+        <aside class="conx-panel compact" role="dialog" aria-modal="true" data-settings-menu>
           <div class="menu-head">
             <div class="menu-title">${this.t("card.menu")}</div>
             <button
@@ -3495,6 +3529,23 @@ export class ConXDynamicPanelCard extends LitElement {
               ×
             </button>
           </div>
+          ${operate
+            ? html`
+                <div class="menu-section" data-operate-exit-section>
+                  <div class="menu-actions">
+                    <button
+                      type="button"
+                      class="btn primary"
+                      data-operate-exit
+                      ?disabled=${this._busy}
+                      @click=${() => this._exitOperateMode()}
+                    >
+                      ${this.t("card.operate_exit")}
+                    </button>
+                  </div>
+                </div>
+              `
+            : nothing}
           <div class="menu-section">
             <span class="menu-label">${this.t("card.language")}</span>
             <div class="lang-flags" role="group" aria-label=${this.t("card.language")}>
@@ -3654,15 +3705,18 @@ export class ConXDynamicPanelCard extends LitElement {
     };
     return html`
       <div class="layout single-layout ${operate ? "operate-layout" : ""}">
-        <section class="hero-preview ${previewOpen ? "open" : "closed"}">
-          <header class="section-head">
-            <div class="section-head-main">
-              <div class="section-title">${this.t("card.preview")}</div>
-            </div>
-            <div class="hero-profile-name" aria-live="polite">${this._draft.name}</div>
-            ${operate
-              ? nothing
-              : html`
+        <section
+          class="hero-preview ${previewOpen ? "open" : "closed"} ${operate ? "operate-hero" : ""}"
+          data-hero-preview
+        >
+          ${operate
+            ? nothing
+            : html`
+                <header class="section-head" data-preview-chrome>
+                  <div class="section-head-main">
+                    <div class="section-title">${this.t("card.preview")}</div>
+                  </div>
+                  <div class="hero-profile-name" aria-live="polite">${this._draft.name}</div>
                   <label class="switch" title=${this.t("card.section_toggle")}>
                     <input
                       type="checkbox"
@@ -3673,8 +3727,8 @@ export class ConXDynamicPanelCard extends LitElement {
                     />
                     <span class="slider"></span>
                   </label>
-                `}
-          </header>
+                </header>
+              `}
           ${previewOpen
             ? html`<div class="hero-body">
                 ${this._renderFaceplate()} ${this._renderCoverControl()}
@@ -5419,6 +5473,45 @@ export class ConXDynamicPanelCard extends LitElement {
         0 16px 36px rgba(0, 0, 0, 0.35);
     }
 
+    .faceplate-menu-btn {
+      position: absolute;
+      top: 6px;
+      z-index: 5;
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      border: 1px solid rgba(0, 0, 0, 0.28);
+      background: rgba(26, 29, 34, 0.78);
+      color: #f0f2f5;
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.18) inset, 0 2px 6px rgba(0, 0, 0, 0.28);
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      cursor: pointer;
+      padding: 0;
+      backdrop-filter: blur(4px);
+      /* Faceplate itself is dir=ltr for ring columns; pin to card reading-start. */
+      left: 6px;
+      right: auto;
+    }
+    ha-card.conx-card[dir="rtl"] .faceplate-menu-btn {
+      left: auto;
+      right: 6px;
+    }
+    .faceplate-menu-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .faceplate-menu-btn span {
+      display: block;
+      width: 12px;
+      height: 1.5px;
+      border-radius: 1px;
+      background: currentColor;
+    }
+
     .faceplate-skin {
       position: absolute;
       inset: 7px;
@@ -5595,20 +5688,43 @@ export class ConXDynamicPanelCard extends LitElement {
       border-color: var(--accent);
       color: var(--accent);
     }
-    .operate-btn.active {
-      border-color: var(--accent);
-      color: var(--accent-text, #111);
-      background: var(--accent);
-      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.2) inset, 0 2px 8px var(--accent-soft, rgba(212, 175, 97, 0.35));
-    }
     ha-card.conx-card[data-theme="ivory"] .operate-btn {
       background: linear-gradient(180deg, #ffffff, var(--btn-bg));
       box-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset, 0 2px 6px rgba(20, 28, 40, 0.08);
     }
-    ha-card.conx-card[data-theme="ivory"] .operate-btn.active {
-      color: var(--accent-text, #fff);
-      background: var(--accent);
-      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.35) inset, 0 2px 8px rgba(138, 115, 72, 0.28);
+    ha-card.conx-card.operate-mode {
+      padding: 8px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.04) 0%, transparent 40%),
+        linear-gradient(165deg, #262b34 0%, #1a1d22 44%, #15181e 100%);
+    }
+    ha-card.conx-card.operate-mode[data-theme="ivory"] {
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.55) 0%, transparent 42%),
+        linear-gradient(165deg, #f7f4ee 0%, #ebe6dc 48%, #e4dfd4 100%);
+    }
+    ha-card.conx-card.operate-mode .atmosphere {
+      opacity: 0.35;
+    }
+    ha-card.conx-card.operate-mode .operate-layout {
+      gap: 0;
+      margin: 0;
+    }
+    ha-card.conx-card.operate-mode .hero-preview.operate-hero {
+      margin: 0;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      box-shadow: none;
+    }
+    ha-card.conx-card.operate-mode .hero-body {
+      padding: 0;
+      background: transparent;
+      gap: 10px;
+    }
+    ha-card.conx-card.operate-mode .cover-control {
+      margin-top: 0;
+      padding: 10px;
     }
     .menu-btn {
       width: 46px;

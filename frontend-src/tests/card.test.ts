@@ -1446,45 +1446,67 @@ describe("custom elements", () => {
     );
   });
 
-  it("toggles operate mode to hide editor chrome and persists preference", async () => {
+  it("toggles operate mode to hide header chrome and show faceplate corner menu", async () => {
     const callWS = vi.fn().mockResolvedValue(panelPayload({ sync_status: "synced" }));
     const el = await mountCard({ language: "en", callWS });
     expect(el._operateMode).toBe(false);
     expect(el.shadowRoot?.querySelector("[data-editor-chrome]")).toBeTruthy();
     expect(el.shadowRoot?.querySelector(".layout-hint")).toBeTruthy();
     expect(el.shadowRoot?.querySelector("[data-actions='top']")).toBeTruthy();
+    expect(el.shadowRoot?.querySelector("[data-panel-title]")).toBeTruthy();
+    expect(el.shadowRoot?.querySelector("[data-card-header]")).toBeTruthy();
+    expect(el.shadowRoot?.querySelector("[data-status-action-bar]")).toBeTruthy();
+    expect(el.shadowRoot?.querySelector("[data-preview-chrome]")).toBeTruthy();
     expect(el.shadowRoot?.querySelector(".faceplate")).toBeTruthy();
+    expect(el.shadowRoot?.querySelector("[data-operate-menu]")).toBeFalsy();
 
     const toggle = el.shadowRoot?.querySelector(
       "[data-operate-toggle]"
     ) as HTMLButtonElement;
     expect(toggle).toBeTruthy();
     expect(toggle.textContent?.trim()).toBe("Operate");
-    expect(toggle.getAttribute("aria-pressed")).toBe("false");
     toggle.click();
     await el.updateComplete;
 
     expect(el._operateMode).toBe(true);
     expect(loadStoredOperateMode()).toBe(true);
-    expect(el.shadowRoot?.querySelector("ha-card")?.classList.contains("operate-mode")).toBe(
-      true
-    );
+    const card = el.shadowRoot?.querySelector("ha-card");
+    expect(card?.classList.contains("operate-mode")).toBe(true);
+    expect(card?.getAttribute("data-operate")).toBe("true");
+    expect(el.shadowRoot?.querySelector("[data-panel-title]")).toBeFalsy();
+    expect(el.shadowRoot?.querySelector("[data-card-header]")).toBeFalsy();
+    expect(el.shadowRoot?.querySelector("[data-status-action-bar]")).toBeFalsy();
+    expect(el.shadowRoot?.querySelector("[data-preview-chrome]")).toBeFalsy();
+    expect(el.shadowRoot?.querySelector("[data-operate-toggle]")).toBeFalsy();
     expect(el.shadowRoot?.querySelector("[data-editor-chrome]")).toBeFalsy();
     expect(el.shadowRoot?.querySelector(".layout-hint")).toBeFalsy();
     expect(el.shadowRoot?.querySelector("[data-actions='top']")).toBeFalsy();
     expect(el.shadowRoot?.querySelector(".settings-tabs")).toBeFalsy();
     expect(el.shadowRoot?.querySelector(".faceplate")).toBeTruthy();
-    expect(el.shadowRoot?.querySelector(".hero-preview.open")).toBeTruthy();
-    expect(toggle.textContent?.trim()).toBe("Settings");
-    expect(toggle.getAttribute("aria-pressed")).toBe("true");
-    expect(toggle.classList.contains("active")).toBe(true);
+    expect(el.shadowRoot?.querySelector(".hero-preview.open.operate-hero")).toBeTruthy();
+    const faceMenu = el.shadowRoot?.querySelector(
+      "[data-operate-menu]"
+    ) as HTMLButtonElement;
+    expect(faceMenu).toBeTruthy();
+    expect(faceMenu.classList.contains("faceplate-menu-btn")).toBe(true);
 
-    toggle.click();
+    faceMenu.click();
+    await el.updateComplete;
+    expect(el._menuOpen).toBe(true);
+    const exitBtn = el.shadowRoot?.querySelector(
+      "[data-operate-exit]"
+    ) as HTMLButtonElement;
+    expect(exitBtn).toBeTruthy();
+    expect(exitBtn.textContent?.trim()).toBe("Settings");
+    exitBtn.click();
     await el.updateComplete;
     expect(el._operateMode).toBe(false);
     expect(loadStoredOperateMode()).toBe(false);
+    expect(el._menuOpen).toBe(false);
     expect(el.shadowRoot?.querySelector("[data-editor-chrome]")).toBeTruthy();
     expect(el.shadowRoot?.querySelector("[data-actions='top']")).toBeTruthy();
+    expect(el.shadowRoot?.querySelector("[data-panel-title]")).toBeTruthy();
+    expect(el.shadowRoot?.querySelector("[data-operate-menu]")).toBeFalsy();
   });
 
   it("restores operate mode from localStorage on connect", async () => {
@@ -1493,10 +1515,18 @@ describe("custom elements", () => {
     const el = await mountCard({ language: "he", callWS });
     expect(el._operateMode).toBe(true);
     expect(el.shadowRoot?.querySelector("[data-editor-chrome]")).toBeFalsy();
-    const toggle = el.shadowRoot?.querySelector(
-      "[data-operate-toggle]"
+    expect(el.shadowRoot?.querySelector("[data-panel-title]")).toBeFalsy();
+    expect(el.shadowRoot?.querySelector("[data-card-header]")).toBeFalsy();
+    expect(el.shadowRoot?.querySelector("[data-operate-menu]")).toBeTruthy();
+    const faceMenu = el.shadowRoot?.querySelector(
+      "[data-operate-menu]"
     ) as HTMLButtonElement;
-    expect(toggle?.textContent?.trim()).toBe("הגדרות");
+    faceMenu.click();
+    await el.updateComplete;
+    const exitBtn = el.shadowRoot?.querySelector(
+      "[data-operate-exit]"
+    ) as HTMLButtonElement;
+    expect(exitBtn?.textContent?.trim()).toBe("הגדרות");
   });
 
   it("keeps cover live controls visible in operate mode", async () => {
@@ -1527,6 +1557,8 @@ describe("custom elements", () => {
     el._operateMode = true;
     await el.updateComplete;
     expect(el.shadowRoot?.querySelector("[data-editor-chrome]")).toBeFalsy();
+    expect(el.shadowRoot?.querySelector("[data-panel-title]")).toBeFalsy();
+    expect(el.shadowRoot?.querySelector("[data-operate-menu]")).toBeTruthy();
     expect(el.shadowRoot?.querySelector("[data-cover-control]")).toBeTruthy();
     expect(el.shadowRoot?.querySelector("[data-cover-open]")).toBeTruthy();
     expect(el.shadowRoot?.querySelector("[data-cover-stop]")).toBeTruthy();
