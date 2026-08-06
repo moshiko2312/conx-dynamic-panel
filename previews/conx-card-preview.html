@@ -3007,6 +3007,10 @@
       automationModal: document.getElementById("automation-modal"),
       automationYaml: document.getElementById("automation-yaml"),
       automationCopy: document.getElementById("automation-copy"),
+      infoLayer: document.getElementById("info-layer"),
+      infoModal: document.getElementById("info-modal"),
+      infoSections: document.getElementById("info-sections"),
+      infoIntro: document.getElementById("info-intro"),
       radioGroupsHosts: [
         {
           section: document.getElementById("radio-groups-section-buttons"),
@@ -4026,7 +4030,6 @@
               t("card.cover_ha_entity_none")
             )}
           </select>
-          <span class="field-hint">${t("card.cover_ha_entity_hint")}</span>
         </label>
         <div class="cover-times cover-times-compact">
           <label class="field"><span>${t("card.cover_open_time")} (${unit})</span>
@@ -4472,12 +4475,47 @@
       if (!els.automationLayer) return;
       if (open) {
         setMenuOpen(false);
+        setInfoOpen(false);
         renderAutomationYaml();
       }
       els.automationLayer.hidden = !open;
       els.automationLayer.classList.toggle("open", open);
       if (els.automationModal) {
         els.automationModal.setAttribute("aria-hidden", open ? "false" : "true");
+      }
+    }
+    const INFO_SECTIONS = [
+      ["info.profiles_title", "info.profiles_body"],
+      ["info.appearance_title", "info.appearance_body"],
+      ["info.buttons_title", "info.buttons_body"],
+      ["info.modes_title", "info.modes_body"],
+      ["info.roles_title", "info.roles_body"],
+      ["info.sync_title", "info.sync_body"],
+      ["info.operate_title", "info.operate_body"],
+      ["info.cover_title", "info.cover_body"],
+      ["info.actions_title", "info.actions_body"],
+      ["info.menu_title", "info.menu_body"],
+    ];
+    function renderInfoGuide() {
+      if (els.infoIntro) els.infoIntro.textContent = t("info.intro");
+      if (els.infoSections) {
+        els.infoSections.innerHTML = INFO_SECTIONS.map(
+          ([titleKey, bodyKey]) =>
+            `<section class="info-section"><h3 class="info-section-title">${t(titleKey)}</h3><p class="info-section-body">${t(bodyKey)}</p></section>`
+        ).join("");
+      }
+    }
+    function setInfoOpen(open) {
+      if (!els.infoLayer) return;
+      if (open) {
+        setMenuOpen(false);
+        setAutomationOpen(false);
+        renderInfoGuide();
+      }
+      els.infoLayer.hidden = !open;
+      els.infoLayer.classList.toggle("open", open);
+      if (els.infoModal) {
+        els.infoModal.setAttribute("aria-hidden", open ? "false" : "true");
       }
     }
     async function copyAutomationYaml() {
@@ -4687,6 +4725,7 @@
         if (event.key !== "Escape") return;
         if (els.dialogLayer && els.dialogLayer.classList.contains("open")) closeDialog(false);
         else if (els.automationLayer && els.automationLayer.classList.contains("open")) setAutomationOpen(false);
+        else if (els.infoLayer && els.infoLayer.classList.contains("open")) setInfoOpen(false);
         else if (els.exportLayer && els.exportLayer.classList.contains("open")) setExportView(false);
         else setMenuOpen(false);
       });
@@ -4733,6 +4772,17 @@
         els.operateExit.addEventListener("click", () => {
           setMenuOpen(false);
           setOperateMode(false);
+        });
+      }
+      const infoOpen = document.getElementById("btn-info-guide");
+      if (infoOpen) infoOpen.addEventListener("click", () => setInfoOpen(true));
+      ["info-close", "info-close-2"].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener("click", () => setInfoOpen(false));
+      });
+      if (els.infoLayer) {
+        els.infoLayer.addEventListener("click", (event) => {
+          if (event.target === els.infoLayer) setInfoOpen(false);
         });
       }
       const automationOpen = document.getElementById("btn-automation-example");
