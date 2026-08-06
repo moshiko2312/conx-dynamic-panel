@@ -1584,21 +1584,133 @@ export class ConXDynamicPanelCard extends LitElement {
     `;
   }
 
-  private _renderOneCoverEditor(
-    cover: CoverConfig,
-    index: number,
-    mixed = false
-  ) {
+  /** First cover-role button index that owns timing for a given motor slot. */
+  private _firstCoverRoleIndex(coverId: string): number | null {
+    if (!this._draft) {
+      return null;
+    }
+    const id = String(coverId || "cover_1").trim() || "cover_1";
+    const match = this._draft.buttons.find(
+      (button) =>
+        button.index <= this._gangCount() &&
+        (button.role === "cover_open" || button.role === "cover_close") &&
+        (String(button.cover_id || "cover_1").trim() || "cover_1") === id
+    );
+    return match?.index ?? null;
+  }
+
+  private _renderInlineCoverTimes(cover: CoverConfig) {
     const limits = this._panel?.capabilities.cover;
     const minTime = limits?.min_time_s ?? COVER_TIME_MIN;
     const maxTime = limits?.max_time_s ?? COVER_TIME_MAX;
     const unit = this.t("card.cover_seconds");
-    const canRemove = !mixed && this._covers().length > 1;
     return html`
-      <div class="cover-block ${mixed ? "cover-block-mixed" : ""}" data-cover-id=${cover.id}>
+      <div class="mixed-cover-times" data-inline-cover-times data-cover-id=${cover.id}>
+        <div class="cover-times cover-times-compact">
+          <label class="field">
+            <span>${this.t("card.cover_open_time")} (${unit})</span>
+            <input
+              type="number"
+              data-cover-open-time
+              min=${minTime}
+              max=${maxTime}
+              step="0.5"
+              .value=${String(cover.open_time_s)}
+              ?disabled=${this._busy}
+              @change=${(e: Event) =>
+                this._setCoverTime(
+                  cover.id,
+                  "open",
+                  Number((e.target as HTMLInputElement).value)
+                )}
+            />
+          </label>
+          <label class="field">
+            <span>${this.t("card.cover_close_time")} (${unit})</span>
+            <input
+              type="number"
+              data-cover-close-time
+              min=${minTime}
+              max=${maxTime}
+              step="0.5"
+              .value=${String(cover.close_time_s)}
+              ?disabled=${this._busy}
+              @change=${(e: Event) =>
+                this._setCoverTime(
+                  cover.id,
+                  "close",
+                  Number((e.target as HTMLInputElement).value)
+                )}
+            />
+          </label>
+          <label class="field">
+            <span>${this.t("card.cover_settle")} (${unit})</span>
+            <input
+              type="number"
+              data-cover-settle
+              min=${limits?.min_settle_s ?? COVER_SETTLE_MIN}
+              max=${limits?.max_settle_s ?? COVER_SETTLE_MAX}
+              step="0.1"
+              .value=${String(cover.direction_settle_s)}
+              ?disabled=${this._busy}
+              @change=${(e: Event) => {
+                const value = Number((e.target as HTMLInputElement).value);
+                this._patchCovers((covers) => {
+                  const target = covers.find((item) => item.id === cover.id);
+                  if (!target) return;
+                  target.direction_settle_s = Math.max(
+                    COVER_SETTLE_MIN,
+                    Math.min(
+                      COVER_SETTLE_MAX,
+                      Number.isFinite(value) ? value : 0
+                    )
+                  );
+                });
+              }}
+            />
+          </label>
+          <label class="field field-compact-select">
+            <span>${this.t("card.cover_opposite")}</span>
+            <div class="select-wrap">
+              <select
+                data-cover-opposite
+                .value=${cover.opposite_press}
+                ?disabled=${this._busy}
+                @change=${(e: Event) => {
+                  const value = (e.target as HTMLSelectElement).value;
+                  this._patchCovers((covers) => {
+                    const target = covers.find((item) => item.id === cover.id);
+                    if (!target) return;
+                    target.opposite_press =
+                      value === "stop_then_reverse"
+                        ? "stop_then_reverse"
+                        : "stop_only";
+                  });
+                }}
+              >
+                <option value="stop_only">${this.t("cover.stop_only")}</option>
+                <option value="stop_then_reverse">
+                  ${this.t("cover.stop_then_reverse")}
+                </option>
+              </select>
+            </div>
+          </label>
+        </div>
+      </div>
+    `;
+  }
+
+  private _renderOneCoverEditor(cover: CoverConfig, index: number) {
+    const limits = this._panel?.capabilities.cover;
+    const minTime = limits?.min_time_s ?? COVER_TIME_MIN;
+    const maxTime = limits?.max_time_s ?? COVER_TIME_MAX;
+    const unit = this.t("card.cover_seconds");
+    const canRemove = this._covers().length > 1;
+    return html`
+      <div class="cover-block" data-cover-id=${cover.id}>
         <div class="cover-head">
           <span class="menu-label"
-            >${this.t("card.cover")} ${mixed ? cover.id : index + 1}</span
+            >${this.t("card.cover")} ${index + 1}</span
           >
           ${canRemove
             ? html`<button
@@ -1611,21 +1723,17 @@ export class ConXDynamicPanelCard extends LitElement {
               </button>`
             : nothing}
         </div>
-        ${mixed
-          ? html`<p class="radio-groups-hint">${this.t("card.mixed_cover_times_hint")}</p>`
-          : html`
-              <div class="cover-grid">
-                <div class="cover-field">
-                  <span class="cover-label">${this.t("card.cover_open_button")}</span>
-                  ${this._renderCoverButtonPicker(cover, "open")}
-                </div>
-                <div class="cover-field">
-                  <span class="cover-label">${this.t("card.cover_close_button")}</span>
-                  ${this._renderCoverButtonPicker(cover, "close")}
-                </div>
-              </div>
-            `}
-        <div class="cover-times">
+        <div class="cover-grid">
+          <div class="cover-field">
+            <span class="cover-label">${this.t("card.cover_open_button")}</span>
+            ${this._renderCoverButtonPicker(cover, "open")}
+          </div>
+          <div class="cover-field">
+            <span class="cover-label">${this.t("card.cover_close_button")}</span>
+            ${this._renderCoverButtonPicker(cover, "close")}
+          </div>
+        </div>
+        <div class="cover-times cover-times-compact">
           <label class="field">
             <span>${this.t("card.cover_open_time")} (${unit})</span>
             <input
@@ -1690,7 +1798,7 @@ export class ConXDynamicPanelCard extends LitElement {
           </label>
         </div>
         <p class="radio-groups-hint">${this.t("card.cover_settle_hint")}</p>
-        <label class="field">
+        <label class="field field-compact-select">
           <span>${this.t("card.cover_opposite")}</span>
           <div class="select-wrap">
             <select
@@ -1716,7 +1824,7 @@ export class ConXDynamicPanelCard extends LitElement {
             </select>
           </div>
         </label>
-        ${!mixed && cover.open_button === cover.close_button
+        ${cover.open_button === cover.close_button
           ? html`<div class="radio-groups-error">
               ${this.t("card.cover_same_button")}
             </div>`
@@ -1749,54 +1857,11 @@ export class ConXDynamicPanelCard extends LitElement {
   }
 
   private _renderCoverEditor() {
-    if (!this._draft) {
-      return nothing;
-    }
-    const mixed = this._draft.mode === "mixed";
-    if (mixed) {
-      const hasCover = this._draft.buttons.some(
-        (button) =>
-          button.index <= this._gangCount() &&
-          (button.role === "cover_open" || button.role === "cover_close")
-      );
-      if (!hasCover) {
-        return nothing;
-      }
-    } else if (this._draft.mode !== "cover") {
+    if (!this._draft || this._draft.mode !== "cover") {
+      // Free-mix travel times live inside the cover-role cards — no bottom block.
       return nothing;
     }
     const covers = this._covers();
-    if (mixed) {
-      // Timing only — open/close buttons come from free-mix roles.
-      const boundIds = new Set(
-        this._draft.buttons
-          .filter(
-            (button) =>
-              button.index <= this._gangCount() &&
-              (button.role === "cover_open" || button.role === "cover_close")
-          )
-          .map(
-            (button) => String(button.cover_id || "cover_1").trim() || "cover_1"
-          )
-      );
-      const bound = covers.filter((cover) => boundIds.has(cover.id));
-      const shown = bound.length ? bound : covers.slice(0, 1);
-      return html`
-        <div
-          class="cover-section cover-section-mixed"
-          data-cover-editor
-          data-mixed-cover-times
-        >
-          <div class="cover-head">
-            <span class="menu-label">${this.t("card.cover_times")}</span>
-          </div>
-          ${shown.map((cover, index) =>
-            this._renderOneCoverEditor(cover, index, true)
-          )}
-          <p class="cover-safety">${this.t("card.cover_safety")}</p>
-        </div>
-      `;
-    }
     const maxCovers = maxCoversForGangs(this._gangCount());
     const slots = Array.from(
       { length: Math.max(maxCovers, covers.length) },
@@ -3119,6 +3184,7 @@ export class ConXDynamicPanelCard extends LitElement {
     }
     const roles = rolesForGangCount(this._gangCount()) as ButtonRole[];
     const covers = this._covers();
+    const multiCover = covers.length > 1;
     const buttons = this._draft.buttons.filter(
       (button) => button.index <= this._gangCount()
     );
@@ -3137,11 +3203,20 @@ export class ConXDynamicPanelCard extends LitElement {
             String(button.cover_id || covers[0]?.id || "cover_1").trim() ||
             "cover_1";
           const label = (button.name || "").trim() || "—";
+          const isCoverRole = role === "cover_open" || role === "cover_close";
           const extras =
-            role === "momentary" ||
-            role === "radio" ||
-            role === "cover_open" ||
-            role === "cover_close";
+            role === "momentary" || role === "radio" || isCoverRole;
+          const cover = covers.find((item) => item.id === coverId) || covers[0];
+          const timesOwner = isCoverRole
+            ? this._firstCoverRoleIndex(coverId)
+            : null;
+          const showTimes =
+            isCoverRole && cover && timesOwner === button.index;
+          const showTimesPointer =
+            isCoverRole &&
+            cover &&
+            timesOwner != null &&
+            timesOwner !== button.index;
           return html`
             <div class="mixed-role-card" data-mixed-role=${button.index}>
               <div class="mixed-role-card-main">
@@ -3219,37 +3294,66 @@ export class ConXDynamicPanelCard extends LitElement {
                             ${this.t("card.mixed_radio_hint")}
                           </p>`
                         : nothing}
-                      ${role === "cover_open" || role === "cover_close"
+                      ${isCoverRole
                         ? html`
-                            <label class="field field-inline mixed-cover-id">
-                              <span>${this.t("card.cover_id")}</span>
-                              <div class="select-wrap">
-                                <select
-                                  data-cover-id
-                                  .value=${coverId}
-                                  ?disabled=${this._busy || covers.length === 0}
-                                  @change=${(e: Event) =>
-                                    this._setButtonCoverId(
-                                      button.index,
-                                      (e.target as HTMLSelectElement).value
-                                    )}
-                                >
-                                  ${covers.map(
-                                    (cover) => html`
-                                      <option value=${cover.id}
-                                        >${cover.id}</option
+                            ${multiCover
+                              ? html`
+                                  <label
+                                    class="field field-inline mixed-cover-id"
+                                  >
+                                    <span>${this.t("card.cover_id")}</span>
+                                    <div class="select-wrap">
+                                      <select
+                                        data-cover-id
+                                        .value=${coverId}
+                                        ?disabled=${this._busy ||
+                                        covers.length === 0}
+                                        @change=${(e: Event) =>
+                                          this._setButtonCoverId(
+                                            button.index,
+                                            (
+                                              e.target as HTMLSelectElement
+                                            ).value
+                                          )}
                                       >
-                                    `
-                                  )}
-                                </select>
-                              </div>
-                            </label>
+                                        ${covers.map(
+                                          (item) => html`
+                                            <option value=${item.id}
+                                              >${item.id}</option
+                                            >
+                                          `
+                                        )}
+                                      </select>
+                                    </div>
+                                  </label>
+                                `
+                              : html`<span
+                                  class="mixed-cover-slot"
+                                  data-cover-id
+                                  data-cover-slot=${coverId}
+                                  >${this.t("card.cover_id")}:
+                                  ${coverId}</span
+                                >`}
                             <p
                               class="radio-groups-hint"
                               data-mixed-cover-hint
                             >
                               ${this.t("card.mixed_cover_hint")}
                             </p>
+                            ${showTimes && cover
+                              ? this._renderInlineCoverTimes(cover)
+                              : nothing}
+                            ${showTimesPointer && timesOwner != null
+                              ? html`<p
+                                  class="radio-groups-hint"
+                                  data-mixed-cover-times-on
+                                >
+                                  ${this.t("card.mixed_cover_times_on").replace(
+                                    "{n}",
+                                    String(timesOwner)
+                                  )}
+                                </p>`
+                              : nothing}
                           `
                         : nothing}
                     </div>
@@ -4959,6 +5063,48 @@ export class ConXDynamicPanelCard extends LitElement {
       margin-bottom: 0;
       min-width: 0;
     }
+    .cover-times-compact {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr));
+      gap: 4px 8px;
+      margin-bottom: 0;
+      width: 100%;
+    }
+    .cover-times-compact .field {
+      margin-bottom: 0;
+      gap: 2px;
+    }
+    .cover-times-compact .field > span {
+      font-size: 0.62rem;
+      color: var(--text-muted);
+      line-height: 1.15;
+    }
+    .cover-times-compact input[type="number"],
+    .cover-times-compact select {
+      min-height: 24px;
+      padding: 2px 4px;
+      font-size: 0.72rem;
+      width: 100%;
+      max-width: 6.5rem;
+    }
+    .cover-times-compact .field-compact-select .select-wrap {
+      max-width: 9rem;
+    }
+    .cover-section .cover-times-compact {
+      margin-bottom: 4px;
+    }
+    .cover-section .radio-groups-hint {
+      margin: 0 0 6px;
+      font-size: 0.68rem;
+      line-height: 1.2;
+    }
+    .cover-section .cover-block {
+      margin-top: 6px;
+      padding-top: 6px;
+    }
+    .cover-section .cover-head {
+      margin-bottom: 4px;
+    }
 
     .gang-picker {
       direction: ltr;
@@ -5122,29 +5268,19 @@ export class ConXDynamicPanelCard extends LitElement {
       padding: 2px 4px;
       font-size: 0.72rem;
     }
-    .cover-section-mixed {
-      margin: 2px 0 6px;
-      padding: 6px;
+    .mixed-cover-slot {
+      font-size: 0.62rem;
+      font-weight: 650;
+      color: var(--text-muted);
+      line-height: 1.15;
     }
-    .cover-section-mixed .cover-head {
-      margin-bottom: 4px;
+    .mixed-cover-times {
+      flex: 1 1 100%;
+      width: 100%;
+      margin-top: 2px;
     }
-    .cover-section-mixed .cover-block {
-      margin-top: 4px;
-      padding-top: 4px;
-    }
-    .cover-section-mixed .cover-times {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
-      gap: 6px 10px;
-      margin-bottom: 6px;
-    }
-    .cover-section-mixed .cover-times .field {
-      margin-bottom: 0;
-    }
-    .cover-section-mixed .cover-times input[type="number"] {
-      min-height: 28px;
-      padding: 4px 6px;
+    .mixed-cover-times .cover-times-compact {
+      grid-template-columns: repeat(auto-fit, minmax(5.2rem, 1fr));
     }
     @container mixed-roles (max-width: 360px) {
       .mixed-role-card-main {

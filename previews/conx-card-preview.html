@@ -912,22 +912,43 @@
       padding: 2px 4px;
       font-size: .72rem;
     }
-    .cover-section-mixed {
-      margin: 2px 0 6px;
-      padding: 6px;
+    .mixed-cover-slot {
+      font-size: .62rem;
+      font-weight: 650;
+      color: var(--text-muted);
+      line-height: 1.15;
     }
-    .cover-section-mixed .cover-head { margin-bottom: 4px; }
-    .cover-section-mixed .cover-block { margin-top: 4px; padding-top: 4px; }
-    .cover-section-mixed .cover-times {
+    .mixed-cover-times {
+      flex: 1 1 100%;
+      width: 100%;
+      margin-top: 2px;
+    }
+    .cover-times-compact {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
-      gap: 6px 10px;
-      margin-bottom: 6px;
+      grid-template-columns: repeat(auto-fit, minmax(5.2rem, 1fr));
+      gap: 4px 8px;
+      margin-bottom: 0;
+      width: 100%;
     }
-    .cover-section-mixed .cover-times .field { margin-bottom: 0; }
-    .cover-section-mixed .cover-times input[type="number"] {
-      min-height: 28px;
-      padding: 4px 6px;
+    .cover-times-compact .field {
+      margin-bottom: 0;
+      gap: 2px;
+    }
+    .cover-times-compact .field > span {
+      font-size: .62rem;
+      color: var(--text-muted);
+      line-height: 1.15;
+    }
+    .cover-times-compact input[type="number"],
+    .cover-times-compact select {
+      min-height: 24px;
+      padding: 2px 4px;
+      font-size: .72rem;
+      width: 100%;
+      max-width: 6.5rem;
+    }
+    .cover-section .cover-times-compact {
+      margin-bottom: 4px;
     }
     @container mixed-roles (max-width: 360px) {
       .mixed-role-card-main {
@@ -1899,9 +1920,11 @@
         "card.mixed_roles": "Per-button roles",
         "card.button_role": "Button role",
         "card.pulse_time": "Pulse time",
-        "card.cover_id": "Cover",
+        "card.cover_id": "Motor / Cover slot",
+        "card.cover_id_hint": "Internal motor slot for open/close pairing — not a Home Assistant cover.* entity.",
         "card.mixed_radio_hint": "Assign this button to a radio group below. Classic radio keeps exactly one member ON (turning it off snaps it back). Only role=Radio buttons stay in groups.",
-        "card.mixed_cover_hint": "Travel times and motor safety settings are in the Cover section below.",
+        "card.mixed_cover_hint": "Shutter motor: use Open/Close roles + travel times here. Domain and entity for Home Assistant actions are under Toggle/Momentary in the button expanders below.",
+        "card.mixed_cover_times_on": "Travel times for this motor are set on L{n}.",
         "role.toggle": "Toggle", "role.momentary": "Momentary", "role.radio": "Radio group",
         "role.cover_open": "Cover open", "role.cover_close": "Cover close",
         "card.cover": "Cover / shutter",
@@ -1911,8 +1934,8 @@
         "card.cover_open_time": "Open travel time",
         "card.cover_close_time": "Close travel time",
         "card.cover_settle": "Direction change delay",
-        "card.cover_settle_hint": "Dead time between switching one direction off and the other on. Keep it above zero for motor relay safety.",
-        "card.cover_opposite": "Opposite direction press",
+        "card.cover_settle_hint": "Brief pause before reversing direction (motor relay safety).",
+        "card.cover_opposite": "Opposite press",
         "card.cover_same_button": "Open and close must use different buttons.",
         "card.cover_live": "Cover control",
         "card.cover_open": "Open", "card.cover_close": "Close", "card.cover_stop": "Stop",
@@ -2006,9 +2029,11 @@
         "card.mixed_roles": "תפקיד לכל כפתור",
         "card.button_role": "תפקיד כפתור",
         "card.pulse_time": "זמן פולס",
-        "card.cover_id": "תריס",
+        "card.cover_id": "מנוע / מזהה תריס",
+        "card.cover_id_hint": "מזהה מנוע פנימי לזיווג פתיחה/סגירה — לא ישות cover של Home Assistant.",
         "card.mixed_radio_hint": "שייכו את הכפתור לקבוצת רדיו למטה. רדיו קלאסי משאיר תמיד חבר אחד דלוק (כיבוי מחזיר להדלקה). רק כפתורים בתפקיד «קבוצת רדיו» נשארים בקבוצה.",
-        "card.mixed_cover_hint": "זמני נסיעה והגדרות בטיחות של המנוע נמצאים במקטע תריס למטה.",
+        "card.mixed_cover_hint": "מנוע תריס: תפקידי פתיחה/סגירה + זמני נסיעה כאן. דומיין וישות לפעולות Home Assistant נמצאים תחת טוגל/רגעי במרחיבי הכפתורים למטה.",
+        "card.mixed_cover_times_on": "זמני הנסיעה למנוע זה מוגדרים ב־L{n}.",
         "role.toggle": "טוגל", "role.momentary": "רגעי", "role.radio": "קבוצת רדיו",
         "role.cover_open": "פתיחת תריס", "role.cover_close": "סגירת תריס",
         "card.cover": "תריס",
@@ -2018,8 +2043,8 @@
         "card.cover_open_time": "זמן פתיחה",
         "card.cover_close_time": "זמן סגירה",
         "card.cover_settle": "השהיה בהחלפת כיוון",
-        "card.cover_settle_hint": "זמן מת בין כיבוי כיוון אחד להפעלת השני. מומלץ להשאיר מעל אפס לבטיחות ממסרי המנוע.",
-        "card.cover_opposite": "לחיצה על הכיוון ההפוך",
+        "card.cover_settle_hint": "השהיה קצרה לפני היפוך כיוון (בטיחות ממסרי מנוע).",
+        "card.cover_opposite": "לחיצה הפוכה",
         "card.cover_same_button": "פתיחה וסגירה חייבות להשתמש בכפתורים שונים.",
         "card.cover_live": "שליטה בתריס",
         "card.cover_open": "פתיחה", "card.cover_close": "סגירה", "card.cover_stop": "עצירה",
@@ -2113,9 +2138,11 @@
         "card.mixed_roles": "Роль каждой кнопки",
         "card.button_role": "Роль кнопки",
         "card.pulse_time": "Время импульса",
-        "card.cover_id": "Ролета",
+        "card.cover_id": "Мотор / слот ролеты",
+        "card.cover_id_hint": "Внутренний слот мотора для пары открыть/закрыть — не сущность cover.* Home Assistant.",
         "card.mixed_radio_hint": "Назначьте кнопку в радиогруппу ниже. Классическое радио держит ровно одного участника включённым (выключение возвращает включение). В группах остаются только кнопки с ролью «Радиогруппа».",
-        "card.mixed_cover_hint": "Время хода и безопасность мотора — в секции ролеты ниже.",
+        "card.mixed_cover_hint": "Мотор ролеты: роли Открыть/Закрыть + время хода здесь. Домен и сущность для действий Home Assistant — у Тоггл/Импульс в раскрывающихся кнопках ниже.",
+        "card.mixed_cover_times_on": "Время хода для этого мотора задано на L{n}.",
         "role.toggle": "Тоггл", "role.momentary": "Импульс", "role.radio": "Радиогруппа",
         "role.cover_open": "Открыть ролету", "role.cover_close": "Закрыть ролету",
         "card.cover": "Ролета / жалюзи",
@@ -2125,8 +2152,8 @@
         "card.cover_open_time": "Время открытия",
         "card.cover_close_time": "Время закрытия",
         "card.cover_settle": "Задержка смены направления",
-        "card.cover_settle_hint": "Пауза между выключением одного направления и включением другого. Держите её выше нуля для безопасности реле мотора.",
-        "card.cover_opposite": "Нажатие противоположного направления",
+        "card.cover_settle_hint": "Короткая пауза перед сменой направления (безопасность реле мотора).",
+        "card.cover_opposite": "Противоположное нажатие",
         "card.cover_same_button": "Открытие и закрытие должны использовать разные кнопки.",
         "card.cover_live": "Управление ролетой",
         "card.cover_open": "Открыть", "card.cover_close": "Закрыть", "card.cover_stop": "Стоп",
@@ -2985,6 +3012,40 @@
       renderCoverEditor();
       renderButtonsEditor();
     }
+    function firstCoverRoleIndex(coverId) {
+      if (!state.draft) return null;
+      const gangCount = clampGangCount(state.draft.gang_count ?? 4);
+      const id = String(coverId || "cover_1").trim() || "cover_1";
+      const match = (state.draft.buttons || []).find(
+        (b) =>
+          b.index <= gangCount &&
+          (b.role === "cover_open" || b.role === "cover_close") &&
+          (String(b.cover_id || "cover_1").trim() || "cover_1") === id
+      );
+      return match ? match.index : null;
+    }
+    function inlineCoverTimesHtml(cover) {
+      const unit = t("card.cover_seconds");
+      return `<div class="mixed-cover-times" data-inline-cover-times data-cover-id="${cover.id}">
+        <div class="cover-times cover-times-compact">
+          <label class="field"><span>${t("card.cover_open_time")} (${unit})</span>
+            <input type="number" data-cover-open-time="${cover.id}" min="1" max="600" step="0.5" value="${cover.open_time_s}" />
+          </label>
+          <label class="field"><span>${t("card.cover_close_time")} (${unit})</span>
+            <input type="number" data-cover-close-time="${cover.id}" min="1" max="600" step="0.5" value="${cover.close_time_s}" />
+          </label>
+          <label class="field"><span>${t("card.cover_settle")} (${unit})</span>
+            <input type="number" data-cover-settle="${cover.id}" min="0" max="5" step="0.1" value="${cover.direction_settle_s}" />
+          </label>
+          <label class="field field-compact-select"><span>${t("card.cover_opposite")}</span>
+            <select data-cover-opposite="${cover.id}">
+              <option value="stop_only"${cover.opposite_press === "stop_only" ? " selected" : ""}>${t("cover.stop_only")}</option>
+              <option value="stop_then_reverse"${cover.opposite_press === "stop_then_reverse" ? " selected" : ""}>${t("cover.stop_then_reverse")}</option>
+            </select>
+          </label>
+        </div>
+      </div>`;
+    }
     function renderMixedRolesSection() {
       if (!els.mixedRolesSection) return;
       const isMixed = state.draft && state.draft.mode === "mixed";
@@ -2997,6 +3058,7 @@
       const roles = rolesForGangCount(gangCount);
       const covers = normalizeCovers(state.draft);
       state.draft.covers = covers;
+      const multiCover = covers.length > 1;
       const buttons = state.draft.buttons.filter((b) => b.index <= gangCount);
       const unit = t("card.cover_seconds");
       els.mixedRolesSection.innerHTML = `
@@ -3006,6 +3068,11 @@
           const role = normalizeButtonRole(button.role);
           const label = (button.name || "").trim() || "—";
           const coverId = String(button.cover_id || covers[0]?.id || "cover_1").trim() || "cover_1";
+          const isCoverRole = role === "cover_open" || role === "cover_close";
+          const cover = covers.find((c) => c.id === coverId) || covers[0];
+          const timesOwner = isCoverRole ? firstCoverRoleIndex(coverId) : null;
+          const showTimes = isCoverRole && cover && timesOwner === button.index;
+          const showTimesPointer = isCoverRole && cover && timesOwner != null && timesOwner !== button.index;
           const chips = roles.map((item) => `
             <button type="button" class="radio-member${role === item ? " on" : ""}" role="radio"
               aria-checked="${role === item ? "true" : "false"}" data-role="${item}">
@@ -3019,14 +3086,23 @@
             </label>` : "";
           const radioHint = role === "radio"
             ? `<p class="radio-groups-hint" data-mixed-radio-hint>${t("card.mixed_radio_hint")}</p>` : "";
-          const coverFields = (role === "cover_open" || role === "cover_close") ? `
-            <label class="field field-inline mixed-cover-id">
-              <span>${t("card.cover_id")}</span>
-              <select data-cover-id>
-                ${covers.map((c) => `<option value="${c.id}"${c.id === coverId ? " selected" : ""}>${c.id}</option>`).join("")}
-              </select>
-            </label>
-            <p class="radio-groups-hint" data-mixed-cover-hint>${t("card.mixed_cover_hint")}</p>` : "";
+          let coverFields = "";
+          if (isCoverRole) {
+            const slot = multiCover
+              ? `<label class="field field-inline mixed-cover-id">
+                  <span>${t("card.cover_id")}</span>
+                  <select data-cover-id>
+                    ${covers.map((c) => `<option value="${c.id}"${c.id === coverId ? " selected" : ""}>${c.id}</option>`).join("")}
+                  </select>
+                </label>`
+              : `<span class="mixed-cover-slot" data-cover-id data-cover-slot="${coverId}">${t("card.cover_id")}: ${coverId}</span>`;
+            coverFields = `${slot}
+              <p class="radio-groups-hint" data-mixed-cover-hint>${t("card.mixed_cover_hint")}</p>
+              ${showTimes && cover ? inlineCoverTimesHtml(cover) : ""}
+              ${showTimesPointer && timesOwner != null
+                ? `<p class="radio-groups-hint" data-mixed-cover-times-on>${t("card.mixed_cover_times_on").replace("{n}", String(timesOwner))}</p>`
+                : ""}`;
+          }
           const extras = pulse || radioHint || coverFields
             ? `<div class="mixed-role-extras">${pulse}${radioHint}${coverFields}</div>`
             : "";
@@ -3055,10 +3131,46 @@
             markDirty(true);
           });
         }
-        const coverSelect = card.querySelector("[data-cover-id]");
+        const coverSelect = card.querySelector("select[data-cover-id]");
         if (coverSelect) {
           coverSelect.addEventListener("change", () => setButtonCoverId(index, coverSelect.value));
         }
+        card.querySelectorAll("[data-cover-open-time]").forEach((input) => {
+          input.addEventListener("change", () => {
+            patchCovers((covers) => {
+              const cover = covers.find((item) => item.id === input.dataset.coverOpenTime);
+              if (!cover) return;
+              cover.open_time_s = clampNumber(input.value, COVER_TIME_MIN, COVER_TIME_MAX, DEFAULT_COVER.open_time_s);
+            });
+          });
+        });
+        card.querySelectorAll("[data-cover-close-time]").forEach((input) => {
+          input.addEventListener("change", () => {
+            patchCovers((covers) => {
+              const cover = covers.find((item) => item.id === input.dataset.coverCloseTime);
+              if (!cover) return;
+              cover.close_time_s = clampNumber(input.value, COVER_TIME_MIN, COVER_TIME_MAX, DEFAULT_COVER.close_time_s);
+            });
+          });
+        });
+        card.querySelectorAll("[data-cover-settle]").forEach((input) => {
+          input.addEventListener("change", () => {
+            patchCovers((covers) => {
+              const cover = covers.find((item) => item.id === input.dataset.coverSettle);
+              if (!cover) return;
+              cover.direction_settle_s = clampNumber(input.value, COVER_SETTLE_MIN, COVER_SETTLE_MAX, DEFAULT_COVER.direction_settle_s);
+            });
+          });
+        });
+        card.querySelectorAll("[data-cover-opposite]").forEach((select) => {
+          select.addEventListener("change", () => {
+            patchCovers((covers) => {
+              const cover = covers.find((item) => item.id === select.dataset.coverOpposite);
+              if (!cover) return;
+              cover.opposite_press = select.value === "stop_then_reverse" ? "stop_then_reverse" : "stop_only";
+            });
+          });
+        });
       });
     }
     function renderRadioGroupsEditor() {
@@ -3177,6 +3289,7 @@
       delete state.draft.cover;
       markDirty(true);
       renderCoverEditor();
+      renderMixedRolesSection();
       renderFaceplate();
     }
     function setGangCount(count) {
@@ -3363,7 +3476,7 @@
             <div class="cover-buttons" role="radiogroup" dir="ltr" style="--conx-gang-count:${gangCount}">${buttonRow("close")}</div>
           </div>
         </div>
-        <div class="cover-times">
+        <div class="cover-times cover-times-compact">
           <label class="field"><span>${t("card.cover_open_time")} (${unit})</span>
             <input type="number" data-cover-open-time="${cover.id}" min="1" max="600" step="0.5" value="${cover.open_time_s}" />
           </label>
@@ -3395,7 +3508,8 @@
       </div>`;
     }
     function renderCoverEditor() {
-      const isCover = state.draft && (state.draft.mode === "cover" || draftHasMixedCover());
+      // Free-mix travel times live inside cover-role cards — bottom editor is dedicated mode only.
+      const isCover = state.draft && state.draft.mode === "cover";
       if (!els.coverSection) return;
       els.coverSection.hidden = !isCover;
       renderCoverState();

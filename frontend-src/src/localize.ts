@@ -66,12 +66,15 @@ const EN: Record<string, string> = {
   "card.cover_open_time": "Open travel time",
   "card.cover_close_time": "Close travel time",
   "card.cover_settle": "Direction change delay",
-  "card.cover_times": "Shutter travel times",
+  "card.cover_times": "Travel times",
   "card.mixed_cover_times_hint":
-    "Open/close buttons come from the roles above. Set travel times and reverse behavior here.",
+    "Open/close come from the roles above. Travel times sit inside the cover-role card.",
+  "card.mixed_cover_times_on": "Travel times for this motor are set on L{n}.",
+  "card.cover_id_hint":
+    "Internal motor slot for open/close pairing — not a Home Assistant cover.* entity.",
   "card.cover_settle_hint":
-    "Dead time between switching one direction off and the other on. Keep it above zero for motor relay safety.",
-  "card.cover_opposite": "Opposite direction press",
+    "Brief pause before reversing direction (motor relay safety).",
+  "card.cover_opposite": "Opposite press",
   "card.cover_same_button": "Open and close must use different buttons.",
   "card.cover_live": "Cover control",
   "card.cover_open": "Open",
@@ -174,11 +177,11 @@ const EN: Record<string, string> = {
   "card.mixed_roles": "Per-button roles",
   "card.button_role": "Button role",
   "card.pulse_time": "Pulse time",
-  "card.cover_id": "Cover",
+  "card.cover_id": "Motor / Cover slot",
   "card.mixed_radio_hint":
     "Assign this button to a radio group below. Classic radio keeps exactly one member ON (turning it off snaps it back). Only role=Radio buttons stay in groups.",
   "card.mixed_cover_hint":
-    "Travel times and motor safety settings are in the Cover section below.",
+    "Shutter motor: use Open/Close roles + travel times here. Domain and entity for Home Assistant actions are under Toggle/Momentary in the button expanders below.",
   "role.toggle": "Toggle",
   "role.momentary": "Momentary",
   "role.radio": "Radio group",
@@ -249,12 +252,15 @@ const HE: Record<string, string> = {
   "card.cover_open_time": "זמן פתיחה",
   "card.cover_close_time": "זמן סגירה",
   "card.cover_settle": "השהיה בהחלפת כיוון",
-  "card.cover_times": "זמני נסיעת תריס",
+  "card.cover_times": "זמני נסיעה",
   "card.mixed_cover_times_hint":
-    "כפתורי פתיחה/סגירה נקבעים בתפקידים למעלה. כאן מגדירים זמני נסיעה והתנהגות היפוך.",
+    "פתיחה/סגירה נקבעים בתפקידים למעלה. זמני הנסיעה מופיעים בכרטיס תפקיד התריס.",
+  "card.mixed_cover_times_on": "זמני הנסיעה למנוע זה מוגדרים ב־L{n}.",
+  "card.cover_id_hint":
+    "מזהה מנוע פנימי לזיווג פתיחה/סגירה — לא ישות cover של Home Assistant.",
   "card.cover_settle_hint":
-    "זמן מת בין כיבוי כיוון אחד להפעלת השני. מומלץ להשאיר מעל אפס לבטיחות ממסרי המנוע.",
-  "card.cover_opposite": "לחיצה על הכיוון ההפוך",
+    "השהיה קצרה לפני היפוך כיוון (בטיחות ממסרי מנוע).",
+  "card.cover_opposite": "לחיצה הפוכה",
   "card.cover_same_button": "פתיחה וסגירה חייבות להשתמש בכפתורים שונים.",
   "card.cover_live": "שליטה בתריס",
   "card.cover_open": "פתיחה",
@@ -357,11 +363,11 @@ const HE: Record<string, string> = {
   "card.mixed_roles": "תפקיד לכל כפתור",
   "card.button_role": "תפקיד כפתור",
   "card.pulse_time": "זמן פולס",
-  "card.cover_id": "תריס",
+  "card.cover_id": "מנוע / מזהה תריס",
   "card.mixed_radio_hint":
     "שייכו את הכפתור לקבוצת רדיו למטה. רדיו קלאסי משאיר תמיד חבר אחד דלוק (כיבוי מחזיר להדלקה). רק כפתורים בתפקיד «קבוצת רדיו» נשארים בקבוצה.",
   "card.mixed_cover_hint":
-    "זמני נסיעה והגדרות בטיחות של המנוע נמצאים במקטע תריס למטה.",
+    "מנוע תריס: תפקידי פתיחה/סגירה + זמני נסיעה כאן. דומיין וישות לפעולות Home Assistant נמצאים תחת טוגל/רגעי במרחיבי הכפתורים למטה.",
   "role.toggle": "טוגל",
   "role.momentary": "רגעי",
   "role.radio": "קבוצת רדיו",
@@ -432,12 +438,15 @@ const RU: Record<string, string> = {
   "card.cover_open_time": "Время открытия",
   "card.cover_close_time": "Время закрытия",
   "card.cover_settle": "Задержка смены направления",
-  "card.cover_times": "Время хода роллеты",
+  "card.cover_times": "Время хода",
   "card.mixed_cover_times_hint":
-    "Кнопки открыть/закрыть задаются ролями выше. Здесь — время хода и поведение реверса.",
+    "Открыть/закрыть задаются ролями выше. Время хода — в карточке роли ролеты.",
+  "card.mixed_cover_times_on": "Время хода для этого мотора задано на L{n}.",
+  "card.cover_id_hint":
+    "Внутренний слот мотора для пары открыть/закрыть — не сущность cover.* Home Assistant.",
   "card.cover_settle_hint":
-    "Пауза между выключением одного направления и включением другого. Держите её выше нуля для безопасности реле мотора.",
-  "card.cover_opposite": "Нажатие противоположного направления",
+    "Короткая пауза перед сменой направления (безопасность реле мотора).",
+  "card.cover_opposite": "Противоположное нажатие",
   "card.cover_same_button": "Открытие и закрытие должны использовать разные кнопки.",
   "card.cover_live": "Управление ролетой",
   "card.cover_open": "Открыть",
@@ -540,11 +549,11 @@ const RU: Record<string, string> = {
   "card.mixed_roles": "Роль каждой кнопки",
   "card.button_role": "Роль кнопки",
   "card.pulse_time": "Время импульса",
-  "card.cover_id": "Ролета",
+  "card.cover_id": "Мотор / слот ролеты",
   "card.mixed_radio_hint":
     "Назначьте кнопку в радиогруппу ниже. Классическое радио держит ровно одного участника включённым (выключение возвращает включение). В группах остаются только кнопки с ролью «Радиогруппа».",
   "card.mixed_cover_hint":
-    "Время хода и безопасность мотора — в секции ролеты ниже.",
+    "Мотор ролеты: роли Открыть/Закрыть + время хода здесь. Домен и сущность для действий Home Assistant — у Тоггл/Импульс в раскрывающихся кнопках ниже.",
   "role.toggle": "Тоггл",
   "role.momentary": "Импульс",
   "role.radio": "Радиогруппа",

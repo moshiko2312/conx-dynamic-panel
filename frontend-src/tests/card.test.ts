@@ -1819,13 +1819,17 @@ describe("custom elements", () => {
     await el.updateComplete;
     expect(el._draft?.buttons[0].role).toBe("cover_open");
     expect(roleRow.querySelector("[data-cover-id]")).toBeTruthy();
-    expect(el.shadowRoot?.querySelector("[data-cover-editor]")).toBeTruthy();
-    // Travel times appear immediately under free-mix roles (not buried).
-    expect(el.shadowRoot?.querySelector("[data-mixed-cover-times]")).toBeTruthy();
-    expect(el.shadowRoot?.querySelector("[data-cover-open-time]")).toBeTruthy();
-    expect(el.shadowRoot?.querySelector("[data-cover-close-time]")).toBeTruthy();
-    expect(el.shadowRoot?.querySelector("[data-cover-settle]")).toBeTruthy();
-    expect(el.shadowRoot?.querySelector("[data-cover-opposite]")).toBeTruthy();
+    expect(roleRow.querySelector("[data-mixed-cover-hint]")?.textContent || "").toMatch(
+      /Toggle\/Momentary|טוגל|Тоггл/
+    );
+    // Travel times sit inside the cover-role card; bottom mixed editor is gone.
+    expect(el.shadowRoot?.querySelector("[data-cover-editor]")).toBeFalsy();
+    expect(el.shadowRoot?.querySelector("[data-mixed-cover-times]")).toBeFalsy();
+    expect(roleRow.querySelector("[data-inline-cover-times]")).toBeTruthy();
+    expect(roleRow.querySelector("[data-cover-open-time]")).toBeTruthy();
+    expect(roleRow.querySelector("[data-cover-close-time]")).toBeTruthy();
+    expect(roleRow.querySelector("[data-cover-settle]")).toBeTruthy();
+    expect(roleRow.querySelector("[data-cover-opposite]")).toBeTruthy();
 
     const roleRow2 = el.shadowRoot?.querySelector(
       '[data-mixed-role="2"]'
@@ -1833,9 +1837,24 @@ describe("custom elements", () => {
     (roleRow2.querySelector('[data-role="cover_close"]') as HTMLButtonElement).click();
     await el.updateComplete;
     expect(el._draft?.buttons[1].role).toBe("cover_close");
-    expect(el.shadowRoot?.querySelector("[data-mixed-cover-times]")).toBeTruthy();
+    // Shared cover_1: times only once (on the first cover-role card).
+    const updatedRow1 = el.shadowRoot?.querySelector(
+      '[data-mixed-role="1"]'
+    ) as HTMLElement;
+    const updatedRow2 = el.shadowRoot?.querySelector(
+      '[data-mixed-role="2"]'
+    ) as HTMLElement;
+    expect(updatedRow1.querySelector("[data-inline-cover-times]")).toBeTruthy();
+    expect(updatedRow2.querySelector("[data-inline-cover-times]")).toBeFalsy();
+    expect(updatedRow2.querySelector("[data-mixed-cover-times-on]")?.textContent || "").toContain(
+      "L1"
+    );
+    expect(el.shadowRoot?.querySelector("[data-cover-editor]")).toBeFalsy();
 
-    (roleRow.querySelector('[data-role="radio"]') as HTMLButtonElement).click();
+    const radioRow = el.shadowRoot?.querySelector(
+      '[data-mixed-role="1"]'
+    ) as HTMLElement;
+    (radioRow.querySelector('[data-role="radio"]') as HTMLButtonElement).click();
     await el.updateComplete;
     expect(el._draft?.buttons[0].role).toBe("radio");
     expect(el.shadowRoot?.querySelector(".radio-groups-section")).toBeTruthy();
@@ -1848,6 +1867,11 @@ describe("custom elements", () => {
     expect(localize("he", "role.radio")).not.toContain("רליי");
     expect(localize("he", "role.cover_open")).toBe("פתיחת תריס");
     expect(localize("he", "role.cover_close")).toBe("סגירת תריס");
+    expect(localize("he", "card.cover_id")).toBe("מנוע / מזהה תריס");
+    expect(localize("en", "card.cover_id")).toBe("Motor / Cover slot");
+    expect(localize("ru", "card.cover_id")).toBe("Мотор / слот ролеты");
+    expect(localize("he", "card.mixed_cover_hint")).toContain("דומיין");
+    expect(localize("en", "card.mixed_cover_hint")).toContain("Toggle/Momentary");
     expect(localize("en", "card.mixed_roles")).toBe("Per-button roles");
     expect(localize("en", "role.radio")).toBe("Radio group");
     expect(localize("he", "card.unsaved")).toContain("שמרו טיוטה");
@@ -1956,8 +1980,9 @@ describe("custom elements", () => {
     );
     expect(sheetText).toMatch(/\.mixed-role-picker\s+\.radio-member\s*\{[^}]*min-height:\s*22px/s);
     expect(sheetText).toMatch(
-      /\.cover-section-mixed\s+\.cover-times\s*\{[^}]*grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(6\.5rem,\s*1fr\)\)/s
+      /\.cover-times-compact\s*\{[^}]*grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(5\.5rem,\s*1fr\)\)/s
     );
+    expect(sheetText).toMatch(/\.mixed-cover-times\s*\{[^}]*flex:\s*1\s+1\s+100%/s);
     expect(sheetText).toMatch(/\.radio-member\.on\s*\{[^}]*color:\s*var\(--accent-text\)/s);
     expect(sheetText).toMatch(/\.mixed-role-l\s*\{[^}]*color:\s*var\(--text\)/s);
     expect(sheetText).toMatch(/\.actions-grid\s+\.btn\s*\{[^}]*min-height:\s*32px/s);
