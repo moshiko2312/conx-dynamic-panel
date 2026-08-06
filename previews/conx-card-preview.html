@@ -201,6 +201,32 @@
       flex-direction: row;
     }
 
+    .operate-btn {
+      min-height: 46px; padding: 0 14px; border-radius: 14px;
+      border: 1px solid var(--btn-border);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.08), transparent 55%),
+        var(--btn-bg);
+      color: var(--text);
+      box-shadow: 0 1px 0 rgba(255,255,255,.08) inset, 0 2px 6px rgba(0,0,0,.2);
+      font-family: var(--body, inherit);
+      font-size: .82rem; font-weight: 700; letter-spacing: .02em;
+      cursor: pointer; white-space: nowrap;
+    }
+    .operate-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .operate-btn.active {
+      border-color: var(--accent); color: var(--accent-text, #111);
+      background: var(--accent);
+      box-shadow: 0 1px 0 rgba(255,255,255,.2) inset, 0 2px 8px var(--accent-soft);
+    }
+    body[data-theme="ivory"] .operate-btn {
+      background: linear-gradient(180deg, #ffffff, var(--btn-bg));
+      box-shadow: 0 1px 0 rgba(255,255,255,.9) inset, 0 2px 6px rgba(20,28,40,.08);
+    }
+    body[data-theme="ivory"] .operate-btn.active {
+      color: #fff; background: var(--accent);
+    }
+
     .menu-btn {
       width: 46px; height: 46px; border-radius: 14px;
       border: 1px solid var(--btn-border);
@@ -1369,6 +1395,9 @@
       <div class="header" dir="ltr">
         <div class="header-side">
           <div class="badge status-synced" id="status-badge">Status: synced</div>
+          <button type="button" class="operate-btn" id="operate-toggle" data-operate-toggle aria-pressed="false" data-i18n="card.operate" title="">
+            תפעול
+          </button>
           <button type="button" class="menu-btn" id="menu-open" aria-label="Open settings menu" aria-expanded="false" aria-controls="app-menu">
             <span></span><span></span><span></span>
           </button>
@@ -1525,6 +1554,8 @@
     };
     const COLORS = Object.keys(COLOR_PREVIEW);
     const STORAGE_KEY = "conx-card-preview-state-v11";
+    /** Same key as the Lit card so operate preference survives refresh. */
+    const OPERATE_MODE_STORAGE_KEY = "conx-dynamic-panel-operate";
     /** Standalone preview sample lists (HA live card uses hass.services / hass.states). */
     const PREVIEW_SERVICES = [
       "light.toggle",
@@ -1630,6 +1661,9 @@
         "card.backlight_brightness": "Backlight brightness",
         "card.theme": "Interface theme",
         "card.menu": "Settings",
+        "card.operate": "Operate",
+        "card.operate_exit": "Settings",
+        "card.operate_hint": "Show only the panel faceplate and live controls",
         "card.language": "Language",
         "card.more": "More",
         "card.radio_member": "Radio group", "card.radio_toggle": "Independent toggle",
@@ -1734,6 +1768,9 @@
         "card.backlight_brightness": "עוצמת תאורת רקע",
         "card.theme": "ערכת נושא",
         "card.menu": "הגדרות",
+        "card.operate": "תפעול",
+        "card.operate_exit": "הגדרות",
+        "card.operate_hint": "הצג רק את תצוגת הפאנל ופקדי התריס החיים",
         "card.language": "שפה",
         "card.more": "עוד",
         "card.radio_member": "משתתף ברדיו", "card.radio_toggle": "טוגל עצמאי",
@@ -1838,6 +1875,9 @@
         "card.backlight_brightness": "Яркость подсветки",
         "card.theme": "Тема интерфейса",
         "card.menu": "Настройки",
+        "card.operate": "Управление",
+        "card.operate_exit": "Настройки",
+        "card.operate_hint": "Показать только панель и живые элементы управления",
         "card.language": "Язык",
         "card.more": "Ещё",
         "card.radio_member": "В радиогруппе", "card.radio_toggle": "Независимый тоггл",
@@ -2167,6 +2207,12 @@
     }
     const DEFAULT_PANEL_NAME = "Living Room Panel";
 
+    function loadStoredOperateMode() {
+      try { return localStorage.getItem(OPERATE_MODE_STORAGE_KEY) === "1"; } catch (_e) { return false; }
+    }
+    function persistOperateMode(operate) {
+      try { localStorage.setItem(OPERATE_MODE_STORAGE_KEY, operate ? "1" : "0"); } catch (_e) {}
+    }
     function createDefaultState() {
       const profiles = createDefaultProfiles();
       const activeId = "evening";
@@ -2174,6 +2220,7 @@
         lang: "he", theme: "noir", view: "editor", dirty: false, activeId,
         activeTab: "profiles",
         previewOpen: true,
+        operateMode: loadStoredOperateMode(),
         panelName: DEFAULT_PANEL_NAME,
         expandedButtons: [],
         radioGroupsOpen: defaultRadioGroupsOpen(),
@@ -2199,12 +2246,14 @@
           dirty: state.dirty, activeId: state.activeId,
           activeTab: state.activeTab || "profiles",
           previewOpen: state.previewOpen !== false,
+          operateMode: Boolean(state.operateMode),
           panelName: typeof state.panelName === "string" ? state.panelName : DEFAULT_PANEL_NAME,
           expandedButtons: Array.from(state.expandedButtons),
           radioGroupsOpen: normalizeRadioGroupsOpen(state.radioGroupsOpen),
           profiles: state.profiles, draft: state.draft, saved: state.saved,
         };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+        persistOperateMode(Boolean(state.operateMode));
       } catch (_e) {}
     }
 
@@ -2233,6 +2282,7 @@
           dirty: Boolean(data.dirty), activeId,
           activeTab: normalizeTabId(data.activeTab),
           previewOpen,
+          operateMode: typeof data.operateMode === "boolean" ? data.operateMode : loadStoredOperateMode(),
           panelName: typeof data.panelName === "string" && data.panelName.trim()
             ? data.panelName : defaults.panelName,
           expandedButtons: new Set(Array.isArray(data.expandedButtons) ? data.expandedButtons.map(Number).filter((n)=>n>=1&&n<=4) : []),
@@ -2253,6 +2303,7 @@
       if (!(state.expandedButtons instanceof Set)) state.expandedButtons = new Set(state.expandedButtons || []);
       state.activeTab = normalizeTabId(state.activeTab);
       if (typeof state.previewOpen !== "boolean") state.previewOpen = true;
+      if (typeof state.operateMode !== "boolean") state.operateMode = loadStoredOperateMode();
       if (typeof state.panelName !== "string" || !state.panelName.trim()) state.panelName = DEFAULT_PANEL_NAME;
       state.radioGroupsOpen = normalizeRadioGroupsOpen(state.radioGroupsOpen);
       if (!state.profiles || !state.profiles[state.activeId] || !state.draft || !state.saved) throw new Error("bad state");
@@ -2310,6 +2361,7 @@
       menu: document.getElementById("app-menu"),
       menuLayer: document.getElementById("menu-layer"),
       menuOpen: document.getElementById("menu-open"),
+      operateToggle: document.getElementById("operate-toggle"),
       menuClose: document.getElementById("menu-close"),
       exportLayer: document.getElementById("export-layer"),
       exportOverlay: document.getElementById("export-overlay"),
@@ -3337,13 +3389,44 @@
     }
 
     function applyPreviewToggle() {
-      const isOpen = state.previewOpen !== false;
+      const operate = Boolean(state.operateMode);
+      const isOpen = operate || state.previewOpen !== false;
       const input = document.querySelector('[data-section-toggle="preview"]');
-      if (input) input.checked = isOpen;
+      if (input) {
+        input.checked = isOpen;
+        const switchEl = input.closest(".switch");
+        if (switchEl) switchEl.hidden = operate;
+      }
       if (els.hero) {
         els.hero.classList.toggle("collapsed", !isOpen);
         els.hero.classList.toggle("open", isOpen);
       }
+    }
+    function applyOperateMode() {
+      const operate = Boolean(state.operateMode);
+      if (operate) state.previewOpen = true;
+      els.card.classList.toggle("operate-mode", operate);
+      if (els.mainLayout) els.mainLayout.hidden = operate;
+      if (els.layoutHint) els.layoutHint.hidden = operate;
+      if (els.actionsDock) els.actionsDock.hidden = operate;
+      if (els.operateToggle) {
+        els.operateToggle.classList.toggle("active", operate);
+        els.operateToggle.setAttribute("aria-pressed", operate ? "true" : "false");
+        els.operateToggle.textContent = t(operate ? "card.operate_exit" : "card.operate");
+        els.operateToggle.title = t(operate ? "card.operate_exit" : "card.operate_hint");
+        els.operateToggle.setAttribute("aria-label", t(operate ? "card.operate_exit" : "card.operate"));
+      }
+      applyPreviewToggle();
+    }
+    function setOperateMode(operate) {
+      state.operateMode = Boolean(operate);
+      if (state.operateMode) {
+        state.previewOpen = true;
+        setMenuOpen(false);
+        setExportView(false);
+      }
+      applyOperateMode();
+      persistState();
     }
     function setActiveTab(tabId) {
       const id = normalizeTabId(tabId);
@@ -3524,10 +3607,14 @@
       const rtl = state.lang === "he";
       document.documentElement.dir = rtl ? "rtl" : "ltr";
       els.card.dir = rtl ? "rtl" : "ltr";
-      document.querySelectorAll("[data-i18n]").forEach((node) => { node.textContent = t(node.dataset.i18n); });
+      document.querySelectorAll("[data-i18n]").forEach((node) => {
+        if (node.id === "operate-toggle") return;
+        node.textContent = t(node.dataset.i18n);
+      });
       document.querySelectorAll("[data-i18n-option]").forEach((opt) => { opt.textContent = t(opt.dataset.i18nOption); });
       document.querySelectorAll(".lang-btn").forEach((btn) => btn.classList.toggle("active", btn.dataset.lang === state.lang));
       applyTheme();
+      applyOperateMode();
       if (!state.dirty) els.statusBadge.textContent = t("card.synced_demo");
       else { els.dirtyWarn.textContent = t("card.unsaved"); els.statusBadge.textContent = t("card.status") + ": pending"; }
       renderModePicker();
@@ -3567,12 +3654,14 @@
     }
     async function resetToDefaults() {
       if (!(await showConfirm(t("card.reset_confirm"), { danger: true }))) return;
-      try { localStorage.removeItem(STORAGE_KEY); LEGACY_KEYS.forEach((k)=>localStorage.removeItem(k)); } catch (_e) {}
+      try { localStorage.removeItem(STORAGE_KEY); LEGACY_KEYS.forEach((k)=>localStorage.removeItem(k)); localStorage.removeItem(OPERATE_MODE_STORAGE_KEY); } catch (_e) {}
       const fresh = createDefaultState();
       Object.keys(state).forEach((k) => delete state[k]);
       Object.assign(state, fresh);
       state.expandedButtons = new Set();
+      state.operateMode = false;
       applyPreviewToggle();
+      applyOperateMode();
       setActiveTab(state.activeTab);
       applyI18n();
       syncFormFromDraft();
@@ -3705,11 +3794,18 @@
       });
       document.querySelectorAll('[data-section-toggle="preview"]').forEach((input) => {
         input.addEventListener("change", () => {
+          if (state.operateMode) {
+            input.checked = true;
+            return;
+          }
           state.previewOpen = input.checked;
           applyPreviewToggle();
           persistState();
         });
       });
+      if (els.operateToggle) {
+        els.operateToggle.addEventListener("click", () => setOperateMode(!state.operateMode));
+      }
       const automationOpen = document.getElementById("btn-automation-example");
       if (automationOpen) automationOpen.addEventListener("click", () => setAutomationOpen(true));
       ["automation-close", "automation-close-2"].forEach((id) => {
@@ -3838,6 +3934,7 @@
         });
       }
       applyPreviewToggle();
+      applyOperateMode();
       setActiveTab(state.activeTab || "profiles");
       applyI18n();
       syncFormFromDraft();

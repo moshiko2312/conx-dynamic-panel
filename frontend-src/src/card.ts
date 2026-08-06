@@ -59,6 +59,10 @@ import {
   persistLanguage,
 } from "./localize";
 import {
+  loadStoredOperateMode,
+  persistOperateMode,
+} from "./operateMode";
+import {
   THEME_OPTIONS,
   type CardThemeId,
   loadStoredTheme,
@@ -231,6 +235,8 @@ export class ConXDynamicPanelCard extends LitElement {
   @state() private _radioPreviewSelected: number | null = null;
   @state() private _uiLang?: CardLanguage;
   @state() private _theme: CardThemeId = "noir";
+  /** Operational UI: faceplate + live controls only (hides draft editor chrome). */
+  @state() private _operateMode = false;
   /** Main editor vs export/import wizard view. */
   @state() private _view: "editor" | "export" = "editor";
   @state() private _wizardStep: WizardStep = "transfer";
@@ -294,9 +300,26 @@ export class ConXDynamicPanelCard extends LitElement {
       this._uiLang = loadStoredLanguage() || undefined;
     }
     this._theme = resolveTheme(this._config?.theme, loadStoredTheme());
+    this._operateMode = loadStoredOperateMode();
+    if (this._operateMode) {
+      this._previewOpen = true;
+    }
     this._ensureFonts();
     void this._ensureRuntimeSubscription();
     void this._ensureHaEntityPicker();
+  }
+
+  private _toggleOperateMode(): void {
+    this._operateMode = !this._operateMode;
+    persistOperateMode(this._operateMode);
+    if (this._operateMode) {
+      this._previewOpen = true;
+      this._menuOpen = false;
+      this._automationOpen = false;
+      if (this._view === "export") {
+        this._view = "editor";
+      }
+    }
   }
 
   disconnectedCallback(): void {
@@ -3379,11 +3402,12 @@ export class ConXDynamicPanelCard extends LitElement {
     }
 
     const compact = Boolean(this._config.compact);
+    const operate = this._operateMode;
     return html`
       <ha-card
         dir=${rtl ? "rtl" : "ltr"}
         data-theme=${this._theme}
-        class="conx-card theme-${this._theme} ${this._view === "export" ? "export-open" : "editor-open"} ${this._menuOpen ? "menu-open" : ""} ${compact ? "compact" : ""} ${this._syncPulse ? "syncing-pulse" : ""}"
+        class="conx-card theme-${this._theme} ${this._view === "export" ? "export-open" : "editor-open"} ${this._menuOpen ? "menu-open" : ""} ${compact ? "compact" : ""} ${operate ? "operate-mode" : ""} ${this._syncPulse ? "syncing-pulse" : ""}"
       >
         <div class="atmosphere"></div>
         <div class="panel-title">
@@ -3395,6 +3419,18 @@ export class ConXDynamicPanelCard extends LitElement {
             <div class="badge status-${this._panel.sync_status}">
               ${this.t("card.status")}: ${this._panel.sync_status}
             </div>
+            <button
+              type="button"
+              class="operate-btn ${operate ? "active" : ""}"
+              data-operate-toggle
+              aria-pressed=${operate ? "true" : "false"}
+              aria-label=${operate ? this.t("card.operate_exit") : this.t("card.operate")}
+              title=${operate ? this.t("card.operate_exit") : this.t("card.operate_hint")}
+              ?disabled=${this._busy}
+              @click=${this._toggleOperateMode}
+            >
+              ${operate ? this.t("card.operate_exit") : this.t("card.operate")}
+            </button>
             <button
               type="button"
               class="menu-btn"
@@ -3427,7 +3463,7 @@ export class ConXDynamicPanelCard extends LitElement {
           ${this._error || this._panel.last_error
             ? html`<div class="error">${this._error || this._panel.last_error}</div>`
             : nothing}
-          ${this._renderActionButtons("top")}
+          ${operate ? nothing : this._renderActionButtons("top")}
         </div>
 
         ${this._renderMainEditor()}
@@ -3604,6 +3640,8 @@ export class ConXDynamicPanelCard extends LitElement {
     if (!this._draft || !this._panel) {
       return nothing;
     }
+    const operate = this._operateMode;
+    const previewOpen = operate || this._previewOpen;
     const tabs: Array<"profiles" | "appearance" | "buttons"> = [
       "profiles",
       "appearance",
@@ -3615,75 +3653,82 @@ export class ConXDynamicPanelCard extends LitElement {
       buttons: this.t("card.buttons"),
     };
     return html`
-      <div class="layout single-layout">
-        <section class="hero-preview ${this._previewOpen ? "open" : "closed"}">
+      <div class="layout single-layout ${operate ? "operate-layout" : ""}">
+        <section class="hero-preview ${previewOpen ? "open" : "closed"}">
           <header class="section-head">
             <div class="section-head-main">
               <div class="section-title">${this.t("card.preview")}</div>
             </div>
             <div class="hero-profile-name" aria-live="polite">${this._draft.name}</div>
-            <label class="switch" title=${this.t("card.section_toggle")}>
-              <input
-                type="checkbox"
-                .checked=${this._previewOpen}
-                @change=${() => {
-                  this._previewOpen = !this._previewOpen;
-                }}
-              />
-              <span class="slider"></span>
-            </label>
+            ${operate
+              ? nothing
+              : html`
+                  <label class="switch" title=${this.t("card.section_toggle")}>
+                    <input
+                      type="checkbox"
+                      .checked=${this._previewOpen}
+                      @change=${() => {
+                        this._previewOpen = !this._previewOpen;
+                      }}
+                    />
+                    <span class="slider"></span>
+                  </label>
+                `}
           </header>
-          ${this._previewOpen
+          ${previewOpen
             ? html`<div class="hero-body">
                 ${this._renderFaceplate()} ${this._renderCoverControl()}
               </div>`
             : nothing}
         </section>
 
-        <p class="layout-hint">${this.t("card.tabs_hint")}</p>
+        ${operate
+          ? nothing
+          : html`
+              <p class="layout-hint">${this.t("card.tabs_hint")}</p>
 
-        <div class="settings-tabs">
-          <div class="tab-bar" role="tablist">
-            ${tabs.map(
-              (tab, index) => html`
-                <button
-                  type="button"
-                  class="tab-btn ${this._activeTab === tab ? "active" : ""}"
-                  role="tab"
-                  aria-selected=${this._activeTab === tab ? "true" : "false"}
-                  ?disabled=${this._busy}
-                  @click=${() => {
-                    this._activeTab = tab;
-                  }}
-                >
-                  <span class="tab-step">${this.t(`card.step_${index + 1}`)}</span>
-                  <span class="tab-label">${tabLabels[tab]}</span>
-                </button>
-              `
-            )}
-          </div>
-          <div class="tab-panels">
-            <section
-              class="tab-panel ${this._activeTab === "profiles" ? "active" : ""}"
-              ?hidden=${this._activeTab !== "profiles"}
-            >
-              ${this._renderStepProfiles()}
-            </section>
-            <section
-              class="tab-panel ${this._activeTab === "appearance" ? "active" : ""}"
-              ?hidden=${this._activeTab !== "appearance"}
-            >
-              ${this._renderAppearanceFields()}
-            </section>
-            <section
-              class="tab-panel ${this._activeTab === "buttons" ? "active" : ""}"
-              ?hidden=${this._activeTab !== "buttons"}
-            >
-              ${this._renderButtonsFields()}
-            </section>
-          </div>
-        </div>
-
+              <div class="settings-tabs" data-editor-chrome>
+                <div class="tab-bar" role="tablist">
+                  ${tabs.map(
+                    (tab, index) => html`
+                      <button
+                        type="button"
+                        class="tab-btn ${this._activeTab === tab ? "active" : ""}"
+                        role="tab"
+                        aria-selected=${this._activeTab === tab ? "true" : "false"}
+                        ?disabled=${this._busy}
+                        @click=${() => {
+                          this._activeTab = tab;
+                        }}
+                      >
+                        <span class="tab-step">${this.t(`card.step_${index + 1}`)}</span>
+                        <span class="tab-label">${tabLabels[tab]}</span>
+                      </button>
+                    `
+                  )}
+                </div>
+                <div class="tab-panels">
+                  <section
+                    class="tab-panel ${this._activeTab === "profiles" ? "active" : ""}"
+                    ?hidden=${this._activeTab !== "profiles"}
+                  >
+                    ${this._renderStepProfiles()}
+                  </section>
+                  <section
+                    class="tab-panel ${this._activeTab === "appearance" ? "active" : ""}"
+                    ?hidden=${this._activeTab !== "appearance"}
+                  >
+                    ${this._renderAppearanceFields()}
+                  </section>
+                  <section
+                    class="tab-panel ${this._activeTab === "buttons" ? "active" : ""}"
+                    ?hidden=${this._activeTab !== "buttons"}
+                  >
+                    ${this._renderButtonsFields()}
+                  </section>
+                </div>
+              </div>
+            `}
       </div>
     `;
   }
@@ -5528,6 +5573,42 @@ export class ConXDynamicPanelCard extends LitElement {
       flex-shrink: 0;
       flex-direction: row;
       direction: ltr;
+    }
+    .operate-btn {
+      min-height: 46px;
+      padding: 0 14px;
+      border-radius: 14px;
+      border: 1px solid var(--btn-border, var(--border));
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 55%),
+        var(--btn-bg);
+      color: var(--text);
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08) inset, 0 2px 6px rgba(0, 0, 0, 0.2);
+      font-family: var(--body, inherit);
+      font-size: 0.82rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .operate-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .operate-btn.active {
+      border-color: var(--accent);
+      color: var(--accent-text, #111);
+      background: var(--accent);
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.2) inset, 0 2px 8px var(--accent-soft, rgba(212, 175, 97, 0.35));
+    }
+    ha-card.conx-card[data-theme="ivory"] .operate-btn {
+      background: linear-gradient(180deg, #ffffff, var(--btn-bg));
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset, 0 2px 6px rgba(20, 28, 40, 0.08);
+    }
+    ha-card.conx-card[data-theme="ivory"] .operate-btn.active {
+      color: var(--accent-text, #fff);
+      background: var(--accent);
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.35) inset, 0 2px 8px rgba(138, 115, 72, 0.28);
     }
     .menu-btn {
       width: 46px;

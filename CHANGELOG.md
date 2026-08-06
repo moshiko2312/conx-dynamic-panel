@@ -4,6 +4,10 @@ All notable changes to this private project will be documented here.
 
 ## [Unreleased]
 
+### Added
+
+- **Operate / תפעול card mode:** header toggle shows only the faceplate (and live cover open/stop/close when relevant) plus brand/title/status, and hides the Profiles/Appearance/Buttons editor chrome, tabs hint, and Save/Discard/Sync/Pull action bar. Exit via the same control (**Settings** / **הגדרות** / **Настройки**). Preference persists in `localStorage` (`conx-dynamic-panel-operate`), EN/HE/RU + RTL-safe, mirrored in the HTML preview.
+
 ### Fixed
 
 - **Warm LED colors + radar `none` on Zigbee panels:** select writes (colors and radar) use stronger fuzzy matching (case/space/hyphen **and** underscore collapse so `warm_white` ↔ `warmwhite`), alias/closest fallbacks (`warm_*` → `white`/`yellow` when absent; radar `none`/`off`/`0`/HE labels), wait/retry when the select is `unknown`/`unavailable` or options are empty, and timeout errors list entity id, current state, and available options. Card color/radar pickers prefer live mapped `select` options and keep the current draft value visible if missing from the list. **Root cause note:** Z2M ZMS-206 exposes `warm_white`/`warm_yellow` but the converter lookup keys are `warmwhite`/`warmyellow`, so those two colors often fail even when set directly in Z2M/HA — use `white`/`yellow` until Z2M is fixed.

@@ -8,6 +8,11 @@ import {
   normalizeLanguage,
   persistLanguage,
 } from "../src/localize";
+import {
+  clearStoredOperateMode,
+  loadStoredOperateMode,
+  persistOperateMode,
+} from "../src/operateMode";
 import type { Profile } from "../src/types";
 import { COLOR_PREVIEW, ensureSelectOptions, formatColorOptionLabel, formatRadarOptionLabel, resolveLedPreviewColor } from "../src/card";
 import {
@@ -190,6 +195,24 @@ describe("localize", () => {
     persistLanguage("he");
     expect(loadStoredLanguage()).toBe("he");
   });
+
+  it("localizes operate mode labels in EN HE RU", () => {
+    expect(localize("en", "card.operate")).toBe("Operate");
+    expect(localize("en", "card.operate_exit")).toBe("Settings");
+    expect(localize("he", "card.operate")).toBe("תפעול");
+    expect(localize("he", "card.operate_exit")).toBe("הגדרות");
+    expect(localize("ru", "card.operate")).toBe("Управление");
+    expect(localize("ru", "card.operate_exit")).toBe("Настройки");
+  });
+
+  it("persists operate mode preference", () => {
+    clearStoredOperateMode();
+    expect(loadStoredOperateMode()).toBe(false);
+    persistOperateMode(true);
+    expect(loadStoredOperateMode()).toBe(true);
+    persistOperateMode(false);
+    expect(loadStoredOperateMode()).toBe(false);
+  });
 });
 
 describe("draft helpers", () => {
@@ -209,6 +232,7 @@ describe("custom elements", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
     clearStoredLanguage();
+    clearStoredOperateMode();
   });
 
   it("registers card and editor", () => {
@@ -1422,6 +1446,93 @@ describe("custom elements", () => {
     );
   });
 
+  it("toggles operate mode to hide editor chrome and persists preference", async () => {
+    const callWS = vi.fn().mockResolvedValue(panelPayload({ sync_status: "synced" }));
+    const el = await mountCard({ language: "en", callWS });
+    expect(el._operateMode).toBe(false);
+    expect(el.shadowRoot?.querySelector("[data-editor-chrome]")).toBeTruthy();
+    expect(el.shadowRoot?.querySelector(".layout-hint")).toBeTruthy();
+    expect(el.shadowRoot?.querySelector("[data-actions='top']")).toBeTruthy();
+    expect(el.shadowRoot?.querySelector(".faceplate")).toBeTruthy();
+
+    const toggle = el.shadowRoot?.querySelector(
+      "[data-operate-toggle]"
+    ) as HTMLButtonElement;
+    expect(toggle).toBeTruthy();
+    expect(toggle.textContent?.trim()).toBe("Operate");
+    expect(toggle.getAttribute("aria-pressed")).toBe("false");
+    toggle.click();
+    await el.updateComplete;
+
+    expect(el._operateMode).toBe(true);
+    expect(loadStoredOperateMode()).toBe(true);
+    expect(el.shadowRoot?.querySelector("ha-card")?.classList.contains("operate-mode")).toBe(
+      true
+    );
+    expect(el.shadowRoot?.querySelector("[data-editor-chrome]")).toBeFalsy();
+    expect(el.shadowRoot?.querySelector(".layout-hint")).toBeFalsy();
+    expect(el.shadowRoot?.querySelector("[data-actions='top']")).toBeFalsy();
+    expect(el.shadowRoot?.querySelector(".settings-tabs")).toBeFalsy();
+    expect(el.shadowRoot?.querySelector(".faceplate")).toBeTruthy();
+    expect(el.shadowRoot?.querySelector(".hero-preview.open")).toBeTruthy();
+    expect(toggle.textContent?.trim()).toBe("Settings");
+    expect(toggle.getAttribute("aria-pressed")).toBe("true");
+    expect(toggle.classList.contains("active")).toBe(true);
+
+    toggle.click();
+    await el.updateComplete;
+    expect(el._operateMode).toBe(false);
+    expect(loadStoredOperateMode()).toBe(false);
+    expect(el.shadowRoot?.querySelector("[data-editor-chrome]")).toBeTruthy();
+    expect(el.shadowRoot?.querySelector("[data-actions='top']")).toBeTruthy();
+  });
+
+  it("restores operate mode from localStorage on connect", async () => {
+    persistOperateMode(true);
+    const callWS = vi.fn().mockResolvedValue(panelPayload({ sync_status: "synced" }));
+    const el = await mountCard({ language: "he", callWS });
+    expect(el._operateMode).toBe(true);
+    expect(el.shadowRoot?.querySelector("[data-editor-chrome]")).toBeFalsy();
+    const toggle = el.shadowRoot?.querySelector(
+      "[data-operate-toggle]"
+    ) as HTMLButtonElement;
+    expect(toggle?.textContent?.trim()).toBe("הגדרות");
+  });
+
+  it("keeps cover live controls visible in operate mode", async () => {
+    const callWS = vi.fn().mockResolvedValue(
+      panelPayload({
+        sync_status: "synced",
+        profiles: {
+          lighting: {
+            ...sampleProfile,
+            mode: "cover",
+            covers: [
+              {
+                id: "cover_1",
+                open_button: 1,
+                close_button: 2,
+                open_time_s: 20,
+                close_time_s: 20,
+                direction_settle_s: 0.5,
+                opposite_press: "stop_only",
+              },
+            ],
+          },
+        },
+        active_profile_id: "lighting",
+      })
+    );
+    const el = await mountCard({ language: "en", callWS });
+    el._operateMode = true;
+    await el.updateComplete;
+    expect(el.shadowRoot?.querySelector("[data-editor-chrome]")).toBeFalsy();
+    expect(el.shadowRoot?.querySelector("[data-cover-control]")).toBeTruthy();
+    expect(el.shadowRoot?.querySelector("[data-cover-open]")).toBeTruthy();
+    expect(el.shadowRoot?.querySelector("[data-cover-stop]")).toBeTruthy();
+    expect(el.shadowRoot?.querySelector("[data-cover-close]")).toBeTruthy();
+  });
+
   it("switches editor tabs between profiles appearance and buttons", async () => {
     const callWS = vi.fn().mockResolvedValue(panelPayload({ sync_status: "synced" }));
     const el = await mountCard({ language: "en", callWS });
@@ -1775,6 +1886,7 @@ describe("cover mode", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
     clearStoredLanguage();
+    clearStoredOperateMode();
   });
 
   it("normalizes partial cover payloads into safe values", () => {
