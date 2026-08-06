@@ -9,7 +9,7 @@ import {
   persistLanguage,
 } from "../src/localize";
 import type { Profile } from "../src/types";
-import { COLOR_PREVIEW, ensureSelectOptions, resolveLedPreviewColor } from "../src/card";
+import { COLOR_PREVIEW, ensureSelectOptions, formatColorOptionLabel, formatRadarOptionLabel, resolveLedPreviewColor } from "../src/card";
 import {
   AUTOMATION_EXAMPLE_ENTRY_PLACEHOLDER,
   buildAutomationExampleYaml,
@@ -402,7 +402,17 @@ describe("custom elements", () => {
   it("maps LED color names to CSS preview colors", () => {
     expect(resolveLedPreviewColor("red")).toBe(COLOR_PREVIEW.red);
     expect(resolveLedPreviewColor("warm_yellow")).toBe(COLOR_PREVIEW.warm_yellow);
+    // Hardware: Z2M "blue" is cyan-looking; still distinct from the cyan option.
+    expect(resolveLedPreviewColor("blue")).toBe("#00c8de");
+    expect(resolveLedPreviewColor("cyan")).toBe("#00e5ff");
     expect(resolveLedPreviewColor("cyan")).not.toBe(COLOR_PREVIEW.blue);
+  });
+
+  it("labels blue as cyan-looking for display without changing wire value", () => {
+    expect(formatColorOptionLabel("blue", "en")).toContain("cyan");
+    expect(formatColorOptionLabel("blue", "he")).toContain("סיאן");
+    expect(formatColorOptionLabel("cyan", "he")).toBe("סיאן");
+    expect(formatRadarOptionLabel("none", "he")).toContain("ללא");
   });
 
   it("keeps draft select values when live options omit them", () => {

@@ -101,10 +101,14 @@ const WIZARD_STEPS: WizardStep[] = [
   "transfer",
 ];
 
-/** CSS colors for Zemismart LED name options (adapter select values). */
+/**
+ * CSS colors for Zemismart LED name options (adapter select values).
+ * Z2M's `blue` option lights a cyan LED on these panels — preview matches hardware,
+ * not a true deep blue. `cyan` stays a slightly brighter / cooler cyan.
+ */
 export const COLOR_PREVIEW: Record<string, string> = {
   red: "#ff1744",
-  blue: "#2979ff",
+  blue: "#00c8de",
   green: "#00e676",
   white: "#f5f7fa",
   yellow: "#ffea00",
@@ -115,7 +119,7 @@ export const COLOR_PREVIEW: Record<string, string> = {
 };
 
 const DEFAULT_RING_ON = "#00e5ff";
-const DEFAULT_RING_OFF = "#2979ff";
+const DEFAULT_RING_OFF = "#00c8de";
 
 const RADIO_GROUPS_OPEN_KEY = "conx-dynamic-panel-radio-groups-open";
 
@@ -170,6 +174,32 @@ export function ensureSelectOptions(
     seen.add(trimmed);
   }
   return options;
+}
+
+/** Human label for a Z2M/HA color option id (wire value stays unchanged). */
+export function formatColorOptionLabel(
+  color: string,
+  language: string | undefined
+): string {
+  const key = color.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  const localized = localize(language, `color.${key}`);
+  if (localized !== `color.${key}`) {
+    return localized;
+  }
+  return color;
+}
+
+/** Human label for radar select options (wire value stays unchanged). */
+export function formatRadarOptionLabel(
+  value: string,
+  language: string | undefined
+): string {
+  const key = value.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  const localized = localize(language, `radar.${key}`);
+  if (localized !== `radar.${key}`) {
+    return localized;
+  }
+  return value;
 }
 
 @customElement("conx-dynamic-panel-card")
@@ -2772,7 +2802,11 @@ export class ConXDynamicPanelCard extends LitElement {
                     })}
                 >
                   ${colorOptions.map(
-                    (color) => html`<option value=${color}>${color}</option>`
+                    (color) =>
+                      html`<option value=${color}>${formatColorOptionLabel(
+                        color,
+                        this._language
+                      )}</option>`
                   )}
                 </select>
               </div>
@@ -2793,7 +2827,11 @@ export class ConXDynamicPanelCard extends LitElement {
                     })}
                 >
                   ${colorOptions.map(
-                    (color) => html`<option value=${color}>${color}</option>`
+                    (color) =>
+                      html`<option value=${color}>${formatColorOptionLabel(
+                        color,
+                        this._language
+                      )}</option>`
                   )}
                 </select>
               </div>
@@ -2811,7 +2849,11 @@ export class ConXDynamicPanelCard extends LitElement {
                   })}
               >
                 ${radarOptions.map(
-                  (value) => html`<option value=${value}>${value}</option>`
+                  (value) =>
+                    html`<option value=${value}>${formatRadarOptionLabel(
+                      value,
+                      this._language
+                    )}</option>`
                 )}
               </select>
             </div>

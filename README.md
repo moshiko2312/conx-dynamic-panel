@@ -86,6 +86,11 @@ These match the Zigbee2MQTT ZMS-206 / TS0601 expose list for `switch_color_on` /
 `switch_color_off`. The card prefers **live** `options` from the mapped Home Assistant
 `select` entities when available; defaults above are fallbacks only.
 
+**Note (hardware LEDs):** on these panels the Z2M option named `blue` lights a **cyan**
+LED — there is no true deep-blue LED. ConX keeps the wire value `blue` (what Z2M/HA
+expect) but the card swatch and Hebrew/English labels say that blue looks cyan on the
+panel. `cyan` remains a separate Z2M option with a slightly brighter preview.
+
 **Note (Z2M / hardware):** current `zigbee-herdsman-converters` exposes
 `warm_white` / `warm_yellow` but the Tuya datapoint lookup keys are `warmwhite` /
 `warmyellow` (no underscore). Setting the underscored values via Z2M or HA often

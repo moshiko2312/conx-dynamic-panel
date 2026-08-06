@@ -57,7 +57,9 @@ red, blue, green, white, yellow, magenta, cyan, warm_white, warm_yellow
 These match Zigbee2MQTT ZMS-206 exposes. Prefer live Home Assistant select
 `options` over defaults. Note: some Z2M converter builds mismatch
 `warm_white`/`warm_yellow` (expose) vs `warmwhite`/`warmyellow` (lookup); those
-values may fail on the wire even outside ConX.
+values may fail on the wire even outside ConX. Also, Z2M option `blue` lights a
+cyan LED on these panels (no true deep blue); keep wire value `blue`, label/swatch
+honestly in the card.
 
 Radar:
 
