@@ -1928,6 +1928,53 @@ describe("custom elements", () => {
       data: {},
     });
 
+    const dataToggle = toggleCard.querySelector(
+      "[data-action-data-toggle]"
+    ) as HTMLButtonElement;
+    expect(dataToggle).toBeTruthy();
+    expect(dataToggle.disabled).toBe(false);
+    dataToggle.click();
+    await el.updateComplete;
+    const dataBox = toggleCard.querySelector(
+      "[data-action-data]"
+    ) as HTMLTextAreaElement;
+    expect(dataBox).toBeTruthy();
+    dataBox.value = "name: day\nvalue: Mornining\nrun: true";
+    dataBox.dispatchEvent(new Event("input", { bubbles: true }));
+    await el.updateComplete;
+    expect(el._draft?.buttons[0].action?.data).toEqual({
+      name: "day",
+      value: "Mornining",
+      run: true,
+    });
+
+    dataBox.value = "not valid yaml";
+    dataBox.dispatchEvent(new Event("input", { bubbles: true }));
+    await el.updateComplete;
+    expect(el._draft?.buttons[0].action?.data).toEqual({
+      name: "day",
+      value: "Mornining",
+      run: true,
+    });
+    expect(toggleCard.querySelector("[data-action-data-error]")).toBeTruthy();
+
+    // Entity picker remains additive — preserves manual data.
+    const entityKeep = toggleCard.querySelector(
+      '[data-entity-picker][data-button="1"]'
+    ) as HTMLSelectElement;
+    entityKeep.value = "light.living_room";
+    entityKeep.dispatchEvent(new Event("change", { bubbles: true }));
+    await el.updateComplete;
+    expect(el._draft?.buttons[0].action).toEqual({
+      action: "light.toggle",
+      target: { entity_id: "light.living_room" },
+      data: {
+        name: "day",
+        value: "Mornining",
+        run: true,
+      },
+    });
+
     (toggleCard.querySelector('[data-role="momentary"]') as HTMLButtonElement).click();
     await el.updateComplete;
     const momentaryCard = el.shadowRoot?.querySelector(
@@ -1960,6 +2007,11 @@ describe("custom elements", () => {
     expect(localize("en", "card.mixed_cover_hint")).not.toMatch(/below/i);
     expect(localize("en", "card.picker_search")).toBe("Search…");
     expect(localize("he", "card.picker_search")).toBe("חיפוש…");
+    expect(localize("en", "card.action_data")).toBe("Action data (YAML)");
+    expect(localize("he", "card.action_data")).toBe("נתוני פעולה (YAML)");
+    expect(localize("ru", "card.action_data")).toContain("YAML");
+    expect(localize("en", "card.action_data_hint")).toMatch(/data:/i);
+    expect(localize("he", "card.action_data_hint")).toContain("data");
     expect(localize("en", "card.mixed_roles")).toBe("Per-button roles");
     expect(localize("en", "role.radio")).toBe("Radio group");
     expect(localize("he", "card.unsaved")).toContain("שמרו טיוטה");

@@ -6,6 +6,8 @@ All notable changes to this private project will be documented here.
 
 ### Added
 
+- **Optional Action data (YAML) on button actions:** after Action + Entity pickers (free-mix role cards and Buttons accordion), a collapsible **Action data (YAML)** / **נתוני פעולה (YAML)** editor writes `button.action.data`. Flat `key: value` lines or a JSON object (HA Developer Tools → Actions `data:` style). Invalid input shows an inline error and does not wipe the last good data; entity picker still sets `target.entity_id` and keeps extra data fields additive. EN/HE/RU + HTML preview.
+
 - **Sync matches linked HA entity → panel LED/relay:** after applying names/colors/modes on Sync (and activate+sync), toggle buttons set each relay ON/OFF from the linked entity state (`action.target.entity_id`). Lights/switches `on`→ON / `off`→OFF; domain-aware mapping for covers/media/locks when used as toggles. Mixed mode syncs `toggle` (and ungrouped `radio`); `cover_*` and `momentary` stay OFF. Radio groups prefer the member whose entity is ON when exactly one is active; cover direction relays never stay ON after sync.
 
 ### Changed

@@ -42,6 +42,10 @@ import {
   validateProfilesExport,
 } from "./exportSchema";
 import {
+  parseActionData,
+  serializeActionData,
+} from "./actionDataYaml";
+import {
   actionDomain,
   ensureHaPickersLoaded,
   isHaEntityPickerRegistered,
@@ -344,6 +348,12 @@ export class ConXDynamicPanelCard extends LitElement {
   @state() private _haServicePickerReady = false;
   /** Client-side filter text for fallback action/entity `<select>` lists. */
   @state() private _pickerFilter: Record<string, string> = {};
+  /** Open state for per-button Action data (YAML) collapsible. */
+  @state() private _actionDataOpen: Record<number, boolean> = {};
+  /** In-progress YAML text (keeps invalid edits until fixed). */
+  @state() private _actionDataText: Record<number, string> = {};
+  /** Inline parse errors for Action data (YAML). */
+  @state() private _actionDataError: Record<number, string> = {};
 
   private _importInput?: HTMLInputElement;
   private _haPickerLoadStarted = false;
@@ -2365,6 +2375,9 @@ export class ConXDynamicPanelCard extends LitElement {
         data: button.action?.data || {},
       };
     });
+    if (!nextAction) {
+      this._clearActionDataEditor(index);
+    }
   }
 
   private _onButtonActionSelect(index: number, e: Event): void {
@@ -2401,6 +2414,62 @@ export class ConXDynamicPanelCard extends LitElement {
     } as unknown as Event);
   }
 
+  private _actionDataDisplay(index: number): string {
+    if (Object.prototype.hasOwnProperty.call(this._actionDataText, index)) {
+      return this._actionDataText[index];
+    }
+    const button = this._draft?.buttons.find((item) => item.index === index);
+    return serializeActionData(button?.action?.data || {});
+  }
+
+  private _toggleActionDataOpen(index: number): void {
+    this._actionDataOpen = {
+      ...this._actionDataOpen,
+      [index]: !this._actionDataOpen[index],
+    };
+  }
+
+  private _clearActionDataEditor(index: number): void {
+    if (
+      !Object.prototype.hasOwnProperty.call(this._actionDataText, index) &&
+      !this._actionDataError[index]
+    ) {
+      return;
+    }
+    const nextText = { ...this._actionDataText };
+    const nextError = { ...this._actionDataError };
+    delete nextText[index];
+    delete nextError[index];
+    this._actionDataText = nextText;
+    this._actionDataError = nextError;
+  }
+
+  private _onActionDataInput(index: number, e: Event): void {
+    const text = (e.target as HTMLTextAreaElement).value;
+    this._actionDataText = { ...this._actionDataText, [index]: text };
+    const parsed = parseActionData(text);
+    if (!parsed.ok) {
+      this._actionDataError = {
+        ...this._actionDataError,
+        [index]: parsed.error,
+      };
+      return;
+    }
+    const nextError = { ...this._actionDataError };
+    delete nextError[index];
+    this._actionDataError = nextError;
+    this._patchDraft((draft) => {
+      const button = draft.buttons.find((item) => item.index === index);
+      if (!button?.action?.action) {
+        return;
+      }
+      button.action = {
+        ...button.action,
+        data: parsed.data,
+      };
+    });
+  }
+
   private _renderActionEntityPickers(
     buttonIndex: number,
     action: string,
@@ -2421,6 +2490,10 @@ export class ConXDynamicPanelCard extends LitElement {
     const entityFilter = this._getPickerFilter("entity", buttonIndex);
     const filteredServices = this._filterOptions(serviceOptions, actionFilter);
     const filteredEntities = this._filterOptions(entityOptions, entityFilter);
+    const dataOpen = Boolean(this._actionDataOpen[buttonIndex]);
+    const dataText = this._actionDataDisplay(buttonIndex);
+    const dataError = this._actionDataError[buttonIndex] || "";
+    const hasAction = Boolean(action);
     return html`
       <label class="field">
         <span>${this.t("card.action")}</span>
@@ -2521,6 +2594,45 @@ export class ConXDynamicPanelCard extends LitElement {
             `}
         <span class="field-hint">${this.t("card.entity_picker_hint")}</span>
       </label>
+      <div class="action-data-field" data-action-data-field data-button=${buttonIndex}>
+        <button
+          type="button"
+          class="action-data-toggle"
+          data-action-data-toggle
+          aria-expanded=${dataOpen ? "true" : "false"}
+          ?disabled=${this._busy || !hasAction}
+          @click=${() => this._toggleActionDataOpen(buttonIndex)}
+        >
+          <span class="action-data-chevron" aria-hidden="true"></span>
+          <span>${this.t("card.action_data")}</span>
+        </button>
+        ${dataOpen
+          ? html`
+              <label class="field action-data-editor">
+                <textarea
+                  class="action-data-box"
+                  data-action-data
+                  data-button=${buttonIndex}
+                  rows="5"
+                  dir="ltr"
+                  lang="en"
+                  spellcheck="false"
+                  placeholder=${this.t("card.action_data_placeholder")}
+                  .value=${dataText}
+                  ?disabled=${this._busy || !hasAction}
+                  @input=${(e: Event) =>
+                    this._onActionDataInput(buttonIndex, e)}
+                ></textarea>
+                <span class="field-hint">${this.t("card.action_data_hint")}</span>
+                ${dataError
+                  ? html`<span class="field-error" data-action-data-error
+                      >${this.t("card.action_data_invalid")}: ${dataError}</span
+                    >`
+                  : nothing}
+              </label>
+            `
+          : nothing}
+      </div>
     `;
   }
 
@@ -5165,6 +5277,74 @@ export class ConXDynamicPanelCard extends LitElement {
       font-size: 0.78rem;
       opacity: 0.7;
       line-height: 1.35;
+    }
+    .field-error {
+      font-size: 0.78rem;
+      color: var(--error-color, #c62828);
+      line-height: 1.35;
+    }
+    .action-data-field {
+      grid-column: 1 / -1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+    }
+    .action-data-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      width: fit-content;
+      max-width: 100%;
+      margin: 0;
+      padding: 2px 0;
+      border: 0;
+      background: transparent;
+      color: var(--text);
+      font: inherit;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: start;
+    }
+    .action-data-toggle:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    .action-data-chevron {
+      display: inline-block;
+      width: 0.45em;
+      height: 0.45em;
+      border-inline-end: 2px solid currentColor;
+      border-bottom: 2px solid currentColor;
+      transform: rotate(-45deg);
+      transition: transform 0.15s ease;
+      flex: 0 0 auto;
+    }
+    .action-data-toggle[aria-expanded="true"] .action-data-chevron {
+      transform: rotate(45deg);
+    }
+    .action-data-editor {
+      margin: 0;
+    }
+    textarea.action-data-box {
+      width: 100%;
+      min-height: 5.5rem;
+      resize: vertical;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+      background: color-mix(in srgb, var(--surface) 92%, #000 4%);
+      color: var(--text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.78rem;
+      line-height: 1.4;
+      box-sizing: border-box;
+    }
+    textarea.action-data-box:focus {
+      outline: none;
+      border-color: color-mix(in srgb, var(--conx-accent) 55%, transparent);
+      box-shadow: 0 0 0 2px var(--conx-accent-soft);
     }
     ha-entity-picker,
     ha-service-picker {
