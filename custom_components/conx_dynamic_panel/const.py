@@ -157,11 +157,14 @@ COVER_COMMANDS: Final = (COVER_COMMAND_OPEN, COVER_COMMAND_CLOSE, COVER_COMMAND_
 # Reasons reported on the cover state event.
 COVER_REASON_PRESS: Final = "press"
 COVER_REASON_COMMAND: Final = "command"
+COVER_REASON_ENTITY: Final = "entity"
 COVER_REASON_STOP_PRESS: Final = "stop_press"
 COVER_REASON_TRAVEL_COMPLETE: Final = "travel_complete"
 COVER_REASON_SAFETY: Final = "safety"
 COVER_REASON_ABORT: Final = "abort"
 COVER_REASON_ERROR: Final = "error"
+# Ignore HA cover state echoes right after we mirrored open/close/stop to it.
+COVER_HA_MIRROR_SUPPRESS_S: Final = 2.0
 
 SYNC_SYNCED: Final = "synced"
 SYNC_PENDING: Final = "pending"
@@ -227,6 +230,14 @@ SERVICE_IMPORT_SCHEDULER: Final = "import_scheduler"
 IMPORT_MODE_MERGE: Final = "merge"
 IMPORT_MODE_REPLACE: Final = "replace"
 IMPORT_MODES: Final = (IMPORT_MODE_MERGE, IMPORT_MODE_REPLACE)
+
+# Portable profiles JSON (card download / export_profiles). Independent of
+# panel STORAGE_VERSION — storage bumps (scheduler, holiday, …) must not change
+# this unless the portable profiles document shape itself changes.
+PROFILES_EXPORT_SCHEMA_VERSION: Final = 2
+# After v0.2.0 storage bumps, export_profiles incorrectly stamped STORAGE_VERSION
+# (3–5) into schema_version. Accept those files as legacy portable profile exports.
+PROFILES_EXPORT_LEGACY_STORAGE_SCHEMA_VERSIONS: Final = frozenset({3, 4, 5})
 
 # Portable scheduler JSON (separate from full panel profile export).
 SCHEDULER_EXPORT_SCHEMA_VERSION: Final = 1

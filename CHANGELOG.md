@@ -4,6 +4,32 @@ All notable changes to this private project will be documented here.
 
 ## [Unreleased]
 
+### Added
+
+- **Faceplate panel-unavailable status:** when mapped relay entities are all Home Assistant `unavailable`/`unknown` (typical Z2M/MQTT offline), `get_config` / `subscribe` expose `panel_available: false` and the card shows a clear red **Panel unavailable** / **הפאנל לא זמין** / **Панель недоступна** line under the faceplate buttons (replaces the scheduler next footer while offline). Live `hass.states` also drives the banner; relay transitions to unavailable now push a runtime refresh.
+
+### Fixed
+
+- **Setup crash when panel entities are offline:** mapping validation no longer aborts `async_setup_entry` when label text entities (or color/radar selects) are Home Assistant `unavailable`/`unknown`. Those states are treated as soft warnings; domain/existence/disabled/password checks still hard-fail. Integration loads and the card can show panel unavailable until writes succeed on reconnect.
+
+- **Live HA cover → panel indication:** linked `covers[].ha_entity_id` state changes from HA UI/automations now drive cover open/close relays (transition-suppressed) and faceplate indication like lights — `opening`→open ON, `closing`→close ON, `open`/`closed`/`stopped`→both OFF. Does not re-mirror back to HA; brief suppress ignores echoes of panel→HA mirrors. Reverse/`stop_then_reverse` preserved. Sync still ends cover relays OFF.
+
+- **Profile delete silently failed / blocked without feedback:** deleting a profile referenced by any local or master scheduler task raised a raw `ValueError`, which the WebSocket layer turned into a generic “Unknown error”, so the card looked like delete did nothing. Delete now returns a clear Home Assistant error listing every blocking task name; the card also pre-checks scheduler refs and the last-profile rule with EN/HE/RU messages, shows a success notice, and reassigns `active_profile_id` / `default_profile_id` when the deleted profile was selected.
+
+- **Duplicate profile ignored the display name:** Duplicate always appended `" copy"` with no prompt, so a name the user typed (or expected) never became the chip title — and an empty source id produced odd ids like `_copy_<timestamp>` with a visible name of just “copy”. Duplicate now prompts for the display name (default `{original} copy`), persists exactly what the user entered, and builds ids as `{sourceId}_copy_<timestamp>` with a `profile` fallback when the source id is empty. Backend `Profile.clone` treats whitespace-only names as missing and falls back sensibly.
+
+- **Scheduler task delete left unavailable switches:** deleting a local or master scheduler task removed it from storage but called plain `Entity.async_remove()`, which keeps the entity-registry entry and writes `unavailable`. Delete now purges the registry unique_id and force-removes the switch; setup also drops orphan Schedule/Master schedule registry entries so Controls no longer shows them after reload.
+
+- **Profile export/import schema mismatch:** card Export wrote panel `STORAGE_VERSION` (5) into portable `schema_version` while the frontend importer still expected export schema **2**, so Import failed with `Unsupported schema_version 5; current is 2`. Export now stamps dedicated `PROFILES_EXPORT_SCHEMA_VERSION` (2); Import accepts 1–2 and legacy mistagged 3–5 (profiles extracted; scheduler/holiday/snapshot ignored). Frontend import normalization preserves mixed roles, `pulse_time_s`, `cover_id`, `action`/`action_double` data, and cover `ha_entity_id`. Re-export from the card after upgrading to get a clean schema 2 file (old schema-5 exports also import).
+
+- **Setup crash on holiday Store version bump:** `HolidayStore` (and panel / master stores) now subclass HA `Store` with `_async_migrate_func`. Loading an on-disk holiday file at Store version 1 after the bump to version 2 no longer raises `NotImplementedError` during config-entry setup; legacy `holiday_mode` migrates to `master_holiday`.
+
+### Changed
+
+- **Operate hamburger in title row:** operate-mode menu control moved out of `.faceplate-labels` (no longer covers button names) into the profile title row (`[data-operate-profile]`), start-side aligned for LTR/RTL and vertically centered with the title (Lit card + HTML preview).
+
+- **Action / Double-click action accordions:** in the button editor (free-mix role cards and Buttons accordion), the full **Action** block (service + entity + YAML) and the full **Double-click action** block are each a collapsed-by-default accordion matching the button-row pattern (dark card, chevron, summary like `light.toggle · light.salon_w` or **Not set** / **לא הוגדר** / **Не задано**). Mode chips stay outside. EN/HE/RU + RTL; Lit card + HTML preview + tests.
+
 ## [0.2.0] - 2026-08-07
 
 ### Added
@@ -32,9 +58,9 @@ All notable changes to this private project will be documented here.
 
 - **Info / מידע card guide:** settings menu opens a full-card guide (profiles, appearance, buttons, modes, roles, draft vs sync, operate mode, cover motor vs HA entity, actions/YAML, menu). EN/HE/RU; free-mix cover hints moved into the guide instead of inline clutter.
 
-- **Optional HA `cover.*` entity on cover motors:** free-mix `cover_open` / `cover_close` role cards (and dedicated `mode=cover` editor) include a searchable **HA cover entity (optional)** / **ישות תריס ב-HA (אופציונלי)** picker beside the motor slot + travel times. Stored as `covers[].ha_entity_id` (one per motor). When the cover engine starts or stops, it best-effort mirrors `cover.open_cover` / `close_cover` / `stop_cover` to that entity — panel relays still drive the physical motor; HA failures are logged and never block the motor path. Not used for live on/off LED sync of direction buttons.
+- **Optional HA `cover.*` entity on cover motors:** free-mix `cover_open` / `cover_close` role cards (and dedicated `mode=cover` editor) include a searchable **HA cover entity (optional)** / **ישות תריס ב-HA (אופציונלי)** picker beside the motor slot + travel times. Stored as `covers[].ha_entity_id` (one per motor). When the cover engine starts or stops, it best-effort mirrors `cover.open_cover` / `close_cover` / `stop_cover` to that entity — panel relays still drive the physical motor; HA failures are logged and never block the motor path. Live HA→panel indication also listens to that entity (`opening`/`closing` light the matching direction; terminal states force both OFF).
 
-- **Live HA entity → panel LED/relay sync:** while a profile is active, the backend listens to `state_changed` for linked toggle (and safe radio) entities and updates the matching panel relay with transition suppression — so turning a light/switch off in the HA app turns the physical button LED off without waiting for Sync. Same Sync rules: `cover_*` / momentary never latch from entity state; unavailable/unknown skipped. Listeners rebuild on profile change / sync / unload.
+- **Live HA entity → panel LED/relay sync:** while a profile is active, the backend listens to `state_changed` for linked toggle (and safe radio) entities and updates the matching panel relay with transition suppression — so turning a light/switch off in the HA app turns the physical button LED off without waiting for Sync. Same Sync rules for toggles: momentary never latch from entity state; unavailable/unknown skipped. Cover motors use `covers[].ha_entity_id` (not toggle latch rules). Listeners rebuild on profile change / sync / unload.
 
 - **Optional Action data (YAML) on button actions:** after Action + Entity pickers (free-mix role cards and Buttons accordion), a collapsible **Action data (YAML)** / **נתוני פעולה (YAML)** editor writes `button.action.data`. Flat `key: value` lines or a JSON object (HA Developer Tools → Actions `data:` style). Invalid input shows an inline error and does not wipe the last good data; entity picker still sets `target.entity_id` and keeps extra data fields additive. EN/HE/RU + HTML preview.
 

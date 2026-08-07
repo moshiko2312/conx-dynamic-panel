@@ -163,14 +163,53 @@ def install() -> None:
     storage = module("homeassistant.helpers.storage")
 
     class Store:  # noqa: D101
-        def __init__(self, *args: Any, **kwargs: Any) -> None:
+        """Minimal HA Store stub with version-mismatch migration (like core)."""
+
+        def __init__(self, hass: Any, version: int, key: str, *args: Any, **kwargs: Any) -> None:
+            self.hass = hass
+            self.version = int(version)
+            self.minor_version = int(kwargs.get("minor_version", 1))
+            self.key = key
+            # On-disk envelope: {"version", "minor_version", "data"} or None.
+            self._envelope: dict[str, Any] | None = None
+            # Back-compat for older tests that poked ``_data`` directly.
             self._data = None
 
         async def async_load(self) -> Any:
-            return self._data
+            if self._envelope is None and self._data is not None:
+                # Legacy stub usage: treat ``_data`` as already-unwrapped payload.
+                return self._data
+            if self._envelope is None:
+                return None
+            data = self._envelope
+            disk_version = int(data.get("version", 1))
+            disk_minor = int(data.get("minor_version", 1))
+            if disk_version == self.version and disk_minor == self.minor_version:
+                return data.get("data")
+            try:
+                stored = await self._async_migrate_func(
+                    disk_version, disk_minor, data.get("data")
+                )
+            except NotImplementedError:
+                if disk_version != self.version:
+                    raise
+                stored = data.get("data")
+            await self.async_save(stored)
+            return stored
 
         async def async_save(self, data: Any) -> None:
+            self._envelope = {
+                "version": self.version,
+                "minor_version": self.minor_version,
+                "key": self.key,
+                "data": data,
+            }
             self._data = data
+
+        async def _async_migrate_func(
+            self, old_major_version: int, old_minor_version: int, old_data: Any
+        ) -> Any:
+            raise NotImplementedError
 
     storage.Store = Store
 
@@ -192,11 +231,23 @@ def install() -> None:
     entity = module("homeassistant.helpers.entity")
 
     class Entity:  # noqa: D101
+        _attr_unique_id: str | None = None
+        entity_id: str | None = None
+        hass: Any = None
+
+        @property
+        def unique_id(self) -> str | None:
+            return self._attr_unique_id
+
         def async_on_remove(self, func: Any) -> None:
             return None
 
         async def async_added_to_hass(self) -> None:
             return None
+
+        async def async_remove(self, *, force_remove: bool = False) -> None:
+            self._force_remove = force_remove  # type: ignore[attr-defined]
+            self._removed = True  # type: ignore[attr-defined]
 
         def async_write_ha_state(self) -> None:
             return None
@@ -215,7 +266,61 @@ def install() -> None:
     )
 
     entity_registry = module("homeassistant.helpers.entity_registry")
-    entity_registry.async_get = lambda hass: types.SimpleNamespace(async_get=lambda entity_id: None)
+
+    class _FakeEntityRegistry:
+        def __init__(self) -> None:
+            self.entities: dict[str, types.SimpleNamespace] = {}
+            self.removed: list[str] = []
+            self._by_unique: dict[tuple[str, str, str], str] = {}
+
+        def async_get(self, entity_id: str) -> types.SimpleNamespace | None:
+            return self.entities.get(entity_id)
+
+        def async_get_entity_id(
+            self, domain: str, platform: str, unique_id: str
+        ) -> str | None:
+            return self._by_unique.get((domain, platform, unique_id))
+
+        def async_remove(self, entity_id: str) -> None:
+            entry = self.entities.pop(entity_id, None)
+            if entry is None:
+                return
+            self.removed.append(entity_id)
+            key = (entry.domain, entry.platform, entry.unique_id)
+            self._by_unique.pop(key, None)
+
+        def register(
+            self,
+            entity_id: str,
+            *,
+            domain: str = "switch",
+            platform: str = "conx_dynamic_panel",
+            unique_id: str,
+        ) -> None:
+            entry = types.SimpleNamespace(
+                entity_id=entity_id,
+                domain=domain,
+                platform=platform,
+                unique_id=unique_id,
+                disabled=False,
+            )
+            self.entities[entity_id] = entry
+            self._by_unique[(domain, platform, unique_id)] = entity_id
+
+    _default_registry = _FakeEntityRegistry()
+
+    def _async_get_entity_registry(hass: Any) -> _FakeEntityRegistry:
+        existing = getattr(hass, "entity_registry", None)
+        if existing is not None:
+            return existing
+        data = getattr(hass, "data", None)
+        if isinstance(data, dict):
+            reg = data.setdefault("_entity_registry", _FakeEntityRegistry())
+            return reg  # type: ignore[no-any-return]
+        return _default_registry
+
+    entity_registry.async_get = _async_get_entity_registry
+    entity_registry.FakeEntityRegistry = _FakeEntityRegistry  # type: ignore[attr-defined]
 
     selector = module("homeassistant.helpers.selector")
 

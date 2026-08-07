@@ -1,9 +1,25 @@
 /** Portable profiles export schema shared by the Lit card and standalone wizard. */
 
+import {
+  clampPulseTime,
+  DEFAULT_PULSE_TIME,
+  normalizeButtonRole,
+  normalizeCovers,
+  normalizeProfile,
+} from "./api";
 import type { Profile, ProfilesExport, SchedulerExport, SchedulerTask } from "./types";
 
-/** Must match custom_components/conx_dynamic_panel/const.py STORAGE_VERSION. */
+/**
+ * Portable profiles document version — independent of panel STORAGE_VERSION.
+ * Must match custom_components/conx_dynamic_panel/const.py PROFILES_EXPORT_SCHEMA_VERSION.
+ */
 export const PROFILES_EXPORT_SCHEMA_VERSION = 2;
+
+/**
+ * Card exports briefly stamped panel STORAGE_VERSION (3–5) into schema_version
+ * after scheduler/holiday storage bumps. Accept those as legacy portable files.
+ */
+const LEGACY_STORAGE_STAMPED_EXPORT_VERSIONS = new Set([3, 4, 5]);
 
 const MODES = new Set([
   "toggle",
@@ -12,6 +28,7 @@ const MODES = new Set([
   "radio_split",
   "mixed",
   "cover",
+  "momentary_mix", // legacy alias → mixed via normalizeProfile
 ]);
 
 function normalizeRadioGroups(raw: unknown): Profile["radio_groups"] {
@@ -40,6 +57,17 @@ export type ProfilesExportValidation =
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** Whether a profiles-export schema_version can be imported. */
+export function isAcceptedProfilesExportSchema(schemaVersion: number): boolean {
+  if (!Number.isInteger(schemaVersion) || schemaVersion < 1) {
+    return false;
+  }
+  if (schemaVersion <= PROFILES_EXPORT_SCHEMA_VERSION) {
+    return true;
+  }
+  return LEGACY_STORAGE_STAMPED_EXPORT_VERSIONS.has(schemaVersion);
 }
 
 function normalizeProfiles(
@@ -79,6 +107,19 @@ function normalizeProfiles(
   return { ok: false, error: "profiles must be a non-empty object or array" };
 }
 
+function parseOptionalAction(
+  raw: unknown
+): Profile["buttons"][number]["action"] {
+  if (!isRecord(raw) || typeof raw.action !== "string" || !raw.action) {
+    return null;
+  }
+  return {
+    action: raw.action,
+    target: isRecord(raw.target) ? raw.target : {},
+    data: isRecord(raw.data) ? raw.data : {},
+  };
+}
+
 function parseProfile(
   value: unknown,
   fallbackId: string | undefined
@@ -94,78 +135,85 @@ function parseProfile(
   if (!MODES.has(mode)) {
     return { ok: false, error: `unsupported mode for profile ${id}: ${mode}` };
   }
+
+  if (value.backlight_brightness !== undefined && value.backlight_brightness !== null) {
+    const raw = Number(value.backlight_brightness);
+    if (!Number.isFinite(raw)) {
+      return { ok: false, error: `invalid backlight_brightness for profile ${id}` };
+    }
+  }
+
   const buttonsRaw = Array.isArray(value.buttons) ? value.buttons : [];
   const buttons = [1, 2, 3, 4].map((index) => {
     const found = buttonsRaw.find(
       (item) => isRecord(item) && Number(item.index) === index
     );
     if (!isRecord(found)) {
-      return { index, name: `Button ${index}`, action: null };
-    }
-    let action: Profile["buttons"][number]["action"] = null;
-    if (isRecord(found.action) && typeof found.action.action === "string") {
-      action = {
-        action: found.action.action,
-        target: isRecord(found.action.target) ? found.action.target : {},
-        data: isRecord(found.action.data) ? found.action.data : {},
-      };
-    }
-    const parseOptionalAction = (
-      raw: unknown
-    ): Profile["buttons"][number]["action"] => {
-      if (!isRecord(raw) || typeof raw.action !== "string" || !raw.action) {
-        return null;
-      }
       return {
-        action: raw.action,
-        target: isRecord(raw.target) ? raw.target : {},
-        data: isRecord(raw.data) ? raw.data : {},
+        index,
+        name: `Button ${index}`,
+        action: null,
+        action_double: null,
+        radio_member: true,
+        role: "toggle" as const,
+        pulse_time_s: DEFAULT_PULSE_TIME,
+        cover_id: null,
       };
-    };
+    }
+    const role = normalizeButtonRole(
+      found.role,
+      (found as { press_mode?: unknown }).press_mode
+    );
     return {
       index,
       name: String(found.name ?? `Button ${index}`),
-      action,
+      action: parseOptionalAction(found.action),
       action_double: parseOptionalAction(found.action_double),
       radio_member: found.radio_member === undefined ? true : Boolean(found.radio_member),
+      role,
+      pulse_time_s: clampPulseTime(found.pulse_time_s, DEFAULT_PULSE_TIME),
+      cover_id:
+        role === "cover_open" || role === "cover_close"
+          ? String(found.cover_id || "cover_1").trim() || "cover_1"
+          : null,
     };
   });
 
-  let brightness = 100;
-  if (value.backlight_brightness !== undefined && value.backlight_brightness !== null) {
-    const raw = Number(value.backlight_brightness);
-    if (!Number.isFinite(raw)) {
-      return { ok: false, error: `invalid backlight_brightness for profile ${id}` };
-    }
-    brightness = Math.max(0, Math.min(100, Math.round(raw)));
-  }
-
-  return {
-    ok: true,
-    profile: {
-      id,
-      name: String(value.name || id),
-      mode: mode as Profile["mode"],
-      color_on: String(value.color_on || "cyan"),
-      color_off: String(value.color_off || "blue"),
-      radar: String(value.radar || "30s"),
-      backlight: Boolean(value.backlight ?? true),
-      backlight_brightness: brightness,
-      child_lock: Boolean(value.child_lock ?? false),
-      selected_button:
-        value.selected_button === null || value.selected_button === undefined
-          ? null
-          : Number(value.selected_button),
-      gang_count: Math.max(1, Math.min(4, Number(value.gang_count) || 4)),
-      buttons,
-      radio_groups: normalizeRadioGroups(value.radio_groups),
-      covers: Array.isArray(value.covers)
-        ? (value.covers as Profile["covers"])
-        : value.cover
-          ? [value.cover as NonNullable<Profile["covers"]>[number]]
-          : undefined,
-    },
+  const gangCount = Math.max(1, Math.min(4, Number(value.gang_count) || 4));
+  const draft: Profile = {
+    id,
+    name: String(value.name || id),
+    mode: mode as Profile["mode"],
+    color_on: String(value.color_on || "cyan"),
+    color_off: String(value.color_off || "blue"),
+    radar: String(value.radar || "30s"),
+    backlight: Boolean(value.backlight ?? true),
+    backlight_brightness:
+      value.backlight_brightness === undefined || value.backlight_brightness === null
+        ? 100
+        : Math.max(0, Math.min(100, Math.round(Number(value.backlight_brightness)))),
+    child_lock: Boolean(value.child_lock ?? false),
+    selected_button:
+      value.selected_button === null || value.selected_button === undefined
+        ? null
+        : Number(value.selected_button),
+    gang_count: gangCount,
+    buttons,
+    radio_groups: normalizeRadioGroups(value.radio_groups),
+    covers: Array.isArray(value.covers)
+      ? (value.covers as Profile["covers"])
+      : undefined,
+    cover: isRecord(value.cover)
+      ? (value.cover as unknown as NonNullable<Profile["cover"]>)
+      : undefined,
   };
+
+  // Shared card normalizer: mixed roles, covers (incl. ha_entity_id), radio groups.
+  const profile = normalizeProfile(draft);
+  // Ensure covers always go through ha_entity-aware clamping even when empty input
+  // produced a template list.
+  profile.covers = normalizeCovers(profile);
+  return { ok: true, profile };
 }
 
 /** Validate/normalize a portable export JSON document. */
@@ -179,7 +227,7 @@ export function validateProfilesExport(raw: unknown): ProfilesExportValidation {
   if (!Number.isInteger(schemaVersion) || schemaVersion < 1) {
     return { ok: false, error: "schema_version must be a positive integer" };
   }
-  if (schemaVersion > PROFILES_EXPORT_SCHEMA_VERSION) {
+  if (!isAcceptedProfilesExportSchema(schemaVersion)) {
     return {
       ok: false,
       error: `Unsupported schema_version ${schemaVersion}; current is ${PROFILES_EXPORT_SCHEMA_VERSION}`,

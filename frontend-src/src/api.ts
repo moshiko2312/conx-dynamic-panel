@@ -67,8 +67,8 @@ export async function deleteProfile(
   hass: HomeAssistant,
   entryId: string,
   profileId: string
-): Promise<void> {
-  await hass.callWS({
+): Promise<PanelConfig> {
+  return hass.callWS<PanelConfig>({
     type: "conx_dynamic_panel/delete_profile",
     entry_id: entryId,
     profile_id: profileId,
@@ -82,13 +82,46 @@ export async function duplicateProfile(
   newId: string,
   newName?: string
 ): Promise<Profile> {
-  return hass.callWS<Profile>({
+  const payload: Record<string, unknown> = {
     type: "conx_dynamic_panel/duplicate_profile",
     entry_id: entryId,
     profile_id: profileId,
     new_id: newId,
-    new_name: newName,
-  });
+  };
+  // Always send new_name when provided (including after trim) so the backend
+  // persists the display name the user entered.
+  if (newName !== undefined) {
+    payload.new_name = newName;
+  }
+  return hass.callWS<Profile>(payload);
+}
+
+/** Build a unique duplicate profile id from a source id. */
+export function buildDuplicateProfileId(
+  sourceId: string,
+  now: number = Date.now()
+): string {
+  const base = (sourceId || "").trim() || "profile";
+  return `${base}_copy_${now}`;
+}
+
+/**
+ * Resolve the display name for a duplicated profile.
+ * Returns null when the user cancelled the name prompt.
+ */
+export function resolveDuplicateProfileName(
+  entered: string | null,
+  originalName: string
+): string | null {
+  if (entered === null) {
+    return null;
+  }
+  const trimmed = entered.trim();
+  if (trimmed) {
+    return trimmed;
+  }
+  const fallback = `${(originalName || "").trim()} copy`.trim();
+  return fallback || "copy";
 }
 
 export async function setActiveProfile(

@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 from .const import (
     BUTTON_ROLE_RADIO,
     BUTTON_ROLE_TOGGLE,
+    COVER_COMMAND_CLOSE,
+    COVER_COMMAND_OPEN,
+    COVER_COMMAND_STOP,
     MODE_COVER,
     MODE_MIXED,
     MODE_RADIO_MANDATORY,
@@ -15,6 +18,8 @@ from .const import (
     MODE_RADIO_SPLIT,
     MODE_TOGGLE,
 )
+
+CoverHaCommand = Literal["open", "close", "stop"]
 
 # States that clearly mean the linked device is "active" for LED/relay match.
 _RELAY_ON_STATES: frozenset[str] = frozenset(
@@ -160,13 +165,69 @@ def entity_state_to_relay_on(hass: Any, entity_id: str) -> bool | None:
     return state_value_to_relay_on(entity_id, getattr(state_obj, "state", None))
 
 
+def cover_ha_state_to_command(state: str | None) -> CoverHaCommand | None:
+    """Map a linked HA cover.* state to an open / close / stop command.
+
+    Travel states drive the matching direction relay (LED + motor hold).
+    Terminal / idle states force both direction relays OFF — never latch a
+    direction ON just because the shutter is fully open or closed.
+    """
+    value = str(state or "").strip().lower()
+    if value in _SKIP_STATES:
+        return None
+    if value == "opening":
+        return COVER_COMMAND_OPEN  # type: ignore[return-value]
+    if value == "closing":
+        return COVER_COMMAND_CLOSE  # type: ignore[return-value]
+    if value in {"open", "closed", "stopped", "stop", "idle"}:
+        return COVER_COMMAND_STOP  # type: ignore[return-value]
+    return None
+
+
+@dataclass(frozen=True, slots=True)
+class CoverEntityBinding:
+    """Linked HA cover.* entity that drives one cover motor's live indication."""
+
+    entity_id: str
+    cover_id: str
+
+
+def iter_cover_entity_bindings(profile: Any) -> list[CoverEntityBinding]:
+    """Return live HA cover.* → panel cover-engine bindings for the active profile.
+
+    Uses ``covers[].ha_entity_id`` only (not toggle-style button actions). Cover
+    direction buttons never latch ON/OFF from a single entity like lights do.
+    """
+    mode = getattr(profile, "mode", None)
+    if mode not in {MODE_COVER, MODE_MIXED}:
+        return []
+    covers = (
+        list(profile.active_covers())
+        if mode == MODE_MIXED
+        else list(getattr(profile, "covers", []) or [])
+    )
+    out: list[CoverEntityBinding] = []
+    seen: set[str] = set()
+    for cover in covers:
+        entity_id = str(getattr(cover, "ha_entity_id", None) or "").strip()
+        if not entity_id or not entity_id.startswith("cover."):
+            continue
+        cover_id = str(getattr(cover, "id", "") or "").strip()
+        if not cover_id or entity_id in seen:
+            continue
+        seen.add(entity_id)
+        out.append(CoverEntityBinding(entity_id=entity_id, cover_id=cover_id))
+    return out
+
+
 def iter_entity_relay_bindings(profile: Any) -> list[EntityRelayBinding]:
     """Return live/Sync entity→relay bindings for the active profile.
 
     Matches the Sync rules in ``Zemismart4GangAdapter._async_apply_relay_mode``:
     toggle (and ungrouped radio) buttons track linked entities; cover_* and
-    momentary never latch from entity state; radio exclusivity groups recompute
-    when any member entity changes.
+    momentary never latch from entity state as independent toggles (cover motors
+    use ``iter_cover_entity_bindings`` instead); radio exclusivity groups
+    recompute when any member entity changes.
     """
     mode = getattr(profile, "mode", None)
     if mode == MODE_COVER:

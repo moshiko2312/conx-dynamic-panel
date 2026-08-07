@@ -41,11 +41,20 @@ def _mapping(**overrides: Any) -> EntityMapping:
     return EntityMapping.from_dict(data)
 
 
-def _hass(states: dict[str, Any], registry: dict[str, Any] | None = None) -> Any:
+def _hass(
+    states: dict[str, Any],
+    registry: dict[str, Any] | None = None,
+    *,
+    monkeypatch: pytest.MonkeyPatch,
+) -> Any:
     import homeassistant.helpers.entity_registry as er
 
-    er.async_get = lambda hass: SimpleNamespace(  # type: ignore[method-assign]
-        async_get=lambda entity_id: (registry or {}).get(entity_id)
+    monkeypatch.setattr(
+        er,
+        "async_get",
+        lambda hass: SimpleNamespace(
+            async_get=lambda entity_id: (registry or {}).get(entity_id)
+        ),
     )
     return SimpleNamespace(states=FakeStates(states))
 
@@ -69,9 +78,9 @@ def _valid_states() -> dict[str, Any]:
 
 
 @pytest.mark.asyncio
-async def test_validate_mapping_success() -> None:
+async def test_validate_mapping_success(monkeypatch: pytest.MonkeyPatch) -> None:
     adapter = Zemismart4GangAdapter(
-        _hass(_valid_states()),
+        _hass(_valid_states(), monkeypatch=monkeypatch),
         _mapping(),
         SuppressionTracker(),
         confirm_timeout=1.0,
@@ -80,10 +89,10 @@ async def test_validate_mapping_success() -> None:
 
 
 @pytest.mark.asyncio
-async def test_duplicate_relays_rejected() -> None:
+async def test_duplicate_relays_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
     mapping = _mapping(relay_entities=["switch.l1", "switch.l1", "switch.l3", "switch.l4"])
     adapter = Zemismart4GangAdapter(
-        _hass(_valid_states()),
+        _hass(_valid_states(), monkeypatch=monkeypatch),
         mapping,
         SuppressionTracker(),
         confirm_timeout=1.0,
@@ -93,12 +102,12 @@ async def test_duplicate_relays_rejected() -> None:
 
 
 @pytest.mark.asyncio
-async def test_wrong_domain_rejected() -> None:
+async def test_wrong_domain_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
     mapping = _mapping(color_on_entity="switch.not_select")
     states = _valid_states()
     states["switch.not_select"] = _state("on")
     adapter = Zemismart4GangAdapter(
-        _hass(states),
+        _hass(states, monkeypatch=monkeypatch),
         mapping,
         SuppressionTracker(),
         confirm_timeout=1.0,
@@ -108,11 +117,11 @@ async def test_wrong_domain_rejected() -> None:
 
 
 @pytest.mark.asyncio
-async def test_select_without_options_rejected() -> None:
+async def test_select_without_options_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
     states = _valid_states()
     states["select.on"] = _state("cyan", options=[])
     adapter = Zemismart4GangAdapter(
-        _hass(states),
+        _hass(states, monkeypatch=monkeypatch),
         _mapping(),
         SuppressionTracker(),
         confirm_timeout=1.0,
@@ -122,14 +131,73 @@ async def test_select_without_options_rejected() -> None:
 
 
 @pytest.mark.asyncio
-async def test_unavailable_text_rejected() -> None:
+async def test_unavailable_text_allowed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Offline panel text entities must soft-pass so setup can load."""
     states = _valid_states()
     states["text.n1"] = _state("unavailable", mode="text")
     adapter = Zemismart4GangAdapter(
-        _hass(states),
+        _hass(states, monkeypatch=monkeypatch),
         _mapping(),
         SuppressionTracker(),
         confirm_timeout=1.0,
     )
-    with pytest.raises(MappingValidationError, match="not writable"):
+    await adapter.async_validate_mapping()
+
+
+@pytest.mark.asyncio
+async def test_unknown_text_allowed(monkeypatch: pytest.MonkeyPatch) -> None:
+    states = _valid_states()
+    states["text.n2"] = _state("unknown", mode="text")
+    adapter = Zemismart4GangAdapter(
+        _hass(states, monkeypatch=monkeypatch),
+        _mapping(),
+        SuppressionTracker(),
+        confirm_timeout=1.0,
+    )
+    await adapter.async_validate_mapping()
+
+
+@pytest.mark.asyncio
+async def test_unavailable_select_without_options_allowed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Offline selects often lack options until MQTT reconnects."""
+    states = _valid_states()
+    states["select.on"] = _state("unavailable", options=[])
+    adapter = Zemismart4GangAdapter(
+        _hass(states, monkeypatch=monkeypatch),
+        _mapping(),
+        SuppressionTracker(),
+        confirm_timeout=1.0,
+    )
+    await adapter.async_validate_mapping()
+
+
+@pytest.mark.asyncio
+async def test_disabled_text_still_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    states = _valid_states()
+    registry = {
+        "text.n1": SimpleNamespace(disabled_by="user"),
+    }
+    adapter = Zemismart4GangAdapter(
+        _hass(states, registry=registry, monkeypatch=monkeypatch),
+        _mapping(),
+        SuppressionTracker(),
+        confirm_timeout=1.0,
+    )
+    with pytest.raises(MappingValidationError, match="disabled"):
+        await adapter.async_validate_mapping()
+
+
+@pytest.mark.asyncio
+async def test_password_text_rejected_when_available(monkeypatch: pytest.MonkeyPatch) -> None:
+    states = _valid_states()
+    states["text.n1"] = _state("Label", mode="password")
+    adapter = Zemismart4GangAdapter(
+        _hass(states, monkeypatch=monkeypatch),
+        _mapping(),
+        SuppressionTracker(),
+        confirm_timeout=1.0,
+    )
+    with pytest.raises(MappingValidationError, match="password"):
         await adapter.async_validate_mapping()

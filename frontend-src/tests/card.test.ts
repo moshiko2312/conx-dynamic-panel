@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { profilesEqual, cloneProfile, normalizeCover } from "../src/api";
+import {
+  buildDuplicateProfileId,
+  profilesEqual,
+  cloneProfile,
+  normalizeCover,
+  resolveDuplicateProfileName,
+} from "../src/api";
 import {
   clearStoredLanguage,
   isRtl,
@@ -179,17 +185,24 @@ async function mountCard(hass: Record<string, unknown>, config?: Record<string, 
 describe("localize", () => {
   it("returns Hebrew strings for he", () => {
     expect(localize("he", "card.sync")).toContain("סנכרון");
+    expect(localize("he", "card.keep_one_profile")).toContain("פרופיל");
+    expect(localize("he", "card.delete_blocked_scheduler")).toContain("{tasks}");
+    expect(localize("he", "card.duplicate_name")).toContain("שם");
     expect(isRtl("he-IL")).toBe(true);
   });
 
   it("returns Russian strings for ru", () => {
     expect(localize("ru", "card.sync")).toContain("Синхронизация");
+    expect(localize("ru", "card.keep_one_profile")).toContain("профиль");
+    expect(localize("ru", "card.delete_blocked_scheduler")).toContain("{tasks}");
     expect(normalizeLanguage("ru-RU")).toBe("ru");
     expect(isRtl("ru")).toBe(false);
   });
 
   it("falls back to English", () => {
     expect(localize("en", "card.sync")).toBe("Sync to Panel");
+    expect(localize("en", "card.keep_one_profile")).toContain("At least one");
+    expect(localize("en", "card.delete_blocked_scheduler")).toContain("{tasks}");
     expect(isRtl("en")).toBe(false);
   });
 
@@ -220,6 +233,9 @@ describe("localize", () => {
     expect(localize("he", "scheduler.holiday_badge")).toContain("חג");
     expect(localize("en", "scheduler.master_holiday")).toContain("Master");
     expect(localize("he", "scheduler.master_holiday")).toContain("ראשי");
+    expect(localize("en", "card.panel_unavailable")).toBe("Panel unavailable");
+    expect(localize("he", "card.panel_unavailable")).toBe("הפאנל לא זמין");
+    expect(localize("ru", "card.panel_unavailable")).toBe("Панель недоступна");
   });
 
   it("persists operate mode preference", () => {
@@ -242,6 +258,17 @@ describe("draft helpers", () => {
 
   it("detects equal profiles", () => {
     expect(profilesEqual(sampleProfile, cloneProfile(sampleProfile))).toBe(true);
+  });
+
+  it("builds duplicate ids and resolves custom display names", () => {
+    expect(buildDuplicateProfileId("lighting", 42)).toBe("lighting_copy_42");
+    expect(buildDuplicateProfileId("", 99)).toBe("profile_copy_99");
+    expect(resolveDuplicateProfileName("Kitchen Evening", "Lighting")).toBe(
+      "Kitchen Evening"
+    );
+    expect(resolveDuplicateProfileName("  ", "Lighting")).toBe("Lighting copy");
+    expect(resolveDuplicateProfileName("", "")).toBe("copy");
+    expect(resolveDuplicateProfileName(null, "Lighting")).toBeNull();
   });
 });
 
@@ -276,6 +303,123 @@ describe("custom elements", () => {
     });
     expect(el.shadowRoot?.textContent).toContain("Kitchen");
     expect(el.shadowRoot?.textContent).toContain("Living room");
+  });
+
+  it("duplicates a profile with the prompted display name", async () => {
+    const scenes = { ...sampleProfile, id: "scenes", name: "Scenes" };
+    const duplicated = {
+      ...sampleProfile,
+      id: "lighting_copy_1",
+      name: "Kitchen Evening",
+    };
+    const after = panelPayload({
+      sync_status: "synced",
+      active_profile_id: "lighting_copy_1",
+      profiles: {
+        lighting: sampleProfile,
+        scenes,
+        lighting_copy_1: duplicated,
+      },
+    });
+    const callWS = vi.fn(async (msg: { type: string }) => {
+      if (msg.type === "conx_dynamic_panel/get_config") {
+        return panelPayload({
+          sync_status: "synced",
+          profiles: { lighting: sampleProfile, scenes },
+        });
+      }
+      if (msg.type === "conx_dynamic_panel/duplicate_profile") {
+        return duplicated;
+      }
+      if (msg.type === "conx_dynamic_panel/set_active_profile") {
+        return after;
+      }
+      return after;
+    });
+    const promptSpy = vi.spyOn(window, "prompt").mockReturnValue("Kitchen Evening");
+    const el = await mountCard({ language: "en", callWS });
+    await el._duplicateProfile();
+    await el.updateComplete;
+    expect(promptSpy).toHaveBeenCalled();
+    expect(callWS).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "conx_dynamic_panel/duplicate_profile",
+        profile_id: "lighting",
+        new_name: "Kitchen Evening",
+      })
+    );
+    expect(el._draft?.name).toBe("Kitchen Evening");
+    expect(el._notice).toContain("duplicated");
+    promptSpy.mockRestore();
+  });
+
+  it("blocks delete when scheduler tasks reference the profile", async () => {
+    const scenes = { ...sampleProfile, id: "scenes", name: "Scenes" };
+    const callWS = vi.fn().mockResolvedValue(
+      panelPayload({
+        sync_status: "synced",
+        profiles: { lighting: sampleProfile, scenes },
+        scheduler_tasks: {
+          day: {
+            id: "day",
+            name: "Day shift",
+            enabled: true,
+            scope: "local",
+            entry_ids: [],
+            weekdays: [0, 1, 2, 3, 4, 5, 6],
+            months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+            ranges: [{ start: "08:00", end: "12:00", profile_id: "lighting" }],
+            conditions: [],
+          },
+        },
+      })
+    );
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const el = await mountCard({ language: "en", callWS });
+    await el._deleteProfile();
+    await el.updateComplete;
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(el._error).toContain("Day shift");
+    expect(
+      callWS.mock.calls.some(
+        (call) => call[0]?.type === "conx_dynamic_panel/delete_profile"
+      )
+    ).toBe(false);
+    confirmSpy.mockRestore();
+  });
+
+  it("deletes a non-essential profile and shows a notice", async () => {
+    const scenes = { ...sampleProfile, id: "scenes", name: "Scenes" };
+    const afterDelete = panelPayload({
+      sync_status: "synced",
+      active_profile_id: "scenes",
+      default_profile_id: "scenes",
+      profiles: { scenes },
+    });
+    const callWS = vi.fn(async (msg: { type: string }) => {
+      if (msg.type === "conx_dynamic_panel/get_config") {
+        return panelPayload({
+          sync_status: "synced",
+          profiles: { lighting: sampleProfile, scenes },
+        });
+      }
+      if (msg.type === "conx_dynamic_panel/delete_profile") {
+        return afterDelete;
+      }
+      return afterDelete;
+    });
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const el = await mountCard({ language: "en", callWS });
+    await el._deleteProfile();
+    await el.updateComplete;
+    expect(callWS).toHaveBeenCalledWith({
+      type: "conx_dynamic_panel/delete_profile",
+      entry_id: "abc",
+      profile_id: "lighting",
+    });
+    expect(el._draft?.id).toBe("scenes");
+    expect(el._notice).toContain("deleted");
+    confirmSpy.mockRestore();
   });
 
   it("keeps RTL direction for Hebrew", async () => {
@@ -380,6 +524,58 @@ describe("custom elements", () => {
     const footer = el.shadowRoot?.querySelector("[data-scheduler-active-only]");
     expect(footer).toBeTruthy();
     expect(footer?.textContent).toContain("Scheduler on");
+  });
+
+  it("shows red unavailable status under faceplate when panel_available is false", async () => {
+    const callWS = vi.fn().mockResolvedValue(
+      panelPayload({
+        sync_status: "synced",
+        panel_available: false,
+        relay_states: [null, null, null, null],
+        scheduler_active: true,
+        scheduler_next: {
+          profile_id: "scenes",
+          profile_name: "Scenes",
+          at: "2026-03-02T08:00:00",
+          at_time: "08:00",
+        },
+      })
+    );
+    const el = await mountCard({
+      language: "en",
+      callWS,
+      states: {
+        "switch.l1": { state: "unavailable" },
+        "switch.l2": { state: "unavailable" },
+        "switch.l3": { state: "unavailable" },
+        "switch.l4": { state: "unavailable" },
+      },
+    });
+    const banner = el.shadowRoot?.querySelector("[data-panel-unavailable]");
+    expect(banner).toBeTruthy();
+    expect(banner?.textContent).toContain("Panel unavailable");
+    expect(el.shadowRoot?.querySelector("[data-scheduler-next]")).toBeFalsy();
+  });
+
+  it("hides unavailable status when any mapped relay is online", async () => {
+    const callWS = vi.fn().mockResolvedValue(
+      panelPayload({
+        sync_status: "synced",
+        panel_available: false,
+        relay_states: [null, null, null, null],
+      })
+    );
+    const el = await mountCard({
+      language: "he",
+      callWS,
+      states: {
+        "switch.l1": { state: "unavailable" },
+        "switch.l2": { state: "off" },
+        "switch.l3": { state: "unavailable" },
+        "switch.l4": { state: "unavailable" },
+      },
+    });
+    expect(el.shadowRoot?.querySelector("[data-panel-unavailable]")).toBeFalsy();
   });
 
   it("matches HTML preview chrome: brand title, fonts, settings tabs, bezel metrics", async () => {
@@ -1628,7 +1824,7 @@ describe("custom elements", () => {
     );
   });
 
-  it("toggles operate mode to hide header chrome and show faceplate corner menu", async () => {
+  it("toggles operate mode to hide header chrome and show title-row menu", async () => {
     const callWS = vi.fn().mockResolvedValue(panelPayload({ sync_status: "synced" }));
     const el = await mountCard({ language: "en", callWS });
     expect(el._operateMode).toBe(false);
@@ -1676,7 +1872,16 @@ describe("custom elements", () => {
       "[data-operate-menu]"
     ) as HTMLButtonElement;
     expect(faceMenu).toBeTruthy();
-    expect(faceMenu.classList.contains("faceplate-menu-btn")).toBe(true);
+    expect(faceMenu.classList.contains("operate-menu-btn")).toBe(true);
+    expect(faceMenu.parentElement?.hasAttribute("data-operate-profile")).toBe(
+      true
+    );
+    expect(faceMenu.parentElement?.classList.contains("operate-profile-only")).toBe(
+      true
+    );
+    expect(
+      el.shadowRoot?.querySelector(".faceplate-labels [data-operate-menu]")
+    ).toBeFalsy();
 
     faceMenu.click();
     await el.updateComplete;
@@ -1959,6 +2164,15 @@ describe("custom elements", () => {
     expect(el.shadowRoot?.querySelector(".radio-groups-section")).toBeTruthy();
     expect(radioRow.querySelector("[data-mixed-action-entity]")).toBeTruthy();
     expect(
+      radioRow.querySelector('.action-edit[data-action-edit-slot="single"]')
+    ).toBeTruthy();
+    (
+      radioRow.querySelector(
+        '.action-edit[data-action-edit-slot="single"] [data-action-slot-toggle]'
+      ) as HTMLButtonElement
+    ).click();
+    await el.updateComplete;
+    expect(
       radioRow.querySelector('[data-action-picker][data-button="1"]')
     ).toBeTruthy();
   });
@@ -1986,9 +2200,28 @@ describe("custom elements", () => {
     const toggleCard = el.shadowRoot?.querySelector(
       '[data-mixed-role="1"]'
     ) as HTMLElement;
-    // Default free-mix role is toggle — primary pickers visible without accordion.
+    // Default free-mix role is toggle — Action / Double-click are collapsed accordions.
     expect(toggleCard.querySelector(".mixed-role-extras")).toBeTruthy();
     expect(toggleCard.querySelector("[data-mixed-action-entity]")).toBeTruthy();
+    const singleAction = toggleCard.querySelector(
+      '.action-edit[data-action-edit-slot="single"]'
+    ) as HTMLElement;
+    const doubleAction = toggleCard.querySelector(
+      '.action-edit[data-action-edit-slot="double"]'
+    ) as HTMLElement;
+    expect(singleAction).toBeTruthy();
+    expect(doubleAction).toBeTruthy();
+    expect(singleAction.classList.contains("open")).toBe(false);
+    expect(doubleAction.classList.contains("open")).toBe(false);
+    expect(singleAction.querySelector(".button-edit-meta")?.textContent?.trim()).toBe(
+      "Not set"
+    );
+    expect(
+      toggleCard.querySelector('[data-action-picker][data-button="1"]')
+    ).toBeFalsy();
+
+    (singleAction.querySelector("[data-action-slot-toggle]") as HTMLButtonElement).click();
+    await el.updateComplete;
     const actionSelect = toggleCard.querySelector(
       '[data-action-picker][data-button="1"]'
     ) as HTMLSelectElement;
@@ -2066,14 +2299,15 @@ describe("custom elements", () => {
 
     expect(toggleCard.querySelector(".multi-click-hint")).toBeTruthy();
     expect(
-      toggleCard.querySelector('.multi-click-slot[data-multi-click-slot="triple"]')
+      toggleCard.querySelector('.action-edit[data-action-edit-slot="triple"]')
     ).toBeNull();
     const doubleSlot = toggleCard.querySelector(
-      '.multi-click-slot[data-multi-click-slot="double"]'
+      '.action-edit[data-action-edit-slot="double"]'
     ) as HTMLElement;
     expect(doubleSlot).toBeTruthy();
+    expect(doubleSlot.classList.contains("open")).toBe(false);
     const doubleOpenBtn = doubleSlot.querySelector(
-      "[data-multi-click-toggle]"
+      "[data-action-slot-toggle]"
     ) as HTMLButtonElement;
     expect(doubleOpenBtn).toBeTruthy();
     doubleOpenBtn.click();
@@ -2087,6 +2321,11 @@ describe("custom elements", () => {
     await el.updateComplete;
     expect(el._draft?.buttons[0].action_double?.action).toBe("light.turn_on");
     expect(el._draft?.buttons[0].action?.action).toBe("light.toggle");
+    expect(
+      toggleCard
+        .querySelector('.action-edit[data-action-edit-slot="double"] .button-edit-meta')
+        ?.textContent?.trim()
+    ).toBe("light.turn_on");
 
     (toggleCard.querySelector('[data-role="momentary"]') as HTMLButtonElement).click();
     await el.updateComplete;
@@ -2095,6 +2334,13 @@ describe("custom elements", () => {
     ) as HTMLElement;
     expect(momentaryCard.querySelector("[data-pulse-time]")).toBeTruthy();
     expect(momentaryCard.querySelector("[data-mixed-action-entity]")).toBeTruthy();
+    const momSingle = momentaryCard.querySelector(
+      '.action-edit[data-action-edit-slot="single"]'
+    ) as HTMLElement;
+    if (!momSingle.classList.contains("open")) {
+      (momSingle.querySelector("[data-action-slot-toggle]") as HTMLButtonElement).click();
+      await el.updateComplete;
+    }
     expect(
       momentaryCard.querySelector('[data-action-picker][data-button="1"]')
     ).toBeTruthy();
@@ -2809,6 +3055,14 @@ describe("ha pickers", () => {
     ).click();
     await el.updateComplete;
 
+    const singleAction = el.shadowRoot?.querySelector(
+      '.button-edit[data-button="1"] .action-edit[data-action-edit-slot="single"]'
+    ) as HTMLElement;
+    expect(singleAction).toBeTruthy();
+    expect(singleAction.classList.contains("open")).toBe(false);
+    (singleAction.querySelector("[data-action-slot-toggle]") as HTMLButtonElement).click();
+    await el.updateComplete;
+
     const actionSelect = el.shadowRoot?.querySelector(
       '[data-action-picker][data-button="1"]'
     ) as HTMLSelectElement;
@@ -2877,5 +3131,98 @@ describe("export schema", () => {
       profiles: { lighting: sampleProfile },
     });
     expect(future.ok).toBe(false);
+    if (!future.ok) {
+      expect(future.error).toContain("Unsupported schema_version 99");
+      expect(future.error).toContain(`current is ${PROFILES_EXPORT_SCHEMA_VERSION}`);
+    }
+  });
+
+  it("accepts legacy storage-stamped schema_version 5 and preserves mixed fields", () => {
+    const mistagged = validateProfilesExport({
+      schema_version: 5,
+      active_profile_id: "rich",
+      applied_snapshot: { id: "ignored" },
+      scheduler_tasks: {},
+      profiles: {
+        rich: {
+          id: "rich",
+          name: "Rich",
+          mode: "mixed",
+          color_on: "cyan",
+          color_off: "blue",
+          radar: "30s",
+          backlight: true,
+          backlight_brightness: 75,
+          child_lock: false,
+          selected_button: null,
+          gang_count: 4,
+          buttons: [
+            {
+              index: 1,
+              name: "L1",
+              role: "toggle",
+              action: {
+                action: "light.toggle",
+                target: { entity_id: "light.a" },
+                data: { brightness: 40 },
+              },
+              action_double: {
+                action: "light.turn_off",
+                target: { entity_id: "light.a" },
+                data: {},
+              },
+              radio_member: true,
+            },
+            {
+              index: 2,
+              name: "Pulse",
+              role: "momentary",
+              pulse_time_s: 1.25,
+              action: null,
+              radio_member: true,
+            },
+            {
+              index: 3,
+              name: "Open",
+              role: "cover_open",
+              cover_id: "cover_1",
+              action: null,
+              radio_member: true,
+            },
+            {
+              index: 4,
+              name: "Close",
+              role: "cover_close",
+              cover_id: "cover_1",
+              action: null,
+              radio_member: true,
+            },
+          ],
+          covers: [
+            {
+              id: "cover_1",
+              open_button: 3,
+              close_button: 4,
+              open_time_s: 20,
+              close_time_s: 22,
+              direction_settle_s: 0.5,
+              opposite_press: "stop_then_reverse",
+              ha_entity_id: "cover.living",
+            },
+          ],
+        },
+      },
+    });
+    expect(mistagged.ok).toBe(true);
+    if (!mistagged.ok) return;
+    expect(mistagged.payload.schema_version).toBe(PROFILES_EXPORT_SCHEMA_VERSION);
+    const rich = mistagged.payload.profiles.rich;
+    expect(rich.buttons[0].action?.data?.brightness).toBe(40);
+    expect(rich.buttons[0].action_double?.action).toBe("light.turn_off");
+    expect(rich.buttons[1].role).toBe("momentary");
+    expect(rich.buttons[1].pulse_time_s).toBe(1.25);
+    expect(rich.buttons[2].role).toBe("cover_open");
+    expect(rich.buttons[2].cover_id).toBe("cover_1");
+    expect(rich.covers?.[0]?.ha_entity_id).toBe("cover.living");
   });
 });

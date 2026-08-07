@@ -7,6 +7,8 @@ from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock
 
+import pytest
+
 from custom_components.conx_dynamic_panel.const import (
     BUTTON_ROLE_MOMENTARY,
     BUTTON_ROLE_TOGGLE,
@@ -18,7 +20,11 @@ from custom_components.conx_dynamic_panel.models import (
     HardwareState,
     PanelStorageData,
 )
-from custom_components.conx_dynamic_panel.runtime import CoverRuntime, MomentaryRuntime, MultiClickRuntime
+from custom_components.conx_dynamic_panel.runtime import (
+    CoverRuntime,
+    MomentaryRuntime,
+    MultiClickRuntime,
+)
 from custom_components.conx_dynamic_panel.suppression import SuppressionTracker
 from custom_components.conx_dynamic_panel.websocket_api import ws_subscribe
 
@@ -153,13 +159,67 @@ def test_get_config_payload_includes_relay_entities() -> None:
         "switch.l4",
     ]
     assert payload["relay_states"] == [False, True, False, None]
+    assert payload["panel_available"] is True
     assert payload["momentary_active"] == []
     runtime_payload = coordinator.get_runtime_payload()
     assert "profiles" not in runtime_payload
     assert runtime_payload["relay_entities"] == payload["relay_entities"]
     assert runtime_payload["relay_states"] == [False, True, False, None]
+    assert runtime_payload["panel_available"] is True
     assert "cover_state" in runtime_payload
     assert runtime_payload["sync_status"] == store.data.sync_status
+
+
+def test_panel_available_false_when_all_relays_unavailable() -> None:
+    store = FakeStore()
+    runtime = _runtime(FakeAdapter(), store)
+    runtime.hass.states = _FakeStates(
+        {
+            "switch.l1": SimpleNamespace(state="unavailable"),
+            "switch.l2": SimpleNamespace(state="unavailable"),
+            "switch.l3": SimpleNamespace(state="unknown"),
+            "switch.l4": SimpleNamespace(state="unavailable"),
+        }
+    )
+    coordinator = PanelCoordinator(runtime)  # type: ignore[arg-type]
+    assert coordinator.get_config_payload()["panel_available"] is False
+    assert coordinator.get_runtime_payload()["panel_available"] is False
+    assert coordinator.get_runtime_payload()["relay_states"] == [None, None, None, None]
+
+
+def test_panel_available_true_when_any_relay_usable() -> None:
+    store = FakeStore()
+    runtime = _runtime(FakeAdapter(), store)
+    runtime.hass.states = _FakeStates(
+        {
+            "switch.l1": SimpleNamespace(state="unavailable"),
+            "switch.l2": SimpleNamespace(state="unavailable"),
+            "switch.l3": SimpleNamespace(state="off"),
+            "switch.l4": SimpleNamespace(state="unavailable"),
+        }
+    )
+    coordinator = PanelCoordinator(runtime)  # type: ignore[arg-type]
+    assert coordinator.get_config_payload()["panel_available"] is True
+
+
+@pytest.mark.asyncio
+async def test_relay_unavailable_transition_notifies_runtime() -> None:
+    store = FakeStore()
+    runtime = _runtime(FakeAdapter(), store)
+    coordinator = PanelCoordinator(runtime)  # type: ignore[arg-type]
+    notified: list[int] = []
+    runtime.async_add_listener(lambda: notified.append(1))
+
+    await coordinator._async_handle_relay_event(
+        SimpleNamespace(
+            data={
+                "entity_id": "switch.l1",
+                "old_state": SimpleNamespace(state="on"),
+                "new_state": SimpleNamespace(state="unavailable"),
+            }
+        )
+    )
+    assert notified == [1]
 
 
 def test_runtime_payload_includes_momentary_active() -> None:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Callable, Iterable
+from collections.abc import Awaitable, Callable, Iterable
 from datetime import UTC, datetime
 from typing import Any
 
@@ -29,10 +29,12 @@ from .const import (
     COVER_COMMANDS,
     COVER_DIRECTION_CLOSE,
     COVER_DIRECTION_OPEN,
+    COVER_HA_MIRROR_SUPPRESS_S,
     COVER_OPPOSITE_STOP_THEN_REVERSE,
     COVER_POST_START_OFF_GRACE_S,
     COVER_REASON_ABORT,
     COVER_REASON_COMMAND,
+    COVER_REASON_ENTITY,
     COVER_REASON_ERROR,
     COVER_REASON_PRESS,
     COVER_REASON_SAFETY,
@@ -42,6 +44,8 @@ from .const import (
     EVENT_BUTTON_PRESS,
     EVENT_COVER_STATE,
     EXPORT_SCOPE_SCHEDULER,
+    HOLIDAY_SCOPE_MASTER,
+    HOLIDAY_SCOPE_PANEL,
     MODE_COVER,
     MODE_MIXED,
     MODE_RADIO_MANDATORY,
@@ -49,12 +53,11 @@ from .const import (
     MODE_RADIO_SPLIT,
     MODE_TOGGLE,
     MULTI_CLICK_MAX,
+    PROFILES_EXPORT_LEGACY_STORAGE_SCHEMA_VERSIONS,
+    PROFILES_EXPORT_SCHEMA_VERSION,
     SCHEDULER_EXPORT_SCHEMA_VERSION,
     SCHEDULER_SCOPE_LOCAL,
     SCHEDULER_SCOPE_MASTER,
-    HOLIDAY_SCOPE_MASTER,
-    HOLIDAY_SCOPE_PANEL,
-    STORAGE_VERSION,
     SUPPORTED_MODES,
     SYNC_ERROR,
     SYNC_OUT_OF_SYNC,
@@ -63,7 +66,10 @@ from .const import (
     SYNC_SYNCING,
 )
 from .entity_relay import (
+    CoverEntityBinding,
     EntityRelayBinding,
+    cover_ha_state_to_command,
+    iter_cover_entity_bindings,
     iter_entity_relay_bindings,
     resolve_radio_selected_from_entities,
     state_value_to_relay_on,
@@ -126,12 +132,16 @@ class PanelCoordinator:
         # Live HA entity → panel relay listeners (separate from mapped hardware).
         self._entity_relay_unsubs: list[Callable[[], None]] = []
         self._entity_relay_bindings: dict[str, list[EntityRelayBinding]] = {}
+        # Live HA cover.* → cover-engine bindings (open/close indication + motor).
+        self._cover_entity_bindings: dict[str, list[CoverEntityBinding]] = {}
+        # entity_id → monotonic deadline: ignore echoes of our own HA mirrors.
+        self._cover_ha_mirror_suppress_until: dict[str, float] = {}
         self._scheduler_unsub: Callable[[], None] | None = None
         self._scheduler_condition_unsub: Callable[[], None] | None = None
         self._scheduler_entity_adder: Callable[[str], None] | None = None
-        self._scheduler_entity_remover: Callable[[str], None] | None = None
+        self._scheduler_entity_remover: Callable[[str], Awaitable[None] | None] | None = None
         self._master_entity_adder: Callable[[str], None] | None = None
-        self._master_entity_remover: Callable[[str], None] | None = None
+        self._master_entity_remover: Callable[[str], Awaitable[None] | None] | None = None
         self._scheduler_applying = False
 
     @property
@@ -143,15 +153,25 @@ class PanelCoordinator:
         self,
         *,
         adder: Callable[[str], None] | None = None,
-        remover: Callable[[str], None] | None = None,
+        remover: Callable[[str], Awaitable[None] | None] | None = None,
         master_adder: Callable[[str], None] | None = None,
-        master_remover: Callable[[str], None] | None = None,
+        master_remover: Callable[[str], Awaitable[None] | None] | None = None,
     ) -> None:
         """Allow the switch platform to add/remove per-task enable entities."""
         self._scheduler_entity_adder = adder
         self._scheduler_entity_remover = remover
         self._master_entity_adder = master_adder
         self._master_entity_remover = master_remover
+
+    async def _async_call_scheduler_entity_remover(
+        self, remover: Callable[[str], Awaitable[None] | None] | None, task_id: str
+    ) -> None:
+        """Await switch-platform purge hooks (registry + state)."""
+        if remover is None:
+            return
+        result = remover(task_id)
+        if result is not None:
+            await result
 
     async def async_setup(self) -> None:
         """Load storage, attach listeners, and apply the effective profile now.
@@ -204,18 +224,21 @@ class PanelCoordinator:
             )
 
     def _clear_entity_relay_listeners(self) -> None:
-        """Detach live linked-entity → relay subscriptions."""
+        """Detach live linked-entity → relay / cover subscriptions."""
         for remove in self._entity_relay_unsubs:
             remove()
         self._entity_relay_unsubs.clear()
         self._entity_relay_bindings.clear()
+        self._cover_entity_bindings.clear()
 
     def _rebuild_entity_relay_listeners(self) -> None:
         """Subscribe to linked HA entities for the active profile (live LED sync).
 
-        Uses the same toggle/safe-radio rules as Sync. Cover and momentary
-        buttons are never tracked as latched ON. Rebuild after profile/sync
-        changes; unload clears subscriptions.
+        Toggle/safe-radio bindings match Sync. Cover motors with
+        ``covers[].ha_entity_id`` drive the cover engine (opening/closing →
+        direction relay ON; open/closed/stopped → both OFF) without
+        re-mirroring back to HA. Momentary never latches from entity state.
+        Rebuild after profile/sync changes; unload clears subscriptions.
         """
         self._clear_entity_relay_listeners()
         if self.runtime.unloading:
@@ -224,10 +247,16 @@ class PanelCoordinator:
         if profile is None:
             return
         by_entity: dict[str, list[EntityRelayBinding]] = {}
-        for binding in iter_entity_relay_bindings(profile):
-            by_entity.setdefault(binding.entity_id, []).append(binding)
+        for relay_binding in iter_entity_relay_bindings(profile):
+            by_entity.setdefault(relay_binding.entity_id, []).append(relay_binding)
         self._entity_relay_bindings = by_entity
-        entity_ids = list(by_entity)
+
+        by_cover_entity: dict[str, list[CoverEntityBinding]] = {}
+        for cover_binding in iter_cover_entity_bindings(profile):
+            by_cover_entity.setdefault(cover_binding.entity_id, []).append(cover_binding)
+        self._cover_entity_bindings = by_cover_entity
+
+        entity_ids = list({*by_entity, *by_cover_entity})
         if not entity_ids:
             return
 
@@ -240,7 +269,7 @@ class PanelCoordinator:
         )
 
     async def _async_handle_linked_entity_event(self, event: Event) -> None:
-        """Mirror linked HA on/off state onto the panel relay (suppressed write)."""
+        """Mirror linked HA on/off or cover state onto the panel (suppressed write)."""
         if self.runtime.unloading:
             return
         if self.data.sync_status == SYNC_SYNCING or self.runtime.sync_lock.locked():
@@ -252,6 +281,14 @@ class PanelCoordinator:
             return
         if old_state is not None and old_state.state == new_state.state:
             return
+
+        cover_bindings = self._cover_entity_bindings.get(str(entity_id)) or []
+        if cover_bindings:
+            await self._async_handle_cover_entity_event(
+                str(entity_id), str(new_state.state)
+            )
+            return
+
         desired = state_value_to_relay_on(str(entity_id), new_state.state)
         if desired is None:
             return
@@ -276,6 +313,91 @@ class PanelCoordinator:
             else:
                 await self._async_live_set_relay(binding.button_index, desired)
         self.runtime.async_notify()
+
+    async def _async_handle_cover_entity_event(
+        self, entity_id: str, state: str
+    ) -> None:
+        """Drive cover open/close indication from a linked HA cover.* state."""
+        suppress_until = self._cover_ha_mirror_suppress_until.get(entity_id, 0.0)
+        if self._monotonic() < suppress_until:
+            return
+        command = cover_ha_state_to_command(state)
+        if command is None:
+            return
+        bindings = self._cover_entity_bindings.get(entity_id) or []
+        if not bindings:
+            return
+        profile = self.data.active_profile()
+        if profile is None or profile.mode not in {MODE_COVER, MODE_MIXED}:
+            return
+        for binding in bindings:
+            try:
+                cover = self._resolve_cover(profile, binding.cover_id)
+            except ValueError:
+                continue
+            await self._async_live_sync_cover_from_ha(profile, cover, command)
+
+    async def _async_live_sync_cover_from_ha(
+        self,
+        profile: Profile,
+        cover: CoverConfig,
+        command: str,
+    ) -> None:
+        """Match panel cover relays/indication to an external HA cover command.
+
+        Does not mirror back to HA (the entity already changed). Uses the same
+        hard-mutex start/halt/reverse paths as card/service commands.
+        """
+        if not self._cover_is_usable(profile, cover):
+            return
+        async with self.runtime.cover.lock:
+            motion = self.runtime.cover.get(cover.id)
+            if command == COVER_COMMAND_STOP:
+                if motion.moving:
+                    await self._async_cover_halt(
+                        cover, reason=COVER_REASON_ENTITY, mirror_ha=False
+                    )
+                else:
+                    # Idle but ensure both direction LEDs/relays are OFF.
+                    await self._async_cover_ensure_pair_off(cover)
+                    self.runtime.async_notify()
+                return
+
+            direction = (
+                COVER_DIRECTION_OPEN
+                if command == COVER_COMMAND_OPEN
+                else COVER_DIRECTION_CLOSE
+            )
+            if motion.direction == direction:
+                return
+            if motion.moving:
+                if cover.opposite_press == COVER_OPPOSITE_STOP_THEN_REVERSE:
+                    await self._async_cover_reverse_to(
+                        cover,
+                        profile,
+                        direction,
+                        COVER_REASON_ENTITY,
+                        mirror_ha=False,
+                    )
+                else:
+                    await self._async_cover_halt(
+                        cover, reason=COVER_REASON_ENTITY, mirror_ha=False
+                    )
+                    await self._async_cover_start(
+                        cover,
+                        profile,
+                        direction,
+                        COVER_REASON_ENTITY,
+                        mirror_ha=False,
+                    )
+                return
+            await self._async_cover_start(
+                cover,
+                profile,
+                direction,
+                COVER_REASON_ENTITY,
+                mirror_ha=False,
+            )
 
     async def _async_live_set_relay(self, index: int, state: bool) -> None:
         """Write a relay only when it differs (transition suppression on write)."""
@@ -326,6 +448,7 @@ class PanelCoordinator:
         self._cancel_scheduler_timer()
         self._clear_scheduler_condition_listeners()
         self._clear_entity_relay_listeners()
+        self._cover_ha_mirror_suppress_until.clear()
         for remove in self.runtime.listeners:
             remove()
         self.runtime.listeners.clear()
@@ -571,7 +694,9 @@ class PanelCoordinator:
             await store.async_delete(task_id)
             for coordinator in self._iter_panel_coordinators():
                 if coordinator._master_entity_remover is not None:
-                    coordinator._master_entity_remover(task_id)
+                    await self._async_call_scheduler_entity_remover(
+                        coordinator._master_entity_remover, task_id
+                    )
                     break
             await self._async_tick_entries(affected, reason="master_delete")
             self.runtime.async_notify()
@@ -580,8 +705,9 @@ class PanelCoordinator:
             raise ValueError(f"Unknown scheduler task: {task_id}")
         del self.data.scheduler_tasks[task_id]
         await self.runtime.store.async_save()
-        if self._scheduler_entity_remover is not None:
-            self._scheduler_entity_remover(task_id)
+        await self._async_call_scheduler_entity_remover(
+            self._scheduler_entity_remover, task_id
+        )
         self._rebuild_scheduler_condition_listeners()
         await self.async_scheduler_tick(reason="task_delete")
         self.runtime.async_notify()
@@ -712,6 +838,7 @@ class PanelCoordinator:
             "active_profile_id": self.data.active_profile_id,
             "relay_entities": list(self.runtime.mapping.relay_entities),
             "relay_states": self._relay_states_payload(),
+            "panel_available": self._panel_available(),
             "momentary_active": sorted(self.runtime.momentary.timers),
             "cover_state": self.cover_state_payload(),
             **self._scheduler_next_payload(),
@@ -746,6 +873,7 @@ class PanelCoordinator:
             "applied_snapshot": self.data.applied_snapshot,
             "relay_entities": list(self.runtime.mapping.relay_entities),
             "relay_states": self._relay_states_payload(),
+            "panel_available": self._panel_available(),
             "momentary_active": sorted(self.runtime.momentary.timers),
             "cover_state": self.cover_state_payload(),
         }
@@ -759,6 +887,9 @@ class PanelCoordinator:
         if entity_id is None or old_state is None or new_state is None:
             return
         if new_state.state in {STATE_UNKNOWN, STATE_UNAVAILABLE}:
+            # Z2M/MQTT offline → HA unavailable: refresh panel_available for the card.
+            if old_state.state != new_state.state:
+                self.runtime.async_notify()
             return
         if old_state.state == new_state.state:
             return
@@ -1196,6 +1327,8 @@ class PanelCoordinator:
         profile: Profile,
         new_direction: str,
         reason: str,
+        *,
+        mirror_ha: bool = True,
     ) -> None:
         """Switch travel to ``new_direction`` without pulsing that relay OFF→ON.
 
@@ -1263,7 +1396,8 @@ class PanelCoordinator:
         )
         self._fire_cover_event(profile, cover, new_direction, reason)
         # Mirror only the final direction — never stop_cover mid-reverse.
-        await self._async_cover_mirror_ha(cover, new_direction)
+        if mirror_ha:
+            await self._async_cover_mirror_ha(cover, new_direction)
         self.runtime.async_notify()
 
     def _resolve_cover(self, profile: Profile, cover_id: str | None) -> CoverConfig:
@@ -1292,6 +1426,7 @@ class PanelCoordinator:
         reason: str,
         *,
         force_energize: bool = False,
+        mirror_ha: bool = True,
     ) -> None:
         """Energize one direction. Caller must hold the cover lock.
 
@@ -1346,7 +1481,8 @@ class PanelCoordinator:
             self._async_cover_travel_timer(profile.id, cover.id, direction, duration)
         )
         self._fire_cover_event(profile, cover, direction, reason)
-        await self._async_cover_mirror_ha(cover, direction)
+        if mirror_ha:
+            await self._async_cover_mirror_ha(cover, direction)
         self.runtime.async_notify()
 
     async def _async_cover_travel_timer(
@@ -1540,6 +1676,11 @@ class PanelCoordinator:
                 service,
                 {"entity_id": entity_id},
                 blocking=False,
+            )
+            # Suppress live HA→panel echoes of this mirror so open_cover cannot
+            # bounce back through the cover entity listener as a second start.
+            self._cover_ha_mirror_suppress_until[entity_id] = (
+                self._monotonic() + COVER_HA_MIRROR_SUPPRESS_S
             )
         except Exception as err:  # noqa: BLE001
             _LOGGER.warning(
@@ -2031,18 +2172,39 @@ class PanelCoordinator:
                     f"Service does not exist for button {button.index}: {action.action}"
                 )
 
+    def _scheduler_tasks_referencing_profile(self, profile_id: str) -> list[SchedulerTask]:
+        """Local + master tasks that reference ``profile_id`` in any range."""
+        blocking: list[SchedulerTask] = []
+        for task in self._effective_scheduler_tasks():
+            if any(rng.profile_id == profile_id for rng in task.ranges):
+                blocking.append(task)
+        return blocking
+
     async def async_delete_profile(self, profile_id: str) -> None:
-        """Delete a profile draft."""
+        """Delete a profile draft.
+
+        Blocks when this is the last profile or when any scheduler task (local or
+        master targeting this panel) still references the profile. Active and
+        default profile ids are reassigned to a remaining profile when needed.
+        """
         if profile_id not in self.data.profiles:
             raise ProfileNotFoundError(profile_id)
         if len(self.data.profiles) <= 1:
             raise ValueError("At least one profile must remain")
-        for task in self._effective_scheduler_tasks():
-            for rng in task.ranges:
-                if rng.profile_id == profile_id:
-                    raise ValueError(
-                        f"Profile '{profile_id}' is used by scheduler task '{task.name}'"
-                    )
+        blocking = self._scheduler_tasks_referencing_profile(profile_id)
+        if blocking:
+            labels: list[str] = []
+            seen: set[str] = set()
+            for task in blocking:
+                label = (task.name or "").strip() or task.id
+                if label in seen:
+                    continue
+                seen.add(label)
+                labels.append(label)
+            raise ValueError(
+                "Cannot delete profile "
+                f"'{profile_id}': used by scheduler task(s): {', '.join(labels)}"
+            )
         if profile_id == self.data.active_profile_id:
             await self._async_cover_abort(COVER_REASON_ABORT)
             await self._async_momentary_abort()
@@ -2052,6 +2214,11 @@ class PanelCoordinator:
             self.data.active_profile_id = next(iter(self.data.profiles))
         if self.data.default_profile_id == profile_id:
             self.data.default_profile_id = self.data.active_profile_id
+        elif (
+            self.data.default_profile_id
+            and self.data.default_profile_id not in self.data.profiles
+        ):
+            self.data.default_profile_id = self.data.active_profile_id
         self.data.refresh_pending_status()
         await self._async_after_draft_change()
         await self.async_scheduler_tick(reason="profile_delete")
@@ -2059,25 +2226,42 @@ class PanelCoordinator:
     async def async_duplicate_profile(
         self, profile_id: str, new_id: str, new_name: str | None = None
     ) -> Profile:
-        """Duplicate an existing profile."""
+        """Duplicate an existing profile with optional custom display name."""
         source = self.data.profiles.get(profile_id)
         if source is None:
             raise ProfileNotFoundError(profile_id)
-        if new_id in self.data.profiles:
-            raise ValueError(f"Profile already exists: {new_id}")
-        profile = source.clone(new_id, new_name)
-        self.data.profiles[new_id] = profile
+        cleaned_id = (new_id or "").strip()
+        if not cleaned_id:
+            raise ValueError("new_id is required")
+        if cleaned_id in self.data.profiles:
+            raise ValueError(f"Profile already exists: {cleaned_id}")
+        profile = source.clone(cleaned_id, new_name)
+        self.data.profiles[cleaned_id] = profile
         self.data.refresh_pending_status()
         await self._async_after_draft_change()
         return profile
 
     def export_profiles(self) -> dict[str, Any]:
-        """Return a portable JSON payload of stored profiles."""
+        """Return a portable JSON payload of stored profiles.
+
+        Scope is profiles + active_profile_id only. Scheduler tasks,
+        ``default_profile_id``, holiday flags, and ``applied_snapshot`` are
+        intentionally excluded — use ``export_scheduler`` for schedules.
+        """
         return {
-            "schema_version": STORAGE_VERSION,
+            "schema_version": PROFILES_EXPORT_SCHEMA_VERSION,
             "active_profile_id": self.data.active_profile_id,
             "profiles": {key: profile.to_dict() for key, profile in self.data.profiles.items()},
         }
+
+    @staticmethod
+    def profiles_export_schema_accepted(schema_version: int) -> bool:
+        """Whether a profiles-export ``schema_version`` can be imported."""
+        if schema_version < 1:
+            return False
+        if schema_version <= PROFILES_EXPORT_SCHEMA_VERSION:
+            return True
+        return schema_version in PROFILES_EXPORT_LEGACY_STORAGE_SCHEMA_VERSIONS
 
     @staticmethod
     def normalize_import_profiles(raw_profiles: Any) -> dict[str, Any]:
@@ -2111,27 +2295,32 @@ class PanelCoordinator:
         Expected portable file shape (same as export_profiles / card download)::
 
             {
-              "schema_version": 1,
+              "schema_version": 2,
               "active_profile_id": "lighting",
               "profiles": {
                 "lighting": { "id": "lighting", "name": "...", ... }
               }
             }
+
+        Files that mistakenly stamped panel ``STORAGE_VERSION`` (3–5) into
+        ``schema_version`` are accepted when they still carry a ``profiles``
+        object (card export bug / raw storage dump with profiles). Scheduler,
+        holiday, and snapshot fields in such dumps are ignored here.
         """
         if mode not in {"merge", "replace"}:
             raise ValueError(f"Unsupported import mode: {mode}")
         if not isinstance(payload, dict):
             raise ValueError("Import payload must be an object")
 
-        schema_version = payload.get("schema_version", STORAGE_VERSION)
+        schema_version = payload.get("schema_version", PROFILES_EXPORT_SCHEMA_VERSION)
         try:
             schema_version_int = int(schema_version)
         except (TypeError, ValueError) as err:
             raise ValueError("schema_version must be an integer") from err
-        if schema_version_int > STORAGE_VERSION:
+        if not self.profiles_export_schema_accepted(schema_version_int):
             raise ValueError(
                 f"Unsupported export schema_version {schema_version_int}; "
-                f"current is {STORAGE_VERSION}"
+                f"current is {PROFILES_EXPORT_SCHEMA_VERSION}"
             )
 
         raw_profiles = self.normalize_import_profiles(payload.get("profiles"))
@@ -2456,8 +2645,9 @@ class PanelCoordinator:
 
         new_local_ids = set(self.data.scheduler_tasks)
         for removed in previous_local_ids - new_local_ids:
-            if self._scheduler_entity_remover is not None:
-                self._scheduler_entity_remover(removed)
+            await self._async_call_scheduler_entity_remover(
+                self._scheduler_entity_remover, removed
+            )
         for added in new_local_ids - previous_local_ids:
             if self._scheduler_entity_adder is not None:
                 self._scheduler_entity_adder(added)
@@ -2664,3 +2854,30 @@ class PanelCoordinator:
             else:
                 states.append(state.state == "on")
         return states
+
+    def _panel_available(self) -> bool:
+        """True when the mapped panel device looks online via HA entity states.
+
+        Zigbee2MQTT / MQTT device availability is surfaced by Home Assistant as
+        ``unavailable`` (or ``unknown``) on the mapped relay switches. When the
+        panel is offline, every relay typically becomes unavailable — treat that
+        as ``panel_available=False``. A single flaky relay does not mark the
+        whole panel offline while any sibling still reports on/off.
+        """
+        relays = list(self.runtime.mapping.relay_entities)
+        if not relays:
+            return False
+        hass_states = getattr(self.hass, "states", None)
+        if hass_states is None:
+            return True
+        saw_entity = False
+        for entity_id in relays:
+            state = hass_states.get(entity_id)
+            if state is None:
+                continue
+            saw_entity = True
+            if state.state not in {STATE_UNKNOWN, STATE_UNAVAILABLE}:
+                return True
+        # False when every known relay is unavailable/unknown; True on startup
+        # race when no mapped relays are in the state machine yet.
+        return not saw_entity

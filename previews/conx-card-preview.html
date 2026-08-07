@@ -498,17 +498,19 @@
       background: linear-gradient(145deg, #f2f0ea 0%, #b8b0a4 36%, #ebe6dc 62%, #8a8378 100%);
       box-shadow: inset 0 1px 1px #fff, inset 0 -1px 2px rgba(0,0,0,.35), 0 16px 36px rgba(0,0,0,.35);
     }
-    .faceplate-menu-btn {
+    .operate-menu-btn {
       position: absolute;
-      top: 6px;
-      z-index: 5;
-      width: 28px;
-      height: 28px;
+      inset-inline-start: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 2;
+      width: calc(1.15 * clamp(1.05rem, 2.8vw, 1.45rem) + 4px);
+      height: calc(1.15 * clamp(1.05rem, 2.8vw, 1.45rem) + 4px);
       border-radius: 8px;
-      border: 1px solid rgba(0, 0, 0, 0.28);
-      background: rgba(26, 29, 34, 0.78);
-      color: #f0f2f5;
-      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.18) inset, 0 2px 6px rgba(0, 0, 0, 0.28);
+      border: 1px solid color-mix(in srgb, var(--accent, #d4af61) 35%, transparent);
+      background: color-mix(in srgb, var(--panel, #1a1d22) 72%, transparent);
+      color: var(--text, #f0f2f5);
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) inset;
       display: none;
       flex-direction: column;
       align-items: center;
@@ -516,22 +518,22 @@
       gap: 3px;
       cursor: pointer;
       padding: 0;
-      backdrop-filter: blur(4px);
-      left: 6px;
-      right: auto;
+      margin: 0;
+      box-sizing: border-box;
     }
-    .conx-card[dir="rtl"] .faceplate-menu-btn {
-      left: auto;
-      right: 6px;
-    }
-    .operate-mode .faceplate-menu-btn { display: inline-flex; }
-    .faceplate-menu-btn:hover { border-color: var(--accent); color: var(--accent); }
-    .faceplate-menu-btn span {
+    .operate-mode .operate-menu-btn { display: inline-flex; }
+    .operate-menu-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .operate-menu-btn span {
       display: block;
-      width: 12px;
+      width: 52%;
       height: 1.5px;
       border-radius: 1px;
       background: currentColor;
+    }
+    body[data-theme="ivory"] .operate-menu-btn {
+      background: rgba(255, 255, 255, 0.72);
+      color: #4a4338;
+      border-color: rgba(138, 115, 72, 0.35);
     }
     .operate-mode .panel-title,
     .operate-mode .header,
@@ -556,10 +558,13 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      position: relative;
       gap: 0;
       padding: 4px 8px 10px;
+      padding-inline: calc(1.15 * clamp(1.05rem, 2.8vw, 1.45rem) + 16px) 8px;
       border-bottom: 0;
       background: transparent;
+      min-height: calc(1.15 * clamp(1.05rem, 2.8vw, 1.45rem) + 8px);
     }
     .conx-card.operate-mode .hero-preview > .section-head .hero-profile-name {
       position: static;
@@ -579,6 +584,7 @@
       box-shadow: inset 0 0 0 1px rgba(0,0,0,.08);
     }
     .faceplate-labels {
+      position: relative;
       display: grid;
       grid-template-columns: repeat(var(--conx-gang-count, 4), 1fr);
       align-items: center;
@@ -619,6 +625,22 @@
       line-height: 1.25;
       color: #8b93a7;
       text-align: center;
+    }
+    .faceplate-unavailable {
+      margin-top: 0.45rem;
+      padding: 0.4rem 0.65rem;
+      font-size: 0.88rem;
+      font-weight: 700;
+      line-height: 1.3;
+      letter-spacing: 0.01em;
+      text-align: center;
+      color: #ff3b3b;
+      background: rgba(255, 59, 59, 0.14);
+      border: 1px solid rgba(255, 59, 59, 0.42);
+      border-radius: 8px;
+    }
+    .faceplate-unavailable[hidden] {
+      display: none !important;
     }
     .faceplate-scheduler-next .scheduler-next-profile,
     .faceplate-scheduler-next .scheduler-next-time {
@@ -1470,8 +1492,8 @@
       transform:rotate(-45deg); flex-shrink:0; transition: transform 180ms ease;
     }
     [dir="rtl"] .button-edit-chevron { transform:rotate(45deg); }
-    .button-edit.open .button-edit-chevron { transform:rotate(45deg); }
-    [dir="rtl"] .button-edit.open .button-edit-chevron { transform:rotate(-45deg); }
+    .button-edit.open > .button-edit-toggle .button-edit-chevron { transform:rotate(45deg); }
+    [dir="rtl"] .button-edit.open > .button-edit-toggle .button-edit-chevron { transform:rotate(-45deg); }
     .button-edit-summary { display:flex; flex-direction:column; gap:2px; min-width:0; flex:1; }
     .button-edit-title { font-weight:700; }
     .button-edit-meta { font-size:.78rem; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -1479,6 +1501,21 @@
     .button-edit.open .button-edit-body { display:block; }
     .button-edit-fields { padding:0 12px 12px; border-top:1px solid var(--border); }
     .button-edit.open .button-edit-fields .field:first-child { margin-top:10px; }
+
+    .action-slots-accordion { display:flex; flex-direction:column; gap:8px; }
+    .action-edit { border-radius:12px; border:1px solid var(--border); background: var(--surface-2, var(--surface)); overflow:hidden; }
+    .action-edit-toggle {
+      display:flex; align-items:center; gap:10px; width:100%; padding:10px 12px;
+      border:0; background:transparent; color:var(--text); font:inherit; cursor:pointer; text-align:start;
+    }
+    .action-edit-toggle:hover { background: var(--accent-soft); }
+    .action-edit.open > .action-edit-toggle .button-edit-chevron { transform:rotate(45deg); }
+    [dir="rtl"] .action-edit.open > .action-edit-toggle .button-edit-chevron { transform:rotate(-45deg); }
+    .action-edit-body { display:none; }
+    .action-edit.open .action-edit-body { display:block; }
+    .action-edit-fields { padding:0 12px 12px; border-top:1px solid var(--border); }
+    .action-edit.open .action-edit-fields .field:first-child { margin-top:10px; }
+    .multi-click-hint { margin:0.15rem 0; opacity:0.85; font-size:0.78rem; line-height:1.35; }
 
     .actions-dock {
       margin-top: 0; border-radius: 12px; border: 1px solid var(--border);
@@ -1918,6 +1955,9 @@
       <!-- HERO: panel preview -->
       <section class="hero-preview open" id="hero-preview" data-section="preview" data-hero-preview>
         <header class="section-head" data-preview-chrome>
+          <button type="button" class="operate-menu-btn" id="operate-menu" data-operate-menu aria-label="Settings" aria-expanded="false" aria-controls="app-menu" hidden>
+            <span></span><span></span><span></span>
+          </button>
           <div class="section-head-main">
             <div class="section-title" data-i18n="card.preview">Panel preview</div>
           </div>
@@ -1930,18 +1970,19 @@
         <div class="hero-body">
           <div class="faceplate" id="faceplate" role="img" aria-label="Panel preview" dir="ltr">
             <div class="faceplate-bezel">
-              <button type="button" class="faceplate-menu-btn" id="faceplate-menu" data-operate-menu aria-label="Settings" aria-expanded="false" aria-controls="app-menu" hidden>
-                <span></span><span></span><span></span>
-              </button>
               <span class="faceplate-holiday-badge" id="faceplate-holiday-badge" data-holiday-badge hidden title="Holiday mode on — schedulers paused" aria-label="Holiday mode on — schedulers paused" role="img">
                 <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 2a1 1 0 0 1 1 1v1.06A7.002 7.002 0 0 1 19 11v1.17l1.55 1.55a1 1 0 0 1-1.41 1.41L18 13.59V11a5 5 0 0 0-4-4.9V17a3 3 0 1 1-2 0V6.1A5 5 0 0 0 8 11v2.59l-1.14 1.14a1 1 0 1 1-1.41-1.41L7 12.17V11a7.002 7.002 0 0 1 6-6.94V3a1 1 0 0 1 1-1Zm-1 17a1 1 0 1 0 2 0 1 1 0 0 0-2 0Z"/></svg>
               </span>
               <div class="faceplate-glass">
-                <div class="faceplate-labels" id="faceplate-labels"></div>
+                <div class="faceplate-labels" id="faceplate-labels">
+                </div>
                 <div class="faceplate-touch">
                   <div class="faceplate-rings" id="faceplate-rings"></div>
                 </div>
               </div>
+            </div>
+            <div class="faceplate-unavailable" id="faceplate-unavailable" data-panel-unavailable hidden data-i18n="card.panel_unavailable">
+              Panel unavailable
             </div>
             <div class="faceplate-scheduler-next" id="faceplate-scheduler-next" data-scheduler-next>
               <span class="scheduler-next-label" data-i18n="scheduler.next_profile">Next</span>
@@ -2060,6 +2101,10 @@
               <label class="field switch-row">
                 <span data-i18n="scheduler.master_holiday">Master holiday (all panels)</span>
                 <label class="switch"><input type="checkbox" id="preview-master-holiday" /><span class="slider"></span></label>
+              </label>
+              <label class="field switch-row">
+                <span data-i18n="card.panel_unavailable">Panel unavailable</span>
+                <label class="switch"><input type="checkbox" id="preview-unavailable" /><span class="slider"></span></label>
               </label>
               <p class="notice subtle" id="preview-holiday-notice" hidden data-i18n="scheduler.holiday_on">Schedulers paused on this panel</p>
               <label class="field">
@@ -2484,6 +2529,99 @@
         ${editor}
       </div>`;
     }
+    function formatActionSlotSummaryPreview(action, entityId) {
+      const service = String(action || "").trim();
+      if (!service) return t("card.action_not_set");
+      const entity = String(entityId || "").trim();
+      return entity ? `${service} · ${entity}` : service;
+    }
+    function actionSlotKey(buttonIndex, slot) {
+      return slot === "single" ? String(buttonIndex) : `${buttonIndex}:${slot}`;
+    }
+    function isActionSlotOpen(buttonIndex, slot) {
+      if (!(state.expandedActionSlots instanceof Set)) state.expandedActionSlots = new Set();
+      return state.expandedActionSlots.has(actionSlotKey(buttonIndex, slot));
+    }
+    function toggleActionSlotOpen(buttonIndex, slot) {
+      if (!(state.expandedActionSlots instanceof Set)) state.expandedActionSlots = new Set();
+      const key = actionSlotKey(buttonIndex, slot);
+      if (state.expandedActionSlots.has(key)) state.expandedActionSlots.delete(key);
+      else state.expandedActionSlots.add(key);
+    }
+    function actionSlotsAccordionHtml(button) {
+      const domain = actionDomainPreview(button.action);
+      const entityChoices = domain
+        ? PREVIEW_ENTITIES.filter((id) => id.startsWith(domain + "."))
+        : PREVIEW_ENTITIES;
+      const singleOpen = isActionSlotOpen(button.index, "single");
+      const doubleOpen = isActionSlotOpen(button.index, "double");
+      const singleSummary = formatActionSlotSummaryPreview(button.action, button.entity);
+      const doubleSummary = formatActionSlotSummaryPreview(button.action_double || "", "");
+      const singleBody = singleOpen ? `
+        <label class="field"><span>${t("card.action")}</span>
+          <input type="search" class="picker-filter" data-action-filter data-button="${button.index}"
+            placeholder="${t("card.picker_search")}" />
+          <select data-field="action" data-action-picker data-button="${button.index}">
+            ${optionsHtml(PREVIEW_SERVICES, button.action, t("card.action_none"))}
+          </select>
+          <span class="field-hint">${t("card.action_picker_hint")}</span>
+        </label>
+        <label class="field"><span>${t("card.entity_id")}</span>
+          <input type="search" class="picker-filter" data-entity-filter data-button="${button.index}"
+            placeholder="${t("card.picker_search")}" ${button.action ? "" : "disabled"} />
+          <select data-field="entity" data-entity-picker data-button="${button.index}" ${button.action ? "" : "disabled"}>
+            ${optionsHtml(entityChoices, button.entity, t("card.entity_none"))}
+          </select>
+          <span class="field-hint">${t("card.entity_picker_hint")}</span>
+        </label>
+        ${actionDataEditorHtml(button)}` : "";
+      const doubleBody = doubleOpen ? `
+        <label class="field"><span>${t("card.action")}</span>
+          <select data-field="action_double" data-action-slot="double" data-button="${button.index}">
+            ${optionsHtml(PREVIEW_SERVICES, button.action_double || "", t("card.action_none"))}
+          </select>
+        </label>` : "";
+      return `<div class="action-slots-accordion" data-action-slots="${button.index}">
+        <div class="action-edit${singleOpen ? " open" : ""}" data-action-edit-slot="single" data-button="${button.index}">
+          <button type="button" class="action-edit-toggle" data-action-slot-toggle data-slot="single"
+            aria-expanded="${singleOpen ? "true" : "false"}"
+            title="${singleOpen ? t("card.action_collapse") : t("card.action_expand")}">
+            <span class="button-edit-chevron" aria-hidden="true"></span>
+            <span class="button-edit-summary">
+              <span class="button-edit-title">${t("card.action")}</span>
+              <span class="button-edit-meta" dir="ltr">${singleSummary}</span>
+            </span>
+          </button>
+          <div class="action-edit-body"><div class="action-edit-fields">${singleBody}</div></div>
+        </div>
+        <p class="field-hint multi-click-hint">${t("card.multi_click_hint")}</p>
+        <div class="action-edit${doubleOpen ? " open" : ""}" data-action-edit-slot="double" data-button="${button.index}">
+          <button type="button" class="action-edit-toggle" data-action-slot-toggle data-slot="double"
+            aria-expanded="${doubleOpen ? "true" : "false"}"
+            title="${doubleOpen ? t("card.action_collapse") : t("card.action_expand")}">
+            <span class="button-edit-chevron" aria-hidden="true"></span>
+            <span class="button-edit-summary">
+              <span class="button-edit-title">${t("card.action_double")}</span>
+              <span class="button-edit-meta" dir="ltr">${doubleSummary}</span>
+            </span>
+          </button>
+          <div class="action-edit-body"><div class="action-edit-fields">${doubleBody}</div></div>
+        </div>
+      </div>`;
+    }
+    function bindActionSlotAccordions(root, onRerender) {
+      root.querySelectorAll("[data-action-slot-toggle]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const row = btn.closest("[data-action-edit-slot]");
+          if (!row) return;
+          const index = Number(row.dataset.button);
+          const slot = row.dataset.actionEditSlot === "double" ? "double" : "single";
+          toggleActionSlotOpen(index, slot);
+          persistState();
+          onRerender();
+        });
+      });
+    }
     function bindActionDataEditor(root, index, onRerender) {
       const field = root.querySelector(`[data-action-data-field][data-button="${index}"]`) || root;
       const toggleBtn = field.querySelector("[data-action-data-toggle]");
@@ -2577,6 +2715,7 @@
         "card.rename": "Rename", "card.delete": "Delete",
         "card.profiles": "Profiles", "card.editor": "Appearance",
         "card.buttons": "Buttons", "card.scheduler": "Scheduler", "card.preview": "Panel preview",
+        "card.panel_unavailable": "Panel unavailable",
         "card.step_1": "Step 1", "card.step_2": "Step 2", "card.step_3": "Step 3", "card.step_4": "Step 4",
         "scheduler.hint": "Timeline ranges activate profiles automatically. The end time is exclusive — that minute starts the next range (e.g. 08:00–12:00 ends just before 12:00). Outside all ranges the default profile is used. Panel holiday pauses this panel; master holiday pauses every panel.",
         "scheduler.holiday": "Holiday mode (this panel)",
@@ -2639,11 +2778,18 @@
         "card.radio_groups_overlap": "Each button can belong to only one radio group.",
         "card.dialog_ok": "OK", "card.dialog_cancel": "Cancel", "card.dialog_confirm": "Confirm",
         "card.keep_one_profile": "At least one profile must remain.",
+        "card.duplicate_name": "Name for the duplicated profile",
+        "card.duplicate_ok": "Profile duplicated.",
+        "card.delete_ok": "Profile deleted.",
+        "card.delete_blocked_scheduler": "Cannot delete this profile — used by scheduler task(s): {tasks}. Remove or retarget those tasks first.",
         "theme.noir": "Noir gold", "theme.ivory": "Ivory stone",
         "card.child_lock": "Child lock", "card.button": "Button",
         "card.button_expand": "Expand button settings", "card.button_collapse": "Collapse button settings",
         "card.label": "Label", "card.action": "Action",
         "card.action_double": "Double-click action",
+        "card.action_not_set": "Not set",
+        "card.action_expand": "Expand action settings",
+        "card.action_collapse": "Collapse action settings",
         "card.multi_click_hint": "Optional. When double-click is set, presses are classified after a short pause — only one of single / double runs (not the single action twice). A double-click restores the button relay to its state before the two taps (suppressed), then runs the double action. Single-click keeps the normal toggle. Momentary and cover buttons do not restore.",
         "card.entity_id": "Entity ID",
         "card.action_none": "No Home Assistant action",
@@ -2697,7 +2843,7 @@
         "info.sync_title": "Save Draft vs Sync",
         "info.sync_body": "Save Draft stores roles and actions so presses follow the draft. Sync pushes labels, colors, and on-panel settings to the hardware. While a draft is unsaved, physical presses still use the last saved profile.",
         "info.operate_title": "Operate mode",
-        "info.operate_body": "Shows only the faceplate for day-to-day use. Open the corner menu and choose Settings to return to the full editor.",
+        "info.operate_body": "Shows only the faceplate for day-to-day use. Open the title-row menu and choose Settings to return to the full editor.",
         "info.cover_title": "Cover motor vs HA entity",
         "info.cover_body": "Motor / Cover slot pairs open and close internally — it is not a Home Assistant cover.* entity. Travel times and opposite-press sit on the first cover-role card for that motor. Optionally link a cover.* entity to mirror open/close/stop for HA status and automations; panel relays still drive the physical motor.",
         "info.actions_title": "Actions & YAML data",
@@ -2763,6 +2909,7 @@
         "card.rename": "שנה שם", "card.delete": "מחק",
         "card.profiles": "פרופילים", "card.editor": "מראה",
         "card.buttons": "כפתורים", "card.preview": "תצוגת פאנל",
+        "card.panel_unavailable": "הפאנל לא זמין",
         "card.scheduler": "תזמון",
         "scheduler.hint": "טווחי זמן מפעילים פרופילים אוטומטית. שעת הסיום אינה כלולה — הדקה הזו מתחילה את הטווח הבא (למשל 08:00–12:00 מסתיים ממש לפני 12:00). מחוץ לכל הטווחים נבחר פרופיל ברירת המחדל. מצב חג בפאנל עוצר את התזמון כאן; מצב חג ראשי עוצר בכל הפאנלים.",
         "scheduler.holiday": "מצב חג (פאנל זה)",
@@ -2825,11 +2972,18 @@
         "card.radio_groups_overlap": "כל כפתור יכול להשתייך לקבוצת רדיו אחת בלבד.",
         "card.dialog_ok": "אישור", "card.dialog_cancel": "ביטול", "card.dialog_confirm": "אישור",
         "card.keep_one_profile": "חייבים להשאיר לפחות פרופיל אחד.",
+        "card.duplicate_name": "שם לפרופיל המשוכפל",
+        "card.duplicate_ok": "הפרופיל שוכפל.",
+        "card.delete_ok": "הפרופיל נמחק.",
+        "card.delete_blocked_scheduler": "לא ניתן למחוק את הפרופיל — בשימוש במשימות תזמון: {tasks}. הסירו או שנו את המשימות קודם.",
         "theme.noir": "נואר זהב", "theme.ivory": "שנהב אבן",
         "card.child_lock": "נעילת ילדים", "card.button": "כפתור",
         "card.button_expand": "הרחב הגדרות כפתור", "card.button_collapse": "כווץ הגדרות כפתור",
         "card.label": "תווית", "card.action": "פעולה",
         "card.action_double": "פעולת לחיצה כפולה",
+        "card.action_not_set": "לא הוגדר",
+        "card.action_expand": "הרחב הגדרות פעולה",
+        "card.action_collapse": "כווץ הגדרות פעולה",
         "card.multi_click_hint": "אופציונלי. כשמגדירים לחיצה כפולה, הלחיצות מסווגות אחרי הפסקה קצרה — רצה רק אחת מבין יחידה / כפולה (לא הפעולה היחידה פעמיים). לחיצה כפולה מחזירה את ממסר הכפתור למצב שלפני שתי הלחיצות (עם דיכוי מעבר) ואז מריצה את פעולת הכפולה. לחיצה יחידה נשארת טוגל רגיל. כפתורי רגעי ותריס לא משחזרים.",
         "card.entity_id": "מזהה ישות",
         "card.action_none": "ללא פעולת Home Assistant",
@@ -2883,7 +3037,7 @@
         "info.sync_title": "שמירת טיוטה מול סנכרון",
         "info.sync_body": "שמור טיוטה שומר תפקידים ופעולות כדי שלחיצות יעבדו לפי הטיוטה. סנכרון דוחף תוויות, צבעים והגדרות על הפאנל. בזמן שיש טיוטה לא שמורה, לחיצות פיזיות עדיין לפי הפרופיל השמור האחרון.",
         "info.operate_title": "מצב תפעול",
-        "info.operate_body": "מציג רק את תצוגת הפאנל לשימוש יומיומי. בתפריט הפינה בחרו «הגדרות» כדי לחזור לעורך המלא.",
+        "info.operate_body": "מציג רק את תצוגת הפאנל לשימוש יומיומי. בתפריט בשורת הכותרת בחרו «הגדרות» כדי לחזור לעורך המלא.",
         "info.cover_title": "מנוע תריס מול ישות HA",
         "info.cover_body": "מנוע / מזהה תריס מזווג פתיחה וסגירה פנימית — זו לא ישות cover.* של Home Assistant. זמני נסיעה ולחיצה הפוכה מופיעים בכרטיס תפקיד התריס הראשון של אותו מנוע. אפשר לקשר ישות cover.* כדי לשקף פתיחה/סגירה/עצירה לסטטוס ואוטומציות; ממסרי הפאנל עדיין מפעילים את המנוע.",
         "info.actions_title": "פעולות ונתוני YAML",
@@ -2949,6 +3103,7 @@
         "card.rename": "Переименовать", "card.delete": "Удалить",
         "card.profiles": "Профили", "card.editor": "Внешний вид",
         "card.buttons": "Кнопки", "card.preview": "Превью панели",
+        "card.panel_unavailable": "Панель недоступна",
         "card.scheduler": "Расписание",
         "scheduler.hint": "Временные диапазоны автоматически активируют профили. Конец диапазона не включается — эта минута начинает следующий диапазон (например 08:00–12:00 действует до 12:00). Вне диапазонов используется профиль по умолчанию. Праздник панели останавливает планировщик здесь; мастер-праздник — на всех панелях.",
         "scheduler.holiday": "Режим праздника (эта панель)",
@@ -3008,11 +3163,18 @@
         "card.radio_groups_overlap": "Каждая кнопка может входить только в одну радиогруппу.",
         "card.dialog_ok": "ОК", "card.dialog_cancel": "Отмена", "card.dialog_confirm": "Подтвердить",
         "card.keep_one_profile": "Должен остаться хотя бы один профиль.",
+        "card.duplicate_name": "Имя для дублированного профиля",
+        "card.duplicate_ok": "Профиль дублирован.",
+        "card.delete_ok": "Профиль удалён.",
+        "card.delete_blocked_scheduler": "Нельзя удалить профиль — он используется в задачах планировщика: {tasks}. Сначала удалите или измените эти задачи.",
         "theme.noir": "Нуар / золото", "theme.ivory": "Слоновая кость",
         "card.child_lock": "Блокировка", "card.button": "Кнопка",
         "card.button_expand": "Развернуть настройки кнопки", "card.button_collapse": "Свернуть настройки кнопки",
         "card.label": "Название", "card.action": "Действие",
         "card.action_double": "Действие двойного нажатия",
+        "card.action_not_set": "Не задано",
+        "card.action_expand": "Развернуть настройки действия",
+        "card.action_collapse": "Свернуть настройки действия",
         "card.multi_click_hint": "Необязательно. Если задано двойное нажатие, нажатия классифицируются после короткой паузы — выполняется только одно из: одиночное / двойное (не одиночное дважды). Двойное нажатие возвращает реле кнопки в состояние до двух нажатий (с подавлением перехода), затем выполняет действие двойного нажатия. Одиночное нажатие остаётся обычным переключением. Импульсные и рольставни не восстанавливают реле.",
         "card.entity_id": "Entity ID",
         "card.action_none": "Без действия Home Assistant",
@@ -3066,7 +3228,7 @@
         "info.sync_title": "Черновик и синхронизация",
         "info.sync_body": "Сохранить черновик записывает роли и действия, чтобы нажатия шли по черновику. Синхронизация отправляет подписи, цвета и настройки на панель. Пока черновик не сохранён, физические нажатия идут по последнему сохранённому профилю.",
         "info.operate_title": "Режим управления",
-        "info.operate_body": "Показывает только лицевую панель для повседневного использования. В угловом меню выберите «Настройки», чтобы вернуться к полному редактору.",
+        "info.operate_body": "Показывает только лицевую панель для повседневного использования. В меню строки заголовка выберите «Настройки», чтобы вернуться к полному редактору.",
         "info.cover_title": "Мотор ролеты и сущность HA",
         "info.cover_body": "Мотор / слот ролеты связывает открытие и закрытие внутри — это не сущность cover.* Home Assistant. Время хода и противоположное нажатие задаются на первой карточке роли cover для этого мотора. Можно связать cover.*, чтобы зеркалировать open/close/stop для статуса и автоматизаций; реле панели по-прежнему управляют мотором.",
         "info.actions_title": "Действия и YAML",
@@ -3391,6 +3553,7 @@
         operateMode: loadStoredOperateMode(),
         panelName: DEFAULT_PANEL_NAME,
         expandedButtons: [],
+        expandedActionSlots: [],
         actionDataOpen: [],
         actionDataText: {},
         actionDataError: {},
@@ -3421,6 +3584,7 @@
           operateMode: Boolean(state.operateMode),
           panelName: typeof state.panelName === "string" ? state.panelName : DEFAULT_PANEL_NAME,
           expandedButtons: Array.from(state.expandedButtons),
+          expandedActionSlots: Array.from(state.expandedActionSlots || []),
           radioGroupsOpen: normalizeRadioGroupsOpen(state.radioGroupsOpen),
           profiles: state.profiles, draft: state.draft, saved: state.saved,
         };
@@ -3458,6 +3622,7 @@
           panelName: typeof data.panelName === "string" && data.panelName.trim()
             ? data.panelName : defaults.panelName,
           expandedButtons: new Set(Array.isArray(data.expandedButtons) ? data.expandedButtons.map(Number).filter((n)=>n>=1&&n<=4) : []),
+          expandedActionSlots: new Set(Array.isArray(data.expandedActionSlots) ? data.expandedActionSlots.map(String) : []),
           radioGroupsOpen: normalizeRadioGroupsOpen(data.radioGroupsOpen),
           profiles,
           draft: data.draft && typeof data.draft === "object" ? normalizeStoredProfile(activeId, data.draft) : deepClone(profiles[activeId]),
@@ -3473,6 +3638,7 @@
     try {
       state = loadPersistedState() || createDefaultState();
       if (!(state.expandedButtons instanceof Set)) state.expandedButtons = new Set(state.expandedButtons || []);
+      if (!(state.expandedActionSlots instanceof Set)) state.expandedActionSlots = new Set(state.expandedActionSlots || []);
       if (!(state.actionDataOpen instanceof Set)) state.actionDataOpen = new Set();
       if (!state.actionDataText || typeof state.actionDataText !== "object") state.actionDataText = {};
       if (!state.actionDataError || typeof state.actionDataError !== "object") state.actionDataError = {};
@@ -3487,6 +3653,7 @@
       try { localStorage.removeItem(STORAGE_KEY); } catch (_x) {}
       state = createDefaultState();
       state.expandedButtons = new Set();
+      state.expandedActionSlots = new Set();
       state.actionDataOpen = new Set();
       state.actionDataText = {};
       state.actionDataError = {};
@@ -3531,8 +3698,10 @@
       faceplate: document.getElementById("faceplate"),
       holidayBadge: document.getElementById("faceplate-holiday-badge"),
       schedulerNext: document.getElementById("faceplate-scheduler-next"),
+      unavailableStatus: document.getElementById("faceplate-unavailable"),
       previewHoliday: document.getElementById("preview-holiday"),
       previewMasterHoliday: document.getElementById("preview-master-holiday"),
+      previewUnavailable: document.getElementById("preview-unavailable"),
       previewHolidayNotice: document.getElementById("preview-holiday-notice"),
       btnSave: document.getElementById("btn-save"),
       btnDiscard: document.getElementById("btn-discard"),
@@ -3549,7 +3718,7 @@
       operateToggle: document.getElementById("operate-toggle"),
       operateExit: document.getElementById("operate-exit"),
       operateExitSection: document.getElementById("operate-exit-section"),
-      faceplateMenu: document.getElementById("faceplate-menu"),
+      faceplateMenu: document.getElementById("operate-menu"),
       panelTitle: document.getElementById("panel-title"),
       cardHeader: document.querySelector("[data-card-header]"),
       statusActionBar: document.querySelector("[data-status-action-bar]"),
@@ -4070,33 +4239,9 @@
                 value="${clampPulseTime(button.pulse_time_s, DEFAULT_PULSE_TIME)}" />
             </label>` : "";
           const radioHint = "";
-          const domain = actionDomainPreview(button.action);
-          const entityChoices = domain
-            ? PREVIEW_ENTITIES.filter((id) => id.startsWith(domain + "."))
-            : PREVIEW_ENTITIES;
           const actionEntity = needsActionEntity ? `
             <div class="mixed-action-entity" data-mixed-action-entity>
-              <label class="field"><span>${t("card.action")}</span>
-                <input type="search" class="picker-filter" data-action-filter data-button="${button.index}"
-                  placeholder="${t("card.picker_search")}" />
-                <select data-field="action" data-action-picker data-button="${button.index}">
-                  ${optionsHtml(PREVIEW_SERVICES, button.action, t("card.action_none"))}
-                </select>
-              </label>
-              <label class="field"><span>${t("card.entity_id")}</span>
-                <input type="search" class="picker-filter" data-entity-filter data-button="${button.index}"
-                  placeholder="${t("card.picker_search")}" ${button.action ? "" : "disabled"} />
-                <select data-field="entity" data-entity-picker data-button="${button.index}" ${button.action ? "" : "disabled"}>
-                  ${optionsHtml(entityChoices, button.entity, t("card.entity_none"))}
-                </select>
-              </label>
-              ${actionDataEditorHtml(button)}
-              <p class="field-hint multi-click-hint">${t("card.multi_click_hint")}</p>
-              <label class="field"><span>${t("card.action_double")}</span>
-                <select data-field="action_double" data-action-slot="double" data-button="${button.index}">
-                  ${optionsHtml(PREVIEW_SERVICES, button.action_double || "", t("card.action_none"))}
-                </select>
-              </label>
+              ${actionSlotsAccordionHtml(button)}
             </div>` : "";
           let coverFields = "";
           if (isCoverRole) {
@@ -4259,6 +4404,10 @@
           });
         });
         bindActionDataEditor(card, index, () => {
+          renderMixedRolesSection();
+          renderButtonsEditor();
+        });
+        bindActionSlotAccordions(card, () => {
           renderMixedRolesSection();
           renderButtonsEditor();
         });
@@ -4777,24 +4926,7 @@
         const meta = buttonMetaLabel(b);
         const mixedRole = state.draft.mode === "mixed" ? normalizeButtonRole(b.role) : null;
         const isCoverMapped = mixedRole === "cover_open" || mixedRole === "cover_close";
-        const domain = actionDomainPreview(b.action);
-        const entityChoices = domain
-          ? PREVIEW_ENTITIES.filter((id) => id.startsWith(domain + "."))
-          : PREVIEW_ENTITIES;
-        const actionFields = isCoverMapped ? "" : `
-            <label class="field"><span>${t("card.action")}</span>
-              <select data-field="action">${optionsHtml(PREVIEW_SERVICES, b.action, t("card.action_none"))}</select>
-              <span class="field-hint">${t("card.action_picker_hint")}</span>
-            </label>
-            <label class="field"><span>${t("card.entity_id")}</span>
-              <select data-field="entity" ${b.action ? "" : "disabled"}>${optionsHtml(entityChoices, b.entity, t("card.entity_none"))}</select>
-              <span class="field-hint">${t("card.entity_picker_hint")}</span>
-            </label>
-            ${actionDataEditorHtml(b)}
-            <p class="field-hint multi-click-hint">${t("card.multi_click_hint")}</p>
-            <label class="field"><span>${t("card.action_double")}</span>
-              <select data-field="action_double">${optionsHtml(PREVIEW_SERVICES, b.action_double || "", t("card.action_none"))}</select>
-            </label>`;
+        const actionFields = isCoverMapped ? "" : actionSlotsAccordionHtml(b);
         return `<div class="button-edit ${open ? "open" : ""}" data-button="${b.index}">
           <button type="button" class="button-edit-toggle" aria-expanded="${open}">
             <span class="button-edit-chevron" aria-hidden="true"></span>
@@ -4841,6 +4973,11 @@
               renderButtonsEditor();
               return;
             }
+            if (field === "action_double" || field === "entity") {
+              markDirty(true);
+              renderButtonsEditor();
+              return;
+            }
             markDirty(true);
             const summaryTitle = row.querySelector(".button-edit-title");
             const summaryMeta = row.querySelector(".button-edit-meta");
@@ -4850,6 +4987,10 @@
           });
         });
         bindActionDataEditor(row, index, () => {
+          renderButtonsEditor();
+          renderMixedRolesSection();
+        });
+        bindActionSlotAccordions(row, () => {
           renderButtonsEditor();
           renderMixedRolesSection();
         });
@@ -4940,13 +5081,13 @@
       dialogResolver = null;
       if (resolve) resolve(result);
     }
-    function openDialog({ title, message, html, confirmLabel, cancelLabel, danger }) {
+    function openDialog({ title, message, html, confirmLabel, cancelLabel, danger, getResult }) {
       return new Promise((resolve) => {
         if (!els.dialogLayer || !els.dialogTitle || !els.dialogBody || !els.dialogActions) {
-          resolve(false);
+          resolve(getResult ? null : false);
           return;
         }
-        if (dialogResolver) closeDialog(false);
+        if (dialogResolver) closeDialog(getResult ? null : false);
         dialogResolver = resolve;
         setMenuOpen(false);
         els.dialogTitle.textContent = title || t("card.dialog_confirm");
@@ -4958,10 +5099,23 @@
           <button type="button" class="btn ${danger ? "danger" : "primary"}" data-dialog="ok">${confirmLabel || t("card.dialog_ok")}</button>
         `;
         els.dialogActions.querySelectorAll("[data-dialog]").forEach((btn) => {
-          btn.addEventListener("click", () => closeDialog(btn.dataset.dialog === "ok"));
+          btn.addEventListener("click", () => {
+            if (btn.dataset.dialog === "ok") {
+              closeDialog(typeof getResult === "function" ? getResult() : true);
+            } else {
+              closeDialog(typeof getResult === "function" ? null : false);
+            }
+          });
         });
         els.dialogLayer.hidden = false;
-        requestAnimationFrame(() => els.dialogLayer.classList.add("open"));
+        requestAnimationFrame(() => {
+          els.dialogLayer.classList.add("open");
+          const input = els.dialogBody.querySelector("#dialog-input");
+          if (input) {
+            input.focus();
+            input.select();
+          }
+        });
       });
     }
     function showAlert(message, title) {
@@ -4979,6 +5133,19 @@
         confirmLabel: options.confirmLabel || t("card.dialog_confirm"),
         cancelLabel: options.cancelLabel || t("card.dialog_cancel"),
         danger: Boolean(options.danger),
+      });
+    }
+    function showPrompt(message, defaultValue) {
+      const safeDefault = String(defaultValue || "").replace(/"/g, "&quot;");
+      return openDialog({
+        title: t("card.duplicate_name"),
+        html: `<label class="field"><span>${message}</span><input type="text" id="dialog-input" value="${safeDefault}" /></label>`,
+        confirmLabel: t("card.dialog_ok"),
+        cancelLabel: t("card.dialog_cancel"),
+        getResult: () => {
+          const input = els.dialogBody.querySelector("#dialog-input");
+          return input ? input.value : "";
+        },
       });
     }
     function setMenuOpen(open) {
@@ -5124,6 +5291,7 @@
     function updateHolidayFaceplate() {
       const panelOn = Boolean(els.previewHoliday && els.previewHoliday.checked);
       const masterOn = Boolean(els.previewMasterHoliday && els.previewMasterHoliday.checked);
+      const unavailable = Boolean(els.previewUnavailable && els.previewUnavailable.checked);
       const effective = panelOn || masterOn;
       const badgeLabel = t("scheduler.holiday_badge");
       if (els.holidayBadge) {
@@ -5132,8 +5300,12 @@
         els.holidayBadge.setAttribute("title", badgeLabel);
         els.holidayBadge.setAttribute("aria-label", badgeLabel);
       }
+      if (els.unavailableStatus) {
+        els.unavailableStatus.hidden = !unavailable;
+        els.unavailableStatus.textContent = t("card.panel_unavailable");
+      }
       if (els.schedulerNext) {
-        els.schedulerNext.hidden = effective;
+        els.schedulerNext.hidden = effective || unavailable;
       }
       if (els.previewHolidayNotice) {
         const show = effective;
@@ -5205,6 +5377,8 @@
       Object.keys(state).forEach((k) => delete state[k]);
       Object.assign(state, fresh);
       state.expandedButtons = new Set();
+      state.expandedActionSlots = new Set();
+      state.actionDataOpen = new Set();
       state.operateMode = false;
       applyPreviewToggle();
       applyOperateMode();
@@ -5218,8 +5392,13 @@
 
     function validateImportPayload(raw) {
       if (!raw || typeof raw !== "object") return { ok: false, error: "not object" };
-      const ver = Number(raw.schema_version ?? 1);
-      if (ver !== 1) return { ok: false, error: "schema" };
+      const PROFILES_EXPORT_SCHEMA_VERSION = 2;
+      const LEGACY_STORAGE_STAMPED = new Set([3, 4, 5]);
+      const ver = Number(raw.schema_version ?? PROFILES_EXPORT_SCHEMA_VERSION);
+      if (!Number.isInteger(ver) || ver < 1) return { ok: false, error: "schema_version" };
+      if (ver > PROFILES_EXPORT_SCHEMA_VERSION && !LEGACY_STORAGE_STAMPED.has(ver)) {
+        return { ok: false, error: `Unsupported schema_version ${ver}; current is ${PROFILES_EXPORT_SCHEMA_VERSION}` };
+      }
       let profiles = raw.profiles;
       if (Array.isArray(profiles)) {
         const obj = {};
@@ -5250,14 +5429,26 @@
               action = String(found.action || "");
               entity = String(found.entity || "");
             }
-            return { index: i, name: String(found.name || "Button " + i), action, entity, radio_member: found.radio_member !== false };
+            const role = ["toggle","momentary","radio","cover_open","cover_close"].includes(found.role)
+              ? found.role : "toggle";
+            return {
+              index: i,
+              name: String(found.name || "Button " + i),
+              action,
+              entity,
+              radio_member: found.radio_member !== false,
+              role,
+              pulse_time_s: Number(found.pulse_time_s) || 2,
+              cover_id: found.cover_id || null,
+              action_double: found.action_double || null,
+            };
           }),
         });
       }
       if (!Object.keys(normalized).length) return { ok: false, error: "empty" };
       let active = typeof raw.active_profile_id === "string" ? raw.active_profile_id : null;
       if (active && !(active in normalized)) return { ok: false, error: "active_profile_id missing" };
-      return { ok: true, payload: { schema_version: 1, active_profile_id: active, profiles: normalized } };
+      return { ok: true, payload: { schema_version: PROFILES_EXPORT_SCHEMA_VERSION, active_profile_id: active, profiles: normalized } };
     }
 
     let pendingImportMode = "merge";
@@ -5432,10 +5623,15 @@
             state.profiles[id] = p; state.activeId = id; state.draft = deepClone(p); state.saved = deepClone(p);
             markDirty(false); syncFormFromDraft(); showNotice(t("card.create") + " ✓");
           } else if (action === "duplicate") {
-            const id = state.activeId + "_copy_" + Date.now();
-            const p = deepClone(state.draft); p.id = id; p.name = state.draft.name + " copy";
+            const suggested = ((state.draft.name || "") + " copy").trim() || "copy";
+            const entered = await showPrompt(t("card.duplicate_name"), suggested);
+            if (entered === null || entered === false) return;
+            const newName = (String(entered).trim() || suggested);
+            const baseId = (state.activeId || "profile").trim() || "profile";
+            const id = baseId + "_copy_" + Date.now();
+            const p = deepClone(state.draft); p.id = id; p.name = newName;
             state.profiles[id] = p; state.activeId = id; state.draft = deepClone(p); state.saved = deepClone(p);
-            markDirty(false); syncFormFromDraft(); showNotice(t("card.duplicate") + " ✓");
+            markDirty(false); syncFormFromDraft(); showNotice(t("card.duplicate_ok"));
           } else if (action === "delete") {
             if (Object.keys(state.profiles).length <= 1) { await showAlert(t("card.keep_one_profile")); return; }
             if (!(await showConfirm(t("card.delete") + " " + state.draft.name + "?", { danger: true }))) return;
@@ -5444,8 +5640,9 @@
             state.draft = deepClone(state.profiles[state.activeId]);
             state.saved = deepClone(state.profiles[state.activeId]);
             markDirty(false); syncFormFromDraft();
+            showNotice(t("card.delete_ok"));
           } else if (action === "export") {
-            const blob = new Blob([JSON.stringify({ schema_version: 1, active_profile_id: state.activeId, profiles: state.profiles }, null, 2)], { type: "application/json" });
+            const blob = new Blob([JSON.stringify({ schema_version: 2, active_profile_id: state.activeId, profiles: state.profiles }, null, 2)], { type: "application/json" });
             const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "conx-profiles-preview.json"; a.click(); URL.revokeObjectURL(a.href);
             setMenuOpen(false);
             showNotice(t("card.export_ok"));
@@ -5505,6 +5702,9 @@
       }
       if (els.previewMasterHoliday) {
         els.previewMasterHoliday.addEventListener("change", () => updateHolidayFaceplate());
+      }
+      if (els.previewUnavailable) {
+        els.previewUnavailable.addEventListener("change", () => updateHolidayFaceplate());
       }
       setActiveTab(state.activeTab || "profiles");
       applyI18n();

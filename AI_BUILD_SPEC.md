@@ -369,11 +369,14 @@ conx_dynamic_panel.cover_command
 contract as a physical press.
 
 Portable profiles JSON (card download, WebSocket `export_profiles`, and service
-`export_profiles`) uses:
+`export_profiles`) uses `PROFILES_EXPORT_SCHEMA_VERSION` (currently **2**). This
+is independent of panel `STORAGE_VERSION`. Scope is profiles +
+`active_profile_id` only — scheduler tasks, `default_profile_id`, holiday flags,
+and `applied_snapshot` use separate scheduler export/import.
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "active_profile_id": "lighting",
   "profiles": {
     "lighting": {
@@ -395,7 +398,9 @@ Portable profiles JSON (card download, WebSocket `export_profiles`, and service
 ```
 
 `import_profiles` accepts the same object (profiles may also be an array of
-profile objects). `mode` is `merge` or `replace`.
+profile objects). `mode` is `merge` or `replace`. Schema versions 1–2 are
+current; versions 3–5 are accepted as legacy files that mistakenly stamped
+panel storage version into `schema_version`.
 
 Validate service payloads. Services must target a specific config entry or device.
 
@@ -468,8 +473,8 @@ Validation:
 - No duplicate relay entities.
 - No duplicate name entities.
 - Correct domains.
-- Select entities expose options.
-- Text entities are writable.
+- Select entities expose options when the entity state is available (skip options check while `unavailable`/`unknown`).
+- Text entities are writable when available; `unavailable`/`unknown` soft-skips writable checks so offline panels do not block setup.
 - All mapped entities exist.
 - Prevent configuring the same relay set twice.
 

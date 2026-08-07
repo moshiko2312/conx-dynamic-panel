@@ -11,6 +11,7 @@ import {
   PULSE_TIME_MIN,
   clampGangCount,
   clampPulseTime,
+  buildDuplicateProfileId,
   cloneProfile,
   coerceModeForGangCount,
   coverCommand,
@@ -19,6 +20,7 @@ import {
   downloadJson,
   duplicateProfile,
   executeButton,
+  resolveDuplicateProfileName,
   exportProfiles,
   exportScheduler,
   fetchConfig,
@@ -67,6 +69,7 @@ import {
   defaultActionDataYaml,
   nextActionDataPrefill,
 } from "./actionDataDefaults";
+import { formatActionSlotSummary } from "./actionSlotSummary";
 import {
   actionDomain,
   ensureHaPickersLoaded,
@@ -386,8 +389,8 @@ export class ConXDynamicPanelCard extends LitElement {
   @state() private _actionDataError: Record<string, string> = {};
   /** Last auto-prefilled YAML per editor slot (used to avoid overwriting custom edits). */
   @state() private _actionDataAutoDefault: Record<string, string> = {};
-  /** Collapsed state for optional double-click action blocks. */
-  @state() private _multiClickOpen: Record<string, boolean> = {};
+  /** Expand state for Action / Double-click action accordions (keyed by editor slot). Default collapsed. */
+  @state() private _actionSlotOpen: Record<string, boolean> = {};
 
   private _importInput?: HTMLInputElement;
   private _schedulerImportInput?: HTMLInputElement;
@@ -914,6 +917,8 @@ export class ConXDynamicPanelCard extends LitElement {
       master_holiday_mode: Boolean(panel.master_holiday_mode),
       scheduler_active: Boolean(panel.scheduler_active),
       scheduler_next: panel.scheduler_next ?? null,
+      panel_available:
+        panel.panel_available === undefined ? true : Boolean(panel.panel_available),
     };
     this._panelNameDraft = panel.panel_name;
     this._runtimeRelayStates = panel.relay_states ? [...panel.relay_states] : [];
@@ -991,6 +996,10 @@ export class ConXDynamicPanelCard extends LitElement {
         update.scheduler_next !== undefined
           ? update.scheduler_next
           : this._panel.scheduler_next,
+      panel_available:
+        update.panel_available !== undefined
+          ? Boolean(update.panel_available)
+          : this._panel.panel_available,
     };
     if (update.relay_states) {
       this._runtimeRelayStates = [...update.relay_states];
@@ -2360,15 +2369,24 @@ export class ConXDynamicPanelCard extends LitElement {
     if (!(await this._guardDirty())) {
       return;
     }
-    const newId = `${this._draft.id}_copy_${Date.now()}`;
+    const originalName = this._draft.name || "";
+    const suggested = resolveDuplicateProfileName("", originalName) as string;
+    const entered = window.prompt(this.t("card.duplicate_name"), suggested);
+    const newName = resolveDuplicateProfileName(entered, originalName);
+    if (newName === null) {
+      return;
+    }
+    const newId = buildDuplicateProfileId(this._draft.id);
     this._busy = true;
+    this._error = undefined;
+    this._notice = undefined;
     try {
       await duplicateProfile(
         this.hass,
         this._config.entry_id,
         this._draft.id,
         newId,
-        `${this._draft.name} copy`
+        newName
       );
       const panel = await setActiveProfile(
         this.hass,
@@ -2377,6 +2395,7 @@ export class ConXDynamicPanelCard extends LitElement {
         false
       );
       this._applyPanel(panel);
+      this._notice = this.t("card.duplicate_ok");
     } catch (err) {
       this._error = err instanceof Error ? err.message : String(err);
     } finally {
@@ -2396,12 +2415,48 @@ export class ConXDynamicPanelCard extends LitElement {
     this.requestUpdate();
   }
 
+  private _schedulerTasksReferencingProfile(profileId: string): string[] {
+    const labels: string[] = [];
+    const seen = new Set<string>();
+    const maps = [
+      this._panel?.scheduler_tasks,
+      this._panel?.master_scheduler_tasks,
+    ];
+    for (const map of maps) {
+      if (!map) {
+        continue;
+      }
+      for (const task of Object.values(map)) {
+        if (!task.ranges?.some((range) => range.profile_id === profileId)) {
+          continue;
+        }
+        const label = (task.name || "").trim() || task.id;
+        if (seen.has(label)) {
+          continue;
+        }
+        seen.add(label);
+        labels.push(label);
+      }
+    }
+    return labels;
+  }
+
   private async _deleteProfile(): Promise<void> {
     if (!this.hass || !this._config || !this._draft || !this._panel) {
       return;
     }
+    this._error = undefined;
+    this._notice = undefined;
     if (Object.keys(this._panel.profiles).length <= 1) {
-      this._error = "At least one profile must remain";
+      this._error = this.t("card.keep_one_profile");
+      return;
+    }
+    const blocking = this._schedulerTasksReferencingProfile(this._draft.id);
+    if (blocking.length) {
+      this._error = this.t("card.delete_blocked_scheduler").replace(
+        "{tasks}",
+        blocking.join(", ")
+      );
       return;
     }
     if (!window.confirm(`${this.t("card.delete")} ${this._draft.name}?`)) {
@@ -2409,8 +2464,13 @@ export class ConXDynamicPanelCard extends LitElement {
     }
     this._busy = true;
     try {
-      await deleteProfile(this.hass, this._config.entry_id, this._draft.id);
-      await this._load();
+      const panel = await deleteProfile(
+        this.hass,
+        this._config.entry_id,
+        this._draft.id
+      );
+      this._applyPanel(panel);
+      this._notice = this.t("card.delete_ok");
     } catch (err) {
       this._error = err instanceof Error ? err.message : String(err);
     } finally {
@@ -2844,12 +2904,22 @@ export class ConXDynamicPanelCard extends LitElement {
     };
   }
 
-  private _toggleMultiClickOpen(index: number, slot: "double" = "double"): void {
+  private _toggleActionSlotOpen(
+    index: number,
+    slot: ActionClickSlot = "single"
+  ): void {
     const key = this._actionEditorKey(index, slot);
-    this._multiClickOpen = {
-      ...this._multiClickOpen,
-      [key]: !this._multiClickOpen[key],
+    this._actionSlotOpen = {
+      ...this._actionSlotOpen,
+      [key]: !this._actionSlotOpen[key],
     };
+  }
+
+  private _isActionSlotOpen(
+    index: number,
+    slot: ActionClickSlot = "single"
+  ): boolean {
+    return Boolean(this._actionSlotOpen[this._actionEditorKey(index, slot)]);
   }
 
   private _clearActionDataEditor(
@@ -2914,58 +2984,67 @@ export class ConXDynamicPanelCard extends LitElement {
   }
 
   private _renderButtonActionSlots(buttonIndex: number) {
-    const button = this._draft?.buttons.find((item) => item.index === buttonIndex);
-    const single = this._buttonSlotAction(button, "single");
-    const entityId = String(
-      (single?.target as { entity_id?: string } | undefined)?.entity_id || ""
-    );
     return html`
-      ${this._renderActionEntityPickers(
-        buttonIndex,
-        single?.action || "",
-        entityId,
-        "single"
-      )}
-      <p class="field-hint multi-click-hint">${this.t("card.multi_click_hint")}</p>
-      ${this._renderMultiClickSlot(buttonIndex)}
+      <div class="action-slots-accordion" data-action-slots=${buttonIndex}>
+        ${this._renderActionSlotAccordion(buttonIndex, "single")}
+        <p class="field-hint multi-click-hint">${this.t("card.multi_click_hint")}</p>
+        ${this._renderActionSlotAccordion(buttonIndex, "double")}
+      </div>
     `;
   }
 
-  private _renderMultiClickSlot(buttonIndex: number) {
-    const slot: ActionClickSlot = "double";
+  private _renderActionSlotAccordion(
+    buttonIndex: number,
+    slot: ActionClickSlot
+  ) {
     const button = this._draft?.buttons.find((item) => item.index === buttonIndex);
     const configured = this._buttonSlotAction(button, slot);
-    const key = this._actionEditorKey(buttonIndex, slot);
-    const open = Boolean(this._multiClickOpen[key] || configured);
+    const open = this._isActionSlotOpen(buttonIndex, slot);
+    const action = configured?.action || "";
     const entityId = String(
       (configured?.target as { entity_id?: string } | undefined)?.entity_id || ""
     );
+    const titleKey = slot === "double" ? "card.action_double" : "card.action";
+    const summary = formatActionSlotSummary(
+      action,
+      entityId,
+      this.t("card.action_not_set")
+    );
     return html`
-      <div class="multi-click-slot" data-multi-click-slot=${slot} data-button=${buttonIndex}>
+      <div
+        class="action-edit ${open ? "open" : ""}"
+        data-action-edit-slot=${slot}
+        data-button=${buttonIndex}
+      >
         <button
           type="button"
-          class="action-data-toggle multi-click-toggle"
-          data-multi-click-toggle
+          class="action-edit-toggle"
+          data-action-slot-toggle
           aria-expanded=${open ? "true" : "false"}
+          title=${open
+            ? this.t("card.action_collapse")
+            : this.t("card.action_expand")}
           ?disabled=${this._busy}
-          @click=${() => this._toggleMultiClickOpen(buttonIndex, slot)}
+          @click=${() => this._toggleActionSlotOpen(buttonIndex, slot)}
         >
-          <span class="action-data-chevron" aria-hidden="true"></span>
-          <span>${this.t("card.action_double")}</span>
-          ${configured
-            ? html`<span class="multi-click-badge" dir="ltr"
-                >${configured.action}</span
-              >`
-            : nothing}
+          <span class="button-edit-chevron" aria-hidden="true"></span>
+          <span class="button-edit-summary">
+            <span class="button-edit-title">${this.t(titleKey)}</span>
+            <span class="button-edit-meta" dir="ltr">${summary}</span>
+          </span>
         </button>
-        ${open
-          ? this._renderActionEntityPickers(
-              buttonIndex,
-              configured?.action || "",
-              entityId,
-              slot
-            )
-          : nothing}
+        <div class="action-edit-body">
+          <div class="action-edit-fields">
+            ${open
+              ? this._renderActionEntityPickers(
+                  buttonIndex,
+                  action,
+                  entityId,
+                  slot
+                )
+              : nothing}
+          </div>
+        </div>
       </div>
     `;
   }
@@ -3521,7 +3600,64 @@ export class ConXDynamicPanelCard extends LitElement {
     `;
   }
 
+  /**
+   * Panel online when any mapped relay reports a usable HA state.
+   * Prefers live hass.states (same path Z2M uses for MQTT availability),
+   * then falls back to backend panel_available / relay_states.
+   */
+  private _isPanelAvailable(): boolean {
+    const relays = this._panel?.relay_entities;
+    if (relays && relays.length > 0 && this.hass?.states) {
+      let sawEntity = false;
+      for (const entityId of relays) {
+        const raw = this.hass.states[entityId]?.state;
+        if (raw === undefined || raw === null) {
+          continue;
+        }
+        sawEntity = true;
+        const normalized = String(raw).toLowerCase();
+        if (normalized !== "unavailable" && normalized !== "unknown") {
+          return true;
+        }
+      }
+      if (sawEntity) {
+        return false;
+      }
+    }
+    if (this._panel?.panel_available !== undefined) {
+      return Boolean(this._panel.panel_available);
+    }
+    const states =
+      this._runtimeRelayStates.length > 0
+        ? this._runtimeRelayStates
+        : this._panel?.relay_states;
+    if (states && states.length > 0) {
+      return states.some((value) => value !== null && value !== undefined);
+    }
+    return true;
+  }
+
+  private _renderUnavailableStatus() {
+    if (this._isPanelAvailable()) {
+      return nothing;
+    }
+    const label = this.t("card.panel_unavailable");
+    return html`
+      <div
+        class="faceplate-unavailable"
+        data-panel-unavailable
+        role="status"
+        aria-live="polite"
+      >
+        ${label}
+      </div>
+    `;
+  }
+
   private _renderSchedulerNextFooter() {
+    if (!this._isPanelAvailable()) {
+      return nothing;
+    }
     if (this._panel?.holiday_mode) {
       return nothing;
     }
@@ -3569,24 +3705,6 @@ export class ConXDynamicPanelCard extends LitElement {
         aria-label=${this.t("card.preview")}
       >
         <div class="faceplate-bezel">
-          ${this._operateMode
-            ? html`
-                <button
-                  type="button"
-                  class="faceplate-menu-btn"
-                  data-operate-menu
-                  aria-label=${this.t("card.menu")}
-                  aria-expanded=${this._menuOpen ? "true" : "false"}
-                  ?disabled=${this._busy}
-                  @click=${(e: Event) => {
-                    e.stopPropagation();
-                    this._menuOpen = !this._menuOpen;
-                  }}
-                >
-                  <span></span><span></span><span></span>
-                </button>
-              `
-            : nothing}
           ${this._renderHolidayBadge()}
           <div class="faceplate-skin"></div>
           <div class="faceplate-glass">
@@ -3624,6 +3742,7 @@ export class ConXDynamicPanelCard extends LitElement {
             </div>
           </div>
         </div>
+        ${this._renderUnavailableStatus()}
         ${this._renderSchedulerNextFooter()}
       </div>
     `;
@@ -5112,7 +5231,7 @@ export class ConXDynamicPanelCard extends LitElement {
         <div class="schema-title">${this.t("card.schema_title")}</div>
         <p>${this.t("card.schema_body")}</p>
         <pre class="schema-pre">{
-  "schema_version": 1,
+  "schema_version": 2,
   "active_profile_id": "lighting",
   "profiles": {
     "lighting": {
@@ -5127,7 +5246,7 @@ export class ConXDynamicPanelCard extends LitElement {
       "child_lock": false,
       "selected_button": null,
       "buttons": [
-        {"index": 1, "name": "L1", "action": null, "radio_member": true}
+        {"index": 1, "name": "L1", "action": null, "action_double": null, "radio_member": true, "role": "toggle"}
       ]
     }
   }
@@ -5561,6 +5680,20 @@ export class ConXDynamicPanelCard extends LitElement {
           ${operate
             ? html`
                 <header class="section-head operate-profile-only" data-operate-profile>
+                  <button
+                    type="button"
+                    class="operate-menu-btn"
+                    data-operate-menu
+                    aria-label=${this.t("card.menu")}
+                    aria-expanded=${this._menuOpen ? "true" : "false"}
+                    ?disabled=${this._busy}
+                    @click=${(e: Event) => {
+                      e.stopPropagation();
+                      this._menuOpen = !this._menuOpen;
+                    }}
+                  >
+                    <span></span><span></span><span></span>
+                  </button>
                   <div class="hero-profile-name" aria-live="polite">${this._draft.name}</div>
                 </header>
               `
@@ -6643,30 +6776,86 @@ export class ConXDynamicPanelCard extends LitElement {
       transform: rotate(45deg);
     }
     .multi-click-hint {
-      margin: 0.15rem 0 0.35rem;
+      margin: 0.35rem 0 0.15rem;
       opacity: 0.85;
       font-size: 0.78rem;
       line-height: 1.35;
     }
-    .multi-click-slot {
-      margin-top: 0.35rem;
-      padding-top: 0.2rem;
-      border-top: 1px solid color-mix(in srgb, var(--conx-border, #888) 35%, transparent);
+    .action-slots-accordion {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      grid-column: 1 / -1;
+      min-width: 0;
     }
-    .multi-click-toggle {
-      width: 100%;
-    }
-    .multi-click-badge {
-      margin-inline-start: auto;
-      font-size: 0.72rem;
-      opacity: 0.8;
-      max-width: 45%;
+    .action-edit {
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text);
       overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+    }
+    .action-edit-toggle {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 10px 12px;
+      border: 0;
+      background: transparent;
+      color: var(--text);
+      font: inherit;
+      cursor: pointer;
+      text-align: start;
+    }
+    .action-edit-toggle:hover:not(:disabled) {
+      background: color-mix(in srgb, var(--conx-accent) 6%, transparent);
+    }
+    .action-edit-toggle:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+    .action-edit.open > .action-edit-toggle .button-edit-chevron {
+      transform: rotate(45deg);
+    }
+    :host([dir="rtl"]) .action-edit.open > .action-edit-toggle .button-edit-chevron,
+    ha-card[dir="rtl"] .action-edit.open > .action-edit-toggle .button-edit-chevron {
+      transform: rotate(-45deg);
+    }
+    .action-edit-body {
+      display: grid;
+      grid-template-rows: 0fr;
+      transition: grid-template-rows 200ms ease;
+    }
+    .action-edit.open .action-edit-body {
+      grid-template-rows: 1fr;
+    }
+    .action-edit-fields {
+      min-height: 0;
+      overflow: hidden;
+      padding: 0 12px;
+      border-top: 0 solid var(--border);
+      opacity: 0;
+      transition:
+        opacity 160ms ease,
+        padding 200ms ease,
+        border-top-width 200ms ease;
+    }
+    .action-edit.open .action-edit-fields {
+      padding: 0 12px 12px;
+      border-top: 1px solid var(--border);
+      opacity: 1;
+    }
+    .action-edit.open .action-edit-fields .field:first-child {
+      margin-top: 10px;
+    }
+    .action-edit .action-slot {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
     }
     .action-slot[data-action-slot="double"] {
-      padding-inline-start: 0.35rem;
+      padding-inline-start: 0;
     }
     .action-data-editor {
       margin: 0;
@@ -7462,12 +7651,12 @@ export class ConXDynamicPanelCard extends LitElement {
       transform: rotate(45deg);
     }
 
-    .button-edit.open .button-edit-chevron {
+    .button-edit.open > .button-edit-toggle .button-edit-chevron {
       transform: rotate(45deg);
     }
 
-    :host([dir="rtl"]) .button-edit.open .button-edit-chevron,
-    ha-card[dir="rtl"] .button-edit.open .button-edit-chevron {
+    :host([dir="rtl"]) .button-edit.open > .button-edit-toggle .button-edit-chevron,
+    ha-card[dir="rtl"] .button-edit.open > .button-edit-toggle .button-edit-chevron {
       transform: rotate(-45deg);
     }
 
@@ -7545,17 +7734,20 @@ export class ConXDynamicPanelCard extends LitElement {
         0 16px 36px rgba(0, 0, 0, 0.35);
     }
 
-    .faceplate-menu-btn {
+    .operate-menu-btn {
       position: absolute;
-      top: 6px;
-      z-index: 5;
-      width: 28px;
-      height: 28px;
+      inset-inline-start: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 2;
+      /* Sized to title line-height (display clamp × 1.15). */
+      width: calc(1.15 * clamp(1.05rem, 2.8vw, 1.45rem) + 4px);
+      height: calc(1.15 * clamp(1.05rem, 2.8vw, 1.45rem) + 4px);
       border-radius: 8px;
-      border: 1px solid rgba(0, 0, 0, 0.28);
-      background: rgba(26, 29, 34, 0.78);
-      color: #f0f2f5;
-      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.18) inset, 0 2px 6px rgba(0, 0, 0, 0.28);
+      border: 1px solid color-mix(in srgb, var(--accent, #d4af61) 35%, transparent);
+      background: color-mix(in srgb, var(--card-background-color, #1a1d22) 72%, transparent);
+      color: var(--primary-text-color, #f0f2f5);
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) inset;
       display: inline-flex;
       flex-direction: column;
       align-items: center;
@@ -7563,25 +7755,24 @@ export class ConXDynamicPanelCard extends LitElement {
       gap: 3px;
       cursor: pointer;
       padding: 0;
-      backdrop-filter: blur(4px);
-      /* Faceplate itself is dir=ltr for ring columns; pin to card reading-start. */
-      left: 6px;
-      right: auto;
+      margin: 0;
+      box-sizing: border-box;
     }
-    ha-card.conx-card[dir="rtl"] .faceplate-menu-btn {
-      left: auto;
-      right: 6px;
-    }
-    .faceplate-menu-btn:hover {
+    .operate-menu-btn:hover {
       border-color: var(--accent);
       color: var(--accent);
     }
-    .faceplate-menu-btn span {
+    .operate-menu-btn span {
       display: block;
-      width: 12px;
+      width: 52%;
       height: 1.5px;
       border-radius: 1px;
       background: currentColor;
+    }
+    ha-card.conx-card[data-theme="ivory"] .operate-menu-btn {
+      background: rgba(255, 255, 255, 0.72);
+      color: #4a4338;
+      border-color: rgba(138, 115, 72, 0.35);
     }
 
     .faceplate-skin {
@@ -7610,6 +7801,7 @@ export class ConXDynamicPanelCard extends LitElement {
     }
 
     .faceplate-labels {
+      position: relative;
       display: grid;
       grid-template-columns: repeat(var(--conx-gang-count, 4), 1fr);
       align-items: center;
@@ -7666,6 +7858,20 @@ export class ConXDynamicPanelCard extends LitElement {
       text-align: center;
     }
 
+    .faceplate-unavailable {
+      margin-top: 0.45rem;
+      padding: 0.4rem 0.65rem;
+      font-size: 0.88rem;
+      font-weight: 700;
+      line-height: 1.3;
+      letter-spacing: 0.01em;
+      text-align: center;
+      color: #ff3b3b;
+      background: color-mix(in srgb, #ff3b3b 14%, transparent);
+      border: 1px solid color-mix(in srgb, #ff3b3b 42%, transparent);
+      border-radius: 8px;
+    }
+
     .faceplate-scheduler-next .scheduler-next-profile,
     .faceplate-scheduler-next .scheduler-next-time {
       font-weight: 600;
@@ -7700,7 +7906,6 @@ export class ConXDynamicPanelCard extends LitElement {
     }
 
     .operate-mode .faceplate-holiday-badge {
-      /* Keep clear of the operate hamburger (LTR left / RTL right). */
       top: 8px;
     }
 
@@ -7744,6 +7949,12 @@ export class ConXDynamicPanelCard extends LitElement {
     ha-card.conx-card[data-theme="ivory"] .faceplate-scheduler-next .scheduler-next-profile,
     ha-card.conx-card[data-theme="ivory"] .faceplate-scheduler-next .scheduler-next-time {
       color: #1e2430;
+    }
+
+    ha-card.conx-card[data-theme="ivory"] .faceplate-unavailable {
+      color: #c62828;
+      background: rgba(198, 40, 40, 0.1);
+      border-color: rgba(198, 40, 40, 0.35);
     }
 
     .ring {
@@ -7887,10 +8098,14 @@ export class ConXDynamicPanelCard extends LitElement {
       display: flex;
       align-items: center;
       justify-content: center;
+      position: relative;
       gap: 0;
       padding: 4px 8px 10px;
+      /* Reserve start-side room so a long title never sits under the hamburger. */
+      padding-inline: calc(1.15 * clamp(1.05rem, 2.8vw, 1.45rem) + 16px) 8px;
       border-bottom: 0;
       background: transparent;
+      min-height: calc(1.15 * clamp(1.05rem, 2.8vw, 1.45rem) + 8px);
     }
     ha-card.conx-card.operate-mode .section-head.operate-profile-only .hero-profile-name {
       position: static;

@@ -288,7 +288,8 @@
   </div>
   <input type="file" id="fileInput" accept="application/json,.json" hidden />
 <script>
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
+const LEGACY_STORAGE_STAMPED_EXPORT_VERSIONS = new Set([3, 4, 5]);
 const COLORS = ["red","blue","green","white","yellow","magenta","cyan"];
 const RADAR = ["none","10s","20s","30s","45s","60s"];
 const COLOR_PREVIEW = { red:"#ff1744", blue:"#2979ff", green:"#00e676", white:"#f5f7fa", yellow:"#ffea00", magenta:"#f50057", cyan:"#00e5ff" };
@@ -564,7 +565,9 @@ function validateExport(raw){
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {ok:false, error:"Root must be object"};
   const ver = Number(raw.schema_version ?? SCHEMA_VERSION);
   if (!Number.isInteger(ver) || ver < 1) return {ok:false, error:"bad schema_version"};
-  if (ver > SCHEMA_VERSION) return {ok:false, error:`Unsupported schema_version ${ver}`};
+  if (ver > SCHEMA_VERSION && !LEGACY_STORAGE_STAMPED_EXPORT_VERSIONS.has(ver)) {
+    return {ok:false, error:`Unsupported schema_version ${ver}`};
+  }
   let profiles = raw.profiles;
   if (Array.isArray(profiles)) {
     const obj = {};
@@ -754,7 +757,7 @@ function renderBody(){
   // transfer
   const payload = buildExport();
   const sample = `{
-  "schema_version": 1,
+  "schema_version": 2,
   "active_profile_id": "lighting",
   "profiles": {
     "lighting": {
@@ -812,9 +815,15 @@ function bindBody(){
       const p = makeProfile(id, "Profile " + (Object.keys(state.profiles).length+1));
       state.profiles[id]=p; state.activeId=id; state.draft=deepClone(p); persistState(); render();
     } else if (act === "duplicate") {
-      const id = state.activeId + "_copy_" + Date.now();
-      const p = deepClone(state.draft); p.id=id; p.name=state.draft.name+" copy";
-      state.profiles[id]=p; state.activeId=id; state.draft=deepClone(p); persistState(); render();
+      const suggested = ((state.draft.name || "") + " copy").trim() || "copy";
+      void showPrompt(t().duplicate || t().rename, suggested).then((entered) => {
+        if (entered === null || entered === false) return;
+        const newName = (String(entered).trim() || suggested);
+        const baseId = (state.activeId || "profile").trim() || "profile";
+        const id = baseId + "_copy_" + Date.now();
+        const p = deepClone(state.draft); p.id = id; p.name = newName;
+        state.profiles[id]=p; state.activeId=id; state.draft=deepClone(p); persistState(); render();
+      });
     } else if (act === "rename") {
       void showPrompt(t().rename, state.draft.name).then((n) => {
         if (!n) return;

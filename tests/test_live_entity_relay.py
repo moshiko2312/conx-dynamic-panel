@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, patch
@@ -14,13 +15,17 @@ from custom_components.conx_dynamic_panel.const import (
     BUTTON_ROLE_COVER_OPEN,
     BUTTON_ROLE_MOMENTARY,
     BUTTON_ROLE_TOGGLE,
+    COVER_OPPOSITE_STOP_THEN_REVERSE,
     MODE_COVER,
     MODE_MIXED,
     MODE_TOGGLE,
 )
 from custom_components.conx_dynamic_panel.coordinator import PanelCoordinator
 from custom_components.conx_dynamic_panel.entity_relay import (
+    CoverEntityBinding,
     EntityRelayBinding,
+    cover_ha_state_to_command,
+    iter_cover_entity_bindings,
     iter_entity_relay_bindings,
     state_value_to_relay_on,
 )
@@ -34,7 +39,11 @@ from custom_components.conx_dynamic_panel.models import (
     Profile,
     SyncResult,
 )
-from custom_components.conx_dynamic_panel.runtime import CoverRuntime, MomentaryRuntime, MultiClickRuntime
+from custom_components.conx_dynamic_panel.runtime import (
+    CoverRuntime,
+    MomentaryRuntime,
+    MultiClickRuntime,
+)
 from custom_components.conx_dynamic_panel.suppression import SuppressionTracker
 
 
@@ -168,6 +177,18 @@ def test_state_value_to_relay_on_skips_unavailable() -> None:
     assert state_value_to_relay_on("switch.x", "unknown") is None
 
 
+def test_cover_ha_state_to_command_matrix() -> None:
+    assert cover_ha_state_to_command("opening") == "open"
+    assert cover_ha_state_to_command("closing") == "close"
+    assert cover_ha_state_to_command("open") == "stop"
+    assert cover_ha_state_to_command("closed") == "stop"
+    assert cover_ha_state_to_command("stopped") == "stop"
+    assert cover_ha_state_to_command("idle") == "stop"
+    assert cover_ha_state_to_command("unavailable") is None
+    assert cover_ha_state_to_command("unknown") is None
+    assert cover_ha_state_to_command("") is None
+
+
 def test_iter_bindings_toggle_and_skips_cover_momentary() -> None:
     toggle = _toggle_profile(lights={1: "light.kitchen", 2: "switch.fan"})
     bindings = iter_entity_relay_bindings(toggle)
@@ -193,10 +214,16 @@ def test_iter_bindings_toggle_and_skips_cover_momentary() -> None:
                 close_button=2,
                 open_time_s=10,
                 close_time_s=10,
+                ha_entity_id="cover.living_shutter",
             )
         ],
     )
+    # Toggle-style bindings stay empty for cover mode (direction LEDs are not
+    # latched from a single on/off entity like lights).
     assert iter_entity_relay_bindings(cover) == []
+    assert iter_cover_entity_bindings(cover) == [
+        CoverEntityBinding(entity_id="cover.living_shutter", cover_id="cover_1")
+    ]
 
     mixed = Profile(
         id="m1",
@@ -237,12 +264,16 @@ def test_iter_bindings_toggle_and_skips_cover_momentary() -> None:
                 close_button=4,
                 open_time_s=10,
                 close_time_s=10,
+                ha_entity_id="cover.shade",
             )
         ],
     )
     bindings = iter_entity_relay_bindings(mixed)
     assert bindings == [
         EntityRelayBinding(entity_id="light.kitchen", button_index=1),
+    ]
+    assert iter_cover_entity_bindings(mixed) == [
+        CoverEntityBinding(entity_id="cover.shade", cover_id="cover_1")
     ]
 
 
@@ -301,15 +332,15 @@ async def test_live_entity_off_updates_relay_with_suppression() -> None:
 
 
 @pytest.mark.asyncio
-async def test_live_cover_entities_are_not_tracked() -> None:
+async def test_live_cover_ha_opening_energizes_open_relay() -> None:
     store = FakeStore()
     profile = Profile(
         id="c1",
         name="Cover",
         mode=MODE_COVER,
         buttons=[
-            ButtonConfig(index=1, name="Up", action=_action("cover.shade")),
-            ButtonConfig(index=2, name="Down", action=_action("cover.shade")),
+            ButtonConfig(index=1, name="Up"),
+            ButtonConfig(index=2, name="Down"),
             ButtonConfig(index=3, name=""),
             ButtonConfig(index=4, name=""),
         ],
@@ -318,21 +349,24 @@ async def test_live_cover_entities_are_not_tracked() -> None:
                 id="cover_1",
                 open_button=1,
                 close_button=2,
-                open_time_s=10,
-                close_time_s=10,
+                open_time_s=30,
+                close_time_s=30,
+                ha_entity_id="cover.living_shutter",
             )
         ],
     )
     store.data.profiles = {"c1": profile}
     store.data.active_profile_id = "c1"
     adapter = FakeAdapter()
-    runtime = _runtime(adapter, store)
+    adapter._relay_on = {1: False, 2: False, 3: False, 4: False}
+    states = {"cover.living_shutter": _state("closed")}
+    runtime = _runtime(adapter, store, states=states)
     coordinator = PanelCoordinator(runtime)  # type: ignore[arg-type]
 
-    track_calls: list[list[str]] = []
+    tracked: dict[str, Any] = {}
 
     def fake_track(hass: Any, entity_ids: list[str], callback: Any) -> Any:
-        track_calls.append(list(entity_ids))
+        tracked["entity_ids"] = list(entity_ids)
         return lambda: None
 
     with patch(
@@ -341,9 +375,199 @@ async def test_live_cover_entities_are_not_tracked() -> None:
     ):
         coordinator._rebuild_entity_relay_listeners()
 
-    assert track_calls == []
-    assert coordinator._entity_relay_bindings == {}
-    assert coordinator._entity_relay_unsubs == []
+    assert tracked["entity_ids"] == ["cover.living_shutter"]
+    assert "cover.living_shutter" in coordinator._cover_entity_bindings
+
+    states["cover.living_shutter"] = _state("opening")
+    event = SimpleNamespace(
+        data={
+            "entity_id": "cover.living_shutter",
+            "old_state": _state("closed"),
+            "new_state": _state("opening"),
+        }
+    )
+    await coordinator._async_handle_linked_entity_event(event)  # type: ignore[arg-type]
+
+    assert (1, True, True) in adapter.relay_calls
+    assert adapter.relay_is_on(1) is True
+    assert adapter.relay_is_on(2) is False
+    motion = runtime.cover.get("cover_1")
+    assert motion.direction == "open"
+    # Live HA→panel must not re-mirror open_cover back to HA.
+    runtime.hass.services.async_call.assert_not_called()
+
+    # Cancel travel timer so the test loop stays clean.
+    if motion.timer is not None:
+        motion.timer.cancel()
+        with contextlib.suppress(asyncio.CancelledError, Exception):
+            await motion.timer
+
+
+@pytest.mark.asyncio
+async def test_live_cover_ha_closed_forces_relays_off() -> None:
+    store = FakeStore()
+    profile = Profile(
+        id="c1",
+        name="Cover",
+        mode=MODE_COVER,
+        buttons=[
+            ButtonConfig(index=1, name="Up"),
+            ButtonConfig(index=2, name="Down"),
+            ButtonConfig(index=3, name=""),
+            ButtonConfig(index=4, name=""),
+        ],
+        covers=[
+            CoverConfig(
+                id="cover_1",
+                open_button=1,
+                close_button=2,
+                open_time_s=30,
+                close_time_s=30,
+                ha_entity_id="cover.living_shutter",
+            )
+        ],
+    )
+    store.data.profiles = {"c1": profile}
+    store.data.active_profile_id = "c1"
+    adapter = FakeAdapter()
+    adapter._relay_on = {1: True, 2: False, 3: False, 4: False}
+    runtime = _runtime(adapter, store)
+    coordinator = PanelCoordinator(runtime)  # type: ignore[arg-type]
+    coordinator._cover_entity_bindings = {
+        "cover.living_shutter": [
+            CoverEntityBinding(entity_id="cover.living_shutter", cover_id="cover_1")
+        ]
+    }
+    motion = runtime.cover.get("cover_1")
+    motion.direction = "open"
+    motion.relays = (1, 2)
+    motion.last_reason = "command"
+
+    event = SimpleNamespace(
+        data={
+            "entity_id": "cover.living_shutter",
+            "old_state": _state("opening"),
+            "new_state": _state("open"),
+        }
+    )
+    await coordinator._async_handle_linked_entity_event(event)  # type: ignore[arg-type]
+
+    assert adapter.relay_is_on(1) is False
+    assert adapter.relay_is_on(2) is False
+    assert motion.direction is None
+    runtime.hass.services.async_call.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_live_cover_ha_closing_while_opening_respects_stop_then_reverse() -> None:
+    store = FakeStore()
+    profile = Profile(
+        id="c1",
+        name="Cover",
+        mode=MODE_COVER,
+        buttons=[
+            ButtonConfig(index=1, name="Up"),
+            ButtonConfig(index=2, name="Down"),
+            ButtonConfig(index=3, name=""),
+            ButtonConfig(index=4, name=""),
+        ],
+        covers=[
+            CoverConfig(
+                id="cover_1",
+                open_button=1,
+                close_button=2,
+                open_time_s=30,
+                close_time_s=30,
+                direction_settle_s=0,
+                opposite_press=COVER_OPPOSITE_STOP_THEN_REVERSE,
+                ha_entity_id="cover.living_shutter",
+            )
+        ],
+    )
+    store.data.profiles = {"c1": profile}
+    store.data.active_profile_id = "c1"
+    adapter = FakeAdapter()
+    adapter._relay_on = {1: True, 2: False, 3: False, 4: False}
+    runtime = _runtime(adapter, store)
+    coordinator = PanelCoordinator(runtime)  # type: ignore[arg-type]
+    coordinator._cover_entity_bindings = {
+        "cover.living_shutter": [
+            CoverEntityBinding(entity_id="cover.living_shutter", cover_id="cover_1")
+        ]
+    }
+    motion = runtime.cover.get("cover_1")
+    motion.direction = "open"
+    motion.relays = (1, 2)
+    motion.started_at = 1.0
+    motion.duration = 30.0
+
+    event = SimpleNamespace(
+        data={
+            "entity_id": "cover.living_shutter",
+            "old_state": _state("opening"),
+            "new_state": _state("closing"),
+        }
+    )
+    await coordinator._async_handle_linked_entity_event(event)  # type: ignore[arg-type]
+
+    assert adapter.relay_is_on(1) is False
+    assert adapter.relay_is_on(2) is True
+    assert motion.direction == "close"
+    runtime.hass.services.async_call.assert_not_called()
+    if motion.timer is not None:
+        motion.timer.cancel()
+        with contextlib.suppress(asyncio.CancelledError, Exception):
+            await motion.timer
+
+
+@pytest.mark.asyncio
+async def test_live_cover_ignores_own_ha_mirror_echo() -> None:
+    store = FakeStore()
+    profile = Profile(
+        id="c1",
+        name="Cover",
+        mode=MODE_COVER,
+        buttons=[
+            ButtonConfig(index=1, name="Up"),
+            ButtonConfig(index=2, name="Down"),
+            ButtonConfig(index=3, name=""),
+            ButtonConfig(index=4, name=""),
+        ],
+        covers=[
+            CoverConfig(
+                id="cover_1",
+                open_button=1,
+                close_button=2,
+                open_time_s=30,
+                close_time_s=30,
+                ha_entity_id="cover.living_shutter",
+            )
+        ],
+    )
+    store.data.profiles = {"c1": profile}
+    store.data.active_profile_id = "c1"
+    adapter = FakeAdapter()
+    adapter._relay_on = {1: False, 2: False, 3: False, 4: False}
+    runtime = _runtime(adapter, store)
+    coordinator = PanelCoordinator(runtime)  # type: ignore[arg-type]
+    coordinator._cover_entity_bindings = {
+        "cover.living_shutter": [
+            CoverEntityBinding(entity_id="cover.living_shutter", cover_id="cover_1")
+        ]
+    }
+    coordinator._cover_ha_mirror_suppress_until["cover.living_shutter"] = (
+        coordinator._monotonic() + 5.0
+    )
+
+    event = SimpleNamespace(
+        data={
+            "entity_id": "cover.living_shutter",
+            "old_state": _state("closed"),
+            "new_state": _state("opening"),
+        }
+    )
+    await coordinator._async_handle_linked_entity_event(event)  # type: ignore[arg-type]
+    assert adapter.relay_calls == []
 
 
 @pytest.mark.asyncio

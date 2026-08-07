@@ -11,6 +11,7 @@ from homeassistant.exceptions import HomeAssistantError
 
 from .const import COVER_COMMANDS, DOMAIN
 from .coordinator import PanelCoordinator
+from .exceptions import ConXDynamicPanelError, ProfileNotFoundError
 
 
 def _coordinator(hass: HomeAssistant, entry_id: str) -> PanelCoordinator:
@@ -170,10 +171,13 @@ async def ws_update_profile(
 async def ws_delete_profile(
     hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
 ) -> None:
-    """Delete a profile."""
+    """Delete a profile and return the updated panel config."""
     coordinator = _coordinator(hass, msg["entry_id"])
-    await coordinator.async_delete_profile(msg["profile_id"])
-    connection.send_result(msg["id"], {"ok": True})
+    try:
+        await coordinator.async_delete_profile(msg["profile_id"])
+    except (ValueError, ProfileNotFoundError, ConXDynamicPanelError) as err:
+        raise HomeAssistantError(str(err)) from err
+    connection.send_result(msg["id"], coordinator.get_config_payload())
 
 
 @websocket_api.require_admin
@@ -192,9 +196,12 @@ async def ws_duplicate_profile(
 ) -> None:
     """Duplicate a profile."""
     coordinator = _coordinator(hass, msg["entry_id"])
-    profile = await coordinator.async_duplicate_profile(
-        msg["profile_id"], msg["new_id"], msg.get("new_name")
-    )
+    try:
+        profile = await coordinator.async_duplicate_profile(
+            msg["profile_id"], msg["new_id"], msg.get("new_name")
+        )
+    except (ValueError, ProfileNotFoundError, ConXDynamicPanelError) as err:
+        raise HomeAssistantError(str(err)) from err
     connection.send_result(msg["id"], profile.to_dict())
 
 

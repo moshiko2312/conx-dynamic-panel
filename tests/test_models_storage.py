@@ -38,6 +38,9 @@ def test_profile_clone() -> None:
     assert clone.id == "b"
     assert clone.name == "B"
     assert clone.buttons[0].index == 1
+    # Whitespace-only custom name falls back to "{original} copy".
+    assert profile.clone("c", "  ").name == "A copy"
+    assert Profile(id="x", name="").clone("y", None).name == "copy"
 
 
 def test_profile_defaults_brightness_and_radio_member() -> None:

@@ -72,7 +72,12 @@ class Zemismart4GangAdapter(PanelAdapter):
         self.confirm_timeout = confirm_timeout
 
     async def async_validate_mapping(self) -> None:
-        """Validate domains, uniqueness, existence, and writable selects/text."""
+        """Validate domains, uniqueness, existence, and writable selects/text.
+
+        Transient ``unavailable`` / ``unknown`` states (offline panel / MQTT) are
+        warnings only — setup must still succeed. Hard-fail for wrong domain,
+        missing entity, duplicates, disabled text, or password-mode text.
+        """
         relays = list(self.mapping.relay_entities)
         names = list(self.mapping.name_entities)
         if len(set(relays)) != BUTTON_COUNT:
@@ -105,6 +110,14 @@ class Zemismart4GangAdapter(PanelAdapter):
             self.mapping.color_on_entity,
             self.mapping.radar_entity,
         ):
+            state = self.hass.states.get(select_entity)
+            if self._is_transient_state(state):
+                _LOGGER.warning(
+                    "Select entity %s is %s; options check deferred until available",
+                    select_entity,
+                    getattr(state, "state", "missing"),
+                )
+                continue
             options = self._options(select_entity)
             if not options:
                 raise MappingValidationError(
@@ -121,10 +134,13 @@ class Zemismart4GangAdapter(PanelAdapter):
                 raise MappingValidationError(
                     f"Text entity {entity_id} is disabled and not writable"
                 )
-            if state is not None and state.state in {"unavailable", "unknown"}:
-                raise MappingValidationError(
-                    f"Text entity {entity_id} is {state.state} and not writable"
+            if self._is_transient_state(state):
+                _LOGGER.warning(
+                    "Text entity %s is %s; writable check deferred until available",
+                    entity_id,
+                    getattr(state, "state", "missing"),
                 )
+                continue
             # Prefer entities that expose a text mode; absence is allowed when the
             # entity exists because some integrations omit the attribute until first write.
             if state is not None:
@@ -543,6 +559,11 @@ class Zemismart4GangAdapter(PanelAdapter):
         if state is None:
             return "missing"
         return str(state.state)
+
+    @staticmethod
+    def _is_transient_state(state: Any) -> bool:
+        """True when HA reports unavailable/unknown (offline bridge), not a bad mapping."""
+        return state is not None and state.state in {"unavailable", "unknown"}
 
     def _require_domain(self, entity_id: str, domain: str) -> None:
         if not entity_id.startswith(f"{domain}."):

@@ -8,12 +8,70 @@ from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import CONF_AUTO_SYNC, DOMAIN
 from .coordinator import PanelCoordinator
 from .entity import ConXPanelEntity
 from .master_store import async_get_master_store
+
+
+async def _async_purge_switch(hass: HomeAssistant, switch: SwitchEntity) -> None:
+    """Fully remove a dynamic switch (entity registry + state).
+
+    Plain ``Entity.async_remove()`` without ``force_remove`` leaves a registry
+    entry and writes ``unavailable`` — the symptom users see after deleting a
+    scheduler task. Purge the registry unique_id and force-remove the state.
+    """
+    registry = er.async_get(hass)
+    entity_id = getattr(switch, "entity_id", None)
+    if not entity_id or registry.async_get(entity_id) is None:
+        unique_id = getattr(switch, "unique_id", None) or getattr(
+            switch, "_attr_unique_id", None
+        )
+        if unique_id:
+            by_uid = registry.async_get_entity_id("switch", DOMAIN, unique_id)
+            if by_uid:
+                entity_id = by_uid
+    if entity_id and registry.async_get(entity_id) is not None:
+        registry.async_remove(entity_id)
+    await switch.async_remove(force_remove=True)
+
+
+def _purge_orphan_scheduler_registry_entries(
+    hass: HomeAssistant,
+    *,
+    entry_id: str,
+    local_task_ids: set[str],
+    master_task_ids: set[str] | None,
+) -> None:
+    """Drop registry unique_ids for scheduler switches no longer in storage.
+
+    Without this, a prior plain ``async_remove()`` left orphans that HA restores
+    as ``unavailable`` on every config-entry reload.
+    """
+    registry = er.async_get(hass)
+    local_prefix = f"{entry_id}_scheduler_"
+    master_prefix = f"{DOMAIN}_master_scheduler_"
+    for entity_entry in list(registry.entities.values()):
+        if getattr(entity_entry, "domain", None) != "switch":
+            continue
+        if getattr(entity_entry, "platform", None) != DOMAIN:
+            continue
+        unique_id = str(getattr(entity_entry, "unique_id", "") or "")
+        entity_id = getattr(entity_entry, "entity_id", None)
+        if not entity_id:
+            continue
+        if unique_id.startswith(local_prefix):
+            task_id = unique_id[len(local_prefix) :]
+            if task_id and task_id not in local_task_ids:
+                registry.async_remove(entity_id)
+            continue
+        if master_task_ids is not None and unique_id.startswith(master_prefix):
+            task_id = unique_id[len(master_prefix) :]
+            if task_id and task_id not in master_task_ids:
+                registry.async_remove(entity_id)
 
 
 async def async_setup_entry(
@@ -40,8 +98,10 @@ async def async_setup_entry(
         entities.append(switch)
 
     master_entities: dict[str, ConXMasterSchedulerTaskSwitch] = {}
+    master_task_ids: set[str] | None = None
     if not domain_data.get("master_switches_added"):
         master_store = await async_get_master_store(hass)
+        master_task_ids = set(master_store.tasks)
         for task_id in master_store.tasks:
             switch = ConXMasterSchedulerTaskSwitch(coordinator, task_id)
             master_entities[task_id] = switch
@@ -50,6 +110,13 @@ async def async_setup_entry(
         domain_data["master_switch_entities"] = master_entities
     else:
         master_entities = domain_data.setdefault("master_switch_entities", {})
+
+    _purge_orphan_scheduler_registry_entries(
+        hass,
+        entry_id=entry.entry_id,
+        local_task_ids=set(coordinator.data.scheduler_tasks),
+        master_task_ids=master_task_ids,
+    )
 
     async_add_entities(entities)
 
@@ -60,10 +127,10 @@ async def async_setup_entry(
         task_entities[task_id] = switch
         async_add_entities([switch])
 
-    def _remove_task(task_id: str) -> None:
+    async def _remove_task(task_id: str) -> None:
         switch = task_entities.pop(task_id, None)
         if switch is not None:
-            hass.async_create_task(switch.async_remove())
+            await _async_purge_switch(hass, switch)
 
     def _add_master(task_id: str) -> None:
         if task_id in master_entities:
@@ -72,10 +139,10 @@ async def async_setup_entry(
         master_entities[task_id] = switch
         async_add_entities([switch])
 
-    def _remove_master(task_id: str) -> None:
+    async def _remove_master(task_id: str) -> None:
         switch = master_entities.pop(task_id, None)
         if switch is not None:
-            hass.async_create_task(switch.async_remove())
+            await _async_purge_switch(hass, switch)
 
     coordinator.register_scheduler_entity_hooks(
         adder=_add_task,

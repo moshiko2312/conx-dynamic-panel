@@ -9,6 +9,10 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from custom_components.conx_dynamic_panel.const import (
+    PROFILES_EXPORT_SCHEMA_VERSION,
+    STORAGE_VERSION,
+)
 from custom_components.conx_dynamic_panel.coordinator import PanelCoordinator
 from custom_components.conx_dynamic_panel.models import (
     EntityMapping,
@@ -122,9 +126,14 @@ async def test_export_profiles_payload() -> None:
     store = FakeStore()
     coordinator = PanelCoordinator(_runtime(FakeAdapter(), store))  # type: ignore[arg-type]
     payload = coordinator.export_profiles()
-    assert payload["schema_version"] == 4
+    assert payload["schema_version"] == PROFILES_EXPORT_SCHEMA_VERSION
+    assert PROFILES_EXPORT_SCHEMA_VERSION != STORAGE_VERSION
     assert "lighting" in payload["profiles"]
     assert payload["active_profile_id"] == "lighting"
+    assert "scheduler_tasks" not in payload
+    assert "applied_snapshot" not in payload
+    assert "holiday_mode" not in payload
+    assert "default_profile_id" not in payload
 
 
 @pytest.mark.asyncio
@@ -196,7 +205,7 @@ async def test_export_import_roundtrip() -> None:
     store = FakeStore()
     coordinator = PanelCoordinator(_runtime(FakeAdapter(), store))  # type: ignore[arg-type]
     exported = coordinator.export_profiles()
-    assert exported["schema_version"] == 4
+    assert exported["schema_version"] == PROFILES_EXPORT_SCHEMA_VERSION
     await coordinator.async_import_profiles(
         {
             "profiles": {
@@ -222,6 +231,133 @@ async def test_export_import_roundtrip() -> None:
     assert set(again["profiles"]) == set(exported["profiles"])
     assert again["profiles"]["lighting"]["name"] == exported["profiles"]["lighting"]["name"]
     assert again["active_profile_id"] == exported["active_profile_id"]
+
+
+@pytest.mark.asyncio
+async def test_export_import_roundtrip_preserves_mixed_and_actions() -> None:
+    store = FakeStore()
+    coordinator = PanelCoordinator(_runtime(FakeAdapter(), store))  # type: ignore[arg-type]
+    await coordinator.async_import_profiles(
+        {
+            "schema_version": PROFILES_EXPORT_SCHEMA_VERSION,
+            "active_profile_id": "rich",
+            "profiles": {
+                "rich": {
+                    "id": "rich",
+                    "name": "Rich",
+                    "mode": "mixed",
+                    "color_on": "cyan",
+                    "color_off": "blue",
+                    "radar": "30s",
+                    "backlight": True,
+                    "backlight_brightness": 75,
+                    "child_lock": False,
+                    "selected_button": None,
+                    "gang_count": 4,
+                    "buttons": [
+                        {
+                            "index": 1,
+                            "name": "L1",
+                            "role": "toggle",
+                            "action": {
+                                "action": "light.toggle",
+                                "target": {"entity_id": "light.a"},
+                                "data": {"brightness": 50},
+                            },
+                            "action_double": {
+                                "action": "light.turn_off",
+                                "target": {"entity_id": "light.a"},
+                                "data": {},
+                            },
+                        },
+                        {
+                            "index": 2,
+                            "name": "L2",
+                            "role": "momentary",
+                            "pulse_time_s": 1.5,
+                            "action": None,
+                        },
+                        {
+                            "index": 3,
+                            "name": "Open",
+                            "role": "cover_open",
+                            "cover_id": "cover_1",
+                            "action": None,
+                        },
+                        {
+                            "index": 4,
+                            "name": "Close",
+                            "role": "cover_close",
+                            "cover_id": "cover_1",
+                            "action": None,
+                        },
+                    ],
+                    "covers": [
+                        {
+                            "id": "cover_1",
+                            "open_button": 3,
+                            "close_button": 4,
+                            "open_time_s": 20,
+                            "close_time_s": 22,
+                            "direction_settle_s": 0.5,
+                            "opposite_press": "stop_then_reverse",
+                            "ha_entity_id": "cover.living",
+                        }
+                    ],
+                }
+            },
+        },
+        mode="replace",
+    )
+    exported = coordinator.export_profiles()
+    assert exported["schema_version"] == PROFILES_EXPORT_SCHEMA_VERSION
+    b1 = exported["profiles"]["rich"]["buttons"][0]
+    assert b1["action"]["data"]["brightness"] == 50
+    assert b1["action_double"]["action"] == "light.turn_off"
+    assert exported["profiles"]["rich"]["buttons"][1]["role"] == "momentary"
+    assert exported["profiles"]["rich"]["buttons"][1]["pulse_time_s"] == 1.5
+    assert exported["profiles"]["rich"]["covers"][0]["ha_entity_id"] == "cover.living"
+
+    store2 = FakeStore()
+    other = PanelCoordinator(_runtime(FakeAdapter(), store2))  # type: ignore[arg-type]
+    await other.async_import_profiles(exported, mode="replace")
+    again = other.export_profiles()
+    assert again["profiles"]["rich"] == exported["profiles"]["rich"]
+    assert again["active_profile_id"] == "rich"
+
+
+@pytest.mark.asyncio
+async def test_import_accepts_legacy_storage_stamped_schema_version_5() -> None:
+    """Reproduce the card error: export wrote STORAGE_VERSION 5 as schema_version."""
+    store = FakeStore()
+    coordinator = PanelCoordinator(_runtime(FakeAdapter(), store))  # type: ignore[arg-type]
+    assert STORAGE_VERSION == 5
+    await coordinator.async_import_profiles(
+        {
+            "schema_version": 5,
+            "active_profile_id": "guest",
+            "profiles": {
+                "guest": {
+                    "id": "guest",
+                    "name": "Guest",
+                    "mode": "toggle",
+                    "buttons": [
+                        {"index": i, "name": f"G{i}", "action": None} for i in range(1, 5)
+                    ],
+                }
+            },
+            # Extra storage-dump fields must be ignored by profiles import.
+            "scheduler_tasks": {},
+            "applied_snapshot": {"id": "stale"},
+            "holiday_mode": True,
+            "default_profile_id": "guest",
+        },
+        mode="replace",
+    )
+    assert set(coordinator.data.profiles) == {"guest"}
+    assert coordinator.data.active_profile_id == "guest"
+    # Profiles import must not apply holiday / default from a storage dump.
+    assert coordinator.data.holiday_mode is False
 
 
 @pytest.mark.asyncio

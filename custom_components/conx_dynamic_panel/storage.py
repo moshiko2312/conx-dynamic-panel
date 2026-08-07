@@ -142,13 +142,37 @@ def _migrate(data: dict[str, Any]) -> dict[str, Any]:
     return data
 
 
+class _PanelHAStore(Store):
+    """HA Store with major-version hook.
+
+    Application schema migrations live in ``_migrate`` (``schema_version`` inside
+    the payload). This override exists so bumping ``STORAGE_VERSION`` does not
+    raise Home Assistant's default ``NotImplementedError`` on load.
+    """
+
+    async def _async_migrate_func(
+        self,
+        old_major_version: int,
+        old_minor_version: int,
+        old_data: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        _LOGGER.info(
+            "Migrating %s panel store from v%s.%s to v%s",
+            DOMAIN,
+            old_major_version,
+            old_minor_version,
+            STORAGE_VERSION,
+        )
+        return dict(old_data) if isinstance(old_data, dict) else {}
+
+
 class PanelStore:
     """Per-entry versioned store wrapper."""
 
     def __init__(self, hass: HomeAssistant, entry_id: str) -> None:
         self._hass = hass
         self._entry_id = entry_id
-        self._store = Store(
+        self._store = _PanelHAStore(
             hass,
             STORAGE_VERSION,
             f"{STORAGE_KEY}_{entry_id}",

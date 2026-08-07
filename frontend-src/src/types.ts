@@ -124,6 +124,8 @@ export interface PanelRuntimeUpdate {
   relay_entities?: string[];
   /** Parallel to relay_entities: true=on, false=off, null=unknown. */
   relay_states?: Array<boolean | null>;
+  /** False when mapped panel relays are all HA unavailable/unknown (Z2M offline). */
+  panel_available?: boolean;
   /** 1-based button indexes with an armed backend momentary OFF timer. */
   momentary_active?: number[];
   cover_state?: CoverState;
@@ -222,6 +224,8 @@ export interface PanelConfig {
   relay_entities?: string[];
   /** Parallel to relay_entities from get_config / subscribe. */
   relay_states?: Array<boolean | null>;
+  /** False when mapped panel relays are all HA unavailable/unknown (Z2M offline). */
+  panel_available?: boolean;
   /** 1-based button indexes with an armed backend momentary OFF timer. */
   momentary_active?: number[];
   cover_state?: CoverState;

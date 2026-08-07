@@ -904,10 +904,20 @@ class Profile:
         )
 
     def clone(self, new_id: str, new_name: str | None = None) -> Profile:
-        """Duplicate profile with a new identity."""
+        """Duplicate profile with a new identity.
+
+        ``new_name`` is used as the display name when non-empty after strip.
+        Otherwise falls back to ``"{original} copy"`` (or ``"copy"`` if the
+        original name is empty).
+        """
         data = self.to_dict()
         data["id"] = new_id
-        data["name"] = new_name or f"{self.name} copy"
+        cleaned = (new_name or "").strip()
+        if cleaned:
+            data["name"] = cleaned
+        else:
+            original = (self.name or "").strip()
+            data["name"] = f"{original} copy".strip() or "copy"
         return Profile.from_dict(data)
 
 

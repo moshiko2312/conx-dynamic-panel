@@ -6,6 +6,10 @@ Effective holiday for a panel is ``panel OR master``.
 Migration: the previous global-only holiday flag is preserved as master holiday
 (same storage key / ``holiday_mode`` field) so existing ON state keeps pausing
 all schedulers after upgrade.
+
+HA ``Store`` major version is ``HOLIDAY_STORAGE_VERSION`` (2). Version 1 on disk
+(from the pre-master-holiday global flag) must migrate via ``_async_migrate_func``;
+without that hook Home Assistant raises ``NotImplementedError`` on load.
 """
 
 from __future__ import annotations
@@ -21,12 +25,50 @@ from .const import DOMAIN, HOLIDAY_STORAGE_KEY, HOLIDAY_STORAGE_VERSION
 _LOGGER = logging.getLogger(__name__)
 
 
+def migrate_holiday_payload(
+    old_major_version: int, data: dict[str, Any] | None
+) -> dict[str, Any]:
+    """Normalize holiday store payload to the current on-disk shape.
+
+    v1 stored only ``holiday_mode``. v2 uses ``master_holiday`` and keeps
+    ``holiday_mode`` in sync for backups / older readers.
+    """
+    raw = dict(data) if isinstance(data, dict) else {}
+    if old_major_version < 2 or "master_holiday" not in raw:
+        enabled = bool(raw.get("master_holiday", raw.get("holiday_mode", False)))
+    else:
+        enabled = bool(raw.get("master_holiday"))
+    return {
+        "master_holiday": enabled,
+        "holiday_mode": enabled,
+    }
+
+
+class _HolidayHAStore(Store):
+    """HA Store with major-version migration (v1 global → v2 master holiday)."""
+
+    async def _async_migrate_func(
+        self,
+        old_major_version: int,
+        old_minor_version: int,
+        old_data: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        _LOGGER.info(
+            "Migrating %s holiday store from v%s.%s to v%s",
+            DOMAIN,
+            old_major_version,
+            old_minor_version,
+            HOLIDAY_STORAGE_VERSION,
+        )
+        return migrate_holiday_payload(old_major_version, old_data)
+
+
 class HolidayStore:
     """Versioned domain-level master holiday flag (applies to all panels)."""
 
     def __init__(self, hass: HomeAssistant) -> None:
         self._hass = hass
-        self._store = Store(
+        self._store = _HolidayHAStore(
             hass,
             HOLIDAY_STORAGE_VERSION,
             HOLIDAY_STORAGE_KEY,
@@ -38,14 +80,11 @@ class HolidayStore:
     async def async_load(self) -> bool:
         """Load master holiday from disk (legacy ``holiday_mode`` key supported)."""
         raw = await self._store.async_load()
-        if isinstance(raw, dict):
-            if "master_holiday" in raw:
-                self.master_holiday = bool(raw.get("master_holiday"))
-            else:
-                # Legacy global holiday → master holiday (same ON/OFF semantics).
-                self.master_holiday = bool(raw.get("holiday_mode", False))
-        else:
-            self.master_holiday = False
+        migrated = migrate_holiday_payload(
+            HOLIDAY_STORAGE_VERSION,
+            raw if isinstance(raw, dict) else None,
+        )
+        self.master_holiday = bool(migrated["master_holiday"])
         return self.master_holiday
 
     async def async_save(self) -> None:

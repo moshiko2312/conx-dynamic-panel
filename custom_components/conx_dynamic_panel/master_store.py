@@ -19,12 +19,31 @@ from .models import SchedulerTask
 _LOGGER = logging.getLogger(__name__)
 
 
+class _MasterSchedulerHAStore(Store):
+    """HA Store with major-version hook for future master-scheduler schema bumps."""
+
+    async def _async_migrate_func(
+        self,
+        old_major_version: int,
+        old_minor_version: int,
+        old_data: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        _LOGGER.info(
+            "Migrating %s master scheduler store from v%s.%s to v%s",
+            DOMAIN,
+            old_major_version,
+            old_minor_version,
+            MASTER_STORAGE_VERSION,
+        )
+        return dict(old_data) if isinstance(old_data, dict) else {}
+
+
 class MasterSchedulerStore:
     """Versioned domain-level master scheduler tasks."""
 
     def __init__(self, hass: HomeAssistant) -> None:
         self._hass = hass
-        self._store = Store(
+        self._store = _MasterSchedulerHAStore(
             hass,
             MASTER_STORAGE_VERSION,
             MASTER_STORAGE_KEY,
