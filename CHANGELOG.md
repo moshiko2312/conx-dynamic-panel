@@ -4,6 +4,8 @@ All notable changes to this private project will be documented here.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-08
+
 ### Added
 
 - **Screenshot setup guide:** `docs/SETUP_GUIDE.md` walks a first-time installer through installation and card configuration (live faceplate, settings menu, all 4 wizard steps, and the scheduler task/trigger editor) with an explicit explanation of every control, backed by real card screenshots under `docs/screenshots/`.
