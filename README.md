@@ -1,10 +1,81 @@
 # ConX Dynamic Panel
 
+![Version](https://img.shields.io/badge/version-0.3.0-blue)
+![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Custom%20Integration-41BDF5?logo=home-assistant&logoColor=white)
+![Status](https://img.shields.io/badge/status-private-lightgrey)
+![License](https://img.shields.io/badge/license-Proprietary-red)
+
 Private commercial Home Assistant project for ConX.
 
 ConX Dynamic Panel transforms a supported multi-button smart switch into a configurable, multi-profile control panel. A single physical 4-button Zemismart panel can represent many virtual profiles, with different button names, actions, colors, radar settings, and button behavior.
 
-> **Private software:** This repository is intended only for ConX business use. It is not prepared for HACS, public distribution, resale, or third-party redistribution.
+> **Private software:** This repository is intended only for ConX business use. It is not prepared for HACS, public distribution, resale, or third-party redistribution. See [License](#license).
+
+## Screenshots
+
+The card walks an installer through a 4-step wizard on top of a live faceplate
+preview. Every screen below is a real screenshot of the running card — for a
+full explanation of each control, see the [Setup Guide](docs/SETUP_GUIDE.md).
+
+<table>
+<tr>
+<td width="50%" valign="top">
+<img src="docs/screenshots/01-live-faceplate.jpeg" alt="Live faceplate preview" width="100%"/>
+<br/><sub><b>Live faceplate.</b> Real-time mirror of the physical panel — lit rings reflect actual relay state, colors follow the active profile, and the footer shows the next scheduled profile change.</sub>
+</td>
+<td width="50%" valign="top">
+<img src="docs/screenshots/02-settings-menu.jpeg" alt="Settings menu" width="100%"/>
+<br/><sub><b>Settings menu.</b> Language (HE/EN/RU with RTL), theme, profile Export / Import (merge or replace), the in-card Info guide, and a copy-ready automation example.</sub>
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<img src="docs/screenshots/03-wizard-step1-profiles.jpeg" alt="Wizard Step 1 – Profiles" width="100%"/>
+<br/><sub><b>Step 1 — Profiles.</b> Create, duplicate, and delete profiles; set panel gangs (how many of the 4 buttons this profile uses) and the panel/profile display names.</sub>
+</td>
+<td width="50%" valign="top">
+<img src="docs/screenshots/04-wizard-step2-appearance.jpeg" alt="Wizard Step 2 – Appearance" width="100%"/>
+<br/><sub><b>Step 2 — Appearance.</b> LED Color ON / Color OFF, radar timeout, backlight with brightness slider, and child lock.</sub>
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<img src="docs/screenshots/05-wizard-step3-buttons-overview.jpeg" alt="Wizard Step 3 – Buttons overview" width="100%"/>
+<br/><sub><b>Step 3 — Buttons.</b> Pick a mode (Toggle, Radio mandatory/optional/split, Free mix, or Cover/shutter), then expand any of the four collapsible button rows.</sub>
+</td>
+<td width="50%" valign="top">
+<img src="docs/screenshots/06-wizard-step3-buttons-editor.jpeg" alt="Wizard Step 3 – Button editor" width="100%"/>
+<br/><sub><b>Step 3 — Button editor.</b> Label, Home Assistant service + entity for the Action (and an optional double-click action), plus advanced YAML action data.</sub>
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<img src="docs/screenshots/07-wizard-step4-scheduler.jpeg" alt="Wizard Step 4 – Scheduler" width="100%"/>
+<br/><sub><b>Step 4 — Scheduler.</b> Per-panel and master holiday mode, a default profile for gaps in the schedule, scheduler export/import, and the panel's task list.</sub>
+</td>
+<td width="50%" valign="top">
+<img src="docs/screenshots/08-scheduler-task-editor.png" alt="Scheduler task/trigger editor" width="100%"/>
+<br/><sub><b>Scheduler task editor.</b> Day/month filters plus one or more time → profile triggers; a trigger stays active until the next one fires. Local and multi-panel master tasks share this editor.</sub>
+</td>
+</tr>
+</table>
+
+## Table of contents
+
+- [Start here](#start-here)
+- [Product concept](#product-concept)
+- [MVP device mapping](#mvp-device-mapping)
+- [Main features](#main-features)
+- [Button modes](#button-modes)
+- [Draft and sync model](#draft-and-sync-model)
+- [Integration-created entities](#integration-created-entities)
+- [Services](#services)
+- [Repository structure](#repository-structure)
+- [Private installation](#private-installation)
+- [Development rules](#development-rules)
+- [Roadmap](#roadmap)
+- [Troubleshooting](#troubleshooting)
+- [License](#license)
 
 ## Start here
 
@@ -17,7 +88,7 @@ For Cursor or Codex:
 
 ### Implementation status
 
-MVP `0.2.0` is implemented in this repository:
+MVP `0.3.0` is implemented in this repository:
 
 - Backend package under `custom_components/conx_dynamic_panel/`
 - Bundled card source under `frontend-src/`
@@ -442,6 +513,15 @@ Update an existing install without touching Home Assistant storage:
 - Double-click actions with physical relay restore
 - Settings menu cleanup, YAML action defaults, exclusive range ends, and card polish
 
+### v0.3.0 (implemented)
+
+- Scheduler triggers replace timeline ranges: single `{time, profile}` triggers per task, active until the next trigger fires, instead of "from–to" windows
+- Scheduler task rows redesigned as compact cards (day pills, time pills, Delete/Edit/Enable actions)
+- Live HA cover → panel sync fixes: position-only covers with no `opening`/`closing` states, and STOP mid-travel no longer misread as continued movement
+- Faceplate panel-unavailable status when mapped relay entities are all `unavailable`/`unknown`
+- Profile delete/duplicate/export-import fixes, scheduler task delete cleanup, and holiday Store migration fix
+- Screenshot-based [Setup Guide](docs/SETUP_GUIDE.md)
+
 ### Later
 
 - Sync all panels
@@ -468,8 +548,26 @@ Update an existing install without touching Home Assistant storage:
 
 See also `docs/PRIVATE_DEPLOYMENT.md` for install/update rules.
 
-## Ownership
+## License
 
-Copyright © ConX. All rights reserved.
+![License](https://img.shields.io/badge/license-Proprietary-red)
 
-See `LICENSE-PRIVATE.md`.
+**Private Commercial Software License** — Copyright © ConX. All rights reserved.
+
+This is closed-source, proprietary software. It is **not** open source and is
+not licensed under any OSI-approved license. Full terms are in
+[`LICENSE-PRIVATE.md`](LICENSE-PRIVATE.md); in summary:
+
+- Use is limited to **authorized ConX personnel and specifically authorized
+  contractors**, solely for approved ConX business activities.
+- No publishing, public distribution, resale, sublicensing, or HACS/marketplace
+  submission without prior written authorization from ConX.
+- No sharing of repository access, source, builds, or documentation with
+  unauthorized parties, and no removing or altering ownership/confidentiality
+  notices.
+- Possessing a copy does not transfer ownership or any intellectual-property
+  rights.
+- Provided for authorized internal use with no express or implied warranty,
+  to the maximum extent permitted by law.
+
+For permissions or licensing questions, contact ConX management.
