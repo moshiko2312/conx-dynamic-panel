@@ -210,12 +210,25 @@ def cover_ha_command_from_transition(
     ``current_position`` delta, then a plain open<->closed state flip, before
     falling back to ``stop``. Requires a real ``old_state`` to derive a
     direction — never guesses on the first-seen event for an entity.
+
+    The refinement only applies when ``old_state`` was itself already a
+    terminal state (the "dumb" position-only cover case above). If
+    ``old_state`` was ``opening``/``closing``, the transition to a terminal
+    state already unambiguously means motion ended — via full travel or an
+    explicit stop from anywhere (wall button, app, automation) — and must
+    resolve to ``stop`` even if ``current_position`` drifted slightly at the
+    moment of stop; position noise must never override a real state-machine
+    transition.
     """
     new_value = str(getattr(new_state, "state", None) or "").strip().lower()
     command = cover_ha_state_to_command(new_value)
     if command in (COVER_COMMAND_OPEN, COVER_COMMAND_CLOSE) or command is None:
         return command
     if old_state is None:
+        return command
+
+    old_value = str(getattr(old_state, "state", None) or "").strip().lower()
+    if old_value in {"opening", "closing"}:
         return command
 
     old_position = cover_position_from_state(old_state)
@@ -228,7 +241,6 @@ def cover_ha_command_from_transition(
         return COVER_COMMAND_OPEN if new_position > old_position else COVER_COMMAND_CLOSE  # type: ignore[return-value]
 
     if new_value in {"open", "closed"}:
-        old_value = str(getattr(old_state, "state", None) or "").strip().lower()
         if old_value in {"open", "closed"} and old_value != new_value:
             return COVER_COMMAND_OPEN if new_value == "open" else COVER_COMMAND_CLOSE  # type: ignore[return-value]
 

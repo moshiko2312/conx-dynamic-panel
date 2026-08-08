@@ -303,6 +303,11 @@ conx-dynamic-panel/
 
 No HACS support is required.
 
+> **New installer?** See [`docs/SETUP_GUIDE.md`](docs/SETUP_GUIDE.md) for a
+> screenshot-by-screenshot walkthrough of installing the integration and
+> configuring a panel from the card (profiles, appearance, buttons,
+> scheduler).
+
 ```bash
 ./scripts/build_frontend.sh
 ./scripts/install_local.sh /path/to/homeassistant/config

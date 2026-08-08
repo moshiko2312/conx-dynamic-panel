@@ -6,9 +6,13 @@ All notable changes to this private project will be documented here.
 
 ### Added
 
+- **Screenshot setup guide:** `docs/SETUP_GUIDE.md` walks a first-time installer through installation and card configuration (live faceplate, settings menu, all 4 wizard steps, and the scheduler task/trigger editor) with an explicit explanation of every control, backed by real card screenshots under `docs/screenshots/`.
+
 - **Faceplate panel-unavailable status:** when mapped relay entities are all Home Assistant `unavailable`/`unknown` (typical Z2M/MQTT offline), `get_config` / `subscribe` expose `panel_available: false` and the card shows a clear red **Panel unavailable** / **הפאנל לא זמין** / **Панель недоступна** line under the faceplate buttons (replaces the scheduler next footer while offline). Live `hass.states` also drives the banner; relay transitions to unavailable now push a runtime refresh.
 
 ### Fixed
+
+- **Live HA cover STOP ignored on position-aware covers:** stopping a linked cover mid-travel (wall button, app, or automation — the HA entity `state` is the source of truth either way) could leave the panel's direction LED lit and the relay energized. `opening`/`closing` → terminal `open`/`closed` transitions were being re-derived as continued travel via the position-delta heuristic whenever `current_position` drifted slightly at the moment of stop (normal for covers that report position throughout the move). That heuristic is now only applied when the cover never reported a transient state to begin with (the genuine "dumb" position-only case); a transient→terminal transition always resolves to `stop`.
 
 - **Setup crash when panel entities are offline:** mapping validation no longer aborts `async_setup_entry` when label text entities (or color/radar selects) are Home Assistant `unavailable`/`unknown`. Those states are treated as soft warnings; domain/existence/disabled/password checks still hard-fail. Integration loads and the card can show panel unavailable until writes succeed on reconnect.
 

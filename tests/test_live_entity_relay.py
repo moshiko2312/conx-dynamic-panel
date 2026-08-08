@@ -634,6 +634,34 @@ async def test_live_cover_ha_position_delta_energizes_relay_without_state_change
 
 
 @pytest.mark.asyncio
+async def test_live_cover_ha_stop_mid_travel_with_position_noise_halts() -> None:
+    """A cover that reports current_position on both the transient and the
+    terminal event must still resolve to STOP once state leaves opening —
+    slight position drift at the moment of stop must not be mistaken for
+    continued travel (regression: stop from anywhere — wall button, app,
+    automation — relies on this state transition, not the caller)."""
+    adapter, coordinator = _cover_c1_setup()
+    motion = coordinator.runtime.cover.get("cover_1")
+    motion.direction = "open"
+    motion.relays = (1, 2)
+    adapter._relay_on[1] = True
+
+    event = SimpleNamespace(
+        data={
+            "entity_id": "cover.living_shutter",
+            "old_state": _state("opening", current_position=40),
+            "new_state": _state("open", current_position=45),
+        }
+    )
+    await coordinator._async_handle_linked_entity_event(event)  # type: ignore[arg-type]
+
+    assert adapter.relay_is_on(1) is False
+    assert adapter.relay_is_on(2) is False
+    assert motion.direction is None
+    coordinator.runtime.hass.services.async_call.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_live_cover_ha_tilt_only_position_change_is_ignored() -> None:
     """current_tilt_position moving without current_position must not start travel."""
     adapter, coordinator = _cover_c1_setup()
