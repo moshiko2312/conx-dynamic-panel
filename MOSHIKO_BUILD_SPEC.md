@@ -552,7 +552,7 @@ Requirements:
 Required files:
 
 - `README.md`
-- `AI_BUILD_SPEC.md`
+- `MOSHIKO_BUILD_SPEC.md`
 - `PROJECT_BUILD_BRIEF.md`
 - `AGENTS.md`
 - `.cursor/rules/conx-dynamic-panel.mdc`

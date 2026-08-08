@@ -9,6 +9,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import CONF_AUTO_SYNC, DOMAIN
@@ -238,6 +239,7 @@ class ConXSchedulerTaskSwitch(ConXPanelEntity, SwitchEntity):
     """Enable or disable one scheduler task for this panel."""
 
     _attr_translation_key = "scheduler_task"
+    _attr_entity_category = EntityCategory.CONFIG
 
     def __init__(self, coordinator: PanelCoordinator, task_id: str) -> None:
         super().__init__(coordinator)
@@ -247,8 +249,7 @@ class ConXSchedulerTaskSwitch(ConXPanelEntity, SwitchEntity):
     @property
     def name(self) -> str:
         task = self.coordinator.data.scheduler_tasks.get(self._task_id)
-        label = task.name if task else self._task_id
-        return f"Schedule {label}"
+        return task.name if task else self._task_id
 
     @property
     def is_on(self) -> bool:
@@ -276,6 +277,7 @@ class ConXMasterSchedulerTaskSwitch(ConXPanelEntity, SwitchEntity):
 
     _attr_translation_key = "master_scheduler_task"
     _attr_name = "Master schedule"
+    _attr_entity_category = EntityCategory.CONFIG
 
     def __init__(self, coordinator: PanelCoordinator, task_id: str) -> None:
         super().__init__(coordinator)

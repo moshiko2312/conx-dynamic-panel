@@ -82,7 +82,7 @@ full explanation of each control, see the [Setup Guide](docs/SETUP_GUIDE.md).
 For AI coding agents:
 
 1. Read `PROJECT_BUILD_BRIEF.md`.
-2. Read `AI_BUILD_SPEC.md` as the authoritative engineering contract.
+2. Read `MOSHIKO_BUILD_SPEC.md` as the authoritative engineering contract.
 3. Follow `AGENTS.md` and `.cursor/rules/conx-dynamic-panel.mdc`.
 4. Review `docs/ARCHITECTURE.md` before creating code.
 
@@ -362,7 +362,7 @@ conx-dynamic-panel/
 ├── .cursor/rules/
 ├── .github/workflows/
 ├── AGENTS.md
-├── AI_BUILD_SPEC.md
+├── MOSHIKO_BUILD_SPEC.md
 ├── PROJECT_BUILD_BRIEF.md
 ├── CHANGELOG.md
 ├── LICENSE-PRIVATE.md

@@ -2,7 +2,7 @@
 
 You are working inside the private GitHub repository `moshiko2312/conx-dynamic-panel`.
 
-Build the complete project described in `README.md` and `AI_BUILD_SPEC.md`. Treat `AI_BUILD_SPEC.md` as the authoritative engineering contract.
+Build the complete project described in `README.md` and `MOSHIKO_BUILD_SPEC.md`. Treat `MOSHIKO_BUILD_SPEC.md` as the authoritative engineering contract.
 
 ## Project ownership and distribution
 
@@ -16,7 +16,7 @@ Build the complete project described in `README.md` and `AI_BUILD_SPEC.md`. Trea
 
 - Work autonomously from start to finish.
 - Do not ask routine implementation questions.
-- Read `README.md`, `AI_BUILD_SPEC.md`, `AGENTS.md`, and `.cursor/rules/conx-dynamic-panel.mdc` before changing code.
+- Read `README.md`, `MOSHIKO_BUILD_SPEC.md`, `AGENTS.md`, and `.cursor/rules/conx-dynamic-panel.mdc` before changing code.
 - Use current public Home Assistant APIs.
 - Never hard-code the example entity IDs into production runtime code.
 - Keep device-specific behavior inside the adapter layer.

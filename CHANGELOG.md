@@ -4,6 +4,13 @@ All notable changes to this private project will be documented here.
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-08-08
+
+### Changed
+
+- **Scheduler task switches moved out of Controls:** local and master scheduler task switches now carry `entity_category: config`, so they group under a separate "Configuration" section on the device page instead of mixing into "Controls" with Auto sync / Holiday mode / etc.
+- **Scheduler task switch name simplified:** the entity name for a local scheduler task switch is now just the task's own name (e.g. "בדיקה"), dropping the "Schedule " prefix.
+
 ## [0.3.0] - 2026-08-08
 
 ### Added

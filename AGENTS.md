@@ -10,7 +10,7 @@ These instructions apply to the entire repository.
 
 ## Mandatory rules
 
-- Read `README.md` and `AI_BUILD_SPEC.md` before implementation.
+- Read `README.md` and `MOSHIKO_BUILD_SPEC.md` before implementation.
 - Do not add HACS support or public marketplace files.
 - Do not replace `LICENSE-PRIVATE.md` with an open-source license.
 - Do not hard-code customer entity IDs.
