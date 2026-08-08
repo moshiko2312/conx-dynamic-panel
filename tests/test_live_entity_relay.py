@@ -165,8 +165,8 @@ def _runtime(
     )
 
 
-def _state(value: str) -> SimpleNamespace:
-    return SimpleNamespace(state=value, attributes={})
+def _state(value: str, **attributes: Any) -> SimpleNamespace:
+    return SimpleNamespace(state=value, attributes=attributes)
 
 
 def test_state_value_to_relay_on_skips_unavailable() -> None:
@@ -568,6 +568,137 @@ async def test_live_cover_ignores_own_ha_mirror_echo() -> None:
     )
     await coordinator._async_handle_linked_entity_event(event)  # type: ignore[arg-type]
     assert adapter.relay_calls == []
+
+
+def _cover_c1_setup() -> tuple[FakeAdapter, PanelCoordinator]:
+    store = FakeStore()
+    profile = Profile(
+        id="c1",
+        name="Cover",
+        mode=MODE_COVER,
+        buttons=[
+            ButtonConfig(index=1, name="Up"),
+            ButtonConfig(index=2, name="Down"),
+            ButtonConfig(index=3, name=""),
+            ButtonConfig(index=4, name=""),
+        ],
+        covers=[
+            CoverConfig(
+                id="cover_1",
+                open_button=1,
+                close_button=2,
+                open_time_s=30,
+                close_time_s=30,
+                ha_entity_id="cover.living_shutter",
+            )
+        ],
+    )
+    store.data.profiles = {"c1": profile}
+    store.data.active_profile_id = "c1"
+    adapter = FakeAdapter()
+    adapter._relay_on = {1: False, 2: False, 3: False, 4: False}
+    runtime = _runtime(adapter, store)
+    coordinator = PanelCoordinator(runtime)  # type: ignore[arg-type]
+    coordinator._cover_entity_bindings = {
+        "cover.living_shutter": [
+            CoverEntityBinding(entity_id="cover.living_shutter", cover_id="cover_1")
+        ]
+    }
+    return adapter, coordinator
+
+
+@pytest.mark.asyncio
+async def test_live_cover_ha_position_delta_energizes_relay_without_state_change() -> None:
+    """Position-aware covers (e.g. Z-Wave/Nodon) can stay "open" the whole
+    move while only current_position changes — must still drive the relay."""
+    adapter, coordinator = _cover_c1_setup()
+
+    event = SimpleNamespace(
+        data={
+            "entity_id": "cover.living_shutter",
+            "old_state": _state("open", current_position=70),
+            "new_state": _state("open", current_position=30),
+        }
+    )
+    await coordinator._async_handle_linked_entity_event(event)  # type: ignore[arg-type]
+
+    assert adapter.relay_is_on(1) is False
+    assert adapter.relay_is_on(2) is True
+    motion = coordinator.runtime.cover.get("cover_1")
+    assert motion.direction == "close"
+    coordinator.runtime.hass.services.async_call.assert_not_called()
+    if motion.timer is not None:
+        motion.timer.cancel()
+        with contextlib.suppress(asyncio.CancelledError, Exception):
+            await motion.timer
+
+
+@pytest.mark.asyncio
+async def test_live_cover_ha_tilt_only_position_change_is_ignored() -> None:
+    """current_tilt_position moving without current_position must not start travel."""
+    adapter, coordinator = _cover_c1_setup()
+
+    event = SimpleNamespace(
+        data={
+            "entity_id": "cover.living_shutter",
+            "old_state": _state("open", current_position=30, current_tilt_position=76),
+            "new_state": _state("open", current_position=30, current_tilt_position=40),
+        }
+    )
+    await coordinator._async_handle_linked_entity_event(event)  # type: ignore[arg-type]
+
+    # Terminal state -> STOP -> idempotent ensure-off; neither direction engages.
+    assert adapter.relay_is_on(1) is False
+    assert adapter.relay_is_on(2) is False
+    motion = coordinator.runtime.cover.get("cover_1")
+    assert motion.direction is None
+
+
+@pytest.mark.asyncio
+async def test_live_cover_ha_terminal_jump_without_opening_state_energizes_relay() -> None:
+    """"Dumb" covers with no position and no opening/closing states jump
+    straight between open/closed — must still derive a direction and drive
+    the relay instead of silently no-oping like a bare terminal state."""
+    adapter, coordinator = _cover_c1_setup()
+
+    event = SimpleNamespace(
+        data={
+            "entity_id": "cover.living_shutter",
+            "old_state": _state("closed"),
+            "new_state": _state("open"),
+        }
+    )
+    await coordinator._async_handle_linked_entity_event(event)  # type: ignore[arg-type]
+
+    assert adapter.relay_is_on(1) is True
+    assert adapter.relay_is_on(2) is False
+    motion = coordinator.runtime.cover.get("cover_1")
+    assert motion.direction == "open"
+    if motion.timer is not None:
+        motion.timer.cancel()
+        with contextlib.suppress(asyncio.CancelledError, Exception):
+            await motion.timer
+
+
+@pytest.mark.asyncio
+async def test_live_cover_ha_no_real_change_is_noop() -> None:
+    """Attribute-only noise (unrelated attribute changes) must not start travel."""
+    adapter, coordinator = _cover_c1_setup()
+
+    event = SimpleNamespace(
+        data={
+            "entity_id": "cover.living_shutter",
+            "old_state": _state("open", current_position=30),
+            "new_state": _state("open", current_position=30),
+        }
+    )
+    await coordinator._async_handle_linked_entity_event(event)  # type: ignore[arg-type]
+
+    # Terminal state -> STOP -> idempotent ensure-off; neither direction engages.
+    assert adapter.relay_is_on(1) is False
+    assert adapter.relay_is_on(2) is False
+    motion = coordinator.runtime.cover.get("cover_1")
+    assert motion.direction is None
 
 
 @pytest.mark.asyncio

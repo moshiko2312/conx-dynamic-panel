@@ -68,7 +68,7 @@ from .const import (
 from .entity_relay import (
     CoverEntityBinding,
     EntityRelayBinding,
-    cover_ha_state_to_command,
+    cover_ha_command_from_transition,
     iter_cover_entity_bindings,
     iter_entity_relay_bindings,
     resolve_radio_selected_from_entities,
@@ -279,14 +279,18 @@ class PanelCoordinator:
         new_state = event.data.get("new_state")
         if entity_id is None or new_state is None:
             return
-        if old_state is not None and old_state.state == new_state.state:
-            return
 
         cover_bindings = self._cover_entity_bindings.get(str(entity_id)) or []
         if cover_bindings:
+            # Position-aware covers can report an unchanged `state` string
+            # (e.g. "open" the whole time) while `current_position` moves —
+            # do not bail out here on a matching old/new state string.
             await self._async_handle_cover_entity_event(
-                str(entity_id), str(new_state.state)
+                str(entity_id), old_state, new_state
             )
+            return
+
+        if old_state is not None and old_state.state == new_state.state:
             return
 
         desired = state_value_to_relay_on(str(entity_id), new_state.state)
@@ -315,13 +319,13 @@ class PanelCoordinator:
         self.runtime.async_notify()
 
     async def _async_handle_cover_entity_event(
-        self, entity_id: str, state: str
+        self, entity_id: str, old_state: Any, new_state: Any
     ) -> None:
-        """Drive cover open/close indication from a linked HA cover.* state."""
+        """Drive cover open/close indication from a linked HA cover.* transition."""
         suppress_until = self._cover_ha_mirror_suppress_until.get(entity_id, 0.0)
         if self._monotonic() < suppress_until:
             return
-        command = cover_ha_state_to_command(state)
+        command = cover_ha_command_from_transition(old_state, new_state)
         if command is None:
             return
         bindings = self._cover_entity_bindings.get(entity_id) or []

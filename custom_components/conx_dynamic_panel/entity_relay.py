@@ -184,6 +184,57 @@ def cover_ha_state_to_command(state: str | None) -> CoverHaCommand | None:
     return None
 
 
+def cover_position_from_state(state_obj: Any) -> float | None:
+    """Extract a numeric ``current_position`` from an HA cover state object."""
+    attributes = getattr(state_obj, "attributes", None) or {}
+    value = attributes.get("current_position")
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def cover_ha_command_from_transition(
+    old_state: Any, new_state: Any
+) -> CoverHaCommand | None:
+    """Derive an open/close/stop command from an old->new HA cover.* transition.
+
+    ``cover_ha_state_to_command`` alone only reacts to transient
+    ``opening``/``closing`` state strings. Many position-aware covers (e.g.
+    Z-Wave/Nodon shutters) never surface those — ``state`` can stay ``open``
+    for the entire move while only ``current_position`` changes, or jump
+    straight between ``open``/``closed`` with no transient state at all. When
+    the base mapping resolves to ``stop`` (terminal/idle), refine it using the
+    ``current_position`` delta, then a plain open<->closed state flip, before
+    falling back to ``stop``. Requires a real ``old_state`` to derive a
+    direction — never guesses on the first-seen event for an entity.
+    """
+    new_value = str(getattr(new_state, "state", None) or "").strip().lower()
+    command = cover_ha_state_to_command(new_value)
+    if command in (COVER_COMMAND_OPEN, COVER_COMMAND_CLOSE) or command is None:
+        return command
+    if old_state is None:
+        return command
+
+    old_position = cover_position_from_state(old_state)
+    new_position = cover_position_from_state(new_state)
+    if (
+        old_position is not None
+        and new_position is not None
+        and old_position != new_position
+    ):
+        return COVER_COMMAND_OPEN if new_position > old_position else COVER_COMMAND_CLOSE  # type: ignore[return-value]
+
+    if new_value in {"open", "closed"}:
+        old_value = str(getattr(old_state, "state", None) or "").strip().lower()
+        if old_value in {"open", "closed"} and old_value != new_value:
+            return COVER_COMMAND_OPEN if new_value == "open" else COVER_COMMAND_CLOSE  # type: ignore[return-value]
+
+    return command
+
+
 @dataclass(frozen=True, slots=True)
 class CoverEntityBinding:
     """Linked HA cover.* entity that drives one cover motor's live indication."""
