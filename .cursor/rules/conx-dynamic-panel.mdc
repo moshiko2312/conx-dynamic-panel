@@ -7,7 +7,7 @@ alwaysApply: true
 
 - This repository is private commercial software for ConX.
 - Never add HACS support, public marketplace metadata, or an open-source license.
-- Read `AI_BUILD_SPEC.md` before implementing features.
+- Read `MOSHIKO_BUILD_SPEC.md` before implementing features.
 - Keep the Home Assistant backend fully asynchronous.
 - Use public Home Assistant APIs only.
 - Never hard-code example entity IDs.
