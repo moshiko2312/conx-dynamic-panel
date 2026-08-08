@@ -292,7 +292,7 @@ export function buildImportServiceYaml(
 }
 
 /** Must match custom_components/conx_dynamic_panel/const.py SCHEDULER_EXPORT_SCHEMA_VERSION. */
-export const SCHEDULER_EXPORT_SCHEMA_VERSION = 1;
+export const SCHEDULER_EXPORT_SCHEMA_VERSION = 2;
 export const EXPORT_SCOPE_SCHEDULER = "scheduler";
 
 export type SchedulerExportValidation =

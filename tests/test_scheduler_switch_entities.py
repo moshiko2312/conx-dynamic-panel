@@ -179,7 +179,7 @@ async def test_delete_local_task_purges_switch_entity(
     store.data.scheduler_tasks["day"] = SchedulerTask(
         id="day",
         name="Day",
-        ranges=[ScheduleRange("08:00", "12:00", "lighting")],
+        ranges=[ScheduleRange("08:00", "lighting")],
     )
     runtime = _runtime(store)
     coordinator = PanelCoordinator(runtime)
@@ -244,7 +244,7 @@ async def test_delete_master_task_purges_switch_entity(
         name="Master day",
         scope="master",
         entry_ids=["entry-1"],
-        ranges=[ScheduleRange("08:00", "12:00", "lighting")],
+        ranges=[ScheduleRange("08:00", "lighting")],
     )
     master_tasks = {"master_day": task}
 

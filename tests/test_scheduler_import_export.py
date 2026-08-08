@@ -144,14 +144,14 @@ def _attach_master_store(
     return store
 
 
-def _local_task(task_id: str, profile_id: str, start: str, end: str) -> SchedulerTask:
+def _local_task(task_id: str, profile_id: str, start: str) -> SchedulerTask:
     return SchedulerTask(
         id=task_id,
         name=task_id.title(),
         enabled=True,
         weekdays=[0, 1, 2, 3, 4],
         months=list(range(1, 13)),
-        ranges=[ScheduleRange(start, end, profile_id)],
+        ranges=[ScheduleRange(start, profile_id)],
     )
 
 
@@ -160,7 +160,7 @@ async def test_export_scheduler_payload(monkeypatch: pytest.MonkeyPatch) -> None
     store = FakeStore()
     coordinator = PanelCoordinator(_runtime(FakeAdapter(), store))  # type: ignore[arg-type]
     master = _attach_master_store(coordinator, monkeypatch)
-    store.data.scheduler_tasks["morning"] = _local_task("morning", "lighting", "08:00", "12:00")
+    store.data.scheduler_tasks["morning"] = _local_task("morning", "lighting", "08:00")
     await master.async_upsert(
         SchedulerTask(
             id="evening_all",
@@ -168,7 +168,7 @@ async def test_export_scheduler_payload(monkeypatch: pytest.MonkeyPatch) -> None
             enabled=True,
             weekdays=list(range(7)),
             months=list(range(1, 13)),
-            ranges=[ScheduleRange("18:00", "22:00", "lighting")],
+            ranges=[ScheduleRange("18:00", "lighting")],
             scope=SCHEDULER_SCOPE_MASTER,
             entry_ids=["entry-1"],
         )
@@ -189,7 +189,7 @@ async def test_import_scheduler_merge_and_replace(monkeypatch: pytest.MonkeyPatc
     store = FakeStore()
     coordinator = PanelCoordinator(_runtime(FakeAdapter(), store))  # type: ignore[arg-type]
     _attach_master_store(coordinator, monkeypatch)
-    store.data.scheduler_tasks["keep"] = _local_task("keep", "lighting", "06:00", "07:00")
+    store.data.scheduler_tasks["keep"] = _local_task("keep", "lighting", "06:00")
 
     result = await coordinator.async_import_scheduler(
         {
@@ -197,7 +197,7 @@ async def test_import_scheduler_merge_and_replace(monkeypatch: pytest.MonkeyPatc
             "scope": "scheduler",
             "default_profile_id": "lighting",
             "scheduler_tasks": {
-                "morning": _local_task("morning", "lighting", "08:00", "12:00").to_dict()
+                "morning": _local_task("morning", "lighting", "08:00").to_dict()
             },
         },
         mode="merge",
@@ -211,7 +211,7 @@ async def test_import_scheduler_merge_and_replace(monkeypatch: pytest.MonkeyPatc
             "schema_version": 1,
             "scope": "scheduler",
             "scheduler_tasks": {
-                "only": _local_task("only", "lighting", "09:00", "10:00").to_dict()
+                "only": _local_task("only", "lighting", "09:00").to_dict()
             },
         },
         mode="replace",
@@ -231,8 +231,8 @@ async def test_import_skips_unknown_profile_with_warning(
             "schema_version": 1,
             "scope": "scheduler",
             "scheduler_tasks": {
-                "bad": _local_task("bad", "missing_profile", "08:00", "09:00").to_dict(),
-                "good": _local_task("good", "lighting", "10:00", "11:00").to_dict(),
+                "bad": _local_task("bad", "missing_profile", "08:00").to_dict(),
+                "good": _local_task("good", "lighting", "10:00").to_dict(),
             },
         },
         mode="merge",
@@ -247,14 +247,14 @@ async def test_import_rejects_time_conflict(monkeypatch: pytest.MonkeyPatch) -> 
     store = FakeStore()
     coordinator = PanelCoordinator(_runtime(FakeAdapter(), store))  # type: ignore[arg-type]
     _attach_master_store(coordinator, monkeypatch)
-    store.data.scheduler_tasks["morning"] = _local_task("morning", "lighting", "08:00", "12:00")
-    with pytest.raises(ValueError, match="Conflict|overlaps"):
+    store.data.scheduler_tasks["morning"] = _local_task("morning", "lighting", "08:00")
+    with pytest.raises(ValueError, match="Conflict|starts at the same time"):
         await coordinator.async_import_scheduler(
             {
                 "schema_version": 1,
                 "scope": "scheduler",
                 "scheduler_tasks": {
-                    "clash": _local_task("clash", "scenes", "10:00", "11:00").to_dict()
+                    "clash": _local_task("clash", "scenes", "08:00").to_dict()
                 },
             },
             mode="merge",
@@ -279,6 +279,7 @@ async def test_import_master_merge_includes_current_entry(
                     "enabled": True,
                     "weekdays": list(range(7)),
                     "months": list(range(1, 13)),
+                    # Legacy "end" key from pre-schema-2 exports must be ignored, not rejected.
                     "ranges": [{"start": "18:00", "end": "22:00", "profile_id": "lighting"}],
                     "scope": "master",
                     "entry_ids": ["other-panel"],
@@ -297,7 +298,7 @@ async def test_export_import_roundtrip(monkeypatch: pytest.MonkeyPatch) -> None:
     store = FakeStore()
     coordinator = PanelCoordinator(_runtime(FakeAdapter(), store))  # type: ignore[arg-type]
     _attach_master_store(coordinator, monkeypatch)
-    store.data.scheduler_tasks["morning"] = _local_task("morning", "lighting", "08:00", "12:00")
+    store.data.scheduler_tasks["morning"] = _local_task("morning", "lighting", "08:00")
     store.data.default_profile_id = "lighting"
     exported = coordinator.export_scheduler()
     store.data.scheduler_tasks.clear()

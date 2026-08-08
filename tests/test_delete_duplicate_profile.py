@@ -159,14 +159,14 @@ async def test_delete_profile_blocked_by_scheduler_lists_all_tasks() -> None:
         name="Day shift",
         weekdays=list(range(7)),
         months=list(range(1, 13)),
-        ranges=[ScheduleRange("08:00", "12:00", "scenes")],
+        ranges=[ScheduleRange("08:00", "scenes")],
     )
     store.data.scheduler_tasks["eve"] = SchedulerTask(
         id="eve",
         name="Evening",
         weekdays=list(range(7)),
         months=list(range(1, 13)),
-        ranges=[ScheduleRange("17:00", "22:00", "scenes")],
+        ranges=[ScheduleRange("17:00", "scenes")],
     )
     coordinator = PanelCoordinator(_runtime(FakeAdapter(), store))
 

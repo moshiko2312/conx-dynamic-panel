@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   findScheduleConflicts,
-  minutesCovered,
   normalizeConditions,
   parseHhmm,
   tasksAffectingEntry,
@@ -9,7 +8,7 @@ import {
 } from "../src/scheduler";
 
 describe("scheduler conflicts", () => {
-  it("blocks different profiles on overlapping times", () => {
+  it("blocks different profiles at the same start time", () => {
     const tasks: SchedulerTask[] = [
       {
         id: "a",
@@ -17,7 +16,7 @@ describe("scheduler conflicts", () => {
         enabled: true,
         weekdays: [0, 1, 2, 3, 4],
         months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
-        ranges: [{ start: "08:00", end: "12:00", profile_id: "lighting" }],
+        ranges: [{ start: "08:00", profile_id: "lighting" }],
       },
       {
         id: "b",
@@ -25,13 +24,13 @@ describe("scheduler conflicts", () => {
         enabled: true,
         weekdays: [0, 1, 2, 3, 4],
         months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
-        ranges: [{ start: "10:00", end: "14:00", profile_id: "scenes" }],
+        ranges: [{ start: "08:00", profile_id: "scenes" }],
       },
     ];
     expect(findScheduleConflicts(tasks)).toHaveLength(1);
   });
 
-  it("allows same profile overlap", () => {
+  it("allows same profile at the same start time", () => {
     const tasks: SchedulerTask[] = [
       {
         id: "a",
@@ -39,7 +38,7 @@ describe("scheduler conflicts", () => {
         enabled: true,
         weekdays: [0],
         months: [1],
-        ranges: [{ start: "08:00", end: "12:00", profile_id: "lighting" }],
+        ranges: [{ start: "08:00", profile_id: "lighting" }],
       },
       {
         id: "b",
@@ -47,13 +46,13 @@ describe("scheduler conflicts", () => {
         enabled: true,
         weekdays: [0],
         months: [1],
-        ranges: [{ start: "10:00", end: "14:00", profile_id: "lighting" }],
+        ranges: [{ start: "08:00", profile_id: "lighting" }],
       },
     ];
     expect(findScheduleConflicts(tasks)).toHaveLength(0);
   });
 
-  it("allows adjacent ranges that share an exclusive end boundary", () => {
+  it("never conflicts when start times differ — no more duration overlap", () => {
     const tasks: SchedulerTask[] = [
       {
         id: "morning",
@@ -61,7 +60,7 @@ describe("scheduler conflicts", () => {
         enabled: true,
         weekdays: [0, 1, 2, 3, 4],
         months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
-        ranges: [{ start: "08:00", end: "12:00", profile_id: "lighting" }],
+        ranges: [{ start: "08:00", profile_id: "lighting" }],
       },
       {
         id: "evening",
@@ -69,13 +68,13 @@ describe("scheduler conflicts", () => {
         enabled: true,
         weekdays: [0, 1, 2, 3, 4],
         months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
-        ranges: [{ start: "12:00", end: "17:00", profile_id: "scenes" }],
+        ranges: [{ start: "12:00", profile_id: "scenes" }],
       },
     ];
     expect(findScheduleConflicts(tasks)).toHaveLength(0);
   });
 
-  it("still conflicts on true overlap past a shared boundary", () => {
+  it("still conflicts when tasks have conditions (static check ignores them)", () => {
     const tasks: SchedulerTask[] = [
       {
         id: "a",
@@ -83,61 +82,7 @@ describe("scheduler conflicts", () => {
         enabled: true,
         weekdays: [0],
         months: [1],
-        ranges: [{ start: "08:00", end: "13:00", profile_id: "lighting" }],
-      },
-      {
-        id: "b",
-        name: "B",
-        enabled: true,
-        weekdays: [0],
-        months: [1],
-        ranges: [{ start: "12:00", end: "17:00", profile_id: "scenes" }],
-      },
-    ];
-    expect(findScheduleConflicts(tasks)).toHaveLength(1);
-  });
-
-  it("handles overnight ranges with exclusive end", () => {
-    const covered = minutesCovered(parseHhmm("22:00"), parseHhmm("06:00"));
-    expect(covered.has(22 * 60)).toBe(true);
-    expect(covered.has(23 * 60)).toBe(true);
-    expect(covered.has(3 * 60)).toBe(true);
-    expect(covered.has(5 * 60 + 59)).toBe(true);
-    expect(covered.has(6 * 60)).toBe(false);
-    expect(covered.has(12 * 60)).toBe(false);
-  });
-
-  it("allows overnight adjacent to morning at exclusive end", () => {
-    const tasks: SchedulerTask[] = [
-      {
-        id: "night",
-        name: "Night",
-        enabled: true,
-        weekdays: [0],
-        months: [1],
-        ranges: [{ start: "22:00", end: "06:00", profile_id: "lighting" }],
-      },
-      {
-        id: "morning",
-        name: "Morning",
-        enabled: true,
-        weekdays: [0],
-        months: [1],
-        ranges: [{ start: "06:00", end: "12:00", profile_id: "scenes" }],
-      },
-    ];
-    expect(findScheduleConflicts(tasks)).toHaveLength(0);
-  });
-
-  it("still conflicts when tasks have conditions (static time check)", () => {
-    const tasks: SchedulerTask[] = [
-      {
-        id: "a",
-        name: "A",
-        enabled: true,
-        weekdays: [0],
-        months: [1],
-        ranges: [{ start: "08:00", end: "13:00", profile_id: "lighting" }],
+        ranges: [{ start: "08:00", profile_id: "lighting" }],
         conditions: [{ entity_id: "binary_sensor.a", operator: "eq", value: "on" }],
       },
       {
@@ -146,11 +91,39 @@ describe("scheduler conflicts", () => {
         enabled: true,
         weekdays: [0],
         months: [1],
-        ranges: [{ start: "12:00", end: "17:00", profile_id: "scenes" }],
+        ranges: [{ start: "08:00", profile_id: "scenes" }],
         conditions: [{ entity_id: "binary_sensor.b", operator: "eq", value: "off" }],
       },
     ];
     expect(findScheduleConflicts(tasks)).toHaveLength(1);
+  });
+
+  it("no conflict when weekdays are disjoint, even at the same start time", () => {
+    const tasks: SchedulerTask[] = [
+      {
+        id: "a",
+        name: "A",
+        enabled: true,
+        weekdays: [0],
+        months: [1],
+        ranges: [{ start: "08:00", profile_id: "lighting" }],
+      },
+      {
+        id: "b",
+        name: "B",
+        enabled: true,
+        weekdays: [1],
+        months: [1],
+        ranges: [{ start: "08:00", profile_id: "scenes" }],
+      },
+    ];
+    expect(findScheduleConflicts(tasks)).toHaveLength(0);
+  });
+
+  it("parses HH:MM and rejects invalid input", () => {
+    expect(parseHhmm("08:00")).toBe(8 * 60);
+    expect(() => parseHhmm("25:00")).toThrow();
+    expect(() => parseHhmm("bad")).toThrow();
   });
 
   it("merges local and master tasks for an entry", () => {
@@ -161,7 +134,7 @@ describe("scheduler conflicts", () => {
         enabled: true,
         weekdays: [0],
         months: [1],
-        ranges: [{ start: "08:00", end: "12:00", profile_id: "lighting" }],
+        ranges: [{ start: "08:00", profile_id: "lighting" }],
         scope: "local",
       },
     ];
@@ -172,7 +145,7 @@ describe("scheduler conflicts", () => {
         enabled: true,
         weekdays: [0],
         months: [1],
-        ranges: [{ start: "18:00", end: "22:00", profile_id: "scenes" }],
+        ranges: [{ start: "18:00", profile_id: "scenes" }],
         scope: "master",
         entry_ids: ["entry-1", "entry-2"],
       },
@@ -182,7 +155,7 @@ describe("scheduler conflicts", () => {
         enabled: true,
         weekdays: [0],
         months: [1],
-        ranges: [{ start: "10:00", end: "11:00", profile_id: "scenes" }],
+        ranges: [{ start: "10:00", profile_id: "scenes" }],
         scope: "master",
         entry_ids: ["entry-2"],
       },
@@ -217,7 +190,7 @@ describe("scheduler export schema", () => {
           enabled: true,
           weekdays: [0, 1, 2, 3, 4],
           months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
-          ranges: [{ start: "08:00", end: "12:00", profile_id: "lighting" }],
+          ranges: [{ start: "08:00", profile_id: "lighting" }],
         },
       },
       master_scheduler_tasks: {},
@@ -227,6 +200,25 @@ describe("scheduler export schema", () => {
       expect(result.payload.scope).toBe("scheduler");
       expect(result.payload.scheduler_tasks.morning.id).toBe("morning");
     }
+  });
+
+  it("accepts a legacy schema_version 1 export with a stale end key", async () => {
+    const { validateSchedulerExport } = await import("../src/exportSchema");
+    const result = validateSchedulerExport({
+      schema_version: 1,
+      scope: "scheduler",
+      scheduler_tasks: {
+        morning: {
+          id: "morning",
+          name: "Morning",
+          enabled: true,
+          weekdays: [0, 1, 2, 3, 4],
+          months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+          ranges: [{ start: "08:00", end: "12:00", profile_id: "lighting" }],
+        },
+      },
+    });
+    expect(result.ok).toBe(true);
   });
 
   it("rejects wrong scope and future schema", async () => {

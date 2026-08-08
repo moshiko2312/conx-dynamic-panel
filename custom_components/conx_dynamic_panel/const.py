@@ -240,7 +240,9 @@ PROFILES_EXPORT_SCHEMA_VERSION: Final = 2
 PROFILES_EXPORT_LEGACY_STORAGE_SCHEMA_VERSIONS: Final = frozenset({3, 4, 5})
 
 # Portable scheduler JSON (separate from full panel profile export).
-SCHEDULER_EXPORT_SCHEMA_VERSION: Final = 1
+# v2 dropped ScheduleRange.end (start-time-only triggers); v1 files with a
+# legacy "end" key still import fine — the key is simply ignored.
+SCHEDULER_EXPORT_SCHEMA_VERSION: Final = 2
 EXPORT_SCOPE_SCHEDULER: Final = "scheduler"
 
 FRONTEND_SCRIPT_URL: Final = f"/{DOMAIN}/frontend/conx-dynamic-panel-card.js"

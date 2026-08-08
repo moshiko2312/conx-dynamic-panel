@@ -22,36 +22,25 @@ from custom_components.conx_dynamic_panel.models import (
 from custom_components.conx_dynamic_panel.runtime import CoverRuntime, MomentaryRuntime, MultiClickRuntime
 from custom_components.conx_dynamic_panel.scheduler import (
     find_schedule_conflicts,
-    minutes_covered,
     parse_hhmm,
     resolve_desired_profile_id,
-    time_in_range,
     validate_tasks_no_conflicts,
 )
 from custom_components.conx_dynamic_panel.storage import _migrate
 from custom_components.conx_dynamic_panel.suppression import SuppressionTracker
 
 
-def test_parse_and_overnight_coverage() -> None:
+def test_parse_hhmm() -> None:
     assert parse_hhmm("08:00") == 8 * 60
-    assert time_in_range(8 * 60, "08:00", "17:00") is True
-    assert time_in_range(16 * 60 + 59, "08:00", "17:00") is True
-    # End is exclusive: 17:00 itself is outside 08:00–17:00.
-    assert time_in_range(17 * 60, "08:00", "17:00") is False
-    assert time_in_range(17 * 60 + 1, "08:00", "17:00") is False
-    # Overnight 22:00–06:00: active through 05:59; 06:00 exclusive.
-    assert time_in_range(22 * 60, "22:00", "06:00") is True
-    assert time_in_range(23 * 60, "22:00", "06:00") is True
-    assert time_in_range(3 * 60, "22:00", "06:00") is True
-    assert time_in_range(5 * 60 + 59, "22:00", "06:00") is True
-    assert time_in_range(6 * 60, "22:00", "06:00") is False
-    assert time_in_range(12 * 60, "22:00", "06:00") is False
-    assert 0 in minutes_covered(parse_hhmm("22:00"), parse_hhmm("06:00"))
-    assert 6 * 60 not in minutes_covered(parse_hhmm("22:00"), parse_hhmm("06:00"))
+    assert parse_hhmm("23:59") == 23 * 60 + 59
+    with pytest.raises(ValueError):
+        parse_hhmm("25:00")
+    with pytest.raises(ValueError):
+        parse_hhmm("bad")
 
 
-def test_adjacent_boundary_not_conflict() -> None:
-    """08:00–12:00 and 12:00–17:00 share 12:00 but end is exclusive → no conflict."""
+def test_no_conflict_different_start_times() -> None:
+    """Two ranges with different start times never conflict — no more duration overlap."""
     tasks = [
         SchedulerTask(
             id="morning",
@@ -59,7 +48,7 @@ def test_adjacent_boundary_not_conflict() -> None:
             enabled=True,
             weekdays=[0, 1, 2, 3, 4],
             months=list(range(1, 13)),
-            ranges=[ScheduleRange("08:00", "12:00", "lighting")],
+            ranges=[ScheduleRange("08:00", "lighting")],
         ),
         SchedulerTask(
             id="evening",
@@ -67,86 +56,16 @@ def test_adjacent_boundary_not_conflict() -> None:
             enabled=True,
             weekdays=[0, 1, 2, 3, 4],
             months=list(range(1, 13)),
-            ranges=[ScheduleRange("12:00", "17:00", "scenes")],
+            ranges=[ScheduleRange("12:00", "scenes")],
         ),
     ]
     assert find_schedule_conflicts(tasks) == []
-    at_boundary = datetime(2026, 3, 2, 12, 0)  # Monday
-    assert (
-        resolve_desired_profile_id(
-            holiday_mode=False,
-            default_profile_id="lighting",
-            tasks=tasks,
-            when=at_boundary,
-            known_profiles={"lighting", "scenes"},
-        )
-        == "scenes"
-    )
-    just_before = datetime(2026, 3, 2, 11, 59)
-    assert (
-        resolve_desired_profile_id(
-            holiday_mode=False,
-            default_profile_id="lighting",
-            tasks=tasks,
-            when=just_before,
-            known_profiles={"lighting", "scenes"},
-        )
-        == "lighting"
-    )
 
 
-def test_true_overlap_still_conflicts() -> None:
+def test_same_start_time_different_profile_conflicts() -> None:
     tasks = [
-        SchedulerTask(
-            id="a",
-            name="A",
-            ranges=[ScheduleRange("08:00", "13:00", "lighting")],
-        ),
-        SchedulerTask(
-            id="b",
-            name="B",
-            ranges=[ScheduleRange("12:00", "17:00", "scenes")],
-        ),
-    ]
-    assert len(find_schedule_conflicts(tasks)) == 1
-
-
-def test_overnight_adjacent_boundary_not_conflict() -> None:
-    tasks = [
-        SchedulerTask(
-            id="night",
-            name="Night",
-            ranges=[ScheduleRange("22:00", "06:00", "lighting")],
-        ),
-        SchedulerTask(
-            id="morning",
-            name="Morning",
-            ranges=[ScheduleRange("06:00", "12:00", "scenes")],
-        ),
-    ]
-    assert find_schedule_conflicts(tasks) == []
-    assert time_in_range(6 * 60, "22:00", "06:00") is False
-    assert time_in_range(6 * 60, "06:00", "12:00") is True
-
-
-def test_conflict_blocks_different_profiles_same_overlap() -> None:
-    tasks = [
-        SchedulerTask(
-            id="day",
-            name="Day",
-            enabled=True,
-            weekdays=[0, 1, 2, 3, 4],
-            months=list(range(1, 13)),
-            ranges=[ScheduleRange("08:00", "12:00", "lighting")],
-        ),
-        SchedulerTask(
-            id="work",
-            name="Work",
-            enabled=True,
-            weekdays=[0, 1, 2, 3, 4],
-            months=list(range(1, 13)),
-            ranges=[ScheduleRange("10:00", "14:00", "scenes")],
-        ),
+        SchedulerTask(id="a", name="A", ranges=[ScheduleRange("08:00", "lighting")]),
+        SchedulerTask(id="b", name="B", ranges=[ScheduleRange("08:00", "scenes")]),
     ]
     conflicts = find_schedule_conflicts(tasks)
     assert len(conflicts) == 1
@@ -154,18 +73,11 @@ def test_conflict_blocks_different_profiles_same_overlap() -> None:
         validate_tasks_no_conflicts(tasks)
 
 
-def test_same_profile_overlap_allowed() -> None:
+def test_same_profile_same_start_allowed() -> None:
+    """Same start + same profile is redundant, not conflicting."""
     tasks = [
-        SchedulerTask(
-            id="a",
-            name="A",
-            ranges=[ScheduleRange("08:00", "12:00", "lighting")],
-        ),
-        SchedulerTask(
-            id="b",
-            name="B",
-            ranges=[ScheduleRange("10:00", "14:00", "lighting")],
-        ),
+        SchedulerTask(id="a", name="A", ranges=[ScheduleRange("08:00", "lighting")]),
+        SchedulerTask(id="b", name="B", ranges=[ScheduleRange("08:00", "lighting")]),
     ]
     assert find_schedule_conflicts(tasks) == []
 
@@ -173,67 +85,202 @@ def test_same_profile_overlap_allowed() -> None:
 def test_no_conflict_when_weekdays_disjoint() -> None:
     tasks = [
         SchedulerTask(
-            id="a",
-            name="A",
-            weekdays=[0],
-            ranges=[ScheduleRange("08:00", "17:00", "lighting")],
+            id="a", name="A", weekdays=[0], ranges=[ScheduleRange("08:00", "lighting")]
         ),
         SchedulerTask(
-            id="b",
-            name="B",
-            weekdays=[1],
-            ranges=[ScheduleRange("08:00", "17:00", "scenes")],
+            id="b", name="B", weekdays=[1], ranges=[ScheduleRange("08:00", "scenes")]
         ),
     ]
     assert find_schedule_conflicts(tasks) == []
 
 
-def test_overnight_conflict_detection() -> None:
+def test_no_conflict_when_months_disjoint() -> None:
+    tasks = [
+        SchedulerTask(id="a", name="A", months=[1], ranges=[ScheduleRange("08:00", "lighting")]),
+        SchedulerTask(id="b", name="B", months=[2], ranges=[ScheduleRange("08:00", "scenes")]),
+    ]
+    assert find_schedule_conflicts(tasks) == []
+
+
+def test_conditions_do_not_remove_static_conflicts() -> None:
+    from custom_components.conx_dynamic_panel.models import ScheduleCondition
+
     tasks = [
         SchedulerTask(
-            id="night",
-            name="Night",
-            ranges=[ScheduleRange("22:00", "06:00", "lighting")],
+            id="a",
+            name="A",
+            ranges=[ScheduleRange("08:00", "lighting")],
+            conditions=[ScheduleCondition("binary_sensor.a", "eq", "on")],
         ),
         SchedulerTask(
-            id="early",
-            name="Early",
-            ranges=[ScheduleRange("05:00", "07:00", "scenes")],
+            id="b",
+            name="B",
+            ranges=[ScheduleRange("08:00", "scenes")],
+            conditions=[ScheduleCondition("binary_sensor.b", "eq", "off")],
         ),
     ]
     assert len(find_schedule_conflicts(tasks)) == 1
 
 
-def test_resolve_desired_uses_range_then_default() -> None:
+def test_resolve_desired_stays_active_until_next_trigger_same_day() -> None:
+    """Before the first trigger fires, fall back to default; after, hold the profile."""
     tasks = [
         SchedulerTask(
             id="day",
             name="Day",
             weekdays=list(range(7)),
             months=list(range(1, 13)),
-            ranges=[ScheduleRange("08:00", "17:00", "scenes")],
+            ranges=[ScheduleRange("08:00", "scenes")],
         )
     ]
     known = {"lighting", "scenes"}
-    monday_noon = datetime(2026, 3, 2, 12, 0)  # Monday
+    # Before 08:00 on the very first day the task could ever have fired (no
+    # prior-day trigger reachable within the lookback because none exists yet
+    # in this closed test universe) → default.
     assert (
         resolve_desired_profile_id(
             holiday_mode=False,
             default_profile_id="lighting",
             tasks=tasks,
-            when=monday_noon,
+            when=datetime(2026, 3, 2, 7, 0),
+            known_profiles=known,
+            lookback_days=0,
+        )
+        == "lighting"
+    )
+    # At/after 08:00 → the trigger has fired, scenes is active.
+    assert (
+        resolve_desired_profile_id(
+            holiday_mode=False,
+            default_profile_id="lighting",
+            tasks=tasks,
+            when=datetime(2026, 3, 2, 8, 0),
             known_profiles=known,
         )
         == "scenes"
     )
-    monday_evening = datetime(2026, 3, 2, 20, 0)
+    # Still active well after 08:00 — no "end" to expire it.
     assert (
         resolve_desired_profile_id(
             holiday_mode=False,
             default_profile_id="lighting",
             tasks=tasks,
-            when=monday_evening,
+            when=datetime(2026, 3, 2, 20, 0),
             known_profiles=known,
+        )
+        == "scenes"
+    )
+
+
+def test_resolve_desired_persists_across_midnight_until_next_trigger() -> None:
+    """A trigger fired yesterday keeps its profile active into the next day
+    until a later trigger (today) supersedes it — the "keep support for
+    multiple ranges, active until the next trigger" model."""
+    tasks = [
+        SchedulerTask(
+            id="day",
+            name="Day",
+            weekdays=list(range(7)),
+            months=list(range(1, 13)),
+            ranges=[
+                ScheduleRange("08:00", "scenes"),
+                ScheduleRange("17:00", "lighting"),
+            ],
+        )
+    ]
+    known = {"lighting", "scenes"}
+    # Tuesday 03:00 — yesterday's (Monday) 17:00 trigger is still the most
+    # recent one; today's 08:00 hasn't fired yet.
+    assert (
+        resolve_desired_profile_id(
+            holiday_mode=False,
+            default_profile_id="lighting",
+            tasks=tasks,
+            when=datetime(2026, 3, 3, 3, 0),
+            known_profiles=known,
+        )
+        == "lighting"
+    )
+    # Tuesday 09:00 — today's 08:00 trigger superseded yesterday's 17:00.
+    assert (
+        resolve_desired_profile_id(
+            holiday_mode=False,
+            default_profile_id="lighting",
+            tasks=tasks,
+            when=datetime(2026, 3, 3, 9, 0),
+            known_profiles=known,
+        )
+        == "scenes"
+    )
+
+
+def test_resolve_desired_multiple_ranges_recency_wins_within_day() -> None:
+    tasks = [
+        SchedulerTask(
+            id="day",
+            name="Day",
+            weekdays=list(range(7)),
+            months=list(range(1, 13)),
+            ranges=[
+                ScheduleRange("08:00", "scenes"),
+                ScheduleRange("17:00", "lighting"),
+            ],
+        )
+    ]
+    known = {"lighting", "scenes"}
+    assert (
+        resolve_desired_profile_id(
+            holiday_mode=False,
+            default_profile_id="lighting",
+            tasks=tasks,
+            when=datetime(2026, 3, 2, 12, 0),
+            known_profiles=known,
+        )
+        == "scenes"
+    )
+    assert (
+        resolve_desired_profile_id(
+            holiday_mode=False,
+            default_profile_id="lighting",
+            tasks=tasks,
+            when=datetime(2026, 3, 2, 17, 0),
+            known_profiles=known,
+        )
+        == "lighting"
+    )
+
+
+def test_resolve_desired_beyond_lookback_uses_default() -> None:
+    tasks = [
+        SchedulerTask(
+            id="day",
+            name="Day",
+            weekdays=list(range(7)),
+            months=list(range(1, 13)),
+            ranges=[ScheduleRange("08:00", "scenes")],
+        )
+    ]
+    assert (
+        resolve_desired_profile_id(
+            holiday_mode=False,
+            default_profile_id="lighting",
+            tasks=tasks,
+            when=datetime(2026, 3, 2, 12, 0),
+            known_profiles={"lighting", "scenes"},
+            lookback_days=0,
+        )
+        == "scenes"
+    )
+    # Before the trigger's first same-day firing, with lookback disabled
+    # entirely there is nothing to find → default.
+    assert (
+        resolve_desired_profile_id(
+            holiday_mode=False,
+            default_profile_id="lighting",
+            tasks=tasks,
+            when=datetime(2026, 3, 2, 7, 0),
+            known_profiles={"lighting", "scenes"},
+            lookback_days=0,
         )
         == "lighting"
     )
@@ -241,11 +288,7 @@ def test_resolve_desired_uses_range_then_default() -> None:
 
 def test_holiday_suppresses_scheduler() -> None:
     tasks = [
-        SchedulerTask(
-            id="day",
-            name="Day",
-            ranges=[ScheduleRange("00:00", "23:59", "scenes")],
-        )
+        SchedulerTask(id="day", name="Day", ranges=[ScheduleRange("00:00", "scenes")])
     ]
     assert (
         resolve_desired_profile_id(
@@ -262,10 +305,7 @@ def test_holiday_suppresses_scheduler() -> None:
 def test_disabled_task_ignored() -> None:
     tasks = [
         SchedulerTask(
-            id="day",
-            name="Day",
-            enabled=False,
-            ranges=[ScheduleRange("00:00", "23:59", "scenes")],
+            id="day", name="Day", enabled=False, ranges=[ScheduleRange("00:00", "scenes")]
         )
     ]
     assert (
@@ -301,6 +341,7 @@ def test_storage_migration_to_v3_preserves_profiles() -> None:
 
 
 def test_storage_migration_to_v4_adds_conditions_scope() -> None:
+    """Legacy ranges (with a now-dropped ``end`` key) survive the raw dict migration untouched."""
     migrated = _migrate(
         {
             "schema_version": 3,
@@ -336,13 +377,13 @@ def test_panel_storage_roundtrip_scheduler() -> None:
     data.scheduler_tasks["morning"] = SchedulerTask(
         id="morning",
         name="Morning",
-        ranges=[ScheduleRange("06:00", "09:00", "lighting")],
+        ranges=[ScheduleRange("06:00", "lighting")],
         notes="wake",
     )
     restored = PanelStorageData.from_dict(data.to_dict())
     assert restored.default_profile_id == "scenes"
     assert restored.holiday_mode is False
-    assert restored.scheduler_tasks["morning"].ranges[0].end == "09:00"
+    assert restored.scheduler_tasks["morning"].ranges[0].start == "06:00"
     assert restored.scheduler_tasks["morning"].notes == "wake"
 
 
@@ -450,7 +491,7 @@ async def test_scheduler_tick_activates_with_sync(monkeypatch: pytest.MonkeyPatc
         name="Day",
         weekdays=list(range(7)),
         months=list(range(1, 13)),
-        ranges=[ScheduleRange("00:00", "23:59", "scenes")],
+        ranges=[ScheduleRange("00:00", "scenes")],
     )
     adapter = FakeAdapter()
     runtime = _runtime(adapter, store)
@@ -497,7 +538,7 @@ async def test_scheduler_tick_holiday_restores_snapshot(
     store.data.scheduler_tasks["day"] = SchedulerTask(
         id="day",
         name="Day",
-        ranges=[ScheduleRange("00:00", "23:59", "scenes")],
+        ranges=[ScheduleRange("00:00", "scenes")],
     )
     adapter = FakeAdapter()
     runtime = _runtime(adapter, store, holiday=True)
@@ -531,7 +572,7 @@ async def test_upsert_task_blocks_conflicts() -> None:
             "enabled": True,
             "weekdays": list(range(7)),
             "months": list(range(1, 13)),
-            "ranges": [{"start": "08:00", "end": "12:00", "profile_id": "lighting"}],
+            "ranges": [{"start": "08:00", "profile_id": "lighting"}],
         }
     )
     with pytest.raises(ValueError, match="Conflict"):
@@ -542,7 +583,7 @@ async def test_upsert_task_blocks_conflicts() -> None:
                 "enabled": True,
                 "weekdays": list(range(7)),
                 "months": list(range(1, 13)),
-                "ranges": [{"start": "10:00", "end": "14:00", "profile_id": "scenes"}],
+                "ranges": [{"start": "08:00", "profile_id": "scenes"}],
             }
         )
     assert "b" not in store.data.scheduler_tasks
@@ -580,7 +621,7 @@ def test_condition_pass_fail_and_missing_entity() -> None:
         name="Day",
         weekdays=list(range(7)),
         months=list(range(1, 13)),
-        ranges=[ScheduleRange("00:00", "23:59", "scenes")],
+        ranges=[ScheduleRange("00:00", "scenes")],
         conditions=[cond],
     )
     when = datetime(2026, 3, 2, 12, 0)
@@ -609,26 +650,6 @@ def test_condition_pass_fail_and_missing_entity() -> None:
     )
 
 
-def test_conditions_do_not_remove_static_conflicts() -> None:
-    from custom_components.conx_dynamic_panel.models import ScheduleCondition
-
-    tasks = [
-        SchedulerTask(
-            id="a",
-            name="A",
-            ranges=[ScheduleRange("08:00", "13:00", "lighting")],
-            conditions=[ScheduleCondition("binary_sensor.a", "eq", "on")],
-        ),
-        SchedulerTask(
-            id="b",
-            name="B",
-            ranges=[ScheduleRange("12:00", "17:00", "scenes")],
-            conditions=[ScheduleCondition("binary_sensor.b", "eq", "off")],
-        ),
-    ]
-    assert len(find_schedule_conflicts(tasks)) == 1
-
-
 def test_find_next_scheduler_change_edges_and_hide() -> None:
     from custom_components.conx_dynamic_panel.scheduler import find_next_scheduler_change
 
@@ -638,11 +659,11 @@ def test_find_next_scheduler_change_edges_and_hide() -> None:
             name="Day",
             weekdays=list(range(7)),
             months=list(range(1, 13)),
-            ranges=[ScheduleRange("08:00", "17:00", "scenes")],
+            ranges=[ScheduleRange("08:00", "scenes")],
         )
     ]
     names = {"lighting": "Lighting", "scenes": "Scenes"}
-    # Before range → next is scenes at 08:00
+    # Before today's trigger → next resolvable edge is today's 08:00.
     before = find_next_scheduler_change(
         holiday_mode=False,
         default_profile_id="lighting",
@@ -654,7 +675,9 @@ def test_find_next_scheduler_change_edges_and_hide() -> None:
     assert before.profile_id == "scenes"
     assert before.to_dict()["at_time"] == "08:00"
     assert before.to_dict()["profile_name"] == "Scenes"
-    # Inside range → next is default lighting at exclusive end 17:00
+    # After today's trigger, with no other range to change to, the next edge
+    # is tomorrow's repeat of the same trigger (no identity change anywhere,
+    # so Pass 2 — "next resolvable range start" — returns it).
     inside = find_next_scheduler_change(
         holiday_mode=False,
         default_profile_id="lighting",
@@ -663,8 +686,9 @@ def test_find_next_scheduler_change_edges_and_hide() -> None:
         known_profiles=names,
     )
     assert inside is not None
-    assert inside.profile_id == "lighting"
-    assert inside.to_dict()["at_time"] == "17:00"
+    assert inside.profile_id == "scenes"
+    assert inside.to_dict()["at_time"] == "08:00"
+    assert inside.at.date() == datetime(2026, 3, 3).date()
     # Holiday / no tasks → None (footer hidden)
     assert (
         find_next_scheduler_change(
@@ -688,8 +712,8 @@ def test_find_next_scheduler_change_edges_and_hide() -> None:
     )
 
 
-def test_find_next_same_profile_as_default_still_returns_range_start() -> None:
-    """Root cause of missing footer: range profile == default → no identity change."""
+def test_find_next_real_identity_change_same_day() -> None:
+    """Two triggers in one task: the later one is a genuine profile change (Pass 1)."""
     from custom_components.conx_dynamic_panel.scheduler import find_next_scheduler_change
 
     tasks = [
@@ -698,7 +722,37 @@ def test_find_next_same_profile_as_default_still_returns_range_start() -> None:
             name="Day",
             weekdays=list(range(7)),
             months=list(range(1, 13)),
-            ranges=[ScheduleRange("08:00", "17:00", "lighting")],
+            ranges=[
+                ScheduleRange("08:00", "scenes"),
+                ScheduleRange("17:00", "lighting"),
+            ],
+        )
+    ]
+    names = {"lighting": "Lighting", "scenes": "Scenes"}
+    nxt = find_next_scheduler_change(
+        holiday_mode=False,
+        default_profile_id="lighting",
+        tasks=tasks,
+        when=datetime(2026, 3, 2, 12, 0),
+        known_profiles=names,
+    )
+    assert nxt is not None
+    assert nxt.profile_id == "lighting"
+    assert nxt.to_dict()["at_time"] == "17:00"
+    assert nxt.at.date() == datetime(2026, 3, 2).date()
+
+
+def test_find_next_same_profile_as_default_still_returns_range_start() -> None:
+    """Root cause of missing footer: range profile == default → still show the range start."""
+    from custom_components.conx_dynamic_panel.scheduler import find_next_scheduler_change
+
+    tasks = [
+        SchedulerTask(
+            id="day",
+            name="Day",
+            weekdays=list(range(7)),
+            months=list(range(1, 13)),
+            ranges=[ScheduleRange("08:00", "lighting")],
         )
     ]
     names = {"lighting": "Lighting", "scenes": "Scenes"}
@@ -724,7 +778,7 @@ def test_find_next_weekend_only_from_monday_within_14_days() -> None:
             name="Weekend",
             weekdays=[5, 6],
             months=list(range(1, 13)),
-            ranges=[ScheduleRange("10:00", "18:00", "scenes")],
+            ranges=[ScheduleRange("10:00", "scenes")],
         )
     ]
     names = {"lighting": "Lighting", "scenes": "Scenes"}
@@ -750,7 +804,7 @@ async def test_panel_holiday_suspends_only_that_entry(
     store.data.scheduler_tasks["day"] = SchedulerTask(
         id="day",
         name="Day",
-        ranges=[ScheduleRange("00:00", "23:59", "scenes")],
+        ranges=[ScheduleRange("00:00", "scenes")],
     )
     adapter = FakeAdapter()
     runtime = _runtime(adapter, store, holiday=False)
@@ -828,7 +882,7 @@ def test_holiday_still_wins_over_passing_conditions() -> None:
         SchedulerTask(
             id="day",
             name="Day",
-            ranges=[ScheduleRange("00:00", "23:59", "scenes")],
+            ranges=[ScheduleRange("00:00", "scenes")],
             conditions=[ScheduleCondition("binary_sensor.gate", "eq", "on")],
         )
     ]
@@ -913,7 +967,7 @@ async def test_master_task_applies_to_multiple_entries(
             "enabled": True,
             "weekdays": list(range(7)),
             "months": list(range(1, 13)),
-            "ranges": [{"start": "00:00", "end": "23:59", "profile_id": "scenes"}],
+            "ranges": [{"start": "00:00", "profile_id": "scenes"}],
         }
     )
     assert "master_day" in master.tasks
@@ -924,7 +978,7 @@ async def test_master_task_applies_to_multiple_entries(
         id="local_off",
         name="Local",
         enabled=False,
-        ranges=[ScheduleRange("00:00", "23:59", "lighting")],
+        ranges=[ScheduleRange("00:00", "lighting")],
     )
     await coord_a.async_scheduler_tick(reason="test")
     assert store_a.data.active_profile_id == "scenes"
@@ -949,7 +1003,7 @@ async def test_master_conflicts_with_local() -> None:
             "enabled": True,
             "weekdays": list(range(7)),
             "months": list(range(1, 13)),
-            "ranges": [{"start": "08:00", "end": "12:00", "profile_id": "lighting"}],
+            "ranges": [{"start": "08:00", "profile_id": "lighting"}],
         }
     )
     with pytest.raises(ValueError, match="Conflict"):
@@ -962,7 +1016,7 @@ async def test_master_conflicts_with_local() -> None:
                 "enabled": True,
                 "weekdays": list(range(7)),
                 "months": list(range(1, 13)),
-                "ranges": [{"start": "10:00", "end": "14:00", "profile_id": "scenes"}],
+                "ranges": [{"start": "08:00", "profile_id": "scenes"}],
             }
         )
     assert "master_x" not in master.tasks

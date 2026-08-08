@@ -146,7 +146,6 @@ export interface SchedulerNextEvent {
 
 export interface ScheduleRange {
   start: string;
-  end: string;
   profile_id: string;
 }
 

@@ -227,8 +227,8 @@ describe("localize", () => {
     expect(localize("en", "scheduler.delete_task")).toBe("Delete");
     expect(localize("he", "scheduler.delete_task")).toBe("מחק");
     expect(localize("ru", "scheduler.delete_task")).toBe("Удалить");
-    expect(localize("en", "scheduler.delete_range")).toBe("Delete range");
-    expect(localize("he", "scheduler.delete_range")).toBe("מחק טווח");
+    expect(localize("en", "scheduler.delete_range")).toBe("Delete trigger");
+    expect(localize("he", "scheduler.delete_range")).toBe("מחק טריגר");
     expect(localize("en", "scheduler.holiday_badge")).toContain("Holiday");
     expect(localize("he", "scheduler.holiday_badge")).toContain("חג");
     expect(localize("en", "scheduler.master_holiday")).toContain("Master");
@@ -368,7 +368,7 @@ describe("custom elements", () => {
             entry_ids: [],
             weekdays: [0, 1, 2, 3, 4, 5, 6],
             months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
-            ranges: [{ start: "08:00", end: "12:00", profile_id: "lighting" }],
+            ranges: [{ start: "08:00", profile_id: "lighting" }],
             conditions: [],
           },
         },

@@ -4,7 +4,6 @@ export type ScheduleConditionOperator = "eq" | "neq" | "gt" | "lt" | "gte" | "lt
 
 export interface ScheduleRange {
   start: string;
-  end: string;
   profile_id: string;
 }
 
@@ -50,8 +49,6 @@ export interface PanelSummary {
   panel_name: string;
 }
 
-const MINUTES_PER_DAY = 24 * 60;
-
 export const WEEKDAY_KEYS = [
   "scheduler.day_mon",
   "scheduler.day_tue",
@@ -83,36 +80,15 @@ export function parseHhmm(value: string): number {
   return h * 60 + m;
 }
 
-/** Clock minutes in ``[start, end)``; overnight when start > end. */
-export function minutesCovered(start: number, end: number): Set<number> {
-  const s = ((start % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY;
-  const e = ((end % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY;
-  const out = new Set<number>();
-  if (s === e) {
-    out.add(s);
-    return out;
-  }
-  if (s < e) {
-    for (let i = s; i < e; i += 1) out.add(i);
-    return out;
-  }
-  for (let i = s; i < MINUTES_PER_DAY; i += 1) out.add(i);
-  for (let i = 0; i < e; i += 1) out.add(i);
-  return out;
-}
-
-function rangesOverlapClock(a: ScheduleRange, b: ScheduleRange): boolean {
-  const coveredA = minutesCovered(parseHhmm(a.start), parseHhmm(a.end));
-  const coveredB = minutesCovered(parseHhmm(b.start), parseHhmm(b.end));
-  for (const minute of coveredA) {
-    if (coveredB.has(minute)) return true;
-  }
-  return false;
+function rangesSameStart(a: ScheduleRange, b: ScheduleRange): boolean {
+  return parseHhmm(a.start) === parseHhmm(b.start);
 }
 
 /**
- * Static timeline conflicts only. Conditions are runtime and do not remove
- * conflicts — overlapping enabled ranges with different profiles still block.
+ * Static same-start-time conflicts only. Conditions are runtime and do not
+ * remove conflicts — two enabled ranges firing at the exact same time with
+ * different profiles still block (which one "wins" would otherwise depend on
+ * runtime state).
  */
 export function findScheduleConflicts(tasks: SchedulerTask[]): ScheduleConflict[] {
   const enabled = tasks.filter((task) => task.enabled);
@@ -131,7 +107,7 @@ export function findScheduleConflicts(tasks: SchedulerTask[]): ScheduleConflict[
         for (let rb = startB; rb < taskB.ranges.length; rb += 1) {
           const rangeB = taskB.ranges[rb];
           if (rangeA.profile_id === rangeB.profile_id) continue;
-          if (!rangesOverlapClock(rangeA, rangeB)) continue;
+          if (!rangesSameStart(rangeA, rangeB)) continue;
           conflicts.push({
             task_a_id: taskA.id,
             task_a_name: taskA.name,
@@ -141,7 +117,7 @@ export function findScheduleConflicts(tasks: SchedulerTask[]): ScheduleConflict[
             range_b: rangeB,
             weekdays,
             months,
-            message: `Conflict: '${taskA.name}' (${rangeA.start}–${rangeA.end} → ${rangeA.profile_id}) overlaps '${taskB.name}' (${rangeB.start}–${rangeB.end} → ${rangeB.profile_id})`,
+            message: `Conflict: '${taskA.name}' (${rangeA.start} → ${rangeA.profile_id}) starts at the same time as '${taskB.name}' (${rangeB.start} → ${rangeB.profile_id})`,
           });
         }
       }
@@ -199,7 +175,6 @@ export function emptySchedulerTask(
     ranges: [
       {
         start: "08:00",
-        end: "17:00",
         profile_id: alternateProfileId || profileId,
       },
     ],

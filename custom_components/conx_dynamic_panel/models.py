@@ -967,34 +967,39 @@ class SyncResult:
 
 @dataclass(slots=True)
 class ScheduleRange:
-    """One timeline segment mapping a time window to a profile."""
+    """One trigger: at ``start``, ``profile_id`` becomes active.
+
+    Stays active until the next chronological trigger fires (same task,
+    another task, or after wrapping to a later day) — there is no explicit
+    end time.
+    """
 
     start: str
-    end: str
     profile_id: str
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize range."""
         return {
             "start": self.start,
-            "end": self.end,
             "profile_id": self.profile_id,
         }
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ScheduleRange:
-        """Deserialize range and validate HH:MM + profile id."""
+        """Deserialize range and validate HH:MM + profile id.
+
+        Ignores a legacy ``end`` key (pre-schema-2 storage/export files) —
+        end times are no longer part of the model.
+        """
         # Local import avoids a models↔scheduler cycle at module load.
         from .scheduler import parse_hhmm
 
         start = str(data.get("start") or "").strip()
-        end = str(data.get("end") or "").strip()
         parse_hhmm(start)
-        parse_hhmm(end)
         profile_id = str(data.get("profile_id") or "").strip()
         if not profile_id:
             raise ValueError("Schedule range requires profile_id")
-        return cls(start=start, end=end, profile_id=profile_id)
+        return cls(start=start, profile_id=profile_id)
 
 
 @dataclass(slots=True)

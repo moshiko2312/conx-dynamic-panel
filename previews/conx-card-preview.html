@@ -766,6 +766,27 @@
       .chip-row-months { grid-template-columns: repeat(3, minmax(0, 1fr)); }
       .chip { min-height: 38px; font-size: .74rem; padding: 7px 4px; }
     }
+    .day-pill, .time-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 7px;
+      border-radius: 999px;
+      font-size: .72rem;
+      font-weight: 700;
+      letter-spacing: .01em;
+      background: color-mix(in srgb, var(--surface-2) 88%, #000);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+    .time-pill {
+      color: var(--text);
+      border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+    }
+    .scheduler-row-actions .btn {
+      min-height: 28px;
+      padding: 4px 10px;
+      font-size: .78rem;
+    }
     .ring {
       width: clamp(26px, 12.5cqw, 56px); height: clamp(26px, 12.5cqw, 56px);
       border-radius: 50%; border: 3px solid color-mix(in srgb, var(--ring-off) 70%, #9aa7b5);
@@ -2124,15 +2145,21 @@
                 </div>
               </div>
               <div class="section-title" data-i18n="scheduler.local_tasks">This panel’s tasks</div>
-              <div class="scheduler-task-row" style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-                <div class="profile-chip active" style="flex:1;margin:0">
-                  <span class="chip-name">Weekday work</span>
-                  <span class="chip-id">08:00–17:00 → Scenes</span>
+              <div class="scheduler-row active" style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px;padding:10px 12px;border-radius:12px;border:1px solid color-mix(in srgb, var(--accent) 55%, transparent);background:var(--chip-active-bg)">
+                <div class="scheduler-row-info" style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px">
+                  <div class="scheduler-row-name" style="font-weight:600;flex-basis:100%">Weekday work</div>
+                  <div class="scheduler-row-days" style="display:flex;flex-wrap:wrap;gap:4px">
+                    <span class="day-pill">Mon</span><span class="day-pill">Tue</span><span class="day-pill">Wed</span><span class="day-pill">Thu</span><span class="day-pill">Fri</span>
+                  </div>
+                  <div class="scheduler-row-times" style="display:flex;flex-wrap:wrap;gap:4px">
+                    <span class="time-pill">08:00</span>
+                  </div>
                 </div>
-                <label class="scheduler-enable" title="Enabled" style="display:inline-flex;align-items:center;gap:6px">
-                  <span class="switch-caption" data-i18n="scheduler.enabled">Enabled</span>
-                  <label class="switch"><input type="checkbox" checked aria-label="Enabled" /><span class="slider"></span></label>
-                </label>
+                <div class="scheduler-row-actions" style="display:flex;flex-wrap:wrap;gap:6px">
+                  <button type="button" class="btn danger" data-i18n="scheduler.row_delete">Delete</button>
+                  <button type="button" class="btn" data-i18n="scheduler.row_edit">Edit</button>
+                  <button type="button" class="btn" data-i18n="scheduler.row_disable">Disable</button>
+                </div>
               </div>
               <div class="scheduler-editor" data-scheduler-editor>
                 <label class="field">
@@ -2172,17 +2199,16 @@
                     <button type="button" class="chip active" aria-pressed="true" data-i18n="scheduler.month_12">Dec</button>
                   </div>
                 </div>
-                <p class="field-hint" data-i18n="scheduler.overnight_hint">If From is later than To (e.g. 22:00–06:00), the range crosses midnight and stays active until To (exclusive).</p>
+                <p class="field-hint" data-i18n="scheduler.trigger_hint">A trigger stays active until the next one fires — including overnight, into the next day, until something else supersedes it.</p>
                 <div class="scheduler-ranges">
-                  <div class="scheduler-field-label" data-i18n="scheduler.ranges">Timeline ranges</div>
+                  <div class="scheduler-field-label" data-i18n="scheduler.ranges">Triggers</div>
                   <div class="scheduler-range-row">
-                    <label class="field"><span data-i18n="scheduler.range_from">From</span><input type="time" value="08:00" /></label>
-                    <label class="field"><span data-i18n="scheduler.range_to">To</span><input type="time" value="17:00" /></label>
+                    <label class="field"><span data-i18n="scheduler.range_time">Time</span><input type="time" value="08:00" /></label>
                     <label class="field">
                       <span data-i18n="scheduler.range_profile">Profile</span>
                       <select><option>Scenes</option><option>Lighting</option></select>
                     </label>
-                    <button type="button" class="btn danger" disabled data-i18n="scheduler.delete_range">Delete range</button>
+                    <button type="button" class="btn danger" disabled data-i18n="scheduler.delete_range">Delete trigger</button>
                   </div>
                 </div>
                 <div class="scheduler-conditions">
@@ -2204,18 +2230,24 @@
                 </div>
               </div>
               <div class="section-title" data-i18n="scheduler.master_tasks">Master tasks (multi-panel)</div>
-              <div class="scheduler-task-row" style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-                <div class="profile-chip" style="flex:1;margin:0">
-                  <span class="chip-name"><span class="master-badge" data-i18n="scheduler.master_badge">Master</span> Evening all panels</span>
-                  <span class="chip-id">18:00–22:00</span>
+              <div class="scheduler-row" style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px;padding:10px 12px;border-radius:12px;border:1px solid var(--border);background:var(--surface)">
+                <div class="scheduler-row-info" style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px">
+                  <div class="scheduler-row-name" style="font-weight:600;flex-basis:100%"><span class="master-badge" data-i18n="scheduler.master_badge">Master</span> Evening all panels</div>
+                  <div class="scheduler-row-days" style="display:flex;flex-wrap:wrap;gap:4px">
+                    <span class="day-pill">Mon</span><span class="day-pill">Tue</span><span class="day-pill">Wed</span><span class="day-pill">Thu</span><span class="day-pill">Fri</span><span class="day-pill">Sat</span><span class="day-pill">Sun</span>
+                  </div>
+                  <div class="scheduler-row-times" style="display:flex;flex-wrap:wrap;gap:4px">
+                    <span class="time-pill">18:00</span>
+                  </div>
                 </div>
-                <label class="scheduler-enable" title="Enabled" style="display:inline-flex;align-items:center;gap:6px">
-                  <span class="switch-caption" data-i18n="scheduler.enabled">Enabled</span>
-                  <label class="switch"><input type="checkbox" checked aria-label="Enabled" /><span class="slider"></span></label>
-                </label>
+                <div class="scheduler-row-actions" style="display:flex;flex-wrap:wrap;gap:6px">
+                  <button type="button" class="btn danger" data-i18n="scheduler.row_delete">Delete</button>
+                  <button type="button" class="btn" data-i18n="scheduler.row_edit">Edit</button>
+                  <button type="button" class="btn" data-i18n="scheduler.row_disable">Disable</button>
+                </div>
               </div>
               <p class="field-hint" data-i18n="scheduler.master_hint">A master task uses the same days, ranges, and conditions on every selected panel.</p>
-              <p class="field-hint" data-i18n="scheduler.conflict_body">Two enabled ranges would activate different profiles at the same time.</p>
+              <p class="field-hint" data-i18n="scheduler.conflict_body">Two enabled triggers would activate different profiles at the same time.</p>
             </div>
           </section>
         </div>
@@ -2717,7 +2749,7 @@
         "card.buttons": "Buttons", "card.scheduler": "Scheduler", "card.preview": "Panel preview",
         "card.panel_unavailable": "Panel unavailable",
         "card.step_1": "Step 1", "card.step_2": "Step 2", "card.step_3": "Step 3", "card.step_4": "Step 4",
-        "scheduler.hint": "Timeline ranges activate profiles automatically. The end time is exclusive — that minute starts the next range (e.g. 08:00–12:00 ends just before 12:00). Outside all ranges the default profile is used. Panel holiday pauses this panel; master holiday pauses every panel.",
+        "scheduler.hint": "Each trigger activates a profile at its time and stays active until the next trigger fires — in this task, another task, or after wrapping past midnight. Before the first trigger, the default profile is used. Panel holiday pauses this panel; master holiday pauses every panel.",
         "scheduler.holiday": "Holiday mode (this panel)",
         "scheduler.holiday_on": "Schedulers paused on this panel",
         "scheduler.holiday_badge": "Holiday mode on — schedulers paused",
@@ -2736,23 +2768,26 @@
         "scheduler.next_profile": "Next",
         "scheduler.next_at": "at",
         "scheduler.delete_task": "Delete",
-        "scheduler.delete_range": "Delete range",
+        "scheduler.delete_range": "Delete trigger",
         "scheduler.delete_condition": "Delete",
         "scheduler.save_task": "Save task",
+        "scheduler.row_delete": "Delete",
+        "scheduler.row_edit": "Edit",
+        "scheduler.row_enable": "Enable",
+        "scheduler.row_disable": "Disable",
         "scheduler.transfer": "Scheduler export / import",
         "scheduler.export": "Export",
         "scheduler.import_merge": "Import (merge)",
         "scheduler.import_replace": "Import (replace)",
         "scheduler.import_hint": "Export includes local tasks, default profile id, and master tasks that target this panel. Holiday mode (panel and master) is not exported. Merge updates by id; replace replaces local tasks only (masters in the file are merged).",
-        "scheduler.overnight_hint": "If From is later than To (e.g. 22:00–06:00), the range crosses midnight and stays active until To (exclusive).",
-        "scheduler.conflict_body": "Two enabled ranges would activate different profiles at the same time. Change the times, days, months, or profiles, then save again.",
+        "scheduler.trigger_hint": "A trigger stays active until the next one fires — including overnight, into the next day, until something else supersedes it.",
+        "scheduler.conflict_body": "Two enabled triggers would activate different profiles at the same time. Change the time, days, months, or profiles, then save again.",
         "scheduler.task_name": "Task name",
         "scheduler.enabled": "Enabled",
         "scheduler.weekdays": "Days",
         "scheduler.months": "Months",
-        "scheduler.ranges": "Timeline ranges",
-        "scheduler.range_from": "From",
-        "scheduler.range_to": "To",
+        "scheduler.ranges": "Triggers",
+        "scheduler.range_time": "Time",
         "scheduler.range_profile": "Profile",
         "scheduler.day_mon": "Mon", "scheduler.day_tue": "Tue", "scheduler.day_wed": "Wed",
         "scheduler.day_thu": "Thu", "scheduler.day_fri": "Fri", "scheduler.day_sat": "Sat", "scheduler.day_sun": "Sun",
@@ -2911,23 +2946,27 @@
         "card.buttons": "כפתורים", "card.preview": "תצוגת פאנל",
         "card.panel_unavailable": "הפאנל לא זמין",
         "card.scheduler": "תזמון",
-        "scheduler.hint": "טווחי זמן מפעילים פרופילים אוטומטית. שעת הסיום אינה כלולה — הדקה הזו מתחילה את הטווח הבא (למשל 08:00–12:00 מסתיים ממש לפני 12:00). מחוץ לכל הטווחים נבחר פרופיל ברירת המחדל. מצב חג בפאנל עוצר את התזמון כאן; מצב חג ראשי עוצר בכל הפאנלים.",
+        "scheduler.hint": "כל טריגר מפעיל פרופיל בשעתו ונשאר פעיל עד שהטריגר הבא נכנס — באותה משימה, במשימה אחרת, או אחרי חצות. לפני הטריגר הראשון נבחר פרופיל ברירת המחדל. מצב חג בפאנל עוצר את התזמון כאן; מצב חג ראשי עוצר בכל הפאנלים.",
         "scheduler.holiday": "מצב חג (פאנל זה)",
         "scheduler.holiday_on": "התזמונים מושהים בפאנל זה",
         "scheduler.holiday_badge": "מצב חג פעיל — התזמונים מושהים",
         "scheduler.master_holiday": "מצב חג ראשי (כל הפאנלים)",
         "scheduler.master_holiday_on": "מצב חג ראשי עוצר את התזמון בכל הפאנלים",
-        "scheduler.overnight_hint": "אם «מ־» מאוחר מ־«עד» (למשל 22:00–06:00), הטווח חוצה חצות ונשאר פעיל עד «עד» (לא כולל).",
+        "scheduler.trigger_hint": "טריגר נשאר פעיל עד שהבא אחריו נכנס — כולל מעבר חצות, אל תוך היום הבא, עד שמשהו אחר תופס את מקומו.",
         "scheduler.local_tasks": "משימות הפאנל הזה",
         "scheduler.master_tasks": "משימות ראשיות (רב־פאנל)",
         "scheduler.master_badge": "ראשית",
-        "scheduler.master_hint": "משימה ראשית משתמשת באותם ימים, טווחים ותנאים בכל הפאנלים שנבחרו.",
+        "scheduler.master_hint": "משימה ראשית משתמשת באותם ימים, טריגרים ותנאים בכל הפאנלים שנבחרו.",
         "scheduler.conditions": "תנאים",
         "scheduler.conditions_hint": "אופציונלי. כשתנאי נכשל המשימה אינה פעילה באותו רגע.",
         "scheduler.delete_task": "מחק",
-        "scheduler.delete_range": "מחק טווח",
+        "scheduler.delete_range": "מחק טריגר",
         "scheduler.delete_condition": "מחק",
         "scheduler.save_task": "שמור משימה",
+        "scheduler.row_delete": "מחיקה",
+        "scheduler.row_edit": "עריכה",
+        "scheduler.row_enable": "הפעלה",
+        "scheduler.row_disable": "השבת",
         "scheduler.enabled": "פעיל",
         "scheduler.next_profile": "הבא",
         "scheduler.next_at": "ב־",
@@ -2944,9 +2983,8 @@
         "scheduler.enabled": "פעיל",
         "scheduler.weekdays": "ימים",
         "scheduler.months": "חודשים",
-        "scheduler.ranges": "טווחי זמן",
-        "scheduler.range_from": "מ־",
-        "scheduler.range_to": "עד",
+        "scheduler.ranges": "טריגרים",
+        "scheduler.range_time": "שעה",
         "scheduler.range_profile": "פרופיל",
         "scheduler.day_mon": "ב׳", "scheduler.day_tue": "ג׳", "scheduler.day_wed": "ד׳",
         "scheduler.day_thu": "ה׳", "scheduler.day_fri": "ו׳", "scheduler.day_sat": "ש׳", "scheduler.day_sun": "א׳",
@@ -3105,17 +3143,17 @@
         "card.buttons": "Кнопки", "card.preview": "Превью панели",
         "card.panel_unavailable": "Панель недоступна",
         "card.scheduler": "Расписание",
-        "scheduler.hint": "Временные диапазоны автоматически активируют профили. Конец диапазона не включается — эта минута начинает следующий диапазон (например 08:00–12:00 действует до 12:00). Вне диапазонов используется профиль по умолчанию. Праздник панели останавливает планировщик здесь; мастер-праздник — на всех панелях.",
+        "scheduler.hint": "Каждый триггер активирует профиль в своё время и остаётся активным до следующего триггера — в этой задаче, в другой задаче или после полуночи. До первого триггера используется профиль по умолчанию. Праздник панели останавливает планировщик здесь; мастер-праздник — на всех панелях.",
         "scheduler.holiday": "Режим праздника (эта панель)",
         "scheduler.holiday_on": "Планировщики на паузе на этой панели",
         "scheduler.holiday_badge": "Режим праздника включён — планировщики на паузе",
         "scheduler.master_holiday": "Мастер-праздник (все панели)",
         "scheduler.master_holiday_on": "Мастер-праздник останавливает планировщики на всех панелях",
-        "scheduler.overnight_hint": "Если «С» позже «До» (например 22:00–06:00), диапазон переходит через полночь и действует до «До» (не включая эту минуту).",
+        "scheduler.trigger_hint": "Триггер остаётся активным до следующего — включая переход через полночь, до тех пор пока его не сменит другой.",
         "scheduler.local_tasks": "Задачи этой панели",
         "scheduler.master_tasks": "Мастер-задачи (несколько панелей)",
         "scheduler.master_badge": "Мастер",
-        "scheduler.master_hint": "Мастер-задача использует те же дни, диапазоны и условия на всех выбранных панелях.",
+        "scheduler.master_hint": "Мастер-задача использует те же дни, триггеры и условия на всех выбранных панелях.",
         "scheduler.conditions": "Условия",
         "scheduler.conditions_hint": "Необязательно. Если условие не выполняется, задача неактивна в этот момент.",
         "scheduler.condition_entity": "Сущность",
@@ -3123,9 +3161,13 @@
         "scheduler.next_profile": "Далее",
         "scheduler.next_at": "в",
         "scheduler.delete_task": "Удалить",
-        "scheduler.delete_range": "Удалить диапазон",
+        "scheduler.delete_range": "Удалить триггер",
         "scheduler.delete_condition": "Удалить",
         "scheduler.save_task": "Сохранить задачу",
+        "scheduler.row_delete": "Удалить",
+        "scheduler.row_edit": "Изменить",
+        "scheduler.row_enable": "Включить",
+        "scheduler.row_disable": "Отключить",
         "scheduler.transfer": "Экспорт / импорт планировщика",
         "scheduler.export": "Экспорт",
         "scheduler.import_merge": "Импорт (слияние)",
@@ -3135,9 +3177,8 @@
         "scheduler.enabled": "Включено",
         "scheduler.weekdays": "Дни",
         "scheduler.months": "Месяцы",
-        "scheduler.ranges": "Временные диапазоны",
-        "scheduler.range_from": "С",
-        "scheduler.range_to": "До",
+        "scheduler.ranges": "Триггеры",
+        "scheduler.range_time": "Время",
         "scheduler.range_profile": "Профиль",
         "scheduler.day_mon": "Пн", "scheduler.day_tue": "Вт", "scheduler.day_wed": "Ср",
         "scheduler.day_thu": "Чт", "scheduler.day_fri": "Пт", "scheduler.day_sat": "Сб", "scheduler.day_sun": "Вс",

@@ -4012,6 +4012,13 @@ export class ConXDynamicPanelCard extends LitElement {
     }
   }
 
+  private async _confirmDeleteSchedulerTask(task: SchedulerTask): Promise<void> {
+    if (!window.confirm(`${this.t("scheduler.row_delete")} ${task.name}?`)) {
+      return;
+    }
+    await this._deleteSchedulerTask(task.id);
+  }
+
   private async _deleteSchedulerTask(taskId: string): Promise<void> {
     if (!this.hass || !this._config) return;
     this._busy = true;
@@ -4308,33 +4315,19 @@ export class ConXDynamicPanelCard extends LitElement {
             )}
           </div>
         </div>
-        <p class="field-hint">${this.t("scheduler.overnight_hint")}</p>
+        <p class="field-hint">${this.t("scheduler.trigger_hint")}</p>
         <div class="scheduler-ranges">
           <div class="scheduler-field-label">${this.t("scheduler.ranges")}</div>
           ${draft.ranges.map(
             (range, index) => html`
               <div class="scheduler-range-row">
                 <label class="field">
-                  <span>${this.t("scheduler.range_from")}</span>
+                  <span>${this.t("scheduler.range_time")}</span>
                   <input
                     type="time"
                     .value=${range.start}
                     @change=${(e: Event) => {
                       range.start = (e.target as HTMLInputElement).value || "00:00";
-                      this._schedulerDraft = {
-                        ...draft,
-                        ranges: [...draft.ranges],
-                      };
-                    }}
-                  />
-                </label>
-                <label class="field">
-                  <span>${this.t("scheduler.range_to")}</span>
-                  <input
-                    type="time"
-                    .value=${range.end}
-                    @change=${(e: Event) => {
-                      range.end = (e.target as HTMLInputElement).value || "00:00";
                       this._schedulerDraft = {
                         ...draft,
                         ranges: [...draft.ranges],
@@ -4384,10 +4377,7 @@ export class ConXDynamicPanelCard extends LitElement {
             class="btn"
             @click=${() => {
               const profileId = this._defaultProfileIdForScheduler();
-              draft.ranges = [
-                ...draft.ranges,
-                { start: "18:00", end: "22:00", profile_id: profileId },
-              ];
+              draft.ranges = [...draft.ranges, { start: "18:00", profile_id: profileId }];
               this._schedulerDraft = { ...draft };
             }}
           >
@@ -4454,37 +4444,58 @@ export class ConXDynamicPanelCard extends LitElement {
     );
     const draft = this._schedulerDraft;
     const profiles = Object.values(this._panel.profiles);
-    const renderRow = (task: SchedulerTask, master: boolean) => html`
-      <div class="scheduler-task-row">
-        <button
-          type="button"
-          class="profile-chip ${draft?.id === task.id ? "active" : ""}"
-          @click=${() => this._editSchedulerTask(task)}
-        >
-          <span class="chip-name"
-            >${master
-              ? html`<span class="master-badge">${this.t("scheduler.master_badge")}</span>`
-              : nothing}${task.name}</span
-          >
-          <span class="chip-id">${task.ranges.length} ranges</span>
-        </button>
-        <label class="scheduler-enable" title=${this.t("scheduler.enabled")}>
-          <span class="switch-caption">${this.t("scheduler.enabled")}</span>
-          <label class="switch">
-            <input
-              type="checkbox"
-              .checked=${task.enabled}
+    const renderRow = (task: SchedulerTask, master: boolean) => {
+      const times = [...task.ranges].map((r) => r.start).sort((a, b) => a.localeCompare(b));
+      return html`
+        <div class="scheduler-row ${task.enabled ? "" : "disabled"} ${
+          draft?.id === task.id ? "active" : ""
+        }">
+          <div class="scheduler-row-info">
+            <div class="scheduler-row-name">
+              ${master
+                ? html`<span class="master-badge">${this.t("scheduler.master_badge")}</span>`
+                : nothing}${task.name}
+            </div>
+            <div class="scheduler-row-days">
+              ${WEEKDAY_KEYS.map((key, index) =>
+                task.weekdays.includes(index)
+                  ? html`<span class="day-pill">${this.t(key)}</span>`
+                  : nothing
+              )}
+            </div>
+            <div class="scheduler-row-times">
+              ${times.map((start) => html`<span class="time-pill">${start}</span>`)}
+            </div>
+          </div>
+          <div class="scheduler-row-actions">
+            <button
+              type="button"
+              class="btn danger"
               ?disabled=${this._busy}
-              aria-label=${`${this.t("scheduler.enabled")}: ${task.name}`}
-              @change=${(e: Event) => {
-                void this._toggleTaskEnabled(task.id, (e.target as HTMLInputElement).checked);
-              }}
-            />
-            <span class="slider"></span>
-          </label>
-        </label>
-      </div>
-    `;
+              @click=${() => void this._confirmDeleteSchedulerTask(task)}
+            >
+              ${this.t("scheduler.row_delete")}
+            </button>
+            <button
+              type="button"
+              class="btn"
+              ?disabled=${this._busy}
+              @click=${() => this._editSchedulerTask(task)}
+            >
+              ${this.t("scheduler.row_edit")}
+            </button>
+            <button
+              type="button"
+              class="btn ${task.enabled ? "" : "success"}"
+              ?disabled=${this._busy}
+              @click=${() => void this._toggleTaskEnabled(task.id, !task.enabled)}
+            >
+              ${task.enabled ? this.t("scheduler.row_disable") : this.t("scheduler.row_enable")}
+            </button>
+          </div>
+        </div>
+      `;
+    };
     return html`
       <div class="scheduler-panel" data-scheduler>
         <p class="field-hint">${this.t("scheduler.hint")}</p>
@@ -7921,27 +7932,6 @@ export class ConXDynamicPanelCard extends LitElement {
       border-color: rgba(138, 115, 72, 0.35);
     }
 
-    .scheduler-task-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .scheduler-task-row .scheduler-enable {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      flex-shrink: 0;
-    }
-
-    .scheduler-task-row .switch-caption {
-      font-size: 0.72rem;
-      font-weight: 600;
-      letter-spacing: 0.02em;
-      color: var(--secondary-text-color, #8b93a7);
-      white-space: nowrap;
-    }
-
     ha-card.conx-card[data-theme="ivory"] .faceplate-scheduler-next {
       color: #5c6578;
     }
@@ -8481,13 +8471,65 @@ export class ConXDynamicPanelCard extends LitElement {
       display: grid;
       gap: 8px;
     }
-    .scheduler-task-row {
+    .scheduler-row {
       display: flex;
-      align-items: center;
+      flex-direction: column;
       gap: 8px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid color-mix(in srgb, var(--conx-steel) 35%, transparent);
+      background: color-mix(in srgb, #fff 50%, transparent);
+      box-shadow: inset 0 1px 0 var(--conx-bevel-light);
     }
-    .scheduler-task-row .profile-chip {
-      flex: 1;
+    .scheduler-row.active {
+      border-color: color-mix(in srgb, var(--conx-accent) 55%, transparent);
+      background: var(--conx-accent-soft);
+    }
+    .scheduler-row.disabled {
+      opacity: 0.55;
+    }
+    .scheduler-row-info {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px 8px;
+    }
+    .scheduler-row-name {
+      font-weight: 600;
+      flex-basis: 100%;
+    }
+    .scheduler-row-days,
+    .scheduler-row-times {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .day-pill,
+    .time-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 7px;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      background: color-mix(in srgb, var(--surface-2) 88%, #000);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+    .time-pill {
+      color: var(--text);
+      border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+    }
+    .scheduler-row-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .scheduler-row-actions .btn {
+      min-height: 28px;
+      padding: 4px 10px;
+      font-size: 0.78rem;
     }
     .scheduler-editor {
       display: grid;

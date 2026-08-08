@@ -1,14 +1,14 @@
-"""Internal profile scheduler engine (time ranges, conflicts, desired profile).
+"""Internal profile scheduler engine (start-time triggers, conflicts, desired profile).
 
 Weekdays use Python ``datetime.weekday()``: Monday=0 … Sunday=6.
-Months are 1–12. Time ranges use ``HH:MM``. When ``start > end``, the range
-crosses midnight (e.g. 22:00–06:00). Coverage is half-open at minute
-resolution: start inclusive, end exclusive (so 08:00–12:00 is active through
-11:59; at 12:00 the next range may begin). Adjacent ranges that share a
-boundary therefore do not conflict.
+Months are 1–12. Each range is a single ``HH:MM`` trigger: when it fires, its
+profile becomes active and stays active until the next chronological trigger
+fires — in the same task, a different task, or after wrapping past midnight
+or to another day. There is no "end" time; a range's profile simply holds
+until something else supersedes it.
 
-Entity conditions are evaluated at runtime only. Static conflict detection still
-blocks overlapping timeline ranges regardless of conditions.
+Entity conditions are evaluated at runtime only (against current state), not
+retroactively against the day a trigger fired.
 """
 
 from __future__ import annotations
@@ -61,29 +61,9 @@ def format_hhmm(minutes: int) -> str:
     return f"{minutes // 60:02d}:{minutes % 60:02d}"
 
 
-def minutes_covered(start_minutes: int, end_minutes: int) -> set[int]:
-    """Return clock minutes covered by a range (start inclusive, end exclusive).
-
-    When ``start == end``, the range covers that single minute (degenerate).
-    When ``start > end``, the range crosses midnight and still excludes ``end``.
-    """
-    start = int(start_minutes) % MINUTES_PER_DAY
-    end = int(end_minutes) % MINUTES_PER_DAY
-    if start == end:
-        return {start}
-    if start < end:
-        return set(range(start, end))
-    return set(range(start, MINUTES_PER_DAY)) | set(range(0, end))
-
-
 def time_to_minutes(value: time) -> int:
     """Convert a ``datetime.time`` to minutes since midnight."""
     return value.hour * 60 + value.minute
-
-
-def time_in_range(now_minutes: int, start: str, end: str) -> bool:
-    """Return whether ``now_minutes`` is in ``[start, end)`` (overnight OK)."""
-    return now_minutes in minutes_covered(parse_hhmm(start), parse_hhmm(end))
 
 
 def normalize_weekdays(values: Any) -> list[int]:
@@ -183,46 +163,77 @@ def condition_entity_ids(tasks: Iterable[SchedulerTask]) -> list[str]:
     return sorted(ids)
 
 
+# How far back / ahead the engine searches for triggers. Weekday/month filters
+# can make a task's next (or most recent) trigger fall outside this window —
+# resolution then falls back to the panel default profile, same as a task
+# with no matching ranges at all.
+DEFAULT_SCHEDULER_LOOKBACK_DAYS = 14
+DEFAULT_SCHEDULER_LOOKAHEAD_DAYS = 14
+
+
 @dataclass(frozen=True, slots=True)
-class ActiveRangeHit:
-    """One timeline range active at a moment."""
+class TriggerHit:
+    """One range trigger that has already fired at or before a moment."""
 
     task_id: str
     task_name: str
     start: str
-    end: str
     profile_id: str
+    fired_at: datetime
 
 
-def active_range_hits(
+def _eligible_tasks(
+    tasks: Iterable[SchedulerTask], conditions_ok: ConditionChecker | None
+) -> list[SchedulerTask]:
+    return [
+        task
+        for task in tasks
+        if task.enabled
+        and task.ranges
+        and (conditions_ok is None or conditions_ok(task))
+    ]
+
+
+def trigger_hits_at_or_before(
     tasks: Iterable[SchedulerTask],
     when: datetime,
     *,
     conditions_ok: ConditionChecker | None = None,
-) -> list[ActiveRangeHit]:
-    """Return all enabled task ranges covering ``when``.
+    lookback_days: int = DEFAULT_SCHEDULER_LOOKBACK_DAYS,
+) -> list[TriggerHit]:
+    """Return every range trigger that has fired at or before ``when``.
 
-    When ``conditions_ok`` is provided, tasks that fail conditions are skipped
-    (treated as inactive for this evaluation).
+    Walks backward from ``when``'s date (inclusive) through ``lookback_days``
+    prior days, matching each task's weekday/month filters against the
+    trigger's *own* day (not ``when``'s day) — a Friday-only task's trigger
+    still counts as fired on Friday even when ``when`` is the following
+    Tuesday. Tasks failing ``conditions_ok`` (evaluated once, against current
+    state) are excluded entirely.
     """
-    now_minutes = time_to_minutes(when.time())
-    hits: list[ActiveRangeHit] = []
-    for task in tasks:
-        if not task.enabled:
-            continue
-        if conditions_ok is not None and not conditions_ok(task):
-            continue
-        if not task_matches_date(task, when):
-            continue
-        for rng in task.ranges:
-            if time_in_range(now_minutes, rng.start, rng.end):
+    eligible = _eligible_tasks(tasks, conditions_ok)
+    if not eligible:
+        return []
+    hits: list[TriggerHit] = []
+    for day_offset in range(0, max(0, lookback_days) + 1):
+        day = (when - timedelta(days=day_offset)).date()
+        probe = datetime.combine(day, time(0, 0), tzinfo=when.tzinfo)
+        for task in eligible:
+            if not task_matches_date(task, probe):
+                continue
+            for rng in task.ranges:
+                start_m = parse_hhmm(rng.start)
+                fired_at = datetime.combine(
+                    day, time(start_m // 60, start_m % 60), tzinfo=when.tzinfo
+                )
+                if fired_at > when:
+                    continue
                 hits.append(
-                    ActiveRangeHit(
+                    TriggerHit(
                         task_id=task.id,
                         task_name=task.name,
                         start=rng.start,
-                        end=rng.end,
                         profile_id=rng.profile_id,
+                        fired_at=fired_at,
                     )
                 )
     return hits
@@ -236,24 +247,33 @@ def resolve_desired_profile_id(
     when: datetime,
     known_profiles: set[str] | frozenset[str],
     conditions_ok: ConditionChecker | None = None,
+    lookback_days: int = DEFAULT_SCHEDULER_LOOKBACK_DAYS,
 ) -> str | None:
     """Return the profile the scheduler wants active now, or None to suppress.
 
-    Holiday mode suppresses all scheduler activations (returns None).
-    When a covering range exists, its profile wins (stable order by task id then
-    start). Outside all ranges, the panel default profile is used when present.
-    Failed entity conditions make a task inactive for this evaluation only;
-    they do not affect static conflict detection.
+    Holiday mode suppresses all scheduler activations (returns None). The
+    most recently fired trigger (within ``lookback_days``) wins and stays
+    "active" until a later trigger supersedes it. Ties at the exact same
+    ``fired_at`` are broken by ``(task_id, profile_id)`` ascending, same as
+    concurrent activations always were. Outside the lookback window (no
+    trigger found), the panel default profile is used when present. Failed
+    entity conditions make a task inactive for this evaluation only; they do
+    not affect static conflict detection.
     """
     if holiday_mode:
         return None
-    hits = active_range_hits(tasks, when, conditions_ok=conditions_ok)
+    hits = trigger_hits_at_or_before(
+        tasks, when, conditions_ok=conditions_ok, lookback_days=lookback_days
+    )
     if hits:
-        hits_sorted = sorted(hits, key=lambda h: (h.task_id, h.start, h.profile_id))
-        for hit in hits_sorted:
+        latest = max(hit.fired_at for hit in hits)
+        tied = sorted(
+            (hit for hit in hits if hit.fired_at == latest),
+            key=lambda hit: (hit.task_id, hit.profile_id),
+        )
+        for hit in tied:
             if hit.profile_id in known_profiles:
                 return hit.profile_id
-        return None
     if default_profile_id and default_profile_id in known_profiles:
         return default_profile_id
     return None
@@ -261,7 +281,7 @@ def resolve_desired_profile_id(
 
 @dataclass(frozen=True, slots=True)
 class ScheduleConflict:
-    """Two ranges that would activate different profiles at an overlapping time."""
+    """Two ranges that would activate different profiles at the same start time."""
 
     task_a_id: str
     task_a_name: str
@@ -284,24 +304,24 @@ class ScheduleConflict:
             "weekdays": list(self.weekdays),
             "months": list(self.months),
             "message": (
-                f"Conflict: '{self.task_a_name}' ({self.range_a.start}–{self.range_a.end} → "
-                f"{self.range_a.profile_id}) overlaps '{self.task_b_name}' "
-                f"({self.range_b.start}–{self.range_b.end} → {self.range_b.profile_id})"
+                f"Conflict: '{self.task_a_name}' ({self.range_a.start} → "
+                f"{self.range_a.profile_id}) starts at the same time as "
+                f"'{self.task_b_name}' ({self.range_b.start} → {self.range_b.profile_id})"
             ),
         }
 
 
-def _ranges_overlap_clock(a: ScheduleRange, b: ScheduleRange) -> bool:
-    covered_a = minutes_covered(parse_hhmm(a.start), parse_hhmm(a.end))
-    covered_b = minutes_covered(parse_hhmm(b.start), parse_hhmm(b.end))
-    return bool(covered_a & covered_b)
+def _ranges_same_start(a: ScheduleRange, b: ScheduleRange) -> bool:
+    return parse_hhmm(a.start) == parse_hhmm(b.start)
 
 
 def find_schedule_conflicts(tasks: Iterable[SchedulerTask]) -> list[ScheduleConflict]:
-    """Find enabled ranges that overlap in day/month and clock with different profiles.
+    """Find enabled ranges that share a start time in overlapping day/month with different profiles.
 
-    Same-profile overlaps are allowed. Disabled tasks are ignored.
-    Conditions are ignored — static time overlaps still conflict (safer).
+    Same-profile clashes are allowed (redundant, not conflicting). Disabled
+    tasks are ignored. Conditions are ignored — a static same-time clash still
+    conflicts (safer), since which trigger "wins" would otherwise depend on
+    runtime state.
     """
     enabled = [task for task in tasks if task.enabled]
     conflicts: list[ScheduleConflict] = []
@@ -319,7 +339,7 @@ def find_schedule_conflicts(tasks: Iterable[SchedulerTask]) -> list[ScheduleConf
                 for range_b in ranges_b[start_b:]:
                     if range_a.profile_id == range_b.profile_id:
                         continue
-                    if not _ranges_overlap_clock(range_a, range_b):
+                    if not _ranges_same_start(range_a, range_b):
                         continue
                     conflicts.append(
                         ScheduleConflict(
@@ -353,7 +373,7 @@ def next_scheduler_check_at(
 ) -> datetime:
     """Return the next datetime when scheduler membership may change.
 
-    Candidates are range start/end edges on matching days within the next 8 days,
+    Candidates are range-start edges on matching days within the next 8 days,
     falling back to the top of the next minute.
     """
     candidates: list[datetime] = []
@@ -369,23 +389,16 @@ def next_scheduler_check_at(
         day = (when + timedelta(days=day_offset)).date()
         probe = datetime.combine(day, time(0, 0), tzinfo=when.tzinfo)
         for task in task_list:
-            if probe.weekday() not in task.weekdays:
-                continue
-            if probe.month not in task.months:
+            if not task_matches_date(task, probe):
                 continue
             for rng in task.ranges:
                 start_m = parse_hhmm(rng.start)
-                end_m = parse_hhmm(rng.end)
-                # End is exclusive: membership changes at the end minute itself.
-                for edge in (start_m, end_m):
-                    edge_dt = datetime.combine(
-                        day,
-                        time(edge // 60, edge % 60),
-                        tzinfo=when.tzinfo,
-                    )
-                    if edge_dt <= when:
-                        continue
-                    candidates.append(edge_dt)
+                edge_dt = datetime.combine(
+                    day, time(start_m // 60, start_m % 60), tzinfo=when.tzinfo
+                )
+                if edge_dt <= when:
+                    continue
+                candidates.append(edge_dt)
     return min(candidates)
 
 
@@ -412,52 +425,29 @@ def scheduler_has_enabled_tasks(tasks: Iterable[SchedulerTask]) -> bool:
     return any(task.enabled and task.ranges for task in tasks)
 
 
-# Faceplate "next" look-ahead: cover a full week-plus so weekday-filtered
-# tasks (e.g. weekends only) still surface a footer from mid-week.
-DEFAULT_SCHEDULER_LOOKAHEAD_DAYS = 14
-
-
 def iter_scheduler_edge_datetimes(
     tasks: Iterable[SchedulerTask],
     when: datetime,
     *,
     days_ahead: int = DEFAULT_SCHEDULER_LOOKAHEAD_DAYS,
 ) -> list[datetime]:
-    """Sorted unique range start/end edges strictly after ``when``."""
+    """Sorted unique range-start edges strictly after ``when``."""
     edges: set[datetime] = set()
     task_list = [task for task in tasks if task.enabled and task.ranges]
     for day_offset in range(0, max(1, days_ahead)):
         day = (when + timedelta(days=day_offset)).date()
         probe = datetime.combine(day, time(0, 0), tzinfo=when.tzinfo)
         for task in task_list:
-            if probe.weekday() not in task.weekdays:
-                continue
-            if probe.month not in task.months:
+            if not task_matches_date(task, probe):
                 continue
             for rng in task.ranges:
-                for edge in (parse_hhmm(rng.start), parse_hhmm(rng.end)):
-                    edge_dt = datetime.combine(
-                        day,
-                        time(edge // 60, edge % 60),
-                        tzinfo=when.tzinfo,
-                    )
-                    if edge_dt > when:
-                        edges.add(edge_dt)
+                start_m = parse_hhmm(rng.start)
+                edge_dt = datetime.combine(
+                    day, time(start_m // 60, start_m % 60), tzinfo=when.tzinfo
+                )
+                if edge_dt > when:
+                    edges.add(edge_dt)
     return sorted(edges)
-
-
-def _edge_is_range_start(tasks: Iterable[SchedulerTask], edge: datetime) -> bool:
-    """Return True when ``edge`` matches an enabled range start on that date."""
-    edge_minutes = time_to_minutes(edge.time())
-    for task in tasks:
-        if not task.enabled or not task.ranges:
-            continue
-        if not task_matches_date(task, edge):
-            continue
-        for rng in task.ranges:
-            if parse_hhmm(rng.start) == edge_minutes:
-                return True
-    return False
 
 
 def find_next_scheduler_change(
@@ -473,11 +463,11 @@ def find_next_scheduler_change(
     """Return the next upcoming scheduled profile event, or None.
 
     Holiday mode or no enabled tasks → None (faceplate footer hidden).
-    Prefers the next edge where the *effective* profile id changes. When the
-    range profile matches the default (no identity change), falls back to the
-    next range-start edge so the faceplate still shows a scheduled profile +
-    time. Uses exclusive-end edges; ``known_profiles`` may be ``{id: name}`` or
-    a set of ids.
+    Prefers the next edge where the *effective* profile id changes; falls
+    back to the next range-start edge with any resolvable profile so the
+    faceplate still shows a scheduled profile + time even when it matches
+    what's already active (e.g. a newly saved task re-selecting the default
+    profile). ``known_profiles`` may be ``{id: name}`` or a set of ids.
     """
     if holiday_mode:
         return None
@@ -519,17 +509,8 @@ def find_next_scheduler_change(
             continue
         return _event(desired, edge)
 
-    # Pass 2: next range start (even if profile equals current/default) so a
-    # newly saved same-profile task still populates the faceplate footer.
-    for edge in edges:
-        if not _edge_is_range_start(task_list, edge):
-            continue
-        desired = _desired_at(edge)
-        if desired is None:
-            continue
-        return _event(desired, edge)
-
-    # Pass 3: any later edge with a resolvable desired profile.
+    # Pass 2: next range-start edge with any resolvable profile (every edge
+    # from iter_scheduler_edge_datetimes is a range start).
     for edge in edges:
         desired = _desired_at(edge)
         if desired is None:
