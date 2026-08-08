@@ -553,7 +553,7 @@ Required files:
 
 - `README.md`
 - `AI_BUILD_SPEC.md`
-- `CURSOR_CODEX_MASTER_PROMPT.md`
+- `PROJECT_BUILD_BRIEF.md`
 - `AGENTS.md`
 - `.cursor/rules/conx-dynamic-panel.mdc`
 - `LICENSE-PRIVATE.md`
