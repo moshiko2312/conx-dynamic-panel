@@ -897,6 +897,16 @@ class PanelCoordinator:
             return
         if old_state.state == new_state.state:
             return
+        if (
+            old_state.state in {STATE_UNKNOWN, STATE_UNAVAILABLE}
+            and self.data.sync_status == SYNC_ERROR
+        ):
+            # Hardware just came back online after a failed startup restore
+            # (e.g. Zigbee2MQTT reconnecting after HA); retry instead of
+            # treating this recovery as a physical button press.
+            await self._async_restore_applied_to_hardware()
+            self.runtime.async_notify()
+            return
         # Always refresh card-visible runtime after a real entity change, even
         # when the transition is integration-driven (suppressed).
         self.runtime.async_notify()
@@ -923,6 +933,15 @@ class PanelCoordinator:
         if new_state.state in {STATE_UNKNOWN, STATE_UNAVAILABLE}:
             return
         if old_state.state == new_state.state:
+            return
+        if (
+            old_state.state in {STATE_UNKNOWN, STATE_UNAVAILABLE}
+            and self.data.sync_status == SYNC_ERROR
+        ):
+            # Mapped entity just came back online after a failed startup
+            # restore; retry instead of waiting for a manual reload.
+            await self._async_restore_applied_to_hardware()
+            self.runtime.async_notify()
             return
         self.runtime.async_notify()
         if not self.data.applied_snapshot:
@@ -977,13 +996,19 @@ class PanelCoordinator:
                     self.runtime.mapping.panel_name,
                     applied.id,
                 )
+                self.data.last_error = None
                 try:
                     hardware = await self.runtime.adapter.async_read_hardware_state()
                     if self._hardware_differs_from_snapshot(hardware):
                         self.data.sync_status = SYNC_OUT_OF_SYNC  # type: ignore[assignment]
                     else:
+                        # refresh_pending_status() no-ops while status is still
+                        # "error" from a prior failed attempt; clear it first so a
+                        # successful retry actually recomputes synced/pending.
+                        self.data.sync_status = SYNC_PENDING  # type: ignore[assignment]
                         self.data.refresh_pending_status()
                 except Exception:  # noqa: BLE001
+                    self.data.sync_status = SYNC_PENDING  # type: ignore[assignment]
                     self.data.refresh_pending_status()
             else:
                 self.data.last_error = result.error or "Startup restore failed"

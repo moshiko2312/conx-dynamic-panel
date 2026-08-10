@@ -256,6 +256,75 @@ def test_migrate_preserves_profiles_and_maps_momentary_mix_alias() -> None:
 
 
 @pytest.mark.asyncio
+async def test_relay_recovery_after_sync_error_retries_restore() -> None:
+    store = FakeStore()
+    profile = store.data.active_profile()
+    assert profile is not None
+    snapshot = profile.to_dict()
+    store.data.applied_snapshot = snapshot
+    store.data.sync_status = SYNC_ERROR  # type: ignore[assignment]
+    store.data.last_error = "panel offline"
+    adapter = FakeAdapter()
+    coordinator = PanelCoordinator(_runtime(adapter, store))  # type: ignore[arg-type]
+    event = SimpleNamespace(
+        data={
+            "entity_id": "switch.l1",
+            "old_state": SimpleNamespace(state="unavailable"),
+            "new_state": SimpleNamespace(state="off"),
+        }
+    )
+    await coordinator._async_handle_relay_event(event)
+    assert len(adapter.apply_calls) == 1
+    assert adapter.apply_calls[0].id == snapshot["id"]
+    assert store.data.sync_status != SYNC_ERROR
+    assert store.data.last_error is None
+
+
+@pytest.mark.asyncio
+async def test_mapped_entity_recovery_after_sync_error_retries_restore() -> None:
+    store = FakeStore()
+    profile = store.data.active_profile()
+    assert profile is not None
+    snapshot = profile.to_dict()
+    store.data.applied_snapshot = snapshot
+    store.data.sync_status = SYNC_ERROR  # type: ignore[assignment]
+    store.data.last_error = "panel offline"
+    adapter = FakeAdapter()
+    coordinator = PanelCoordinator(_runtime(adapter, store))  # type: ignore[arg-type]
+    event = SimpleNamespace(
+        data={
+            "entity_id": "select.on",
+            "old_state": SimpleNamespace(state="unavailable"),
+            "new_state": SimpleNamespace(state="cyan"),
+        }
+    )
+    await coordinator._async_handle_mapped_entity_event(event)
+    assert len(adapter.apply_calls) == 1
+    assert store.data.sync_status != SYNC_ERROR
+    assert store.data.last_error is None
+
+
+@pytest.mark.asyncio
+async def test_relay_recovery_without_sync_error_does_not_retry_restore() -> None:
+    store = FakeStore()
+    profile = store.data.active_profile()
+    assert profile is not None
+    store.data.applied_snapshot = profile.to_dict()
+    store.data.sync_status = SYNC_SYNCED  # type: ignore[assignment]
+    adapter = FakeAdapter()
+    coordinator = PanelCoordinator(_runtime(adapter, store))  # type: ignore[arg-type]
+    event = SimpleNamespace(
+        data={
+            "entity_id": "switch.l1",
+            "old_state": SimpleNamespace(state="unavailable"),
+            "new_state": SimpleNamespace(state="off"),
+        }
+    )
+    await coordinator._async_handle_relay_event(event)
+    assert adapter.apply_calls == []
+
+
+@pytest.mark.asyncio
 async def test_mapped_entity_drift_marks_out_of_sync() -> None:
     store = FakeStore()
     profile = store.data.active_profile()

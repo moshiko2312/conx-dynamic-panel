@@ -4,6 +4,12 @@ All notable changes to this private project will be documented here.
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-08-11
+
+### Fixed
+
+- **Panel didn't auto-reconnect after a Home Assistant restart:** the one-shot startup restore (`applied_snapshot` → hardware) ran before Zigbee2MQTT/MQTT-backed mapped entities had reconnected, so the write silently failed (`sync_status: error`) and nothing retried it — only a manual integration reload fixed it. The coordinator now retries the restore automatically the moment a mapped relay or other mapped entity transitions from `unavailable`/`unknown` back to available while `sync_status` is `error`, instead of requiring a manual reload. Also fixed a latent bug where a successful retry could leave `sync_status` stuck on `error` even though hardware was back in sync.
+
 ## [0.3.1] - 2026-08-08
 
 ### Changed
