@@ -174,6 +174,24 @@ async def test_unavailable_select_without_options_allowed(
 
 
 @pytest.mark.asyncio
+async def test_select_missing_state_but_registered_allowed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Cold-boot race: entity registered from a prior run but not yet in the
+    state machine (owning integration still loading) must soft-pass."""
+    states = _valid_states()
+    del states["select.on"]
+    registry = {"select.on": SimpleNamespace(disabled_by=None)}
+    adapter = Zemismart4GangAdapter(
+        _hass(states, registry=registry, monkeypatch=monkeypatch),
+        _mapping(),
+        SuppressionTracker(),
+        confirm_timeout=1.0,
+    )
+    await adapter.async_validate_mapping()
+
+
+@pytest.mark.asyncio
 async def test_disabled_text_still_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
     states = _valid_states()
     registry = {

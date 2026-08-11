@@ -4,6 +4,14 @@ All notable changes to this private project will be documented here.
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-08-11
+
+### Fixed
+
+- **Setup still failed on HA restart for selects with no state yet:** the 0.3.0 fix only treated a mapped color/radar `select.*` entity as "transient, defer the check" when Home Assistant already reported it `unavailable`/`unknown`. At cold boot an entity whose owning integration (e.g. Zigbee2MQTT) hasn't finished loading yet has **no state object at all** (`hass.states.get()` returns `None`) even though its entity-registry entry survives from the prior run — that case fell through to a hard `MappingValidationError` and aborted `async_setup_entry`, so the entry stayed broken until a manual reload. `_is_transient_state` now also treats a missing state as transient, so setup succeeds immediately instead of racing other integrations at boot.
+
+- **`panel_available` only reflected relay switches:** the card's offline banner was driven solely by the 4 mapped relay entities, so a panel whose color/radar selects, backlight, child lock, or brightness entity went unavailable (independently of the relays) gave no signal to the card at all — and a non-relay mapped entity transitioning to unavailable didn't even push a runtime refresh. `_panel_available()` now scans all mapped hardware entities, and `_async_handle_mapped_entity_event` now notifies the card on an unavailable transition too, matching the existing relay behavior.
+
 ## [0.3.2] - 2026-08-11
 
 ### Fixed

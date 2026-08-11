@@ -931,6 +931,9 @@ class PanelCoordinator:
         if new_state is None or old_state is None:
             return
         if new_state.state in {STATE_UNKNOWN, STATE_UNAVAILABLE}:
+            # Z2M/MQTT offline → HA unavailable: refresh panel_available for the card.
+            if old_state.state != new_state.state:
+                self.runtime.async_notify()
             return
         if old_state.state == new_state.state:
             return
@@ -2888,25 +2891,37 @@ class PanelCoordinator:
         """True when the mapped panel device looks online via HA entity states.
 
         Zigbee2MQTT / MQTT device availability is surfaced by Home Assistant as
-        ``unavailable`` (or ``unknown``) on the mapped relay switches. When the
-        panel is offline, every relay typically becomes unavailable — treat that
-        as ``panel_available=False``. A single flaky relay does not mark the
-        whole panel offline while any sibling still reports on/off.
+        ``unavailable`` (or ``unknown``) across every entity of the offline
+        device. Scan all mapped hardware entities (relays, color/radar selects,
+        backlight, child lock, brightness) — not just relays — so the card
+        still reflects reality if the relays happen to load before the selects
+        (or vice versa). A single flaky entity does not mark the whole panel
+        offline while any sibling still reports a real state.
         """
-        relays = list(self.runtime.mapping.relay_entities)
-        if not relays:
+        mapping = self.runtime.mapping
+        entities = [
+            *mapping.relay_entities,
+            mapping.color_off_entity,
+            mapping.color_on_entity,
+            mapping.radar_entity,
+            mapping.backlight_entity,
+            mapping.child_lock_entity,
+        ]
+        if mapping.backlight_brightness_entity:
+            entities.append(mapping.backlight_brightness_entity)
+        if not entities:
             return False
         hass_states = getattr(self.hass, "states", None)
         if hass_states is None:
             return True
         saw_entity = False
-        for entity_id in relays:
+        for entity_id in entities:
             state = hass_states.get(entity_id)
             if state is None:
                 continue
             saw_entity = True
             if state.state not in {STATE_UNKNOWN, STATE_UNAVAILABLE}:
                 return True
-        # False when every known relay is unavailable/unknown; True on startup
-        # race when no mapped relays are in the state machine yet.
+        # False when every known entity is unavailable/unknown; True on startup
+        # race when none of the mapped entities are in the state machine yet.
         return not saw_entity

@@ -562,8 +562,8 @@ class Zemismart4GangAdapter(PanelAdapter):
 
     @staticmethod
     def _is_transient_state(state: Any) -> bool:
-        """True when HA reports unavailable/unknown (offline bridge), not a bad mapping."""
-        return state is not None and state.state in {"unavailable", "unknown"}
+        """True when the entity has no state yet, or HA reports unavailable/unknown."""
+        return state is None or state.state in {"unavailable", "unknown"}
 
     def _require_domain(self, entity_id: str, domain: str) -> None:
         if not entity_id.startswith(f"{domain}."):
