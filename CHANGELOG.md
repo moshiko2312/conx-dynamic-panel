@@ -4,6 +4,10 @@ All notable changes to this private project will be documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Linked HA cover feedback could throw the panel into repeated relay chatter mid-move:** two compounding bugs in the live HA→panel cover sync. First, the echo-suppression window after a panel-initiated open/close mirror was a fixed 2.0s regardless of the cover's configured travel time (commonly 15-60s), so for nearly all of a real move the linked entity's own state updates were reprocessed as new external commands, able to re-halt/re-start/reverse the relay mid-flight. Second, for "dumb" position-only linked covers (e.g. Z-Wave/Nodon, which never emit transient `opening`/`closing`), the position-delta command heuristic had no minimum threshold — a 1-unit reporting/rounding fluctuation could flip direction — and a duplicate/attribute-only event with an unchanged position fell through to a stale previously-computed `stop`, halting a cover that was genuinely still moving. The suppression window now scales with the cover's real travel time (`open_time_s`/`close_time_s` + a settle margin), and the position-delta heuristic now requires a minimum real delta and reports "no signal" instead of a stale stop on a no-op transition. Note: a genuine external stop issued during a panel-initiated move is now deferred until travel completes rather than acted on within 2s — intentional, since events for that entity during the window are almost always the panel's own echo.
+
 ## [0.3.3] - 2026-08-11
 
 ### Fixed

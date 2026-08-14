@@ -730,6 +730,105 @@ async def test_live_cover_ha_no_real_change_is_noop() -> None:
 
 
 @pytest.mark.asyncio
+async def test_live_cover_ha_duplicate_event_while_moving_does_not_halt() -> None:
+    """A duplicate/attribute-only HA event (identical position, same state)
+    while the cover is genuinely moving must not be treated as a stale STOP
+    and halt an in-progress move (regression for the crazy-loop bug: this
+    used to fall through to the previously-derived STOP command)."""
+    adapter, coordinator = _cover_c1_setup()
+    motion = coordinator.runtime.cover.get("cover_1")
+    motion.direction = "open"
+    motion.relays = (1, 2)
+    adapter._relay_on[1] = True
+
+    event = SimpleNamespace(
+        data={
+            "entity_id": "cover.living_shutter",
+            "old_state": _state("open", current_position=40),
+            "new_state": _state("open", current_position=40),
+        }
+    )
+    await coordinator._async_handle_linked_entity_event(event)  # type: ignore[arg-type]
+
+    assert adapter.relay_is_on(1) is True
+    assert adapter.relay_is_on(2) is False
+    assert adapter.relay_calls == []
+    assert motion.direction == "open"
+    coordinator.runtime.hass.services.async_call.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_live_cover_ha_sub_threshold_position_blip_does_not_reverse() -> None:
+    """A small position dip below COVER_POSITION_DELTA_MIN during an
+    otherwise-monotonic open move (reporting/rounding noise) must not be
+    read as a reversal and halt/reverse the relay."""
+    adapter, coordinator = _cover_c1_setup()
+    motion = coordinator.runtime.cover.get("cover_1")
+    motion.direction = "open"
+    motion.relays = (1, 2)
+    adapter._relay_on[1] = True
+
+    event = SimpleNamespace(
+        data={
+            "entity_id": "cover.living_shutter",
+            "old_state": _state("open", current_position=50),
+            "new_state": _state("open", current_position=49),
+        }
+    )
+    await coordinator._async_handle_linked_entity_event(event)  # type: ignore[arg-type]
+
+    assert adapter.relay_is_on(1) is True
+    assert adapter.relay_is_on(2) is False
+    assert adapter.relay_calls == []
+    assert motion.direction == "open"
+    coordinator.runtime.hass.services.async_call.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_live_cover_ha_mirror_suppress_covers_full_travel_time() -> None:
+    """The echo-suppression window after a panel-initiated open/close mirror
+    must scale with the cover's configured travel time, not a short fixed
+    window that expires long before a real move completes (regression: the
+    entity's own in-flight state updates were being reprocessed as new
+    external commands, flapping the relay mid-move)."""
+    adapter, coordinator = _cover_c1_setup()
+
+    event = SimpleNamespace(
+        data={
+            "entity_id": "cover.living_shutter",
+            "old_state": _state("closed"),
+            "new_state": _state("open"),
+        }
+    )
+    # Seed a stale attempt so the button press below is a fresh idle start.
+    await coordinator._async_handle_physical_press(1, True)  # OPEN_BUTTON
+    motion = coordinator.runtime.cover.get("cover_1")
+    assert motion.direction == "open"
+    coordinator.runtime.hass.services.async_call.assert_awaited()
+
+    suppress_until = coordinator._cover_ha_mirror_suppress_until["cover.living_shutter"]
+    # open_time_s=30 configured in _cover_c1_setup; must be well past the old
+    # fixed 2.0s window.
+    assert suppress_until >= coordinator._monotonic() + 30.0
+
+    adapter.relay_calls.clear()
+    with patch.object(
+        coordinator, "_monotonic", return_value=coordinator._monotonic() + 5.0
+    ):
+        await coordinator._async_handle_linked_entity_event(event)  # type: ignore[arg-type]
+
+    # The echoed event during the still-suppressed window must not trigger
+    # any additional relay writes.
+    assert adapter.relay_calls == []
+    assert motion.direction == "open"
+
+    if motion.timer is not None:
+        motion.timer.cancel()
+        with contextlib.suppress(asyncio.CancelledError, Exception):
+            await motion.timer
+
+
+@pytest.mark.asyncio
 async def test_unload_clears_entity_relay_listeners() -> None:
     store = FakeStore()
     profile = _toggle_profile(lights={1: "light.kitchen"})

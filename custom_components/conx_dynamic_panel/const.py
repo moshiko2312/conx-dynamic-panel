@@ -127,6 +127,9 @@ COVER_TIME_MIN: Final = 1.0
 COVER_TIME_MAX: Final = 600.0
 COVER_DEFAULT_OPEN_TIME: Final = 20.0
 COVER_DEFAULT_CLOSE_TIME: Final = 20.0
+# Minimum |current_position| delta (0-100) treated as real motion rather than
+# rounding/reporting noise from a linked HA cover entity.
+COVER_POSITION_DELTA_MIN: Final = 3.0
 # Dead time enforced between de-energizing one direction and energizing the other.
 COVER_SETTLE_MIN: Final = 0.0
 COVER_SETTLE_MAX: Final = 5.0
@@ -165,6 +168,10 @@ COVER_REASON_ABORT: Final = "abort"
 COVER_REASON_ERROR: Final = "error"
 # Ignore HA cover state echoes right after we mirrored open/close/stop to it.
 COVER_HA_MIRROR_SUPPRESS_S: Final = 2.0
+# Buffer added beyond a mirrored open/close command's configured travel time,
+# so the suppression window covers the whole real move (HA-side propagation
+# and settle lag included) instead of expiring long before travel completes.
+COVER_HA_MIRROR_SUPPRESS_MARGIN_S: Final = 3.0
 
 SYNC_SYNCED: Final = "synced"
 SYNC_PENDING: Final = "pending"

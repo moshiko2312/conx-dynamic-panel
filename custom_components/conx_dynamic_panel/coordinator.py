@@ -29,6 +29,7 @@ from .const import (
     COVER_COMMANDS,
     COVER_DIRECTION_CLOSE,
     COVER_DIRECTION_OPEN,
+    COVER_HA_MIRROR_SUPPRESS_MARGIN_S,
     COVER_HA_MIRROR_SUPPRESS_S,
     COVER_OPPOSITE_STOP_THEN_REVERSE,
     COVER_POST_START_OFF_GRACE_S,
@@ -1514,7 +1515,7 @@ class PanelCoordinator:
         )
         self._fire_cover_event(profile, cover, direction, reason)
         if mirror_ha:
-            await self._async_cover_mirror_ha(cover, direction)
+            await self._async_cover_mirror_ha(cover, direction, duration_s=duration)
         self.runtime.async_notify()
 
     async def _async_cover_travel_timer(
@@ -1676,7 +1677,9 @@ class PanelCoordinator:
             return False
         return True
 
-    async def _async_cover_mirror_ha(self, cover: CoverConfig, command: str) -> None:
+    async def _async_cover_mirror_ha(
+        self, cover: CoverConfig, command: str, *, duration_s: float | None = None
+    ) -> None:
         """Best-effort mirror open/close/stop to an optional linked HA cover entity.
 
         Motor relay control must not fail when the HA service call fails.
@@ -1684,6 +1687,13 @@ class PanelCoordinator:
         Reverse transitions must not call ``stop`` here: halt→start already
         settles the relays, and a deferred ``stop_cover`` after ``open/close_cover``
         can turn the linked cover (and any shared switches) back off.
+
+        ``duration_s`` (the panel's own configured travel time for this move)
+        scales the echo-suppression window for open/close mirrors so the
+        linked entity's own state updates for the whole real move aren't
+        reprocessed as new external commands. Without it, a short fixed
+        window expires long before travel completes, letting the entity's
+        own feedback flap the relay mid-move.
         """
         entity_id = (cover.ha_entity_id or "").strip()
         if not entity_id:
@@ -1711,8 +1721,12 @@ class PanelCoordinator:
             )
             # Suppress live HA→panel echoes of this mirror so open_cover cannot
             # bounce back through the cover entity listener as a second start.
+            if command in (COVER_DIRECTION_OPEN, COVER_DIRECTION_CLOSE) and duration_s:
+                suppress_s = duration_s + COVER_HA_MIRROR_SUPPRESS_MARGIN_S
+            else:
+                suppress_s = COVER_HA_MIRROR_SUPPRESS_S
             self._cover_ha_mirror_suppress_until[entity_id] = (
-                self._monotonic() + COVER_HA_MIRROR_SUPPRESS_S
+                self._monotonic() + suppress_s
             )
         except Exception as err:  # noqa: BLE001
             _LOGGER.warning(
