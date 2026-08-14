@@ -202,6 +202,37 @@ def test_panel_available_true_when_any_relay_usable() -> None:
     assert coordinator.get_config_payload()["panel_available"] is True
 
 
+def test_panel_available_false_when_selects_unavailable_and_relays_unseen() -> None:
+    """Relays not yet in the state machine must not mask an offline device
+    whose other mapped entities (selects/switches) are already known and
+    unavailable."""
+    store = FakeStore()
+    runtime = _runtime(FakeAdapter(), store)
+    runtime.hass.states = _FakeStates(
+        {
+            "select.off": SimpleNamespace(state="unavailable"),
+            "select.on": SimpleNamespace(state="unavailable"),
+            "select.radar": SimpleNamespace(state="unavailable"),
+            "switch.backlight": SimpleNamespace(state="unavailable"),
+            "switch.lock": SimpleNamespace(state="unavailable"),
+        }
+    )
+    coordinator = PanelCoordinator(runtime)  # type: ignore[arg-type]
+    assert coordinator.get_config_payload()["panel_available"] is False
+
+
+def test_panel_available_true_when_only_a_select_is_usable() -> None:
+    store = FakeStore()
+    runtime = _runtime(FakeAdapter(), store)
+    runtime.hass.states = _FakeStates(
+        {
+            "select.off": SimpleNamespace(state="blue"),
+        }
+    )
+    coordinator = PanelCoordinator(runtime)  # type: ignore[arg-type]
+    assert coordinator.get_config_payload()["panel_available"] is True
+
+
 @pytest.mark.asyncio
 async def test_relay_unavailable_transition_notifies_runtime() -> None:
     store = FakeStore()
@@ -215,6 +246,28 @@ async def test_relay_unavailable_transition_notifies_runtime() -> None:
             data={
                 "entity_id": "switch.l1",
                 "old_state": SimpleNamespace(state="on"),
+                "new_state": SimpleNamespace(state="unavailable"),
+            }
+        )
+    )
+    assert notified == [1]
+
+
+@pytest.mark.asyncio
+async def test_mapped_entity_unavailable_transition_notifies_runtime() -> None:
+    """A non-relay mapped entity (e.g. a color select) going unavailable must
+    also refresh the card's panel_available, not just relay transitions."""
+    store = FakeStore()
+    runtime = _runtime(FakeAdapter(), store)
+    coordinator = PanelCoordinator(runtime)  # type: ignore[arg-type]
+    notified: list[int] = []
+    runtime.async_add_listener(lambda: notified.append(1))
+
+    await coordinator._async_handle_mapped_entity_event(
+        SimpleNamespace(
+            data={
+                "entity_id": "select.off",
+                "old_state": SimpleNamespace(state="blue"),
                 "new_state": SimpleNamespace(state="unavailable"),
             }
         )

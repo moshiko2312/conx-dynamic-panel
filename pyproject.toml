@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "conx-dynamic-panel"
-version = "0.3.1"
+version = "0.3.3"
 description = "Private ConX Home Assistant integration for dynamic smart-panel profiles"
 readme = "README.md"
 requires-python = ">=3.12"

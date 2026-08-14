@@ -4,6 +4,26 @@ All notable changes to this private project will be documented here.
 
 ## [Unreleased]
 
+## [0.3.4] - 2026-08-15
+
+### Fixed
+
+- **Linked HA cover feedback could throw the panel into repeated relay chatter mid-move:** two compounding bugs in the live HA→panel cover sync. First, the echo-suppression window after a panel-initiated open/close mirror was a fixed 2.0s regardless of the cover's configured travel time (commonly 15-60s), so for nearly all of a real move the linked entity's own state updates were reprocessed as new external commands, able to re-halt/re-start/reverse the relay mid-flight. Second, for "dumb" position-only linked covers (e.g. Z-Wave/Nodon, which never emit transient `opening`/`closing`), the position-delta command heuristic had no minimum threshold — a 1-unit reporting/rounding fluctuation could flip direction — and a duplicate/attribute-only event with an unchanged position fell through to a stale previously-computed `stop`, halting a cover that was genuinely still moving. The suppression window now scales with the cover's real travel time (`open_time_s`/`close_time_s` + a settle margin), and the position-delta heuristic now requires a minimum real delta and reports "no signal" instead of a stale stop on a no-op transition. Note: a genuine external stop issued during a panel-initiated move is now deferred until travel completes rather than acted on within 2s — intentional, since events for that entity during the window are almost always the panel's own echo.
+
+## [0.3.3] - 2026-08-11
+
+### Fixed
+
+- **Setup still failed on HA restart for selects with no state yet:** the 0.3.0 fix only treated a mapped color/radar `select.*` entity as "transient, defer the check" when Home Assistant already reported it `unavailable`/`unknown`. At cold boot an entity whose owning integration (e.g. Zigbee2MQTT) hasn't finished loading yet has **no state object at all** (`hass.states.get()` returns `None`) even though its entity-registry entry survives from the prior run — that case fell through to a hard `MappingValidationError` and aborted `async_setup_entry`, so the entry stayed broken until a manual reload. `_is_transient_state` now also treats a missing state as transient, so setup succeeds immediately instead of racing other integrations at boot.
+
+- **`panel_available` only reflected relay switches:** the card's offline banner was driven solely by the 4 mapped relay entities, so a panel whose color/radar selects, backlight, child lock, or brightness entity went unavailable (independently of the relays) gave no signal to the card at all — and a non-relay mapped entity transitioning to unavailable didn't even push a runtime refresh. `_panel_available()` now scans all mapped hardware entities, and `_async_handle_mapped_entity_event` now notifies the card on an unavailable transition too, matching the existing relay behavior.
+
+## [0.3.2] - 2026-08-11
+
+### Fixed
+
+- **Panel didn't auto-reconnect after a Home Assistant restart:** the one-shot startup restore (`applied_snapshot` → hardware) ran before Zigbee2MQTT/MQTT-backed mapped entities had reconnected, so the write silently failed (`sync_status: error`) and nothing retried it — only a manual integration reload fixed it. The coordinator now retries the restore automatically the moment a mapped relay or other mapped entity transitions from `unavailable`/`unknown` back to available while `sync_status` is `error`, instead of requiring a manual reload. Also fixed a latent bug where a successful retry could leave `sync_status` stuck on `error` even though hardware was back in sync.
+
 ## [0.3.1] - 2026-08-08
 
 ### Changed

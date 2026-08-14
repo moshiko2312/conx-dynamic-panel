@@ -29,6 +29,7 @@ from .const import (
     COVER_COMMANDS,
     COVER_DIRECTION_CLOSE,
     COVER_DIRECTION_OPEN,
+    COVER_HA_MIRROR_SUPPRESS_MARGIN_S,
     COVER_HA_MIRROR_SUPPRESS_S,
     COVER_OPPOSITE_STOP_THEN_REVERSE,
     COVER_POST_START_OFF_GRACE_S,
@@ -897,6 +898,16 @@ class PanelCoordinator:
             return
         if old_state.state == new_state.state:
             return
+        if (
+            old_state.state in {STATE_UNKNOWN, STATE_UNAVAILABLE}
+            and self.data.sync_status == SYNC_ERROR
+        ):
+            # Hardware just came back online after a failed startup restore
+            # (e.g. Zigbee2MQTT reconnecting after HA); retry instead of
+            # treating this recovery as a physical button press.
+            await self._async_restore_applied_to_hardware()
+            self.runtime.async_notify()
+            return
         # Always refresh card-visible runtime after a real entity change, even
         # when the transition is integration-driven (suppressed).
         self.runtime.async_notify()
@@ -921,8 +932,20 @@ class PanelCoordinator:
         if new_state is None or old_state is None:
             return
         if new_state.state in {STATE_UNKNOWN, STATE_UNAVAILABLE}:
+            # Z2M/MQTT offline → HA unavailable: refresh panel_available for the card.
+            if old_state.state != new_state.state:
+                self.runtime.async_notify()
             return
         if old_state.state == new_state.state:
+            return
+        if (
+            old_state.state in {STATE_UNKNOWN, STATE_UNAVAILABLE}
+            and self.data.sync_status == SYNC_ERROR
+        ):
+            # Mapped entity just came back online after a failed startup
+            # restore; retry instead of waiting for a manual reload.
+            await self._async_restore_applied_to_hardware()
+            self.runtime.async_notify()
             return
         self.runtime.async_notify()
         if not self.data.applied_snapshot:
@@ -977,13 +1000,19 @@ class PanelCoordinator:
                     self.runtime.mapping.panel_name,
                     applied.id,
                 )
+                self.data.last_error = None
                 try:
                     hardware = await self.runtime.adapter.async_read_hardware_state()
                     if self._hardware_differs_from_snapshot(hardware):
                         self.data.sync_status = SYNC_OUT_OF_SYNC  # type: ignore[assignment]
                     else:
+                        # refresh_pending_status() no-ops while status is still
+                        # "error" from a prior failed attempt; clear it first so a
+                        # successful retry actually recomputes synced/pending.
+                        self.data.sync_status = SYNC_PENDING  # type: ignore[assignment]
                         self.data.refresh_pending_status()
                 except Exception:  # noqa: BLE001
+                    self.data.sync_status = SYNC_PENDING  # type: ignore[assignment]
                     self.data.refresh_pending_status()
             else:
                 self.data.last_error = result.error or "Startup restore failed"
@@ -1486,7 +1515,7 @@ class PanelCoordinator:
         )
         self._fire_cover_event(profile, cover, direction, reason)
         if mirror_ha:
-            await self._async_cover_mirror_ha(cover, direction)
+            await self._async_cover_mirror_ha(cover, direction, duration_s=duration)
         self.runtime.async_notify()
 
     async def _async_cover_travel_timer(
@@ -1648,7 +1677,9 @@ class PanelCoordinator:
             return False
         return True
 
-    async def _async_cover_mirror_ha(self, cover: CoverConfig, command: str) -> None:
+    async def _async_cover_mirror_ha(
+        self, cover: CoverConfig, command: str, *, duration_s: float | None = None
+    ) -> None:
         """Best-effort mirror open/close/stop to an optional linked HA cover entity.
 
         Motor relay control must not fail when the HA service call fails.
@@ -1656,6 +1687,13 @@ class PanelCoordinator:
         Reverse transitions must not call ``stop`` here: halt→start already
         settles the relays, and a deferred ``stop_cover`` after ``open/close_cover``
         can turn the linked cover (and any shared switches) back off.
+
+        ``duration_s`` (the panel's own configured travel time for this move)
+        scales the echo-suppression window for open/close mirrors so the
+        linked entity's own state updates for the whole real move aren't
+        reprocessed as new external commands. Without it, a short fixed
+        window expires long before travel completes, letting the entity's
+        own feedback flap the relay mid-move.
         """
         entity_id = (cover.ha_entity_id or "").strip()
         if not entity_id:
@@ -1683,8 +1721,12 @@ class PanelCoordinator:
             )
             # Suppress live HA→panel echoes of this mirror so open_cover cannot
             # bounce back through the cover entity listener as a second start.
+            if command in (COVER_DIRECTION_OPEN, COVER_DIRECTION_CLOSE) and duration_s:
+                suppress_s = duration_s + COVER_HA_MIRROR_SUPPRESS_MARGIN_S
+            else:
+                suppress_s = COVER_HA_MIRROR_SUPPRESS_S
             self._cover_ha_mirror_suppress_until[entity_id] = (
-                self._monotonic() + COVER_HA_MIRROR_SUPPRESS_S
+                self._monotonic() + suppress_s
             )
         except Exception as err:  # noqa: BLE001
             _LOGGER.warning(
@@ -2863,25 +2905,37 @@ class PanelCoordinator:
         """True when the mapped panel device looks online via HA entity states.
 
         Zigbee2MQTT / MQTT device availability is surfaced by Home Assistant as
-        ``unavailable`` (or ``unknown``) on the mapped relay switches. When the
-        panel is offline, every relay typically becomes unavailable — treat that
-        as ``panel_available=False``. A single flaky relay does not mark the
-        whole panel offline while any sibling still reports on/off.
+        ``unavailable`` (or ``unknown``) across every entity of the offline
+        device. Scan all mapped hardware entities (relays, color/radar selects,
+        backlight, child lock, brightness) — not just relays — so the card
+        still reflects reality if the relays happen to load before the selects
+        (or vice versa). A single flaky entity does not mark the whole panel
+        offline while any sibling still reports a real state.
         """
-        relays = list(self.runtime.mapping.relay_entities)
-        if not relays:
+        mapping = self.runtime.mapping
+        entities = [
+            *mapping.relay_entities,
+            mapping.color_off_entity,
+            mapping.color_on_entity,
+            mapping.radar_entity,
+            mapping.backlight_entity,
+            mapping.child_lock_entity,
+        ]
+        if mapping.backlight_brightness_entity:
+            entities.append(mapping.backlight_brightness_entity)
+        if not entities:
             return False
         hass_states = getattr(self.hass, "states", None)
         if hass_states is None:
             return True
         saw_entity = False
-        for entity_id in relays:
+        for entity_id in entities:
             state = hass_states.get(entity_id)
             if state is None:
                 continue
             saw_entity = True
             if state.state not in {STATE_UNKNOWN, STATE_UNAVAILABLE}:
                 return True
-        # False when every known relay is unavailable/unknown; True on startup
-        # race when no mapped relays are in the state machine yet.
+        # False when every known entity is unavailable/unknown; True on startup
+        # race when none of the mapped entities are in the state machine yet.
         return not saw_entity

@@ -11,6 +11,7 @@ from .const import (
     COVER_COMMAND_CLOSE,
     COVER_COMMAND_OPEN,
     COVER_COMMAND_STOP,
+    COVER_POSITION_DELTA_MIN,
     MODE_COVER,
     MODE_MIXED,
     MODE_RADIO_MANDATORY,
@@ -233,16 +234,22 @@ def cover_ha_command_from_transition(
 
     old_position = cover_position_from_state(old_state)
     new_position = cover_position_from_state(new_state)
-    if (
-        old_position is not None
-        and new_position is not None
-        and old_position != new_position
-    ):
-        return COVER_COMMAND_OPEN if new_position > old_position else COVER_COMMAND_CLOSE  # type: ignore[return-value]
+    if old_position is not None and new_position is not None:
+        delta = new_position - old_position
+        if abs(delta) >= COVER_POSITION_DELTA_MIN:
+            return COVER_COMMAND_OPEN if delta > 0 else COVER_COMMAND_CLOSE  # type: ignore[return-value]
 
     if new_value in {"open", "closed"}:
         if old_value in {"open", "closed"} and old_value != new_value:
             return COVER_COMMAND_OPEN if new_value == "open" else COVER_COMMAND_CLOSE  # type: ignore[return-value]
+
+    if old_value == new_value:
+        # Identical state string and no real (>= threshold) position change:
+        # a duplicate/attribute-only HA event, not a genuine stop signal.
+        # Returning the stale `command` here (always STOP at this point)
+        # would let reporting noise halt a cover that is actually still
+        # moving; report "no signal" instead.
+        return None
 
     return command
 
