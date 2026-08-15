@@ -424,9 +424,23 @@ class PanelCoordinator:
         """Count one linked-cover movement report and re-arm the stall watchdog.
 
         Position-only covers emit nothing at all when they stop, so a stream
-        that goes quiet is the only evidence of a stop issued from the HA app.
-        Two reports in one run are required before the watchdog arms, so a cover
-        that reports a single position per move never gets its travel cut short.
+        that goes quiet is the only evidence of a stop issued from something
+        other than an HA service call (0.3.10 already handles the app-issued
+        case instantly, via call_service — this watchdog now only matters for
+        a stop pressed on the shutter's own physical remote).
+
+        Three reports in one run — two measured gaps — are required before the
+        watchdog arms, not two. Right after a reversal the very first gap is
+        the least representative sample available: the motor is decelerating
+        and re-accelerating, so it is often *shorter* than the cadence the
+        entity settles into once actually travelling the new direction. Arming
+        on that first gap alone produced a real bug — the watchdog fired while
+        the shutter was still genuinely reversing, correctly commanded, and
+        wrongly de-energized the panel relay for a move that was not actually
+        stopped. Waiting for a second gap means the estimate has already
+        absorbed whatever the reversal settle really costs before it is
+        trusted, at the cost of one more report's worth of delay in the rare
+        physical-remote-stop case this now exists for.
         """
         async with self.runtime.cover.lock:
             motion = self.runtime.cover.get(cover.id)
@@ -441,7 +455,7 @@ class PanelCoordinator:
                 )
             motion.entity_report_at = now
             motion.entity_reports += 1
-            if motion.entity_reports >= 2:
+            if motion.entity_reports >= 3:
                 self._cover_arm_entity_stall(profile.id, cover, motion.entity_report_gap)
 
     def _cover_arm_entity_stall(
@@ -485,7 +499,7 @@ class PanelCoordinator:
                 return
             self._cover_entity_stall.pop(cover_id, None)
             motion = self.runtime.cover.get(cover_id)
-            if not motion.moving or motion.entity_reports < 2:
+            if not motion.moving or motion.entity_reports < 3:
                 return
             profile = self.data.active_profile()
             cover = (

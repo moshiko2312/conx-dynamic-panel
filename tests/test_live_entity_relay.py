@@ -1161,9 +1161,12 @@ async def test_linked_cover_going_quiet_turns_the_active_button_off() -> None:
         assert motion.direction == "open"
         assert adapter.relay_is_on(1) is True
 
-        # A second report proves this entity streams while it moves.
+        # Two more reports (two measured gaps) prove this entity streams while
+        # it moves — arming requires three total, not two, so a single early
+        # gap right after a start/reversal can never arm it alone.
         await coordinator._async_handle_linked_entity_event(_pos_event(30, 50))  # type: ignore[arg-type]
-        assert motion.entity_reports >= 2
+        await coordinator._async_handle_linked_entity_event(_pos_event(50, 70))  # type: ignore[arg-type]
+        assert motion.entity_reports >= 3
 
         # The user presses stop in the app: reports just stop arriving.
         await asyncio.sleep(0.15)
@@ -1196,6 +1199,37 @@ async def test_single_position_report_never_arms_the_stall_watchdog() -> None:
 
 
 @pytest.mark.asyncio
+async def test_two_position_reports_alone_never_arm_the_stall_watchdog() -> None:
+    """Regression: the watchdog must not arm off a single measured gap.
+
+    Reported bug: reversing direction from the card, the real motor's first
+    post-reversal report arrived quickly (a short gap), arming the watchdog
+    with too tight a deadline; the motor's second report — genuinely delayed
+    by mechanical deceleration/re-acceleration — then arrived after that
+    deadline, and the watchdog fired mid-reversal on a move that was still
+    correctly underway. Two reports (one gap) must never be enough to arm.
+    """
+    adapter, coordinator = _cover_c1_setup()
+    with patch(
+        "custom_components.conx_dynamic_panel.coordinator.COVER_ENTITY_STALL_MIN_S", 0.05
+    ), patch(
+        "custom_components.conx_dynamic_panel.coordinator.COVER_ENTITY_STALL_MAX_S", 0.05
+    ):
+        await coordinator._async_handle_linked_entity_event(_pos_event(10, 30))  # type: ignore[arg-type]
+        motion = coordinator.runtime.cover.get("cover_1")
+        assert motion.direction == "open"
+        await coordinator._async_handle_linked_entity_event(_pos_event(30, 50))  # type: ignore[arg-type]
+        assert motion.entity_reports == 2
+        # A gap far longer than the (short, misleading) first one — this must
+        # not be read as a stall, because only one gap has been measured.
+        await asyncio.sleep(0.15)
+
+    assert motion.moving is True
+    assert adapter.relay_is_on(1) is True
+    _cancel_cover_timers(coordinator, motion)
+
+
+@pytest.mark.asyncio
 async def test_quiet_stream_also_ends_a_panel_started_move() -> None:
     """Echoed reports still count as the heartbeat during a panel-driven run.
 
@@ -1219,9 +1253,10 @@ async def test_quiet_stream_also_ends_a_panel_started_move() -> None:
         adapter.relay_calls.clear()
         await coordinator._async_handle_linked_entity_event(_pos_event(10, 30))  # type: ignore[arg-type]
         await coordinator._async_handle_linked_entity_event(_pos_event(30, 50))  # type: ignore[arg-type]
+        await coordinator._async_handle_linked_entity_event(_pos_event(50, 70))  # type: ignore[arg-type]
         # Echoes: counted, but never acted on as commands.
         assert adapter.relay_calls == []
-        assert motion.entity_reports >= 2
+        assert motion.entity_reports >= 3
 
         await asyncio.sleep(0.15)
 
@@ -1451,5 +1486,66 @@ async def test_unrelated_service_calls_are_ignored() -> None:
 
     assert motion.moving is True
     assert adapter.relay_calls == []
+
+    _cancel_cover_timers(coordinator, motion)
+
+
+@pytest.mark.asyncio
+async def test_card_reversal_survives_slow_second_post_reversal_report() -> None:
+    """End-to-end reproduction of the reported bug.
+
+    Reverse from the card (open -> close), the real motor's first report
+    arrives quickly (looks like a fast, ~1s cadence), then its second report
+    is genuinely slower (mechanical reversal settle) -- long enough that a
+    watchdog armed off the first gap alone would have fired before it. The
+    panel relay must stay energized and the motion must still read "close":
+    the physical reversal was correct, only the panel's own indication was at
+    risk of going wrong.
+    """
+    adapter, coordinator = _cover_c1_setup()
+    profile = coordinator.data.active_profile()
+    assert profile is not None
+    profile.cover.opposite_press = COVER_OPPOSITE_STOP_THEN_REVERSE
+
+    with patch(
+        "custom_components.conx_dynamic_panel.coordinator.COVER_ENTITY_STALL_MIN_S", 0.05
+    ), patch(
+        "custom_components.conx_dynamic_panel.coordinator.COVER_ENTITY_STALL_MAX_S", 0.3
+    ):
+        await coordinator.async_execute_button(2)  # CLOSE_BUTTON, virtual press
+        motion = coordinator.runtime.cover.get("cover_1")
+        assert motion.direction == "close"
+
+        with patch.object(
+            coordinator, "_monotonic", return_value=coordinator._monotonic() + 3.0
+        ):
+            await coordinator.async_execute_button(1)  # OPEN_BUTTON reverses
+        assert motion.direction == "open"
+        assert adapter.relay_is_on(1) is True
+
+        # Real motor's first post-reversal report: a short, fast-looking gap.
+        # Delta must clear COVER_POSITION_DELTA_MIN (3.0) to register as motion.
+        await coordinator._async_handle_linked_entity_event(_pos_event(60, 65))  # type: ignore[arg-type]
+        assert motion.entity_reports == 1
+
+        # Genuinely slower second report (mechanical settle) — this must not
+        # be misread as silence: only one gap exists yet, watchdog not armed.
+        await asyncio.sleep(0.2)
+        assert motion.moving is True
+        assert adapter.relay_is_on(1) is True
+
+        await coordinator._async_handle_linked_entity_event(_pos_event(62, 68))  # type: ignore[arg-type]
+        assert motion.entity_reports == 2
+
+        # Now armed off the real (wider) gap -- give it time to actually settle
+        # into steady reporting rather than declaring stopped immediately.
+        await coordinator._async_handle_linked_entity_event(_pos_event(68, 74))  # type: ignore[arg-type]
+        assert motion.entity_reports == 3
+        await asyncio.sleep(0.05)
+
+    assert motion.moving is True
+    assert motion.direction == "open"
+    assert adapter.relay_is_on(1) is True
+    assert adapter.relay_is_on(2) is False
 
     _cancel_cover_timers(coordinator, motion)

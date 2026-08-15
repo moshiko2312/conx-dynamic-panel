@@ -4,6 +4,12 @@ All notable changes to this private project will be documented here.
 
 ## [Unreleased]
 
+## [0.3.11] - 2026-08-15
+
+### Fixed
+
+- **Reversing from the card could still wrongly de-energize the panel relay for a move that was correctly reversing:** the 0.3.8 entity-stall watchdog armed as soon as it had seen a single measured gap between two of the linked cover's position reports. Right after a reversal that first gap is the least representative sample available — the motor is decelerating and re-accelerating, so it is often *shorter* than the cadence the entity settles into once genuinely travelling the new direction. Arming a tight deadline off that one short gap meant the watchdog could fire before the real (and genuinely longer) second gap ever arrived, mid-reversal, on a shutter that was still correctly moving — user-reported: "עושה את הפעולה אבל מתבלבל עם החיווי, הוא סוגר את הריליי" (does the action but the indication gets confused, it closes the relay). The physical motor kept moving (it was never told to stop — the watchdog's halt does not mirror back to HA), but the panel's own relay and card indication went dark. The watchdog now requires three reports — two measured gaps — before it is trusted to arm at all, so its deadline always already reflects whatever the reversal settle really costs. This only affects the rare case the watchdog still exists for since 0.3.10 (a stop pressed on the shutter's own physical remote, invisible to HA's `call_service` fast path); the common "stop from the app" case is unaffected either way.
+
 ## [0.3.10] - 2026-08-15
 
 ### Added
