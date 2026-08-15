@@ -4,6 +4,14 @@ All notable changes to this private project will be documented here.
 
 ## [Unreleased]
 
+## [0.3.9] - 2026-08-15
+
+### Fixed
+
+- **Reversing a shutter from the card (or a physical reverse press) could immediately flip back to the direction just left:** a regression from 0.3.8's direction-aware echo window. That fix tracked a single "last direction we mirrored" plus one shared deadline, so reversing close→open overwrote the record the moment `open_cover` was mirrored — silently discarding the still-running `close` echo window (which had most of `close_time_s` + margin left). A physical shutter motor does not reverse instantly: it keeps reporting a position moving in the *old* direction for a moment after the new one was commanded. With the old direction's record gone, that lagging report no longer matched anything and was read as a genuine new external `close` command, reversing the panel right back — the exact "press up, it starts, then immediately shows down again" behavior.
+
+  The echo window is now tracked per command (open/close/stop), each with its own independent deadline, instead of a single "last direction". Reversing only ever touches the new direction's entry; the direction just left keeps whatever deadline its own start gave it, so lagging reports of it still read as our own echo for as long as that window was always meant to last. A stop mirror likewise only ever touches its own `stop` entry, so it still can never shorten an in-progress open/close window (0.3.6) — that now falls out of the data structure rather than needing a special case.
+
 ## [0.3.8] - 2026-08-15
 
 ### Fixed

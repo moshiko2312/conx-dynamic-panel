@@ -142,11 +142,13 @@ class PanelCoordinator:
         self._entity_relay_bindings: dict[str, list[EntityRelayBinding]] = {}
         # Live HA cover.* → cover-engine bindings (open/close indication + motor).
         self._cover_entity_bindings: dict[str, list[CoverEntityBinding]] = {}
-        # entity_id → monotonic deadline: ignore echoes of our own HA mirrors.
-        self._cover_ha_mirror_suppress_until: dict[str, float] = {}
-        # entity_id → the command we last mirrored, so the window can drop our
-        # own echo (same direction) without deafening the panel to real ones.
-        self._cover_ha_mirror_last: dict[str, str] = {}
+        # entity_id → {command: monotonic deadline}: ignore echoes of our own HA
+        # mirrors, one deadline per command (open/close/stop) so reversing
+        # direction cannot orphan the still-running window of the direction we
+        # just left — a physical motor keeps reporting the old direction for a
+        # moment after we command the new one, and that lag must still read as
+        # our own echo, not a fresh external command.
+        self._cover_ha_mirror_echo: dict[str, dict[str, float]] = {}
         # cover_id → armed "linked entity went quiet" watchdog.
         self._cover_entity_stall: dict[str, asyncio.Task[None]] = {}
         self._scheduler_unsub: Callable[[], None] | None = None
@@ -336,13 +338,15 @@ class PanelCoordinator:
     ) -> None:
         """Drive cover open/close indication from a linked HA cover.* transition.
 
-        The echo window is direction-aware. A command equal to the direction we
-        last mirrored is our own echo — including the trailing position report a
-        position-only shutter sends after it halts, which would otherwise
-        re-energize the relay a stop press just turned off. Anything else (the
-        opposite direction, or a stop) is a real external command and must reach
-        the panel immediately, or driving the cover from the HA app would do
-        nothing until the window expired.
+        The echo window is per command (open/close/stop), each with its own
+        deadline. A command still inside its own window is our own echo —
+        including a lagging report of the direction we just left (a physical
+        motor keeps reporting the old direction for a moment after we command
+        a reversal) and the trailing position report a position-only shutter
+        sends after it halts (which would otherwise re-energize the relay a
+        stop press just turned off). A command outside its window is a real
+        external one and must reach the panel immediately, or driving the
+        cover from the HA app would do nothing until the window expired.
         """
         command = cover_ha_command_from_transition(old_state, new_state)
         if command is None:
@@ -353,11 +357,8 @@ class PanelCoordinator:
         profile = self.data.active_profile()
         if profile is None or profile.mode not in {MODE_COVER, MODE_MIXED}:
             return
-        suppress_until = self._cover_ha_mirror_suppress_until.get(entity_id, 0.0)
-        echoed = (
-            self._monotonic() < suppress_until
-            and command == self._cover_ha_mirror_last.get(entity_id)
-        )
+        suppress_until = self._cover_ha_mirror_echo.get(entity_id, {}).get(command, 0.0)
+        echoed = self._monotonic() < suppress_until
         for binding in bindings:
             try:
                 cover = self._resolve_cover(profile, binding.cover_id)
@@ -575,8 +576,7 @@ class PanelCoordinator:
         self._clear_entity_relay_listeners()
         for cover_id in list(self._cover_entity_stall):
             self._cover_cancel_entity_stall(cover_id)
-        self._cover_ha_mirror_suppress_until.clear()
-        self._cover_ha_mirror_last.clear()
+        self._cover_ha_mirror_echo.clear()
         for remove in self.runtime.listeners:
             remove()
         self.runtime.listeners.clear()
@@ -1933,21 +1933,19 @@ class PanelCoordinator:
                 suppress_s = duration_s + COVER_HA_MIRROR_SUPPRESS_MARGIN_S
             else:
                 suppress_s = COVER_HA_MIRROR_SUPPRESS_S
-            # A stop mid-travel must never *shorten* the window the start
-            # opened. Position-only covers never emit opening/closing, so the
-            # trailing current_position report that lands after the shutter
-            # halts reads as a fresh open/close command and would re-energize
-            # the relay the stop press just turned off.
+            # Each command keeps its own deadline and only its own is ever
+            # extended here — never shortened, never overwritten by a different
+            # command. That is what lets a direction's window outlive a later
+            # reversal: reversing close->open only ever touches the "open"
+            # entry, so "close"'s deadline (still most of open_time_s/
+            # close_time_s + margin away) stays valid for whatever lagging
+            # close-direction reports the motor sends while it catches up, and
+            # a stop mid-travel cannot shorten the open/close window it mirrors
+            # over (position-only covers report their final position, read as
+            # the direction they had been travelling, after they halt).
             deadline = self._monotonic() + suppress_s
-            existing = self._cover_ha_mirror_suppress_until.get(entity_id, 0.0)
-            self._cover_ha_mirror_suppress_until[entity_id] = max(existing, deadline)
-            # Remember the *direction* we drove, so the window drops that
-            # direction's echo only and still lets a real external command
-            # through immediately. A stop must not overwrite it: the trailing
-            # position report a position-only shutter sends after halting still
-            # reads as the direction it had been travelling.
-            if command in (COVER_DIRECTION_OPEN, COVER_DIRECTION_CLOSE):
-                self._cover_ha_mirror_last[entity_id] = command
+            per_entity = self._cover_ha_mirror_echo.setdefault(entity_id, {})
+            per_entity[command] = max(per_entity.get(command, 0.0), deadline)
         except Exception as err:  # noqa: BLE001
             _LOGGER.warning(
                 "Cover %s HA mirror cover.%s for %s failed: %s",

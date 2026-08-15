@@ -556,12 +556,11 @@ async def test_live_cover_ignores_own_ha_mirror_echo() -> None:
             CoverEntityBinding(entity_id="cover.living_shutter", cover_id="cover_1")
         ]
     }
-    coordinator._cover_ha_mirror_suppress_until["cover.living_shutter"] = (
-        coordinator._monotonic() + 5.0
-    )
     # The window drops the echo of the direction we mirrored, so record it the
     # way _async_cover_mirror_ha would.
-    coordinator._cover_ha_mirror_last["cover.living_shutter"] = "open"
+    coordinator._cover_ha_mirror_echo["cover.living_shutter"] = {
+        "open": coordinator._monotonic() + 5.0
+    }
 
     event = SimpleNamespace(
         data={
@@ -810,7 +809,7 @@ async def test_live_cover_ha_mirror_suppress_covers_full_travel_time() -> None:
     assert motion.direction == "open"
     coordinator.runtime.hass.services.async_call.assert_awaited()
 
-    suppress_until = coordinator._cover_ha_mirror_suppress_until["cover.living_shutter"]
+    suppress_until = coordinator._cover_ha_mirror_echo["cover.living_shutter"]["open"]
     # open_time_s=30 configured in _cover_c1_setup; must be well past the old
     # fixed 2.0s window.
     assert suppress_until >= coordinator._monotonic() + 30.0
@@ -952,7 +951,7 @@ async def test_stop_press_keeps_suppression_window_against_trailing_position() -
     await coordinator._async_handle_physical_press(1, True)  # OPEN_BUTTON
     motion = coordinator.runtime.cover.get("cover_1")
     assert motion.direction == "open"
-    start_window = coordinator._cover_ha_mirror_suppress_until["cover.living_shutter"]
+    start_window = coordinator._cover_ha_mirror_echo["cover.living_shutter"]["open"]
 
     # Repeat press on the same button: latching panel reports OFF.
     adapter._relay_on[1] = False
@@ -961,8 +960,9 @@ async def test_stop_press_keeps_suppression_window_against_trailing_position() -
     assert motion.moving is False
     assert adapter.relay_is_on(1) is False
 
-    # The stop mirror must not have shrunk the window.
-    assert coordinator._cover_ha_mirror_suppress_until["cover.living_shutter"] >= start_window
+    # The stop mirror must not have shrunk the "open" window: it only ever
+    # touches its own "stop" entry.
+    assert coordinator._cover_ha_mirror_echo["cover.living_shutter"]["open"] == start_window
 
     adapter.relay_calls.clear()
     trailing = SimpleNamespace(
@@ -1240,3 +1240,99 @@ def test_cover_stall_delay_follows_measured_cadence() -> None:
     assert delay(3.0) == pytest.approx(6.5)
     # But never unbounded.
     assert delay(60.0) == pytest.approx(8.0)
+
+
+@pytest.mark.asyncio
+async def test_card_reverse_survives_lagging_old_direction_report() -> None:
+    """Regression: reversing via the card must not be undone by motor lag.
+
+    Reported bug: pressing "down" then, a few seconds later, "up" from the
+    card starts the shutter opening and then immediately flips back to
+    showing closing. Root cause: a physical shutter does not reverse
+    instantly -- it keeps reporting a position moving in the OLD direction for
+    a moment after we've already commanded the new one. That lagging report
+    was, for one release, treated as a fresh external command because the
+    engine only remembered a single "last mirrored direction" and silently
+    dropped the still-valid window for the direction it had just left.
+    """
+    adapter, coordinator = _cover_c1_setup()
+    profile = coordinator.data.active_profile()
+    assert profile is not None
+    profile.cover.opposite_press = COVER_OPPOSITE_STOP_THEN_REVERSE
+
+    # Card press: close, then reverse to open a few seconds later.
+    await coordinator.async_execute_button(2)  # CLOSE_BUTTON
+    motion = coordinator.runtime.cover.get("cover_1")
+    assert motion.direction == "close"
+
+    with patch.object(
+        coordinator, "_monotonic", return_value=coordinator._monotonic() + 4.0
+    ):
+        await coordinator.async_execute_button(1)  # OPEN_BUTTON reverses
+    assert motion.direction == "open"
+    assert adapter.relay_is_on(1) is True
+    assert adapter.relay_is_on(2) is False
+
+    # The real motor hasn't caught up yet: it still reports a decreasing
+    # position (closing) a moment after we commanded the reversal.
+    adapter.relay_calls.clear()
+    lag_report = SimpleNamespace(
+        data={
+            "entity_id": "cover.living_shutter",
+            "old_state": _state("open", current_position=40),
+            "new_state": _state("open", current_position=35),
+        }
+    )
+    with patch.object(
+        coordinator, "_monotonic", return_value=coordinator._monotonic() + 6.0
+    ):
+        await coordinator._async_handle_linked_entity_event(lag_report)  # type: ignore[arg-type]
+
+    assert motion.direction == "open"
+    assert adapter.relay_calls == []
+    assert adapter.relay_is_on(1) is True
+    assert adapter.relay_is_on(2) is False
+
+    _cancel_cover_timers(coordinator, motion)
+
+
+@pytest.mark.asyncio
+async def test_card_reverse_still_accepts_a_genuine_opposite_command_later() -> None:
+    """After the old direction's window truly expires, a real command wins.
+
+    Once enough time has passed that even the direction we left before
+    reversing is out of its own window, a further report of that direction is
+    a genuine external command (e.g. the app told the shutter to close again)
+    and must be acted on, not swallowed forever.
+    """
+    adapter, coordinator = _cover_c1_setup()
+    profile = coordinator.data.active_profile()
+    assert profile is not None
+    profile.cover.opposite_press = COVER_OPPOSITE_STOP_THEN_REVERSE
+
+    await coordinator.async_execute_button(2)  # CLOSE_BUTTON
+    motion = coordinator.runtime.cover.get("cover_1")
+    with patch.object(
+        coordinator, "_monotonic", return_value=coordinator._monotonic() + 1.0
+    ):
+        await coordinator.async_execute_button(1)  # OPEN_BUTTON reverses
+    assert motion.direction == "open"
+
+    # Well past close's own window (open_time_s=30 + margin from _cover_c1_setup).
+    late_close = SimpleNamespace(
+        data={
+            "entity_id": "cover.living_shutter",
+            "old_state": _state("open", current_position=60),
+            "new_state": _state("open", current_position=40),
+        }
+    )
+    with patch.object(
+        coordinator, "_monotonic", return_value=coordinator._monotonic() + 90.0
+    ):
+        await coordinator._async_handle_linked_entity_event(late_close)  # type: ignore[arg-type]
+
+    assert motion.direction == "close"
+    assert adapter.relay_is_on(2) is True
+    assert adapter.relay_is_on(1) is False
+
+    _cancel_cover_timers(coordinator, motion)
