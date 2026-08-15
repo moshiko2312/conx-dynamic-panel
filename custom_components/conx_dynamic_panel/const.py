@@ -204,6 +204,19 @@ COVER_HA_MIRROR_SUPPRESS_S: Final = 2.0
 # and settle lag included) instead of expiring long before travel completes.
 COVER_HA_MIRROR_SUPPRESS_MARGIN_S: Final = 3.0
 
+# On startup, how long the coordinator waits for a profile's linked entities
+# (button actions, linked HA covers) to report a real state before running the
+# one-shot restore-to-hardware sync. Right after an HA restart a linked
+# entity's owning integration (Zigbee2MQTT, another panel, ...) often hasn't
+# reconnected yet, so hass.states.get() returns nothing or a transient
+# unknown/unavailable placeholder; restoring against that silently skips the
+# button instead of matching it to reality. Bounded so a genuinely offline
+# device cannot hang setup — after the deadline, restore proceeds with
+# whatever each entity currently reports (unchanged from before this wait
+# existed).
+STARTUP_ENTITY_READY_TIMEOUT_S: Final = 10.0
+STARTUP_ENTITY_READY_POLL_S: Final = 0.25
+
 SYNC_SYNCED: Final = "synced"
 SYNC_PENDING: Final = "pending"
 SYNC_SYNCING: Final = "syncing"

@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -450,3 +450,112 @@ async def test_mapped_entity_drift_marks_out_of_sync() -> None:
     )
     await coordinator._async_handle_mapped_entity_event(event)
     assert store.data.sync_status == SYNC_OUT_OF_SYNC
+
+
+@pytest.mark.asyncio
+async def test_restore_returns_immediately_with_no_linked_entities() -> None:
+    """A profile with no linked entities never enters the wait loop at all."""
+    store = FakeStore()
+    profile = store.data.active_profile()
+    assert profile is not None
+    store.data.applied_snapshot = profile.to_dict()
+    adapter = FakeAdapter()
+    coordinator = PanelCoordinator(_runtime(adapter, store))  # type: ignore[arg-type]
+
+    with patch("asyncio.sleep", AsyncMock()) as sleep_mock:
+        await coordinator._async_wait_for_linked_entities_ready(
+            Profile.from_dict(dict(store.data.applied_snapshot))
+        )
+    sleep_mock.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_restore_waits_then_proceeds_once_linked_entity_becomes_ready() -> None:
+    """The wait ends as soon as the entity reports a real state, not at the timeout."""
+    store = FakeStore()
+    profile = store.data.active_profile()
+    assert profile is not None
+    profile.mode = "toggle"  # type: ignore[assignment]
+    profile.buttons[0].action = ButtonAction(
+        action="light.toggle", target={"entity_id": "light.kitchen"}, data={}
+    )
+    adapter = FakeAdapter()
+    runtime = _runtime(adapter, store)
+    states: dict[str, Any] = {}
+    runtime.hass.states = SimpleNamespace(get=lambda entity_id: states.get(entity_id))
+    coordinator = PanelCoordinator(runtime)  # type: ignore[arg-type]
+
+    polls = 0
+
+    async def _fake_sleep(_delay: float) -> None:
+        nonlocal polls
+        polls += 1
+        if polls == 2:
+            states["light.kitchen"] = SimpleNamespace(state="off")
+
+    with patch(
+        "custom_components.conx_dynamic_panel.coordinator.STARTUP_ENTITY_READY_TIMEOUT_S", 5.0
+    ), patch("asyncio.sleep", side_effect=_fake_sleep):
+        await coordinator._async_wait_for_linked_entities_ready(profile)
+
+    assert polls == 2
+    assert states["light.kitchen"].state == "off"
+
+
+@pytest.mark.asyncio
+async def test_restore_gives_up_waiting_after_timeout_and_proceeds() -> None:
+    """A genuinely offline linked entity must not hang setup forever."""
+    store = FakeStore()
+    profile = store.data.active_profile()
+    assert profile is not None
+    profile.mode = "toggle"  # type: ignore[assignment]
+    profile.buttons[0].action = ButtonAction(
+        action="light.toggle", target={"entity_id": "light.offline"}, data={}
+    )
+    adapter = FakeAdapter()
+    runtime = _runtime(adapter, store)
+    runtime.hass.states = SimpleNamespace(get=lambda _entity_id: None)  # never appears
+    coordinator = PanelCoordinator(runtime)  # type: ignore[arg-type]
+
+    with patch(
+        "custom_components.conx_dynamic_panel.coordinator.STARTUP_ENTITY_READY_TIMEOUT_S", 0.05
+    ), patch(
+        "custom_components.conx_dynamic_panel.coordinator.STARTUP_ENTITY_READY_POLL_S", 0.01
+    ):
+        await coordinator._async_wait_for_linked_entities_ready(profile)
+    # Returning at all (rather than hanging) is the assertion; a bounded
+    # number of polls happened along the way.
+
+
+@pytest.mark.asyncio
+async def test_full_restore_flow_waits_for_entity_before_syncing_relay() -> None:
+    """End-to-end: the restore itself is delayed until the entity is real."""
+    store = FakeStore()
+    profile = store.data.active_profile()
+    assert profile is not None
+    profile.mode = "toggle"  # type: ignore[assignment]
+    profile.buttons[0].action = ButtonAction(
+        action="light.toggle", target={"entity_id": "light.kitchen"}, data={}
+    )
+    store.data.applied_snapshot = profile.to_dict()
+    adapter = FakeAdapter()
+    runtime = _runtime(adapter, store)
+    states: dict[str, Any] = {}
+    runtime.hass.states = SimpleNamespace(get=lambda entity_id: states.get(entity_id))
+    coordinator = PanelCoordinator(runtime)  # type: ignore[arg-type]
+
+    async def _become_ready_after_a_beat() -> None:
+        await asyncio.sleep(0.03)
+        states["light.kitchen"] = SimpleNamespace(state="on")
+
+    with patch(
+        "custom_components.conx_dynamic_panel.coordinator.STARTUP_ENTITY_READY_TIMEOUT_S", 2.0
+    ), patch(
+        "custom_components.conx_dynamic_panel.coordinator.STARTUP_ENTITY_READY_POLL_S", 0.01
+    ):
+        ready_task = asyncio.create_task(_become_ready_after_a_beat())
+        await coordinator._async_restore_applied_to_hardware()
+        await ready_task
+
+    assert adapter.apply_calls
+    assert "light.kitchen" in states

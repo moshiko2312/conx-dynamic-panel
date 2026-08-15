@@ -4,6 +4,12 @@ All notable changes to this private project will be documented here.
 
 ## [Unreleased]
 
+## [0.3.13] - 2026-08-15
+
+### Added
+
+- **The startup restore now waits for a profile's linked entities to report their real state before running, instead of reading whatever is available at that instant:** right after an HA restart, a linked entity's owning integration (Zigbee2MQTT, another ConX panel, ...) often hasn't reconnected yet, so `hass.states.get()` returns nothing or a transient `unknown`/`unavailable` placeholder. Reading that at restore time meant the per-button sync silently skipped it — nothing to match against — leaving the relay wherever raw hardware left it until a later live event happened to correct it. 0.3.12 made that later correction safe; this makes the initial restore itself accurate instead of relying on one. The coordinator now waits up to `STARTUP_ENTITY_READY_TIMEOUT_S` (10s), polling every `STARTUP_ENTITY_READY_POLL_S` (0.25s), for every entity referenced by a button action or a linked `covers[].ha_entity_id` to leave `unknown`/`unavailable` — returning as soon as all of them do, so a normal fast reconnect costs nothing. A genuinely offline entity cannot hang setup: the restore proceeds after the timeout with whatever each entity currently reports, exactly as before this change. A profile with no linked entities never enters the wait at all.
+
 ## [0.3.12] - 2026-08-15
 
 ### Fixed

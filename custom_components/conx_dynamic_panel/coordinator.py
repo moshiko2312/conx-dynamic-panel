@@ -66,6 +66,8 @@ from .const import (
     SCHEDULER_EXPORT_SCHEMA_VERSION,
     SCHEDULER_SCOPE_LOCAL,
     SCHEDULER_SCOPE_MASTER,
+    STARTUP_ENTITY_READY_POLL_S,
+    STARTUP_ENTITY_READY_TIMEOUT_S,
     SUPPORTED_MODES,
     SYNC_ERROR,
     SYNC_OUT_OF_SYNC,
@@ -1174,6 +1176,7 @@ class PanelCoordinator:
 
         if self.runtime.sync_lock.locked():
             return
+        await self._async_wait_for_linked_entities_ready(applied)
         async with self.runtime.sync_lock:
             try:
                 result = await asyncio.wait_for(
@@ -1215,6 +1218,36 @@ class PanelCoordinator:
                     self.data.last_error,
                 )
             await self.runtime.store.async_save()
+
+    async def _async_wait_for_linked_entities_ready(self, profile: Profile) -> None:
+        """Give a restore's linked entities a chance to report their real state.
+
+        Right after an HA restart, a linked entity's owning integration
+        (Zigbee2MQTT, another panel, ...) may not have reconnected yet, so
+        ``hass.states.get()`` returns nothing or a transient unknown/
+        unavailable placeholder. Reading that at restore time means
+        ``_async_sync_button_from_entity`` silently skips the button --
+        nothing to sync against -- leaving its relay wherever raw hardware
+        left it until a later live event happens to correct it (0.3.12 made
+        that later correction safe, but it is still a second-best outcome
+        compared to the initial restore being accurate). Waiting first,
+        bounded so a genuinely offline device cannot hang setup, makes the
+        one-shot restore itself correct.
+        """
+        entity_ids = {
+            binding.entity_id for binding in iter_entity_relay_bindings(profile)
+        } | {binding.entity_id for binding in iter_cover_entity_bindings(profile)}
+        if not entity_ids:
+            return
+        deadline = self._monotonic() + STARTUP_ENTITY_READY_TIMEOUT_S
+        while self._monotonic() < deadline:
+            if all(self._entity_state_ready(entity_id) for entity_id in entity_ids):
+                return
+            await asyncio.sleep(STARTUP_ENTITY_READY_POLL_S)
+
+    def _entity_state_ready(self, entity_id: str) -> bool:
+        state = self.hass.states.get(entity_id)
+        return state is not None and state.state not in {STATE_UNKNOWN, STATE_UNAVAILABLE}
 
     async def _async_handle_physical_press(self, index: int, turned_on: bool) -> None:
         profile = self.data.active_profile()
