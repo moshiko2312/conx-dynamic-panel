@@ -805,6 +805,67 @@ async def test_execute_button_service_drives_cover_button() -> None:
 
 
 @pytest.mark.asyncio
+async def test_card_press_twice_on_same_cover_button_stops() -> None:
+    """Card/service presses always arrive as ON, so the repeat press is a stop.
+
+    Regression: the second press re-ran the same open command (a fresh full
+    travel) instead of stopping, because the physical-panel reading of an ON on
+    the active direction — "the relay must have been off, our clock is stale" —
+    cannot hold for a synthetic press.
+    """
+    coordinator, adapter, _store, profile, runtime = _build(open_time=30.0)
+    profile.cover.ha_entity_id = "cover.living_shutter"
+    await coordinator.async_execute_button(OPEN_BUTTON)
+    assert runtime.cover.direction == "open"
+    assert adapter.relays[OPEN_BUTTON] is True
+
+    adapter.relay_calls.clear()
+    runtime.hass.services.async_call.reset_mock()
+    await coordinator.async_execute_button(OPEN_BUTTON)
+
+    assert runtime.cover.moving is False
+    assert runtime.cover.last_reason == "stop_press"
+    _assert_all_cover_relays_off(adapter)
+    services = [call.args[1] for call in runtime.hass.services.async_call.await_args_list]
+    assert services == ["stop_cover"]
+
+
+@pytest.mark.asyncio
+async def test_card_press_twice_on_mixed_cover_role_stops() -> None:
+    """Same repeat-press stop for a cover role inside a mixed profile."""
+    store = FakeStore()
+    adapter = CoverAdapter()
+    runtime = _runtime(adapter, store)
+    coordinator = PanelCoordinator(runtime)  # type: ignore[arg-type]
+    profile = _mixed_cover_profile(store)
+    adapter.cover_pairs = [profile.cover.relay_indexes()]
+
+    await coordinator.async_execute_button(OPEN_BUTTON)
+    assert runtime.cover.get("cover_1").direction == "open"
+    await coordinator.async_execute_button(OPEN_BUTTON)
+    assert runtime.cover.get("cover_1").moving is False
+    _assert_all_cover_relays_off(adapter)
+
+
+@pytest.mark.asyncio
+async def test_card_press_on_opposite_cover_button_still_reverses() -> None:
+    """A card press on the *other* direction keeps its reverse semantics."""
+    coordinator, adapter, _store, _profile, runtime = _build(
+        opposite_press=COVER_OPPOSITE_STOP_THEN_REVERSE,
+        settle=0.0,
+        open_time=30.0,
+        close_time=30.0,
+    )
+    await coordinator.async_execute_button(OPEN_BUTTON)
+    assert runtime.cover.direction == "open"
+    await coordinator.async_execute_button(CLOSE_BUTTON)
+    assert runtime.cover.direction == "close"
+    assert adapter.relays[CLOSE_BUTTON] is True
+    assert adapter.relays[OPEN_BUTTON] is False
+    await coordinator._async_cover_abort("test")
+
+
+@pytest.mark.asyncio
 async def test_toggle_mode_is_unaffected_by_cover_config() -> None:
     coordinator, adapter, store, profile, runtime = _build()
     profile.mode = MODE_TOGGLE  # type: ignore[assignment]

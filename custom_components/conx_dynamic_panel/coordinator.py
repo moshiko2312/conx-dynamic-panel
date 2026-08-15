@@ -1228,8 +1228,15 @@ class PanelCoordinator:
     # Different covers may travel at the same time when their buttons differ.
     # ------------------------------------------------------------------
 
-    async def _async_cover_press(self, profile: Profile, index: int, turned_on: bool) -> None:
-        """Route a physical relay transition while a cover profile is active."""
+    async def _async_cover_press(
+        self, profile: Profile, index: int, turned_on: bool, *, virtual: bool = False
+    ) -> None:
+        """Route a physical relay transition while a cover profile is active.
+
+        ``virtual`` marks a card/service press, which always arrives as ON
+        because there is no latching relay to report the flip. The two differ
+        on one branch only: a repeat press on the direction already travelling.
+        """
         if profile.mode == MODE_MIXED:
             profile.sync_covers_from_roles()
         cover = profile.cover_for_button(index)
@@ -1299,6 +1306,15 @@ class PanelCoordinator:
                 await self._async_cover_halt(cover, reason=COVER_REASON_STOP_PRESS)
                 return
             if motion.moving and motion.direction == direction:
+                if virtual:
+                    # Card/service press: the ON is synthetic, so it proves
+                    # nothing about the relay. Pressing the travelling direction
+                    # again is the user asking to stop, exactly like the card's
+                    # own stop command.
+                    await self._async_cover_halt(
+                        cover, reason=COVER_REASON_STOP_PRESS
+                    )
+                    return
                 # An OFF->ON on the *active* direction cannot be a same-direction
                 # stop press: on a latching panel that press emits OFF, not ON.
                 # The relay was therefore already off and our clock was stale —
@@ -2819,7 +2835,7 @@ class PanelCoordinator:
         """Drive hardware then run the same press path as a physical transition."""
         if profile.mode == MODE_COVER and profile.is_cover_button(index):
             # Cover engine owns both direction relays.
-            await self._async_cover_press(profile, index, True)
+            await self._async_cover_press(profile, index, True, virtual=True)
             return
         if profile.mode == MODE_MIXED:
             await self._async_virtual_mixed_press(profile, index)
@@ -2883,7 +2899,7 @@ class PanelCoordinator:
         """Route a card/service press by mixed-mode role, driving hardware."""
         role = profile.button_role(index)
         if role in {BUTTON_ROLE_COVER_OPEN, BUTTON_ROLE_COVER_CLOSE}:
-            await self._async_cover_press(profile, index, True)
+            await self._async_cover_press(profile, index, True, virtual=True)
             return
         if role == BUTTON_ROLE_MOMENTARY:
             await self._async_virtual_momentary_press(profile, index)

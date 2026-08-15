@@ -4,6 +4,12 @@ All notable changes to this private project will be documented here.
 
 ## [Unreleased]
 
+## [0.3.7] - 2026-08-15
+
+### Fixed
+
+- **A second press on the same shutter button from the card re-ran the move instead of stopping it:** card, WebSocket and service presses reach the cover engine through `_async_virtual_press` / `_async_virtual_mixed_press`, which always call `_async_cover_press(..., turned_on=True)` — there is no latching relay to report a flip, so the ON is synthetic. 0.3.5 taught the ON branch that an ON on the direction already travelling proves the relay had gone off behind our back ("on a latching panel that press emits OFF, not ON") and must therefore start a fresh full-duration run. That reading is correct for a physical press and wrong for a virtual one, so pressing the card's open button twice re-issued open rather than stopping. Virtual presses are now flagged, and a repeat press on the travelling direction halts — matching the card's own stop command and the physical panel's behavior. Only that one branch differs: an opposite-direction card press still reverses or stops per `opposite_press`, and physical presses are unchanged.
+
 ## [0.3.6] - 2026-08-15
 
 ### Fixed
