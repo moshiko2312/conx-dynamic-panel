@@ -88,7 +88,10 @@ def _runtime(adapter: FakeAdapter, store: FakeStore) -> Any:
             has_service=lambda domain, service: True,
             async_call=AsyncMock(),
         ),
-        bus=SimpleNamespace(async_fire=lambda *args, **kwargs: None),
+        bus=SimpleNamespace(
+            async_fire=lambda *args, **kwargs: None,
+            async_listen=lambda *args, **kwargs: (lambda: None),
+        ),
         async_create_task=lambda coro: asyncio.create_task(coro),
         config_entries=SimpleNamespace(async_update_entry=async_update_entry),
         data={},

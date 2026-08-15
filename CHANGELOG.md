@@ -4,7 +4,11 @@ All notable changes to this private project will be documented here.
 
 ## [Unreleased]
 
-## [0.3.9] - 2026-08-15
+## [0.3.10] - 2026-08-15
+
+### Added
+
+- **Stopping a linked shutter from the HA app now clears the panel instantly instead of waiting on the 0.3.8 silence watchdog:** Home Assistant fires `call_service` the moment `cover.stop_cover` is called — before the device has replied at all. The coordinator now listens for that event (filtered to `cover.stop_cover` on a bound entity) and de-energizes the relay immediately, without mirroring a `stop_cover` back at the entity that just asked to stop. `entity_id` in that event can arrive as either a string or a list depending on how the frontend issued the call, so both forms are matched. The 0.3.8 stall watchdog (silence on the position stream) remains as the fallback for a stop that never goes through an HA service call at all — a press on the shutter's own physical remote or wall switch — which still has no signal beyond the position stream going quiet.
 
 ### Fixed
 

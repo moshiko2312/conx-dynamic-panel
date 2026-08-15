@@ -141,7 +141,10 @@ def _runtime(
             has_service=lambda domain, service: True,
             async_call=AsyncMock(),
         ),
-        bus=SimpleNamespace(async_fire=lambda *args, **kwargs: None),
+        bus=SimpleNamespace(
+            async_fire=lambda *args, **kwargs: None,
+            async_listen=lambda *args, **kwargs: (lambda: None),
+        ),
         async_create_task=lambda coro: asyncio.create_task(coro),
     )
     entry = SimpleNamespace(entry_id="entry-1", options={"auto_sync": False})
@@ -1334,5 +1337,119 @@ async def test_card_reverse_still_accepts_a_genuine_opposite_command_later() -> 
     assert motion.direction == "close"
     assert adapter.relay_is_on(2) is True
     assert adapter.relay_is_on(1) is False
+
+    _cancel_cover_timers(coordinator, motion)
+
+
+def _capture_bus_listener(coordinator: PanelCoordinator) -> dict[str, Any]:
+    """Run _rebuild_entity_relay_listeners and capture the call_service callback."""
+    captured: dict[str, Any] = {}
+
+    def fake_listen(event_type: str, callback: Any) -> Any:
+        captured[event_type] = callback
+        return lambda: captured.pop(event_type, None)
+
+    coordinator.runtime.hass.bus.async_listen = fake_listen  # type: ignore[assignment]
+    coordinator._rebuild_entity_relay_listeners()
+    return captured
+
+
+@pytest.mark.asyncio
+async def test_app_stop_service_call_halts_instantly_without_waiting_for_state() -> None:
+    """Pressing stop in the HA app must not wait for the position stream to go quiet.
+
+    HA fires call_service the moment cover.stop_cover is invoked, before the
+    device has replied at all. This is a much better signal than inferring a
+    stop from silence (the entity-stall watchdog), and should react instantly.
+    """
+    adapter, coordinator = _cover_c1_setup()
+    captured = _capture_bus_listener(coordinator)
+    assert "call_service" in captured
+
+    adapter._relay_on[1] = True
+    await coordinator._async_handle_physical_press(1, True)  # OPEN_BUTTON
+    motion = coordinator.runtime.cover.get("cover_1")
+    assert motion.direction == "open"
+
+    coordinator.runtime.hass.services.async_call.reset_mock()
+    stop_event = SimpleNamespace(
+        data={
+            "domain": "cover",
+            "service": "stop_cover",
+            "service_data": {"entity_id": "cover.living_shutter"},
+        }
+    )
+    captured["call_service"](stop_event)
+    await asyncio.sleep(0)  # let the scheduled task run
+
+    assert motion.moving is False
+    assert adapter.relay_is_on(1) is False
+    assert adapter.relay_is_on(2) is False
+    # Never bounce stop_cover back at the entity that just asked to stop.
+    coordinator.runtime.hass.services.async_call.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_app_stop_service_call_accepts_entity_id_as_list() -> None:
+    """entity_id in the call_service event can be a string or a list depending
+    on how the frontend issued the call — both forms must match."""
+    adapter, coordinator = _cover_c1_setup()
+    captured = _capture_bus_listener(coordinator)
+
+    adapter._relay_on[2] = True
+    await coordinator._async_handle_physical_press(2, True)  # CLOSE_BUTTON
+    motion = coordinator.runtime.cover.get("cover_1")
+    assert motion.direction == "close"
+
+    stop_event = SimpleNamespace(
+        data={
+            "domain": "cover",
+            "service": "stop_cover",
+            "service_data": {"entity_id": ["cover.living_shutter"]},
+        }
+    )
+    captured["call_service"](stop_event)
+    await asyncio.sleep(0)
+
+    assert motion.moving is False
+    assert adapter.relay_is_on(2) is False
+
+
+@pytest.mark.asyncio
+async def test_unrelated_service_calls_are_ignored() -> None:
+    """Only cover.stop_cover for a bound entity reacts; everything else is a no-op."""
+    adapter, coordinator = _cover_c1_setup()
+    captured = _capture_bus_listener(coordinator)
+
+    adapter._relay_on[1] = True
+    await coordinator._async_handle_physical_press(1, True)  # OPEN_BUTTON
+    motion = coordinator.runtime.cover.get("cover_1")
+    assert motion.direction == "open"
+    adapter.relay_calls.clear()
+
+    for event in (
+        SimpleNamespace(
+            data={"domain": "light", "service": "turn_on", "service_data": {}}
+        ),
+        SimpleNamespace(
+            data={
+                "domain": "cover",
+                "service": "open_cover",
+                "service_data": {"entity_id": "cover.living_shutter"},
+            }
+        ),
+        SimpleNamespace(
+            data={
+                "domain": "cover",
+                "service": "stop_cover",
+                "service_data": {"entity_id": "cover.some_other_shutter"},
+            }
+        ),
+    ):
+        captured["call_service"](event)
+    await asyncio.sleep(0)
+
+    assert motion.moving is True
+    assert adapter.relay_calls == []
 
     _cancel_cover_timers(coordinator, motion)

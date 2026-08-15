@@ -8,7 +8,7 @@ from collections.abc import Awaitable, Callable, Iterable
 from datetime import UTC, datetime
 from typing import Any
 
-from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
+from homeassistant.const import EVENT_CALL_SERVICE, STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import Event, callback
 from homeassistant.helpers.event import (
     async_track_point_in_time,
@@ -272,16 +272,61 @@ class PanelCoordinator:
         self._cover_entity_bindings = by_cover_entity
 
         entity_ids = list({*by_entity, *by_cover_entity})
-        if not entity_ids:
+        if entity_ids:
+
+            @callback
+            def _on_linked_entity_change(event: Event) -> None:
+                self.hass.async_create_task(self._async_handle_linked_entity_event(event))
+
+            self._entity_relay_unsubs.append(
+                async_track_state_change_event(self.hass, entity_ids, _on_linked_entity_change)
+            )
+
+        if by_cover_entity:
+            # Fast path for an app/dashboard-issued stop: HA fires this the
+            # moment cover.stop_cover is called, before the device has replied
+            # at all. Position-only shutters (Nodon, Tuya wall shutters) never
+            # emit opening/closing and send no event of their own when they
+            # stop, so without this the panel could only infer "stopped" from
+            # the position stream going quiet (_async_cover_entity_stall_timer)
+            # — correct, but seconds slower than the command that caused it.
+            # A stop coming from the shutter's own remote/wall switch (never
+            # routed through an HA service call) still has no such signal, so
+            # the stall watchdog stays as the fallback for that case.
+            @callback
+            def _on_cover_stop_service_call(event: Event) -> None:
+                data = event.data
+                if data.get("domain") != "cover" or data.get("service") != "stop_cover":
+                    return
+                raw = (data.get("service_data") or {}).get("entity_id")
+                targets = [raw] if isinstance(raw, str) else list(raw or ())
+                matched = [e for e in targets if e in self._cover_entity_bindings]
+                if not matched:
+                    return
+                self.hass.async_create_task(
+                    self._async_handle_cover_stop_service_event(matched)
+                )
+
+            self._entity_relay_unsubs.append(
+                self.hass.bus.async_listen(EVENT_CALL_SERVICE, _on_cover_stop_service_call)
+            )
+
+    async def _async_handle_cover_stop_service_event(self, entity_ids: list[str]) -> None:
+        """React the instant an app/dashboard calls cover.stop_cover, not later."""
+        if self.runtime.unloading:
             return
-
-        @callback
-        def _on_linked_entity_change(event: Event) -> None:
-            self.hass.async_create_task(self._async_handle_linked_entity_event(event))
-
-        self._entity_relay_unsubs.append(
-            async_track_state_change_event(self.hass, entity_ids, _on_linked_entity_change)
-        )
+        if self.data.sync_status == SYNC_SYNCING or self.runtime.sync_lock.locked():
+            return
+        profile = self.data.active_profile()
+        if profile is None or profile.mode not in {MODE_COVER, MODE_MIXED}:
+            return
+        for entity_id in entity_ids:
+            for binding in self._cover_entity_bindings.get(entity_id) or []:
+                try:
+                    cover = self._resolve_cover(profile, binding.cover_id)
+                except ValueError:
+                    continue
+                await self._async_live_sync_cover_from_ha(profile, cover, COVER_COMMAND_STOP)
 
     async def _async_handle_linked_entity_event(self, event: Event) -> None:
         """Mirror linked HA on/off or cover state onto the panel (suppressed write)."""
