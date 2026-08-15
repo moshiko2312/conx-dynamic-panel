@@ -39,6 +39,7 @@ from .const import (
     COVER_REASON_ERROR,
     COVER_REASON_PRESS,
     COVER_REASON_SAFETY,
+    COVER_REASON_STALE,
     COVER_REASON_STOP_PRESS,
     COVER_REASON_TRAVEL_COMPLETE,
     DOMAIN,
@@ -373,6 +374,13 @@ class PanelCoordinator:
                 if command == COVER_COMMAND_OPEN
                 else COVER_DIRECTION_CLOSE
             )
+            # A stale clock must never be inherited: an external restart would
+            # otherwise keep counting the *previous* run's remaining time and
+            # cut this move short. While the relay is genuinely ON the motion is
+            # not stale, so ordinary mid-travel position reports still no-op
+            # here and the linked-entity chatter guard is preserved.
+            if self._cover_motion_is_stale(cover, motion):
+                self._cover_discard_motion(motion, COVER_REASON_STALE)
             if motion.direction == direction:
                 return
             if motion.moving:
@@ -1243,6 +1251,12 @@ class PanelCoordinator:
                 # OFF on the inactive direction must not abort travel. After
                 # reverse the previous direction often reports a duplicate OFF.
                 if motion.moving and motion.direction != direction:
+                    # Unless the pair is now fully de-energized: the run this
+                    # clock describes is over, so drop it instead of letting it
+                    # expire into a later run.
+                    if self._cover_motion_is_stale(cover, motion):
+                        self._cover_discard_motion(motion, COVER_REASON_STALE)
+                        self.runtime.async_notify()
                     return
                 if motion.moving and motion.direction == direction:
                     opposite_dir = cover.opposite_direction(direction)
@@ -1290,14 +1304,18 @@ class PanelCoordinator:
                     return
                 await self._async_cover_halt(cover, reason=COVER_REASON_SAFETY)
                 return
+            if motion.moving and motion.direction == direction:
+                # An OFF->ON on the *active* direction cannot be a same-direction
+                # stop press: on a latching panel that press emits OFF, not ON.
+                # The relay was therefore already off and our clock was stale —
+                # this is a fresh run started elsewhere, so count it in full.
+                self._cover_discard_motion(motion, COVER_REASON_STALE)
+            elif motion.moving and self._cover_motion_is_stale(cover, motion):
+                # Stale clock on the other direction: nothing is energized, so
+                # start clean rather than paying for a reverse settle.
+                self._cover_discard_motion(motion, COVER_REASON_STALE)
             if motion.moving:
-                previous = motion.direction
-                if previous == direction:
-                    # Same direction while moving = stop.
-                    await self._async_cover_halt(
-                        cover, reason=COVER_REASON_STOP_PRESS
-                    )
-                    return
+                # Only the opposite direction can still be moving here.
                 if cover.opposite_press != COVER_OPPOSITE_STOP_THEN_REVERSE:
                     await self._async_cover_halt(
                         cover, reason=COVER_REASON_STOP_PRESS
@@ -1528,6 +1546,11 @@ class PanelCoordinator:
             raise
         async with self.runtime.cover.lock:
             motion = self.runtime.cover.get(cover_id)
+            if motion.timer is not asyncio.current_task():
+                # A newer run superseded this one (e.g. the relay was switched
+                # back ON from elsewhere and we re-armed a full clock). This
+                # task is orphaned: it must not touch the run now in progress.
+                return
             if not motion.moving or motion.direction != direction:
                 return
             # Clear the handle first so the halt below never cancels this task.
@@ -1536,6 +1559,16 @@ class PanelCoordinator:
             cover = None
             if profile is not None and profile.id == profile_id:
                 cover = profile.cover_by_id(cover_id)
+            if cover is not None and not self.runtime.adapter.relay_is_on(
+                cover.button_for(direction)
+            ):
+                # The relay we energized is already off — this run ended outside
+                # the panel. Drop the clock silently: forcing the pair OFF or
+                # mirroring stop_cover here would cut short whatever the shutter
+                # is doing now.
+                self._cover_discard_motion(motion, COVER_REASON_STALE)
+                self.runtime.async_notify()
+                return
             if cover is None:
                 # Profile changed; still de-energize the remembered pair.
                 await self._async_cover_halt_motion(
@@ -1647,6 +1680,38 @@ class PanelCoordinator:
                 )
             for cover in covers:
                 await self._async_cover_halt(cover, reason=reason)
+
+    def _cover_motion_is_stale(self, cover: CoverConfig, motion: CoverMotion) -> bool:
+        """Whether the engine thinks a cover is travelling but no relay is ON.
+
+        The travel clock belongs to the relay that is energized. When a run ends
+        outside the panel (app, automation, physical press we could not observe)
+        the clock keeps counting against a motor that is no longer moving, and
+        its eventual expiry would cut a *later* run short. Treat that as stale.
+        """
+        if not motion.moving:
+            return False
+        if (
+            motion.suppress_stale_off_until is not None
+            and self._monotonic() < motion.suppress_stale_off_until
+        ):
+            # Post-reverse grace: the pair may legitimately read OFF while the
+            # latching hardware settles into the new direction.
+            return False
+        return not any(
+            self.runtime.adapter.relay_is_on(index) for index in cover.relay_indexes()
+        )
+
+    def _cover_discard_motion(self, motion: CoverMotion, reason: str) -> None:
+        """Drop a stale travel clock without touching hardware.
+
+        Unlike a halt this issues no relay writes and no HA mirror — the run it
+        described is already over, so there is nothing to stop.
+        """
+        timer = motion.timer
+        motion.reset(reason)
+        if timer is not None and timer is not asyncio.current_task():
+            timer.cancel()
 
     async def _async_cover_ensure_pair_off(
         self, cover: CoverConfig, *, prefer_off_first: int | None = None

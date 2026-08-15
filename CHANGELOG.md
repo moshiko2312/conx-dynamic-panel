@@ -4,6 +4,14 @@ All notable changes to this private project will be documented here.
 
 ## [Unreleased]
 
+## [0.3.5] - 2026-08-15
+
+### Fixed
+
+- **A cover operated from outside the panel could be cut off mid-travel:** the travel clock (`CoverMotion.timer`) was armed once per panel-observed start and only ever cleared by a panel-driven halt — it was never reconciled against what the relays were actually doing. So when a run ended or restarted somewhere else (HA app, automation, a physical press during the linked-entity echo-suppression window), the engine kept counting a run that was already over. Three consequences, all now fixed. An `OFF->ON` on the *active* direction relay was read as a "same direction while moving = stop" press and halted the cover — but on a latching panel that press emits OFF, not ON, so an ON proves the relay had been off and the clock was stale; it now discards the stale clock and arms a fresh full `open_time_s`/`close_time_s`. An external same-direction restart arriving via the linked HA cover hit `motion.direction == direction` and silently inherited the old, partly-elapsed timer; it now re-arms when the relays read OFF. And an expiring timer forced both relays OFF *and* mirrored `cover.stop_cover` without checking that the relay it was about to kill was still the one it energized — it now drops the clock silently instead, and a task superseded by a newer run is recognized via `motion.timer is asyncio.current_task()` so it can never halt the run that replaced it.
+
+  The travel clock now belongs to the relay that is ON: a relay observed OFF ends the run, and a relay observed ON from a stale or idle state always counts a full fresh duration. The 0.3.4 chatter guards are unaffected — while a relay is genuinely energized the motion is never stale, so ordinary mid-travel position reports still short-circuit exactly as before.
+
 ## [0.3.4] - 2026-08-15
 
 ### Fixed

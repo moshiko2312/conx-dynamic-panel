@@ -166,6 +166,9 @@ COVER_REASON_TRAVEL_COMPLETE: Final = "travel_complete"
 COVER_REASON_SAFETY: Final = "safety"
 COVER_REASON_ABORT: Final = "abort"
 COVER_REASON_ERROR: Final = "error"
+# The engine believed a cover was travelling but the relays say otherwise (the
+# run ended, or restarted, outside the panel). The clock is dropped, not halted.
+COVER_REASON_STALE: Final = "stale"
 # Ignore HA cover state echoes right after we mirrored open/close/stop to it.
 COVER_HA_MIRROR_SUPPRESS_S: Final = 2.0
 # Buffer added beyond a mirrored open/close command's configured travel time,

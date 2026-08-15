@@ -860,3 +860,73 @@ async def test_unload_clears_entity_relay_listeners() -> None:
     assert coordinator._entity_relay_unsubs == []
     assert coordinator._entity_relay_bindings == {}
     assert runtime.unloading is True
+
+
+@pytest.mark.asyncio
+async def test_live_cover_ha_same_direction_restart_rearms_when_relay_is_off() -> None:
+    """An external same-direction restart must not inherit the old clock.
+
+    With both relays off the previous run is over. Continuing to count it would
+    expire partway through this move and cut the relay mid-travel.
+    """
+    adapter, coordinator = _cover_c1_setup()
+    motion = coordinator.runtime.cover.get("cover_1")
+    # Engine believes it is still opening, but the hardware says otherwise.
+    motion.direction = "open"
+    motion.duration = 30.0
+    motion.started_at = coordinator._monotonic() - 25.0
+    motion.relays = (1, 2)
+    adapter._relay_on[1] = False
+    adapter._relay_on[2] = False
+    stale_started = motion.started_at
+
+    event = SimpleNamespace(
+        data={
+            "entity_id": "cover.living_shutter",
+            "old_state": _state("open", current_position=40),
+            "new_state": _state("open", current_position=60),
+        }
+    )
+    await coordinator._async_handle_linked_entity_event(event)  # type: ignore[arg-type]
+
+    assert motion.direction == "open"
+    assert motion.duration == 30.0
+    assert motion.started_at is not None and motion.started_at > stale_started
+    assert adapter.relay_is_on(1) is True
+    assert adapter.relay_is_on(2) is False
+    # HA-driven syncs never mirror back to the entity.
+    coordinator.runtime.hass.services.async_call.assert_not_called()
+    await coordinator._async_cover_abort("test")
+
+
+@pytest.mark.asyncio
+async def test_live_cover_ha_same_direction_stays_noop_while_relay_is_on() -> None:
+    """Regression: mid-travel position reports must still short-circuit.
+
+    The staleness check keys off the relay, so a genuinely energized move keeps
+    the 0.3.4 chatter guard — no re-arm, no relay writes.
+    """
+    adapter, coordinator = _cover_c1_setup()
+    motion = coordinator.runtime.cover.get("cover_1")
+    motion.direction = "open"
+    motion.duration = 30.0
+    motion.started_at = coordinator._monotonic() - 5.0
+    motion.relays = (1, 2)
+    started_at = motion.started_at
+    timer = motion.timer
+    adapter._relay_on[1] = True
+
+    event = SimpleNamespace(
+        data={
+            "entity_id": "cover.living_shutter",
+            "old_state": _state("open", current_position=40),
+            "new_state": _state("open", current_position=60),
+        }
+    )
+    await coordinator._async_handle_linked_entity_event(event)  # type: ignore[arg-type]
+
+    assert motion.direction == "open"
+    assert motion.started_at == started_at
+    assert motion.timer is timer
+    assert adapter.relay_calls == []
+    coordinator.runtime.hass.services.async_call.assert_not_called()
