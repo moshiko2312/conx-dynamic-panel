@@ -1080,14 +1080,22 @@ class PanelCoordinator:
             return
         if old_state.state == new_state.state:
             return
-        if (
-            old_state.state in {STATE_UNKNOWN, STATE_UNAVAILABLE}
-            and self.data.sync_status == SYNC_ERROR
-        ):
-            # Hardware just came back online after a failed startup restore
-            # (e.g. Zigbee2MQTT reconnecting after HA); retry instead of
-            # treating this recovery as a physical button press.
-            await self._async_restore_applied_to_hardware()
+        if old_state.state in {STATE_UNKNOWN, STATE_UNAVAILABLE}:
+            # A latching relay is only ever physically pressed between two
+            # known states (on <-> off). A transition *from* unknown/
+            # unavailable is always the entity waking up -- first
+            # registration, Z2M/MQTT reconnecting after an HA restart, a
+            # delayed initial report -- never a real press, regardless of
+            # whether the last startup restore happened to succeed or fail.
+            # Routing this to _async_handle_physical_press fires the
+            # button's configured action for a relay nobody touched; for an
+            # action that targets the relay's own entity (a self-referential
+            # switch.toggle, e.g. wired that way to mirror the panel's own
+            # state) this silently flips the relay right back on the moment
+            # it settles to its true value.
+            if self.data.sync_status == SYNC_ERROR:
+                # The previous startup restore failed; worth retrying now.
+                await self._async_restore_applied_to_hardware()
             self.runtime.async_notify()
             return
         # Always refresh card-visible runtime after a real entity change, even
@@ -1120,13 +1128,15 @@ class PanelCoordinator:
             return
         if old_state.state == new_state.state:
             return
-        if (
-            old_state.state in {STATE_UNKNOWN, STATE_UNAVAILABLE}
-            and self.data.sync_status == SYNC_ERROR
-        ):
-            # Mapped entity just came back online after a failed startup
-            # restore; retry instead of waiting for a manual reload.
-            await self._async_restore_applied_to_hardware()
+        if old_state.state in {STATE_UNKNOWN, STATE_UNAVAILABLE}:
+            # The entity is only just waking up (reconnecting after an HA
+            # restart, first registration) -- never treat this as drift, or
+            # a slow-to-reconnect entity flashes a false out-of-sync status
+            # on every boot regardless of whether the prior restore
+            # succeeded or failed.
+            if self.data.sync_status == SYNC_ERROR:
+                # The previous startup restore failed; worth retrying now.
+                await self._async_restore_applied_to_hardware()
             self.runtime.async_notify()
             return
         self.runtime.async_notify()

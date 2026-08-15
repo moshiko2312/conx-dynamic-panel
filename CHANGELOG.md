@@ -4,6 +4,12 @@ All notable changes to this private project will be documented here.
 
 ## [Unreleased]
 
+## [0.3.12] - 2026-08-15
+
+### Fixed
+
+- **A relay could turn itself back on right after a Home Assistant restart, with no press involved:** `_async_handle_relay_event` treated a relay entity's transition *from* `unknown`/`unavailable` as "not a real physical press" only when `sync_status == SYNC_ERROR` — but a startup restore commonly reports success even when Zigbee2MQTT hadn't finished reconnecting yet (`entity_state_to_relay_on` just skips a still-unavailable entity rather than failing the whole restore). So `sync_status` routinely leaves `SYNC_ERROR` before every mapped relay has actually settled. When one of them settled moments later — `unavailable` → its real value — the transition fell through to `_async_handle_physical_press` and fired the button's configured action, exactly as if someone had pressed it. For a button wired with a self-referential `switch.toggle` action (targeting its own relay entity — a real, supported way to mirror the panel's own state), that phantom press toggled the relay right back on the instant it had genuinely settled to off. A latching relay can only ever be physically pressed between two *known* states; a transition away from `unknown`/`unavailable` is always the entity waking up, never a press, so it is no longer routed to the press engine at all, regardless of `sync_status`. The `sync_status == SYNC_ERROR` retry (re-running the startup restore) is preserved as an independent action on the same transition. The identical pattern in `_async_handle_mapped_entity_event` (names/colors/radar) got the same fix, so a slow-to-reconnect mapped entity can no longer flash a false out-of-sync status on boot either.
+
 ## [0.3.11] - 2026-08-15
 
 ### Fixed

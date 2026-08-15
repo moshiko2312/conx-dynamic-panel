@@ -19,6 +19,7 @@ from custom_components.conx_dynamic_panel.const import (
 )
 from custom_components.conx_dynamic_panel.coordinator import PanelCoordinator
 from custom_components.conx_dynamic_panel.models import (
+    ButtonAction,
     ButtonConfig,
     EntityMapping,
     HardwareState,
@@ -322,6 +323,103 @@ async def test_relay_recovery_without_sync_error_does_not_retry_restore() -> Non
     )
     await coordinator._async_handle_relay_event(event)
     assert adapter.apply_calls == []
+
+
+@pytest.mark.asyncio
+async def test_relay_waking_from_unavailable_never_fires_button_action() -> None:
+    """A relay settling from unavailable/unknown must never look like a press.
+
+    Reported bug: a toggle button's action was wired to switch.toggle on the
+    button's *own* relay entity (a self-mirroring setup). At HA startup,
+    Zigbee2MQTT takes a moment to reconnect, so the relay entity briefly reads
+    "unavailable" before settling to its real value. Once sync_status left
+    SYNC_ERROR (the startup restore had already "succeeded", possibly by
+    skipping this specific entity while it was still unavailable), that
+    settling transition fell through to _async_handle_physical_press and
+    fired the button's action -- toggling the relay right back on the moment
+    it had genuinely settled to off. This must never fire the action,
+    independent of sync_status: a transition *from* unknown/unavailable is
+    never a real physical press.
+    """
+    store = FakeStore()
+    profile = store.data.active_profile()
+    assert profile is not None
+    profile.mode = "toggle"  # type: ignore[assignment]
+    profile.buttons[0].action = ButtonAction(
+        action="switch.toggle",
+        target={"entity_id": "switch.l1"},
+        data={},
+    )
+    store.data.applied_snapshot = profile.to_dict()
+    store.data.sync_status = SYNC_SYNCED  # type: ignore[assignment]
+    adapter = FakeAdapter()
+    coordinator = PanelCoordinator(_runtime(adapter, store))  # type: ignore[arg-type]
+    event = SimpleNamespace(
+        data={
+            "entity_id": "switch.l1",
+            "old_state": SimpleNamespace(state="unavailable"),
+            "new_state": SimpleNamespace(state="off"),
+        }
+    )
+    await coordinator._async_handle_relay_event(event)
+
+    assert adapter.apply_calls == []
+    assert adapter.relay_calls == []
+    coordinator.runtime.hass.services.async_call.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_relay_press_between_two_known_states_still_fires_action() -> None:
+    """A genuine physical press (known state -> known state) is unaffected."""
+    store = FakeStore()
+    profile = store.data.active_profile()
+    assert profile is not None
+    profile.mode = "toggle"  # type: ignore[assignment]
+    profile.buttons[0].action = ButtonAction(
+        action="switch.toggle",
+        target={"entity_id": "light.kitchen"},
+        data={},
+    )
+    store.data.applied_snapshot = profile.to_dict()
+    store.data.sync_status = SYNC_SYNCED  # type: ignore[assignment]
+    adapter = FakeAdapter()
+    coordinator = PanelCoordinator(_runtime(adapter, store))  # type: ignore[arg-type]
+    event = SimpleNamespace(
+        data={
+            "entity_id": "switch.l1",
+            "old_state": SimpleNamespace(state="off"),
+            "new_state": SimpleNamespace(state="on"),
+        }
+    )
+    await coordinator._async_handle_relay_event(event)
+
+    coordinator.runtime.hass.services.async_call.assert_awaited_once_with(
+        "switch", "toggle", {"entity_id": "light.kitchen"}, blocking=True
+    )
+
+
+@pytest.mark.asyncio
+async def test_mapped_entity_waking_from_unavailable_never_flags_drift() -> None:
+    """The same guard applies to non-relay mapped entities (names/colors/etc)."""
+    store = FakeStore()
+    profile = store.data.active_profile()
+    assert profile is not None
+    store.data.applied_snapshot = profile.to_dict()
+    store.data.sync_status = SYNC_SYNCED  # type: ignore[arg-type]
+    adapter = FakeAdapter()
+    # Hardware genuinely still matches the applied snapshot.
+    coordinator = PanelCoordinator(_runtime(adapter, store))  # type: ignore[arg-type]
+    event = SimpleNamespace(
+        data={
+            "entity_id": "select.on",
+            "old_state": SimpleNamespace(state="unavailable"),
+            "new_state": SimpleNamespace(state="cyan"),
+        }
+    )
+    await coordinator._async_handle_mapped_entity_event(event)
+
+    assert adapter.apply_calls == []
+    assert store.data.sync_status == SYNC_SYNCED
 
 
 @pytest.mark.asyncio
