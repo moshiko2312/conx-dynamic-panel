@@ -67,6 +67,11 @@ class CoverMotion:
     # more prove the entity streams while moving, which is what lets a stalled
     # stream be read as "the shutter stopped".
     entity_reports: int = 0
+    # Monotonic time of the last such update, and the widest gap between two of
+    # them in this run — the measured reporting cadence the stall deadline is
+    # derived from.
+    entity_report_at: float | None = None
+    entity_report_gap: float = 0.0
 
     @property
     def moving(self) -> bool:
@@ -82,6 +87,8 @@ class CoverMotion:
         self.relays = None
         self.suppress_stale_off_until = None
         self.entity_reports = 0
+        self.entity_report_at = None
+        self.entity_report_gap = 0.0
         if reason is not None:
             self.last_reason = reason
 

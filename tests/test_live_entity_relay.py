@@ -1149,7 +1149,9 @@ async def test_linked_cover_going_quiet_turns_the_active_button_off() -> None:
     """
     adapter, coordinator = _cover_c1_setup()
     with patch(
-        "custom_components.conx_dynamic_panel.coordinator.COVER_ENTITY_STALL_S", 0.05
+        "custom_components.conx_dynamic_panel.coordinator.COVER_ENTITY_STALL_MIN_S", 0.05
+    ), patch(
+        "custom_components.conx_dynamic_panel.coordinator.COVER_ENTITY_STALL_MAX_S", 0.05
     ):
         await coordinator._async_handle_linked_entity_event(_pos_event(10, 30))  # type: ignore[arg-type]
         motion = coordinator.runtime.cover.get("cover_1")
@@ -1176,7 +1178,9 @@ async def test_single_position_report_never_arms_the_stall_watchdog() -> None:
     """A cover that reports one position per move must not be cut short."""
     adapter, coordinator = _cover_c1_setup()
     with patch(
-        "custom_components.conx_dynamic_panel.coordinator.COVER_ENTITY_STALL_S", 0.05
+        "custom_components.conx_dynamic_panel.coordinator.COVER_ENTITY_STALL_MIN_S", 0.05
+    ), patch(
+        "custom_components.conx_dynamic_panel.coordinator.COVER_ENTITY_STALL_MAX_S", 0.05
     ):
         await coordinator._async_handle_linked_entity_event(_pos_event(10, 30))  # type: ignore[arg-type]
         motion = coordinator.runtime.cover.get("cover_1")
@@ -1199,7 +1203,9 @@ async def test_quiet_stream_also_ends_a_panel_started_move() -> None:
     """
     adapter, coordinator = _cover_c1_setup()
     with patch(
-        "custom_components.conx_dynamic_panel.coordinator.COVER_ENTITY_STALL_S", 0.05
+        "custom_components.conx_dynamic_panel.coordinator.COVER_ENTITY_STALL_MIN_S", 0.05
+    ), patch(
+        "custom_components.conx_dynamic_panel.coordinator.COVER_ENTITY_STALL_MAX_S", 0.05
     ):
         adapter._relay_on[1] = True
         await coordinator._async_handle_physical_press(1, True)  # OPEN_BUTTON
@@ -1219,3 +1225,18 @@ async def test_quiet_stream_also_ends_a_panel_started_move() -> None:
     assert motion.moving is False
     assert adapter.relay_is_on(1) is False
     coordinator.runtime.hass.services.async_call.assert_not_called()
+
+
+def test_cover_stall_delay_follows_measured_cadence() -> None:
+    """Quiet time is derived from the entity's own reporting interval."""
+    delay = PanelCoordinator._cover_stall_delay
+    # A shutter reporting every second: one missed update is tolerated, and it
+    # is called stopped well inside 3s rather than on a fixed worst case.
+    assert delay(1.0) == pytest.approx(2.5)
+    # Bursty stream: floored, never twitchy.
+    assert delay(0.1) == pytest.approx(1.5)
+    assert delay(0.0) == pytest.approx(1.5)
+    # Slow reporter: given room instead of being cut short.
+    assert delay(3.0) == pytest.approx(6.5)
+    # But never unbounded.
+    assert delay(60.0) == pytest.approx(8.0)

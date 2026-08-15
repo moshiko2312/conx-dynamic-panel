@@ -30,7 +30,10 @@ from .const import (
     COVER_COMMANDS,
     COVER_DIRECTION_CLOSE,
     COVER_DIRECTION_OPEN,
-    COVER_ENTITY_STALL_S,
+    COVER_ENTITY_STALL_FACTOR,
+    COVER_ENTITY_STALL_MARGIN_S,
+    COVER_ENTITY_STALL_MAX_S,
+    COVER_ENTITY_STALL_MIN_S,
     COVER_HA_MIRROR_SUPPRESS_MARGIN_S,
     COVER_HA_MIRROR_SUPPRESS_S,
     COVER_OPPOSITE_STOP_THEN_REVERSE,
@@ -383,16 +386,38 @@ class PanelCoordinator:
             motion = self.runtime.cover.get(cover.id)
             if not motion.moving:
                 return
+            now = self._monotonic()
+            if motion.entity_report_at is not None:
+                # Widest gap wins: a jittery stream must not make the deadline
+                # tighter than the slowest interval this run has really shown.
+                motion.entity_report_gap = max(
+                    motion.entity_report_gap, now - motion.entity_report_at
+                )
+            motion.entity_report_at = now
             motion.entity_reports += 1
             if motion.entity_reports >= 2:
-                self._cover_arm_entity_stall(profile.id, cover)
+                self._cover_arm_entity_stall(profile.id, cover, motion.entity_report_gap)
 
-    def _cover_arm_entity_stall(self, profile_id: str, cover: CoverConfig) -> None:
-        """(Re)arm the linked-cover quiet watchdog. Caller holds the cover lock."""
+    def _cover_arm_entity_stall(
+        self, profile_id: str, cover: CoverConfig, gap_s: float
+    ) -> None:
+        """(Re)arm the linked-cover quiet watchdog. Caller holds the cover lock.
+
+        The deadline follows the entity's measured reporting cadence so a fast
+        reporter is called stopped quickly and a slow one is not cut short.
+        """
         self._cover_cancel_entity_stall(cover.id)
         self._cover_entity_stall[cover.id] = self.hass.async_create_task(
-            self._async_cover_entity_stall_timer(profile_id, cover.id)
+            self._async_cover_entity_stall_timer(
+                profile_id, cover.id, self._cover_stall_delay(gap_s)
+            )
         )
+
+    @staticmethod
+    def _cover_stall_delay(gap_s: float) -> float:
+        """Quiet time that means "stopped", from the observed update cadence."""
+        delay = gap_s * COVER_ENTITY_STALL_FACTOR + COVER_ENTITY_STALL_MARGIN_S
+        return min(max(delay, COVER_ENTITY_STALL_MIN_S), COVER_ENTITY_STALL_MAX_S)
 
     def _cover_cancel_entity_stall(self, cover_id: str) -> None:
         """Drop any armed quiet watchdog for one cover."""
@@ -400,10 +425,12 @@ class PanelCoordinator:
         if task is not None and task is not asyncio.current_task():
             task.cancel()
 
-    async def _async_cover_entity_stall_timer(self, profile_id: str, cover_id: str) -> None:
+    async def _async_cover_entity_stall_timer(
+        self, profile_id: str, cover_id: str, delay: float
+    ) -> None:
         """De-energize a cover whose linked entity stopped reporting movement."""
         try:
-            await asyncio.sleep(COVER_ENTITY_STALL_S)
+            await asyncio.sleep(delay)
         except asyncio.CancelledError:
             raise
         async with self.runtime.cover.lock:
@@ -1540,7 +1567,10 @@ class PanelCoordinator:
         motion.last_reason = reason
         motion.relays = cover.relay_indexes()
         motion.suppress_stale_off_until = motion.started_at + COVER_POST_START_OFF_GRACE_S
-        motion.entity_reports = 1 if reason == COVER_REASON_ENTITY else 0
+        from_entity = reason == COVER_REASON_ENTITY
+        motion.entity_reports = 1 if from_entity else 0
+        motion.entity_report_at = motion.started_at if from_entity else None
+        motion.entity_report_gap = 0.0
         self._cover_cancel_entity_stall(cover.id)
         motion.timer = self.hass.async_create_task(
             self._async_cover_travel_timer(profile.id, cover.id, new_direction, duration)
@@ -1630,7 +1660,10 @@ class PanelCoordinator:
         )
         # Fresh run: the linked entity's stream starts over. An entity-driven
         # start already is the first report of that stream.
-        motion.entity_reports = 1 if reason == COVER_REASON_ENTITY else 0
+        from_entity = reason == COVER_REASON_ENTITY
+        motion.entity_reports = 1 if from_entity else 0
+        motion.entity_report_at = motion.started_at if from_entity else None
+        motion.entity_report_gap = 0.0
         self._cover_cancel_entity_stall(cover.id)
         motion.timer = self.hass.async_create_task(
             self._async_cover_travel_timer(profile.id, cover.id, direction, duration)

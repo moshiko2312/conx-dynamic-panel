@@ -178,7 +178,16 @@ COVER_REASON_ENTITY_IDLE: Final = "entity_idle"
 # stalled stream is the only evidence a stop from the HA app ever happened.
 # Only armed after two updates in one run, so a cover that reports a single
 # position per move never gets its travel cut short.
-COVER_ENTITY_STALL_S: Final = 4.0
+#
+# The deadline is measured, not guessed: it tracks the widest gap seen between
+# updates in the current run, doubled (so one late or dropped update is
+# tolerated) plus a small margin. A shutter reporting every second is therefore
+# called stopped ~2.5s after its last update rather than on a fixed worst-case
+# timeout, while a slow reporter still gets room.
+COVER_ENTITY_STALL_FACTOR: Final = 2.0
+COVER_ENTITY_STALL_MARGIN_S: Final = 0.5
+COVER_ENTITY_STALL_MIN_S: Final = 1.5
+COVER_ENTITY_STALL_MAX_S: Final = 8.0
 # Ignore HA cover state echoes right after we mirrored open/close/stop to it.
 COVER_HA_MIRROR_SUPPRESS_S: Final = 2.0
 # Buffer added beyond a mirrored open/close command's configured travel time,
