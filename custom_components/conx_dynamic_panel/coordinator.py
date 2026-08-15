@@ -1276,33 +1276,27 @@ class PanelCoordinator:
                             COVER_REASON_PRESS,
                         )
                         return
-                    # Stale OFF echo shortly after reverse start.
+                    # Stale OFF echo shortly after reverse start: trust it only
+                    # while the relay itself still reads ON, i.e. the event
+                    # contradicts current state. When the hardware agrees the
+                    # relay is off this is a real stop press — never re-energize
+                    # to override it. The pair is a radio group where "both OFF"
+                    # is a legal state, so an observed OFF is allowed to stand.
                     if (
                         motion.suppress_stale_off_until is not None
                         and self._monotonic() < motion.suppress_stale_off_until
+                        and self.runtime.adapter.relay_is_on(cover.button_for(direction))
                     ):
-                        target = cover.button_for(direction)
-                        if not self.runtime.adapter.relay_is_on(target):
-                            try:
-                                await self.runtime.adapter.async_set_relay(
-                                    target, True, suppress_event=True
-                                )
-                            except Exception as err:  # noqa: BLE001
-                                _LOGGER.error(
-                                    "Cover %s failed to re-assert %s after stale OFF: %s",
-                                    cover.id,
-                                    direction,
-                                    err,
-                                )
-                                await self._async_cover_halt(
-                                    cover, reason=COVER_REASON_ERROR
-                                )
                         return
                     await self._async_cover_halt(
                         cover, reason=COVER_REASON_STOP_PRESS
                     )
                     return
-                await self._async_cover_halt(cover, reason=COVER_REASON_SAFETY)
+                # Nothing armed, but the relay just went off: the shutter may
+                # still be travelling from a run we lost track of (a discarded
+                # stale clock). STOP_PRESS — not SAFETY — so the linked HA cover
+                # is told to stop as well.
+                await self._async_cover_halt(cover, reason=COVER_REASON_STOP_PRESS)
                 return
             if motion.moving and motion.direction == direction:
                 # An OFF->ON on the *active* direction cannot be a same-direction
@@ -1647,7 +1641,11 @@ class PanelCoordinator:
             )
         ):
             await self._async_cover_mirror_ha(cover, "stop")
-        if was_moving or reason in {COVER_REASON_SAFETY, COVER_REASON_ERROR}:
+        if was_moving or reason in {
+            COVER_REASON_SAFETY,
+            COVER_REASON_STOP_PRESS,
+            COVER_REASON_ERROR,
+        }:
             profile = self.data.active_profile()
             if profile is not None and cover is not None:
                 self._fire_cover_event(profile, cover, None, reason)
@@ -1790,9 +1788,14 @@ class PanelCoordinator:
                 suppress_s = duration_s + COVER_HA_MIRROR_SUPPRESS_MARGIN_S
             else:
                 suppress_s = COVER_HA_MIRROR_SUPPRESS_S
-            self._cover_ha_mirror_suppress_until[entity_id] = (
-                self._monotonic() + suppress_s
-            )
+            # A stop mid-travel must never *shorten* the window the start
+            # opened. Position-only covers never emit opening/closing, so the
+            # trailing current_position report that lands after the shutter
+            # halts reads as a fresh open/close command and would re-energize
+            # the relay the stop press just turned off.
+            deadline = self._monotonic() + suppress_s
+            existing = self._cover_ha_mirror_suppress_until.get(entity_id, 0.0)
+            self._cover_ha_mirror_suppress_until[entity_id] = max(existing, deadline)
         except Exception as err:  # noqa: BLE001
             _LOGGER.warning(
                 "Cover %s HA mirror cover.%s for %s failed: %s",

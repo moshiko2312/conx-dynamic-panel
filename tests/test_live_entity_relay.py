@@ -18,6 +18,7 @@ from custom_components.conx_dynamic_panel.const import (
     COVER_OPPOSITE_STOP_THEN_REVERSE,
     MODE_COVER,
     MODE_MIXED,
+    MODE_RADIO_MANDATORY,
     MODE_TOGGLE,
 )
 from custom_components.conx_dynamic_panel.coordinator import PanelCoordinator
@@ -930,3 +931,180 @@ async def test_live_cover_ha_same_direction_stays_noop_while_relay_is_on() -> No
     assert motion.timer is timer
     assert adapter.relay_calls == []
     coordinator.runtime.hass.services.async_call.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_stop_press_keeps_suppression_window_against_trailing_position() -> None:
+    """A stop press must not shorten the window opened by the start.
+
+    Regression: the ``stop_cover`` mirror overwrote the travel-length window
+    with a fixed 2.0s one. A position-only shutter reports its final
+    ``current_position`` a few seconds after it halts, that report was read as
+    a fresh open command, and the relay the user had just switched off was
+    energized again for a full travel duration.
+    """
+    adapter, coordinator = _cover_c1_setup()
+
+    adapter._relay_on[1] = True
+    await coordinator._async_handle_physical_press(1, True)  # OPEN_BUTTON
+    motion = coordinator.runtime.cover.get("cover_1")
+    assert motion.direction == "open"
+    start_window = coordinator._cover_ha_mirror_suppress_until["cover.living_shutter"]
+
+    # Repeat press on the same button: latching panel reports OFF.
+    adapter._relay_on[1] = False
+    coordinator.runtime.suppression.clear()
+    await coordinator._async_handle_physical_press(1, False)
+    assert motion.moving is False
+    assert adapter.relay_is_on(1) is False
+
+    # The stop mirror must not have shrunk the window.
+    assert coordinator._cover_ha_mirror_suppress_until["cover.living_shutter"] >= start_window
+
+    adapter.relay_calls.clear()
+    trailing = SimpleNamespace(
+        data={
+            "entity_id": "cover.living_shutter",
+            "old_state": _state("open", current_position=40),
+            "new_state": _state("open", current_position=55),
+        }
+    )
+    with patch.object(
+        coordinator, "_monotonic", return_value=coordinator._monotonic() + 5.0
+    ):
+        await coordinator._async_handle_linked_entity_event(trailing)  # type: ignore[arg-type]
+
+    assert adapter.relay_calls == []
+    assert adapter.relay_is_on(1) is False
+    assert motion.moving is False
+
+
+@pytest.mark.asyncio
+async def test_live_entity_on_from_app_updates_relay() -> None:
+    """Turning a linked light ON from the HA app latches the panel relay ON."""
+    store = FakeStore()
+    profile = _toggle_profile(lights={2: "light.kitchen"})
+    store.data.profiles = {"p1": profile}
+    store.data.active_profile_id = "p1"
+    adapter = FakeAdapter()
+    adapter._relay_on = {1: False, 2: False, 3: False, 4: False}
+    states = {"light.kitchen": _state("off")}
+    runtime = _runtime(adapter, store, states=states)
+    coordinator = PanelCoordinator(runtime)  # type: ignore[arg-type]
+    coordinator._entity_relay_bindings = {
+        "light.kitchen": [EntityRelayBinding(entity_id="light.kitchen", button_index=2)]
+    }
+
+    states["light.kitchen"] = _state("on")
+    event = SimpleNamespace(
+        data={
+            "entity_id": "light.kitchen",
+            "old_state": _state("off"),
+            "new_state": _state("on"),
+        }
+    )
+    await coordinator._async_handle_linked_entity_event(event)  # type: ignore[arg-type]
+
+    assert adapter.relay_calls == [(2, True, True)]
+    assert adapter.relay_is_on(2) is True
+
+
+@pytest.mark.asyncio
+async def test_live_radio_group_follows_app_selection() -> None:
+    """Switching the active light from the app moves the panel's radio LED."""
+    store = FakeStore()
+    profile = Profile(
+        id="r1",
+        name="Radio",
+        mode=MODE_RADIO_MANDATORY,
+        selected_button=1,
+        buttons=[
+            ButtonConfig(index=1, name="A", action=_action("light.a")),
+            ButtonConfig(index=2, name="B", action=_action("light.b")),
+            ButtonConfig(index=3, name="C", action=_action("light.c")),
+            ButtonConfig(index=4, name="D", action=_action("light.d")),
+        ],
+    )
+    store.data.profiles = {"r1": profile}
+    store.data.active_profile_id = "r1"
+    adapter = FakeAdapter()
+    adapter._relay_on = {1: True, 2: False, 3: False, 4: False}
+    states = {
+        "light.a": _state("off"),
+        "light.b": _state("on"),
+        "light.c": _state("off"),
+        "light.d": _state("off"),
+    }
+    runtime = _runtime(adapter, store, states=states)
+    coordinator = PanelCoordinator(runtime)  # type: ignore[arg-type]
+    members = (1, 2, 3, 4)
+    coordinator._entity_relay_bindings = {
+        "light.b": [
+            EntityRelayBinding(
+                entity_id="light.b",
+                button_index=2,
+                radio_members=members,
+                radio_require_selection=True,
+            )
+        ]
+    }
+
+    event = SimpleNamespace(
+        data={
+            "entity_id": "light.b",
+            "old_state": _state("off"),
+            "new_state": _state("on"),
+        }
+    )
+    await coordinator._async_handle_linked_entity_event(event)  # type: ignore[arg-type]
+
+    assert profile.selected_button == 2
+    assert adapter.relay_is_on(1) is False
+    assert adapter.relay_is_on(2) is True
+    assert adapter.relay_is_on(3) is False
+    assert adapter.relay_is_on(4) is False
+
+
+@pytest.mark.asyncio
+async def test_app_cover_command_during_panel_move_is_deferred() -> None:
+    """Documented trade-off of the echo window.
+
+    While the panel is running its own move (and for the rest of that move
+    after a stop press), events from the linked cover entity are treated as the
+    panel's own echo, so an app-issued command in that window does not move the
+    panel relays. Outside the window the app drives the panel normally.
+    """
+    adapter, coordinator = _cover_c1_setup()
+
+    adapter._relay_on[1] = True
+    await coordinator._async_handle_physical_press(1, True)  # OPEN_BUTTON
+    motion = coordinator.runtime.cover.get("cover_1")
+    assert motion.direction == "open"
+
+    adapter.relay_calls.clear()
+    app_close = SimpleNamespace(
+        data={
+            "entity_id": "cover.living_shutter",
+            "old_state": _state("open", current_position=80),
+            "new_state": _state("closing", current_position=78),
+        }
+    )
+    with patch.object(
+        coordinator, "_monotonic", return_value=coordinator._monotonic() + 5.0
+    ):
+        await coordinator._async_handle_linked_entity_event(app_close)  # type: ignore[arg-type]
+    assert adapter.relay_calls == []
+    assert motion.direction == "open"
+
+    # Past the window (travel time + margin) the same command is acted on.
+    with patch.object(
+        coordinator, "_monotonic", return_value=coordinator._monotonic() + 40.0
+    ):
+        await coordinator._async_handle_linked_entity_event(app_close)  # type: ignore[arg-type]
+    assert adapter.relay_is_on(2) is True
+    assert adapter.relay_is_on(1) is False
+
+    if motion.timer is not None:
+        motion.timer.cancel()
+        with contextlib.suppress(asyncio.CancelledError, Exception):
+            await motion.timer

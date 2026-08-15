@@ -4,6 +4,18 @@ All notable changes to this private project will be documented here.
 
 ## [Unreleased]
 
+## [0.3.6] - 2026-08-15
+
+### Fixed
+
+- **Pressing an active shutter button again did not turn it off or stop the cover:** the two cover buttons are a radio pair where "both OFF" is a legal state — it is how the shutter stands still — but three paths let the integration override an OFF the hardware had already applied. Worst was the linked HA cover: mirroring `cover.stop_cover` on a stop press *overwrote* the echo-suppression window opened at start (travel time + margin) with a fixed 2.0s one, and a position-only shutter — one that never emits `opening`/`closing`, only `current_position` — reports its final position a few seconds after it halts. That trailing report was read as a fresh open/close command and re-energized the very relay the user had just switched off, for a full fresh travel duration. The window is now only ever extended, never shortened, so a stop press stays protected for the remainder of the move.
+
+  Second, for `COVER_POST_START_OFF_GRACE_S` (2.5s) after a direction reverse, *any* OFF on the active direction was treated as a stale echo and answered by writing that relay back ON — so a real stop press inside that window was physically undone. The grace now only ignores an OFF that current relay state contradicts (the relay itself still reads ON); when the adapter agrees the relay is off, the motor is not powered anyway and it is a genuine stop.
+
+  Third, an OFF arriving while no travel clock was armed halted with `COVER_REASON_SAFETY`, which de-energizes both relays but does not mirror to HA. Since 0.3.5 discards a stale clock whenever the relays say the run is over, the engine can read "idle" while the real shutter is still travelling — the press killed the relays but never sent `cover.stop_cover`, and the linked shutter kept going. That press now halts with `stop_press`, which mirrors the stop. The startup `_async_cover_abort(safety)` is deliberately left as-is, so a Home Assistant restart still never sends `stop_cover` to linked covers.
+
+  The rule is now unconditional: a cover relay observed OFF ends the run, resets the travel clock, stays off, and tells the linked cover to stop. A cover relay observed ON counts a full fresh `open_time_s`/`close_time_s` (0.3.5). At most one of the pair is ever energized.
+
 ## [0.3.5] - 2026-08-15
 
 ### Fixed
