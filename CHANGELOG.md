@@ -4,6 +4,70 @@ All notable changes to this private project will be documented here.
 
 ## [Unreleased]
 
+## [0.3.13] - 2026-08-15
+
+### Added
+
+- **The startup restore now waits for a profile's linked entities to report their real state before running, instead of reading whatever is available at that instant:** right after an HA restart, a linked entity's owning integration (Zigbee2MQTT, another ConX panel, ...) often hasn't reconnected yet, so `hass.states.get()` returns nothing or a transient `unknown`/`unavailable` placeholder. Reading that at restore time meant the per-button sync silently skipped it — nothing to match against — leaving the relay wherever raw hardware left it until a later live event happened to correct it. 0.3.12 made that later correction safe; this makes the initial restore itself accurate instead of relying on one. The coordinator now waits up to `STARTUP_ENTITY_READY_TIMEOUT_S` (10s), polling every `STARTUP_ENTITY_READY_POLL_S` (0.25s), for every entity referenced by a button action or a linked `covers[].ha_entity_id` to leave `unknown`/`unavailable` — returning as soon as all of them do, so a normal fast reconnect costs nothing. A genuinely offline entity cannot hang setup: the restore proceeds after the timeout with whatever each entity currently reports, exactly as before this change. A profile with no linked entities never enters the wait at all.
+
+## [0.3.12] - 2026-08-15
+
+### Fixed
+
+- **A relay could turn itself back on right after a Home Assistant restart, with no press involved:** `_async_handle_relay_event` treated a relay entity's transition *from* `unknown`/`unavailable` as "not a real physical press" only when `sync_status == SYNC_ERROR` — but a startup restore commonly reports success even when Zigbee2MQTT hadn't finished reconnecting yet (`entity_state_to_relay_on` just skips a still-unavailable entity rather than failing the whole restore). So `sync_status` routinely leaves `SYNC_ERROR` before every mapped relay has actually settled. When one of them settled moments later — `unavailable` → its real value — the transition fell through to `_async_handle_physical_press` and fired the button's configured action, exactly as if someone had pressed it. For a button wired with a self-referential `switch.toggle` action (targeting its own relay entity — a real, supported way to mirror the panel's own state), that phantom press toggled the relay right back on the instant it had genuinely settled to off. A latching relay can only ever be physically pressed between two *known* states; a transition away from `unknown`/`unavailable` is always the entity waking up, never a press, so it is no longer routed to the press engine at all, regardless of `sync_status`. The `sync_status == SYNC_ERROR` retry (re-running the startup restore) is preserved as an independent action on the same transition. The identical pattern in `_async_handle_mapped_entity_event` (names/colors/radar) got the same fix, so a slow-to-reconnect mapped entity can no longer flash a false out-of-sync status on boot either.
+
+## [0.3.11] - 2026-08-15
+
+### Fixed
+
+- **Reversing from the card could still wrongly de-energize the panel relay for a move that was correctly reversing:** the 0.3.8 entity-stall watchdog armed as soon as it had seen a single measured gap between two of the linked cover's position reports. Right after a reversal that first gap is the least representative sample available — the motor is decelerating and re-accelerating, so it is often *shorter* than the cadence the entity settles into once genuinely travelling the new direction. Arming a tight deadline off that one short gap meant the watchdog could fire before the real (and genuinely longer) second gap ever arrived, mid-reversal, on a shutter that was still correctly moving — user-reported: "עושה את הפעולה אבל מתבלבל עם החיווי, הוא סוגר את הריליי" (does the action but the indication gets confused, it closes the relay). The physical motor kept moving (it was never told to stop — the watchdog's halt does not mirror back to HA), but the panel's own relay and card indication went dark. The watchdog now requires three reports — two measured gaps — before it is trusted to arm at all, so its deadline always already reflects whatever the reversal settle really costs. This only affects the rare case the watchdog still exists for since 0.3.10 (a stop pressed on the shutter's own physical remote, invisible to HA's `call_service` fast path); the common "stop from the app" case is unaffected either way.
+
+## [0.3.10] - 2026-08-15
+
+### Added
+
+- **Stopping a linked shutter from the HA app now clears the panel instantly instead of waiting on the 0.3.8 silence watchdog:** Home Assistant fires `call_service` the moment `cover.stop_cover` is called — before the device has replied at all. The coordinator now listens for that event (filtered to `cover.stop_cover` on a bound entity) and de-energizes the relay immediately, without mirroring a `stop_cover` back at the entity that just asked to stop. `entity_id` in that event can arrive as either a string or a list depending on how the frontend issued the call, so both forms are matched. The 0.3.8 stall watchdog (silence on the position stream) remains as the fallback for a stop that never goes through an HA service call at all — a press on the shutter's own physical remote or wall switch — which still has no signal beyond the position stream going quiet.
+
+### Fixed
+
+- **Reversing a shutter from the card (or a physical reverse press) could immediately flip back to the direction just left:** a regression from 0.3.8's direction-aware echo window. That fix tracked a single "last direction we mirrored" plus one shared deadline, so reversing close→open overwrote the record the moment `open_cover` was mirrored — silently discarding the still-running `close` echo window (which had most of `close_time_s` + margin left). A physical shutter motor does not reverse instantly: it keeps reporting a position moving in the *old* direction for a moment after the new one was commanded. With the old direction's record gone, that lagging report no longer matched anything and was read as a genuine new external `close` command, reversing the panel right back — the exact "press up, it starts, then immediately shows down again" behavior.
+
+  The echo window is now tracked per command (open/close/stop), each with its own independent deadline, instead of a single "last direction". Reversing only ever touches the new direction's entry; the direction just left keeps whatever deadline its own start gave it, so lagging reports of it still read as our own echo for as long as that window was always meant to last. A stop mirror likewise only ever touches its own `stop` entry, so it still can never shorten an in-progress open/close window (0.3.6) — that now falls out of the data structure rather than needing a special case.
+
+## [0.3.8] - 2026-08-15
+
+### Fixed
+
+- **Driving a linked cover from the Home Assistant app left the panel and the card behind:** the echo-suppression window was all-or-nothing — every event from a linked cover entity was discarded for the whole window, which since 0.3.6 lasts the full travel time plus a margin. An open or close issued from the HA app during that window moved nothing on the panel and pushed no runtime update, so the card only caught up on a manual reload. The window is now direction-aware: it drops a command matching the direction the panel itself last mirrored (that is the echo, including the trailing position report a position-only shutter emits after it halts, which 0.3.6 had to stop from re-energizing the relay) and lets everything else — the opposite direction, or a stop — through immediately.
+
+- **Stopping a position-only shutter from the app never cleared the active button:** Nodon and Tuya wall shutters never emit `opening`/`closing`; `state` stays `open` for the whole move while only `current_position` changes, and when they stop they emit *no event at all* — the position stream simply ends. The engine had no signal to react to, so it held the direction relay energized for the remainder of its own travel clock. A linked cover that has sent at least two position updates in one run is now watched for silence, and the quiet time that counts as "stopped" is measured rather than guessed: the widest gap between updates seen so far in that run, doubled so one late or dropped update is tolerated, plus a small margin, clamped to 1.5–8s. A shutter reporting every second is therefore called stopped ~2.5s after its last update. The panel then de-energizes both relays without mirroring a pointless `stop_cover` back. Echoed reports still count toward the stream, so this also ends a panel-started move that was stopped from the app, and the two-update requirement means a cover that reports a single position per move never gets its travel cut short.
+
+## [0.3.7] - 2026-08-15
+
+### Fixed
+
+- **A second press on the same shutter button from the card re-ran the move instead of stopping it:** card, WebSocket and service presses reach the cover engine through `_async_virtual_press` / `_async_virtual_mixed_press`, which always call `_async_cover_press(..., turned_on=True)` — there is no latching relay to report a flip, so the ON is synthetic. 0.3.5 taught the ON branch that an ON on the direction already travelling proves the relay had gone off behind our back ("on a latching panel that press emits OFF, not ON") and must therefore start a fresh full-duration run. That reading is correct for a physical press and wrong for a virtual one, so pressing the card's open button twice re-issued open rather than stopping. Virtual presses are now flagged, and a repeat press on the travelling direction halts — matching the card's own stop command and the physical panel's behavior. Only that one branch differs: an opposite-direction card press still reverses or stops per `opposite_press`, and physical presses are unchanged.
+
+## [0.3.6] - 2026-08-15
+
+### Fixed
+
+- **Pressing an active shutter button again did not turn it off or stop the cover:** the two cover buttons are a radio pair where "both OFF" is a legal state — it is how the shutter stands still — but three paths let the integration override an OFF the hardware had already applied. Worst was the linked HA cover: mirroring `cover.stop_cover` on a stop press *overwrote* the echo-suppression window opened at start (travel time + margin) with a fixed 2.0s one, and a position-only shutter — one that never emits `opening`/`closing`, only `current_position` — reports its final position a few seconds after it halts. That trailing report was read as a fresh open/close command and re-energized the very relay the user had just switched off, for a full fresh travel duration. The window is now only ever extended, never shortened, so a stop press stays protected for the remainder of the move.
+
+  Second, for `COVER_POST_START_OFF_GRACE_S` (2.5s) after a direction reverse, *any* OFF on the active direction was treated as a stale echo and answered by writing that relay back ON — so a real stop press inside that window was physically undone. The grace now only ignores an OFF that current relay state contradicts (the relay itself still reads ON); when the adapter agrees the relay is off, the motor is not powered anyway and it is a genuine stop.
+
+  Third, an OFF arriving while no travel clock was armed halted with `COVER_REASON_SAFETY`, which de-energizes both relays but does not mirror to HA. Since 0.3.5 discards a stale clock whenever the relays say the run is over, the engine can read "idle" while the real shutter is still travelling — the press killed the relays but never sent `cover.stop_cover`, and the linked shutter kept going. That press now halts with `stop_press`, which mirrors the stop. The startup `_async_cover_abort(safety)` is deliberately left as-is, so a Home Assistant restart still never sends `stop_cover` to linked covers.
+
+  The rule is now unconditional: a cover relay observed OFF ends the run, resets the travel clock, stays off, and tells the linked cover to stop. A cover relay observed ON counts a full fresh `open_time_s`/`close_time_s` (0.3.5). At most one of the pair is ever energized.
+
+## [0.3.5] - 2026-08-15
+
+### Fixed
+
+- **A cover operated from outside the panel could be cut off mid-travel:** the travel clock (`CoverMotion.timer`) was armed once per panel-observed start and only ever cleared by a panel-driven halt — it was never reconciled against what the relays were actually doing. So when a run ended or restarted somewhere else (HA app, automation, a physical press during the linked-entity echo-suppression window), the engine kept counting a run that was already over. Three consequences, all now fixed. An `OFF->ON` on the *active* direction relay was read as a "same direction while moving = stop" press and halted the cover — but on a latching panel that press emits OFF, not ON, so an ON proves the relay had been off and the clock was stale; it now discards the stale clock and arms a fresh full `open_time_s`/`close_time_s`. An external same-direction restart arriving via the linked HA cover hit `motion.direction == direction` and silently inherited the old, partly-elapsed timer; it now re-arms when the relays read OFF. And an expiring timer forced both relays OFF *and* mirrored `cover.stop_cover` without checking that the relay it was about to kill was still the one it energized — it now drops the clock silently instead, and a task superseded by a newer run is recognized via `motion.timer is asyncio.current_task()` so it can never halt the run that replaced it.
+
+  The travel clock now belongs to the relay that is ON: a relay observed OFF ends the run, and a relay observed ON from a stale or idle state always counts a full fresh duration. The 0.3.4 chatter guards are unaffected — while a relay is genuinely energized the motion is never stale, so ordinary mid-travel position reports still short-circuit exactly as before.
+
 ## [0.3.4] - 2026-08-15
 
 ### Fixed

@@ -292,12 +292,69 @@ async def test_repress_same_direction_stops_and_cancels_timer() -> None:
 
 
 @pytest.mark.asyncio
-async def test_relay_off_while_idle_triggers_safety_halt_without_motion() -> None:
+async def test_relay_off_while_idle_halts_without_motion() -> None:
     coordinator, adapter, _store, _profile, runtime = _build()
     await coordinator._async_handle_physical_press(OPEN_BUTTON, False)
     assert runtime.cover.moving is False
     _assert_all_cover_relays_off(adapter)
     assert all(state is False for _index, state in adapter.relay_calls)
+
+
+@pytest.mark.asyncio
+async def test_repeat_press_on_same_button_stops_and_mirrors_stop() -> None:
+    """The reported bug: pressing the active shutter button again must stop it.
+
+    Both relays end OFF (the pair is a radio group that allows "none") and the
+    linked HA cover is told to stop, not left travelling.
+    """
+    coordinator, adapter, _store, profile, runtime = _build(open_time=30.0)
+    profile.cover.ha_entity_id = "cover.living_shutter"
+    await coordinator._async_handle_physical_press(OPEN_BUTTON, True)
+    assert runtime.cover.direction == "open"
+    assert adapter.relays[OPEN_BUTTON] is True
+
+    # Latching panel: the second press on the same button emits OFF.
+    adapter.relays[OPEN_BUTTON] = False
+    runtime.suppression.clear()
+    adapter.relay_calls.clear()
+    runtime.hass.services.async_call.reset_mock()
+    await coordinator._async_handle_physical_press(OPEN_BUTTON, False)
+
+    assert runtime.cover.moving is False
+    assert runtime.cover.last_reason == "stop_press"
+    assert (OPEN_BUTTON, True) not in adapter.relay_calls
+    _assert_all_cover_relays_off(adapter)
+    services = [call.args[1] for call in runtime.hass.services.async_call.await_args_list]
+    assert services == ["stop_cover"]
+
+
+@pytest.mark.asyncio
+async def test_stop_press_after_discarded_clock_still_mirrors_stop() -> None:
+    """A discarded travel clock must not swallow the stop press.
+
+    0.3.5 drops the clock whenever the relays say the run is over, so the
+    engine can read "idle" while the real shutter is still moving. The OFF must
+    still reach the linked cover as ``stop_cover``.
+    """
+    coordinator, adapter, _store, profile, runtime = _build(open_time=30.0)
+    profile.cover.ha_entity_id = "cover.living_shutter"
+    await coordinator._async_handle_physical_press(OPEN_BUTTON, True)
+    motion = runtime.cover.get(profile.cover.id)
+    timer = motion.timer
+    motion.reset("stale")
+    if timer is not None:
+        timer.cancel()
+
+    adapter.relays[OPEN_BUTTON] = False
+    runtime.suppression.clear()
+    adapter.relay_calls.clear()
+    runtime.hass.services.async_call.reset_mock()
+    await coordinator._async_handle_physical_press(OPEN_BUTTON, False)
+
+    assert runtime.cover.moving is False
+    _assert_all_cover_relays_off(adapter)
+    services = [call.args[1] for call in runtime.hass.services.async_call.await_args_list]
+    assert services == ["stop_cover"]
 
 
 @pytest.mark.asyncio
@@ -478,8 +535,13 @@ async def test_late_off_after_reverse_start_stays_on() -> None:
 
 
 @pytest.mark.asyncio
-async def test_active_off_during_post_start_grace_reasserts_on() -> None:
-    """If a stale OFF slips past suppression, grace re-energizes and keeps travel."""
+async def test_active_off_during_post_start_grace_stops_instead_of_reasserting() -> None:
+    """A relay the hardware agrees is OFF must never be re-energized.
+
+    The pair is a radio group where "both OFF" is a legal state: an OFF the
+    adapter confirms is a real stop press, even inside the post-reverse grace,
+    and re-asserting it ON left the user unable to stop the shutter.
+    """
     coordinator, adapter, _store, _profile, runtime = _build(
         opposite_press=COVER_OPPOSITE_STOP_THEN_REVERSE,
         settle=0.0,
@@ -495,10 +557,34 @@ async def test_active_off_during_post_start_grace_reasserts_on() -> None:
     runtime.suppression.clear()
     await coordinator._async_handle_physical_press(CLOSE_BUTTON, False)
 
+    assert runtime.cover.moving is False
+    assert runtime.cover.last_reason == "stop_press"
+    assert (CLOSE_BUTTON, True) not in adapter.relay_calls
+    _assert_all_cover_relays_off(adapter)
+    await coordinator._async_cover_abort("test")
+
+
+@pytest.mark.asyncio
+async def test_active_off_during_grace_ignored_while_relay_still_reads_on() -> None:
+    """The grace still swallows an OFF that current relay state contradicts."""
+    coordinator, adapter, _store, _profile, runtime = _build(
+        opposite_press=COVER_OPPOSITE_STOP_THEN_REVERSE,
+        settle=0.0,
+        open_time=5.0,
+        close_time=5.0,
+    )
+    await coordinator._async_handle_physical_press(OPEN_BUTTON, True)
+    await coordinator._async_handle_physical_press(CLOSE_BUTTON, True)
+    assert runtime.cover.direction == "close"
+    # Stale OFF event while the relay itself still reads ON: pure echo.
+    adapter.relay_calls.clear()
+    runtime.suppression.clear()
+    await coordinator._async_handle_physical_press(CLOSE_BUTTON, False)
+
     assert runtime.cover.direction == "close"
     assert runtime.cover.timer is not None
     assert adapter.relays[CLOSE_BUTTON] is True
-    assert (CLOSE_BUTTON, True) in adapter.relay_calls
+    assert adapter.relay_calls == []
     await coordinator._async_cover_abort("test")
 
 
@@ -719,6 +805,67 @@ async def test_execute_button_service_drives_cover_button() -> None:
 
 
 @pytest.mark.asyncio
+async def test_card_press_twice_on_same_cover_button_stops() -> None:
+    """Card/service presses always arrive as ON, so the repeat press is a stop.
+
+    Regression: the second press re-ran the same open command (a fresh full
+    travel) instead of stopping, because the physical-panel reading of an ON on
+    the active direction — "the relay must have been off, our clock is stale" —
+    cannot hold for a synthetic press.
+    """
+    coordinator, adapter, _store, profile, runtime = _build(open_time=30.0)
+    profile.cover.ha_entity_id = "cover.living_shutter"
+    await coordinator.async_execute_button(OPEN_BUTTON)
+    assert runtime.cover.direction == "open"
+    assert adapter.relays[OPEN_BUTTON] is True
+
+    adapter.relay_calls.clear()
+    runtime.hass.services.async_call.reset_mock()
+    await coordinator.async_execute_button(OPEN_BUTTON)
+
+    assert runtime.cover.moving is False
+    assert runtime.cover.last_reason == "stop_press"
+    _assert_all_cover_relays_off(adapter)
+    services = [call.args[1] for call in runtime.hass.services.async_call.await_args_list]
+    assert services == ["stop_cover"]
+
+
+@pytest.mark.asyncio
+async def test_card_press_twice_on_mixed_cover_role_stops() -> None:
+    """Same repeat-press stop for a cover role inside a mixed profile."""
+    store = FakeStore()
+    adapter = CoverAdapter()
+    runtime = _runtime(adapter, store)
+    coordinator = PanelCoordinator(runtime)  # type: ignore[arg-type]
+    profile = _mixed_cover_profile(store)
+    adapter.cover_pairs = [profile.cover.relay_indexes()]
+
+    await coordinator.async_execute_button(OPEN_BUTTON)
+    assert runtime.cover.get("cover_1").direction == "open"
+    await coordinator.async_execute_button(OPEN_BUTTON)
+    assert runtime.cover.get("cover_1").moving is False
+    _assert_all_cover_relays_off(adapter)
+
+
+@pytest.mark.asyncio
+async def test_card_press_on_opposite_cover_button_still_reverses() -> None:
+    """A card press on the *other* direction keeps its reverse semantics."""
+    coordinator, adapter, _store, _profile, runtime = _build(
+        opposite_press=COVER_OPPOSITE_STOP_THEN_REVERSE,
+        settle=0.0,
+        open_time=30.0,
+        close_time=30.0,
+    )
+    await coordinator.async_execute_button(OPEN_BUTTON)
+    assert runtime.cover.direction == "open"
+    await coordinator.async_execute_button(CLOSE_BUTTON)
+    assert runtime.cover.direction == "close"
+    assert adapter.relays[CLOSE_BUTTON] is True
+    assert adapter.relays[OPEN_BUTTON] is False
+    await coordinator._async_cover_abort("test")
+
+
+@pytest.mark.asyncio
 async def test_toggle_mode_is_unaffected_by_cover_config() -> None:
     coordinator, adapter, store, profile, runtime = _build()
     profile.mode = MODE_TOGGLE  # type: ignore[assignment]
@@ -882,8 +1029,8 @@ async def test_command_reverse_mirrors_close_without_stop() -> None:
 
 
 @pytest.mark.asyncio
-async def test_late_off_after_grace_window_still_rearmed_within_extended_grace() -> None:
-    """Deferred OFF near the end of post-reverse grace must not kill travel."""
+async def test_off_late_in_grace_with_relay_off_stops_the_cover() -> None:
+    """A de-energized relay near the end of the grace still means "stop"."""
     from custom_components.conx_dynamic_panel.const import COVER_POST_START_OFF_GRACE_S
 
     coordinator, adapter, _store, profile, runtime = _build(
@@ -896,43 +1043,42 @@ async def test_late_off_after_grace_window_still_rearmed_within_extended_grace()
     await coordinator._async_handle_physical_press(CLOSE_BUTTON, True)
     motion = runtime.cover.get(profile.cover.id)
     assert motion.suppress_stale_off_until is not None
-    # Still inside the extended grace, but past the old 1.5s window.
+    # Still inside the grace window.
     motion.suppress_stale_off_until = coordinator._monotonic() + 0.2
     assert COVER_POST_START_OFF_GRACE_S >= 2.5
     adapter.relays[CLOSE_BUTTON] = False
     adapter.relay_calls.clear()
     runtime.suppression.clear()
     await coordinator._async_handle_physical_press(CLOSE_BUTTON, False)
-    assert runtime.cover.direction == "close"
-    assert adapter.relays[CLOSE_BUTTON] is True
+    assert runtime.cover.moving is False
+    assert (CLOSE_BUTTON, True) not in adapter.relay_calls
+    _assert_all_cover_relays_off(adapter)
     await coordinator._async_cover_abort("test")
 
 
 @pytest.mark.asyncio
-async def test_simulated_late_stop_cover_off_during_grace_keeps_reverse_on() -> None:
-    """HA stop_cover ordered after close_cover must not abort reverse travel.
-
-    Models a deferred stop that turns the reverse relay OFF after start; grace
-    re-asserts ON so travel continues for the full duration.
-    """
-    coordinator, adapter, _store, _profile, runtime = _build(
+async def test_off_during_grace_with_relay_off_mirrors_stop_to_linked_cover() -> None:
+    """Stopping right after a reverse must reach the linked HA cover too."""
+    coordinator, adapter, _store, profile, runtime = _build(
         opposite_press=COVER_OPPOSITE_STOP_THEN_REVERSE,
         settle=0.0,
         open_time=5.0,
         close_time=5.0,
     )
+    profile.cover.ha_entity_id = "cover.living_shutter"
     await coordinator._async_handle_physical_press(OPEN_BUTTON, True)
     await coordinator._async_handle_physical_press(CLOSE_BUTTON, True)
     assert runtime.cover.direction == "close"
-    # Late stop_cover feedback: relay drops with no matching suppression.
+    # The user presses the same button again: the relay really is off now.
     adapter.relays[CLOSE_BUTTON] = False
     runtime.suppression.clear()
     adapter.relay_calls.clear()
+    runtime.hass.services.async_call.reset_mock()
     await coordinator._async_handle_physical_press(CLOSE_BUTTON, False)
-    assert runtime.cover.moving is True
-    assert runtime.cover.direction == "close"
-    assert adapter.relays[CLOSE_BUTTON] is True
-    assert runtime.cover.timer is not None
+    assert runtime.cover.moving is False
+    _assert_all_cover_relays_off(adapter)
+    services = [call.args[1] for call in runtime.hass.services.async_call.await_args_list]
+    assert services == ["stop_cover"]
     await coordinator._async_cover_abort("test")
 
 
@@ -1083,3 +1229,155 @@ async def test_mixed_physical_press_does_not_force_off_toggle_button() -> None:
     await coordinator._async_cover_abort("test")
     # Abort only active cover relays (1 and 3), not toggle L2.
     assert adapter.relays[2] is True
+
+
+# ---------------------------------------------------------------------------
+# Stale travel clock: a run that ended or restarted outside the panel
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_external_on_mid_travel_rearms_full_time() -> None:
+    """Relay switched back ON elsewhere must restart a full count, not stop.
+
+    A same-direction *press* on a latching panel emits OFF, so an OFF->ON on the
+    active direction proves the relay had gone off without us seeing it. The old
+    clock is stale; continuing it would cut this new run short.
+    """
+    coordinator, adapter, _store, profile, runtime = _build(open_time=5.0)
+    await coordinator._async_handle_physical_press(OPEN_BUTTON, True)
+    motion = runtime.cover.get(profile.cover.id)
+    first_timer = motion.timer
+    first_started = motion.started_at
+    # The run ended outside the panel: relay off, no event delivered to us.
+    adapter.relays[OPEN_BUTTON] = False
+    await asyncio.sleep(0.05)
+    adapter.relay_calls.clear()
+    # Now someone turns the same relay back on from HA / the wall.
+    adapter.relays[OPEN_BUTTON] = True
+    await coordinator._async_handle_physical_press(OPEN_BUTTON, True)
+
+    assert motion.direction == "open"
+    assert motion.duration == 5.0
+    assert motion.started_at is not None and motion.started_at > first_started
+    assert motion.timer is not first_timer
+    # Fresh run: target stays ON, only the opposite is asserted OFF.
+    assert adapter.relays[OPEN_BUTTON] is True
+    assert (OPEN_BUTTON, False) not in adapter.relay_calls
+    await coordinator._async_cover_abort("test")
+
+
+@pytest.mark.asyncio
+async def test_superseded_travel_timer_does_not_touch_the_new_run() -> None:
+    """The old timer expiring must not halt the run that replaced it."""
+    coordinator, adapter, _store, profile, runtime = _build(open_time=TRAVEL)
+    await coordinator._async_handle_physical_press(OPEN_BUTTON, True)
+    motion = runtime.cover.get(profile.cover.id)
+    old_timer = motion.timer
+    assert old_timer is not None
+    # Restart from elsewhere just before the original clock would expire.
+    adapter.relays[OPEN_BUTTON] = False
+    await asyncio.sleep(TRAVEL * 0.6)
+    adapter.relays[OPEN_BUTTON] = True
+    await coordinator._async_handle_physical_press(OPEN_BUTTON, True)
+    new_timer = motion.timer
+    adapter.relay_calls.clear()
+
+    # Let the superseded timer reach its own expiry.
+    await asyncio.sleep(TRAVEL * 0.6)
+    assert old_timer.done()
+    assert motion.direction == "open"
+    assert motion.timer is new_timer
+    assert adapter.relays[OPEN_BUTTON] is True
+    assert adapter.relay_calls == []
+    await coordinator._async_cover_abort("test")
+
+
+@pytest.mark.asyncio
+async def test_stale_travel_timer_expiry_does_not_stop_the_shutter() -> None:
+    """Expiry with the relay already OFF must not force relays or mirror stop."""
+    coordinator, adapter, _store, profile, runtime = _build(open_time=TRAVEL)
+    profile.cover.ha_entity_id = "cover.living_shutter"
+    await coordinator._async_handle_physical_press(OPEN_BUTTON, True)
+    # The move ended outside the panel; we never saw the OFF.
+    adapter.relays[OPEN_BUTTON] = False
+    adapter.relay_calls.clear()
+    runtime.hass.services.async_call.reset_mock()
+
+    await asyncio.sleep(TRAVEL + 0.3)
+
+    motion = runtime.cover.get(profile.cover.id)
+    assert motion.moving is False
+    assert motion.last_reason == "stale"
+    assert adapter.relay_calls == []
+    services = [c.args[1] for c in runtime.hass.services.async_call.await_args_list]
+    assert "stop_cover" not in services
+
+
+@pytest.mark.asyncio
+async def test_travel_complete_still_halts_and_mirrors_when_relay_is_on() -> None:
+    """Genuine travel completion is unchanged by the staleness guard."""
+    coordinator, adapter, _store, profile, runtime = _build(open_time=TRAVEL)
+    profile.cover.ha_entity_id = "cover.living_shutter"
+    await coordinator._async_handle_physical_press(OPEN_BUTTON, True)
+    assert adapter.relays[OPEN_BUTTON] is True
+    runtime.hass.services.async_call.reset_mock()
+
+    await asyncio.sleep(TRAVEL + 0.3)
+
+    motion = runtime.cover.get(profile.cover.id)
+    assert motion.moving is False
+    assert motion.last_reason == "travel_complete"
+    _assert_all_cover_relays_off(adapter)
+    services = [c.args[1] for c in runtime.hass.services.async_call.await_args_list]
+    assert "stop_cover" in services
+
+
+@pytest.mark.asyncio
+async def test_inactive_direction_off_with_pair_dead_drops_the_clock() -> None:
+    """Both relays OFF means the run is over, even on the inactive direction."""
+    coordinator, adapter, _store, profile, runtime = _build(
+        opposite_press=COVER_OPPOSITE_STOP_THEN_REVERSE,
+        settle=0.0,
+        open_time=5.0,
+        close_time=5.0,
+    )
+    await coordinator._async_handle_physical_press(OPEN_BUTTON, True)
+    await coordinator._async_handle_physical_press(CLOSE_BUTTON, True)
+    motion = runtime.cover.get(profile.cover.id)
+    assert motion.direction == "close"
+    # Push past the post-reverse grace, then kill the pair externally.
+    motion.suppress_stale_off_until = None
+    adapter.relays[CLOSE_BUTTON] = False
+    adapter.relays[OPEN_BUTTON] = False
+    adapter.relay_calls.clear()
+
+    await coordinator._async_handle_physical_press(OPEN_BUTTON, False)
+
+    assert motion.moving is False
+    assert motion.last_reason == "stale"
+    # Dropping a clock is bookkeeping only — no relay writes, no mirror.
+    assert adapter.relay_calls == []
+
+
+@pytest.mark.asyncio
+async def test_inactive_direction_off_keeps_clock_while_active_relay_is_on() -> None:
+    """Regression: the duplicate-OFF-after-reverse guard must still hold."""
+    coordinator, adapter, _store, profile, runtime = _build(
+        opposite_press=COVER_OPPOSITE_STOP_THEN_REVERSE,
+        settle=0.0,
+        open_time=5.0,
+        close_time=5.0,
+    )
+    await coordinator._async_handle_physical_press(OPEN_BUTTON, True)
+    await coordinator._async_handle_physical_press(CLOSE_BUTTON, True)
+    motion = runtime.cover.get(profile.cover.id)
+    motion.suppress_stale_off_until = None
+    assert adapter.relays[CLOSE_BUTTON] is True
+    adapter.relay_calls.clear()
+
+    await coordinator._async_handle_physical_press(OPEN_BUTTON, False)
+
+    assert motion.direction == "close"
+    assert adapter.relay_calls == []
+    await coordinator._async_cover_abort("test")

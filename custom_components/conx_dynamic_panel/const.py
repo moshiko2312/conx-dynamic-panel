@@ -166,12 +166,56 @@ COVER_REASON_TRAVEL_COMPLETE: Final = "travel_complete"
 COVER_REASON_SAFETY: Final = "safety"
 COVER_REASON_ABORT: Final = "abort"
 COVER_REASON_ERROR: Final = "error"
+# The engine believed a cover was travelling but the relays say otherwise (the
+# run ended, or restarted, outside the panel). The clock is dropped, not halted.
+COVER_REASON_STALE: Final = "stale"
+# A linked cover that had been streaming position updates went quiet: the
+# shutter is standing still, so the panel de-energizes without mirroring back.
+COVER_REASON_ENTITY_IDLE: Final = "entity_idle"
+# How long a linked cover's ``current_position`` stream may go quiet before the
+# shutter counts as stopped. Position-only covers (Nodon, Tuya wall shutters)
+# never emit opening/closing and send no event at all when they stop; since
+# 0.3.10 an app-issued stop is caught instantly via the call_service event, so
+# this watchdog now only matters for a stop pressed on the shutter's own
+# physical remote — no HA signal exists for that case beyond the stream itself
+# going quiet.
+#
+# Armed only after three updates in one run (two measured gaps), not two: the
+# very first gap right after a reversal is the least representative sample —
+# the motor is decelerating/re-accelerating and that gap is often shorter than
+# the cadence the entity settles into once genuinely travelling the new
+# direction. Arming on that first gap alone let the watchdog fire mid-reversal
+# and wrongly de-energize a relay that was still correctly commanded. A cover
+# that reports a single position per move never arms the watchdog at all.
+#
+# The deadline itself is measured, not guessed: it tracks the widest gap seen
+# between updates in the current run, doubled (so one late or dropped update
+# is tolerated) plus a small margin. A shutter reporting every second is
+# therefore called stopped ~2.5s after its last update rather than on a fixed
+# worst-case timeout, while a slow reporter still gets room.
+COVER_ENTITY_STALL_FACTOR: Final = 2.0
+COVER_ENTITY_STALL_MARGIN_S: Final = 0.5
+COVER_ENTITY_STALL_MIN_S: Final = 1.5
+COVER_ENTITY_STALL_MAX_S: Final = 8.0
 # Ignore HA cover state echoes right after we mirrored open/close/stop to it.
 COVER_HA_MIRROR_SUPPRESS_S: Final = 2.0
 # Buffer added beyond a mirrored open/close command's configured travel time,
 # so the suppression window covers the whole real move (HA-side propagation
 # and settle lag included) instead of expiring long before travel completes.
 COVER_HA_MIRROR_SUPPRESS_MARGIN_S: Final = 3.0
+
+# On startup, how long the coordinator waits for a profile's linked entities
+# (button actions, linked HA covers) to report a real state before running the
+# one-shot restore-to-hardware sync. Right after an HA restart a linked
+# entity's owning integration (Zigbee2MQTT, another panel, ...) often hasn't
+# reconnected yet, so hass.states.get() returns nothing or a transient
+# unknown/unavailable placeholder; restoring against that silently skips the
+# button instead of matching it to reality. Bounded so a genuinely offline
+# device cannot hang setup — after the deadline, restore proceeds with
+# whatever each entity currently reports (unchanged from before this wait
+# existed).
+STARTUP_ENTITY_READY_TIMEOUT_S: Final = 10.0
+STARTUP_ENTITY_READY_POLL_S: Final = 0.25
 
 SYNC_SYNCED: Final = "synced"
 SYNC_PENDING: Final = "pending"

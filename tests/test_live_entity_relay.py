@@ -18,6 +18,7 @@ from custom_components.conx_dynamic_panel.const import (
     COVER_OPPOSITE_STOP_THEN_REVERSE,
     MODE_COVER,
     MODE_MIXED,
+    MODE_RADIO_MANDATORY,
     MODE_TOGGLE,
 )
 from custom_components.conx_dynamic_panel.coordinator import PanelCoordinator
@@ -140,7 +141,10 @@ def _runtime(
             has_service=lambda domain, service: True,
             async_call=AsyncMock(),
         ),
-        bus=SimpleNamespace(async_fire=lambda *args, **kwargs: None),
+        bus=SimpleNamespace(
+            async_fire=lambda *args, **kwargs: None,
+            async_listen=lambda *args, **kwargs: (lambda: None),
+        ),
         async_create_task=lambda coro: asyncio.create_task(coro),
     )
     entry = SimpleNamespace(entry_id="entry-1", options={"auto_sync": False})
@@ -555,9 +559,11 @@ async def test_live_cover_ignores_own_ha_mirror_echo() -> None:
             CoverEntityBinding(entity_id="cover.living_shutter", cover_id="cover_1")
         ]
     }
-    coordinator._cover_ha_mirror_suppress_until["cover.living_shutter"] = (
-        coordinator._monotonic() + 5.0
-    )
+    # The window drops the echo of the direction we mirrored, so record it the
+    # way _async_cover_mirror_ha would.
+    coordinator._cover_ha_mirror_echo["cover.living_shutter"] = {
+        "open": coordinator._monotonic() + 5.0
+    }
 
     event = SimpleNamespace(
         data={
@@ -806,7 +812,7 @@ async def test_live_cover_ha_mirror_suppress_covers_full_travel_time() -> None:
     assert motion.direction == "open"
     coordinator.runtime.hass.services.async_call.assert_awaited()
 
-    suppress_until = coordinator._cover_ha_mirror_suppress_until["cover.living_shutter"]
+    suppress_until = coordinator._cover_ha_mirror_echo["cover.living_shutter"]["open"]
     # open_time_s=30 configured in _cover_c1_setup; must be well past the old
     # fixed 2.0s window.
     assert suppress_until >= coordinator._monotonic() + 30.0
@@ -860,3 +866,686 @@ async def test_unload_clears_entity_relay_listeners() -> None:
     assert coordinator._entity_relay_unsubs == []
     assert coordinator._entity_relay_bindings == {}
     assert runtime.unloading is True
+
+
+@pytest.mark.asyncio
+async def test_live_cover_ha_same_direction_restart_rearms_when_relay_is_off() -> None:
+    """An external same-direction restart must not inherit the old clock.
+
+    With both relays off the previous run is over. Continuing to count it would
+    expire partway through this move and cut the relay mid-travel.
+    """
+    adapter, coordinator = _cover_c1_setup()
+    motion = coordinator.runtime.cover.get("cover_1")
+    # Engine believes it is still opening, but the hardware says otherwise.
+    motion.direction = "open"
+    motion.duration = 30.0
+    motion.started_at = coordinator._monotonic() - 25.0
+    motion.relays = (1, 2)
+    adapter._relay_on[1] = False
+    adapter._relay_on[2] = False
+    stale_started = motion.started_at
+
+    event = SimpleNamespace(
+        data={
+            "entity_id": "cover.living_shutter",
+            "old_state": _state("open", current_position=40),
+            "new_state": _state("open", current_position=60),
+        }
+    )
+    await coordinator._async_handle_linked_entity_event(event)  # type: ignore[arg-type]
+
+    assert motion.direction == "open"
+    assert motion.duration == 30.0
+    assert motion.started_at is not None and motion.started_at > stale_started
+    assert adapter.relay_is_on(1) is True
+    assert adapter.relay_is_on(2) is False
+    # HA-driven syncs never mirror back to the entity.
+    coordinator.runtime.hass.services.async_call.assert_not_called()
+    await coordinator._async_cover_abort("test")
+
+
+@pytest.mark.asyncio
+async def test_live_cover_ha_same_direction_stays_noop_while_relay_is_on() -> None:
+    """Regression: mid-travel position reports must still short-circuit.
+
+    The staleness check keys off the relay, so a genuinely energized move keeps
+    the 0.3.4 chatter guard — no re-arm, no relay writes.
+    """
+    adapter, coordinator = _cover_c1_setup()
+    motion = coordinator.runtime.cover.get("cover_1")
+    motion.direction = "open"
+    motion.duration = 30.0
+    motion.started_at = coordinator._monotonic() - 5.0
+    motion.relays = (1, 2)
+    started_at = motion.started_at
+    timer = motion.timer
+    adapter._relay_on[1] = True
+
+    event = SimpleNamespace(
+        data={
+            "entity_id": "cover.living_shutter",
+            "old_state": _state("open", current_position=40),
+            "new_state": _state("open", current_position=60),
+        }
+    )
+    await coordinator._async_handle_linked_entity_event(event)  # type: ignore[arg-type]
+
+    assert motion.direction == "open"
+    assert motion.started_at == started_at
+    assert motion.timer is timer
+    assert adapter.relay_calls == []
+    coordinator.runtime.hass.services.async_call.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_stop_press_keeps_suppression_window_against_trailing_position() -> None:
+    """A stop press must not shorten the window opened by the start.
+
+    Regression: the ``stop_cover`` mirror overwrote the travel-length window
+    with a fixed 2.0s one. A position-only shutter reports its final
+    ``current_position`` a few seconds after it halts, that report was read as
+    a fresh open command, and the relay the user had just switched off was
+    energized again for a full travel duration.
+    """
+    adapter, coordinator = _cover_c1_setup()
+
+    adapter._relay_on[1] = True
+    await coordinator._async_handle_physical_press(1, True)  # OPEN_BUTTON
+    motion = coordinator.runtime.cover.get("cover_1")
+    assert motion.direction == "open"
+    start_window = coordinator._cover_ha_mirror_echo["cover.living_shutter"]["open"]
+
+    # Repeat press on the same button: latching panel reports OFF.
+    adapter._relay_on[1] = False
+    coordinator.runtime.suppression.clear()
+    await coordinator._async_handle_physical_press(1, False)
+    assert motion.moving is False
+    assert adapter.relay_is_on(1) is False
+
+    # The stop mirror must not have shrunk the "open" window: it only ever
+    # touches its own "stop" entry.
+    assert coordinator._cover_ha_mirror_echo["cover.living_shutter"]["open"] == start_window
+
+    adapter.relay_calls.clear()
+    trailing = SimpleNamespace(
+        data={
+            "entity_id": "cover.living_shutter",
+            "old_state": _state("open", current_position=40),
+            "new_state": _state("open", current_position=55),
+        }
+    )
+    with patch.object(
+        coordinator, "_monotonic", return_value=coordinator._monotonic() + 5.0
+    ):
+        await coordinator._async_handle_linked_entity_event(trailing)  # type: ignore[arg-type]
+
+    assert adapter.relay_calls == []
+    assert adapter.relay_is_on(1) is False
+    assert motion.moving is False
+
+
+@pytest.mark.asyncio
+async def test_live_entity_on_from_app_updates_relay() -> None:
+    """Turning a linked light ON from the HA app latches the panel relay ON."""
+    store = FakeStore()
+    profile = _toggle_profile(lights={2: "light.kitchen"})
+    store.data.profiles = {"p1": profile}
+    store.data.active_profile_id = "p1"
+    adapter = FakeAdapter()
+    adapter._relay_on = {1: False, 2: False, 3: False, 4: False}
+    states = {"light.kitchen": _state("off")}
+    runtime = _runtime(adapter, store, states=states)
+    coordinator = PanelCoordinator(runtime)  # type: ignore[arg-type]
+    coordinator._entity_relay_bindings = {
+        "light.kitchen": [EntityRelayBinding(entity_id="light.kitchen", button_index=2)]
+    }
+
+    states["light.kitchen"] = _state("on")
+    event = SimpleNamespace(
+        data={
+            "entity_id": "light.kitchen",
+            "old_state": _state("off"),
+            "new_state": _state("on"),
+        }
+    )
+    await coordinator._async_handle_linked_entity_event(event)  # type: ignore[arg-type]
+
+    assert adapter.relay_calls == [(2, True, True)]
+    assert adapter.relay_is_on(2) is True
+
+
+@pytest.mark.asyncio
+async def test_live_radio_group_follows_app_selection() -> None:
+    """Switching the active light from the app moves the panel's radio LED."""
+    store = FakeStore()
+    profile = Profile(
+        id="r1",
+        name="Radio",
+        mode=MODE_RADIO_MANDATORY,
+        selected_button=1,
+        buttons=[
+            ButtonConfig(index=1, name="A", action=_action("light.a")),
+            ButtonConfig(index=2, name="B", action=_action("light.b")),
+            ButtonConfig(index=3, name="C", action=_action("light.c")),
+            ButtonConfig(index=4, name="D", action=_action("light.d")),
+        ],
+    )
+    store.data.profiles = {"r1": profile}
+    store.data.active_profile_id = "r1"
+    adapter = FakeAdapter()
+    adapter._relay_on = {1: True, 2: False, 3: False, 4: False}
+    states = {
+        "light.a": _state("off"),
+        "light.b": _state("on"),
+        "light.c": _state("off"),
+        "light.d": _state("off"),
+    }
+    runtime = _runtime(adapter, store, states=states)
+    coordinator = PanelCoordinator(runtime)  # type: ignore[arg-type]
+    members = (1, 2, 3, 4)
+    coordinator._entity_relay_bindings = {
+        "light.b": [
+            EntityRelayBinding(
+                entity_id="light.b",
+                button_index=2,
+                radio_members=members,
+                radio_require_selection=True,
+            )
+        ]
+    }
+
+    event = SimpleNamespace(
+        data={
+            "entity_id": "light.b",
+            "old_state": _state("off"),
+            "new_state": _state("on"),
+        }
+    )
+    await coordinator._async_handle_linked_entity_event(event)  # type: ignore[arg-type]
+
+    assert profile.selected_button == 2
+    assert adapter.relay_is_on(1) is False
+    assert adapter.relay_is_on(2) is True
+    assert adapter.relay_is_on(3) is False
+    assert adapter.relay_is_on(4) is False
+
+
+@pytest.mark.asyncio
+async def test_app_cover_command_during_panel_move_is_direction_aware() -> None:
+    """The echo window drops our own direction, not every external command.
+
+    A report matching the direction the panel mirrored is the panel's own echo
+    (including a position-only shutter's trailing report). Anything else is a
+    real command from the app and must reach the relays immediately, or driving
+    the cover from HA would do nothing at all until the window expired.
+    """
+    adapter, coordinator = _cover_c1_setup()
+
+    adapter._relay_on[1] = True
+    await coordinator._async_handle_physical_press(1, True)  # OPEN_BUTTON
+    motion = coordinator.runtime.cover.get("cover_1")
+    assert motion.direction == "open"
+
+    adapter.relay_calls.clear()
+    echo_open = SimpleNamespace(
+        data={
+            "entity_id": "cover.living_shutter",
+            "old_state": _state("open", current_position=60),
+            "new_state": _state("open", current_position=80),
+        }
+    )
+    with patch.object(
+        coordinator, "_monotonic", return_value=coordinator._monotonic() + 5.0
+    ):
+        await coordinator._async_handle_linked_entity_event(echo_open)  # type: ignore[arg-type]
+    assert adapter.relay_calls == []
+    assert motion.direction == "open"
+
+    # The opposite direction inside the same window is a real app command.
+    app_close = SimpleNamespace(
+        data={
+            "entity_id": "cover.living_shutter",
+            "old_state": _state("open", current_position=80),
+            "new_state": _state("open", current_position=60),
+        }
+    )
+    with patch.object(
+        coordinator, "_monotonic", return_value=coordinator._monotonic() + 6.0
+    ):
+        await coordinator._async_handle_linked_entity_event(app_close)  # type: ignore[arg-type]
+    assert adapter.relay_is_on(2) is True
+    assert adapter.relay_is_on(1) is False
+    assert motion.direction == "close"
+
+    _cancel_cover_timers(coordinator, motion)
+
+
+def _cancel_cover_timers(coordinator: PanelCoordinator, motion: Any) -> None:
+    """Drop travel + stall timers so a test never leaves a task pending."""
+    for cover_id in list(coordinator._cover_entity_stall):
+        coordinator._cover_cancel_entity_stall(cover_id)
+    if motion.timer is not None:
+        motion.timer.cancel()
+        motion.timer = None
+
+
+def _pos_event(old: float, new: float, entity_id: str = "cover.living_shutter") -> Any:
+    """Position-only cover report: state stays "open", only position moves."""
+    return SimpleNamespace(
+        data={
+            "entity_id": entity_id,
+            "old_state": _state("open", current_position=old),
+            "new_state": _state("open", current_position=new),
+        }
+    )
+
+
+@pytest.mark.asyncio
+async def test_linked_cover_going_quiet_turns_the_active_button_off() -> None:
+    """Stopping a position-only shutter from the HA app must clear the LED.
+
+    Nodon / Tuya wall shutters never emit opening/closing and send no event at
+    all when they stop -- the position stream simply ends. Without this the
+    panel kept the direction relay energized for the rest of its own travel
+    clock, so "stop from the app" left the active button lit.
+    """
+    adapter, coordinator = _cover_c1_setup()
+    with patch(
+        "custom_components.conx_dynamic_panel.coordinator.COVER_ENTITY_STALL_MIN_S", 0.05
+    ), patch(
+        "custom_components.conx_dynamic_panel.coordinator.COVER_ENTITY_STALL_MAX_S", 0.05
+    ):
+        await coordinator._async_handle_linked_entity_event(_pos_event(10, 30))  # type: ignore[arg-type]
+        motion = coordinator.runtime.cover.get("cover_1")
+        assert motion.direction == "open"
+        assert adapter.relay_is_on(1) is True
+
+        # Two more reports (two measured gaps) prove this entity streams while
+        # it moves — arming requires three total, not two, so a single early
+        # gap right after a start/reversal can never arm it alone.
+        await coordinator._async_handle_linked_entity_event(_pos_event(30, 50))  # type: ignore[arg-type]
+        await coordinator._async_handle_linked_entity_event(_pos_event(50, 70))  # type: ignore[arg-type]
+        assert motion.entity_reports >= 3
+
+        # The user presses stop in the app: reports just stop arriving.
+        await asyncio.sleep(0.15)
+
+    assert motion.moving is False
+    assert motion.last_reason == "entity_idle"
+    assert adapter.relay_is_on(1) is False
+    assert adapter.relay_is_on(2) is False
+    # Never bounce a stop back at the entity that already stopped itself.
+    coordinator.runtime.hass.services.async_call.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_single_position_report_never_arms_the_stall_watchdog() -> None:
+    """A cover that reports one position per move must not be cut short."""
+    adapter, coordinator = _cover_c1_setup()
+    with patch(
+        "custom_components.conx_dynamic_panel.coordinator.COVER_ENTITY_STALL_MIN_S", 0.05
+    ), patch(
+        "custom_components.conx_dynamic_panel.coordinator.COVER_ENTITY_STALL_MAX_S", 0.05
+    ):
+        await coordinator._async_handle_linked_entity_event(_pos_event(10, 30))  # type: ignore[arg-type]
+        motion = coordinator.runtime.cover.get("cover_1")
+        assert motion.direction == "open"
+        await asyncio.sleep(0.15)
+
+    assert motion.moving is True
+    assert adapter.relay_is_on(1) is True
+    _cancel_cover_timers(coordinator, motion)
+
+
+@pytest.mark.asyncio
+async def test_two_position_reports_alone_never_arm_the_stall_watchdog() -> None:
+    """Regression: the watchdog must not arm off a single measured gap.
+
+    Reported bug: reversing direction from the card, the real motor's first
+    post-reversal report arrived quickly (a short gap), arming the watchdog
+    with too tight a deadline; the motor's second report — genuinely delayed
+    by mechanical deceleration/re-acceleration — then arrived after that
+    deadline, and the watchdog fired mid-reversal on a move that was still
+    correctly underway. Two reports (one gap) must never be enough to arm.
+    """
+    adapter, coordinator = _cover_c1_setup()
+    with patch(
+        "custom_components.conx_dynamic_panel.coordinator.COVER_ENTITY_STALL_MIN_S", 0.05
+    ), patch(
+        "custom_components.conx_dynamic_panel.coordinator.COVER_ENTITY_STALL_MAX_S", 0.05
+    ):
+        await coordinator._async_handle_linked_entity_event(_pos_event(10, 30))  # type: ignore[arg-type]
+        motion = coordinator.runtime.cover.get("cover_1")
+        assert motion.direction == "open"
+        await coordinator._async_handle_linked_entity_event(_pos_event(30, 50))  # type: ignore[arg-type]
+        assert motion.entity_reports == 2
+        # A gap far longer than the (short, misleading) first one — this must
+        # not be read as a stall, because only one gap has been measured.
+        await asyncio.sleep(0.15)
+
+    assert motion.moving is True
+    assert adapter.relay_is_on(1) is True
+    _cancel_cover_timers(coordinator, motion)
+
+
+@pytest.mark.asyncio
+async def test_quiet_stream_also_ends_a_panel_started_move() -> None:
+    """Echoed reports still count as the heartbeat during a panel-driven run.
+
+    The panel starts the move, so the entity's reports are dropped as our own
+    echo -- but they are still proof the shutter is moving. When they stop
+    (an app stop mid-travel), the relays must drop instead of holding for the
+    rest of the configured travel time.
+    """
+    adapter, coordinator = _cover_c1_setup()
+    with patch(
+        "custom_components.conx_dynamic_panel.coordinator.COVER_ENTITY_STALL_MIN_S", 0.05
+    ), patch(
+        "custom_components.conx_dynamic_panel.coordinator.COVER_ENTITY_STALL_MAX_S", 0.05
+    ):
+        adapter._relay_on[1] = True
+        await coordinator._async_handle_physical_press(1, True)  # OPEN_BUTTON
+        motion = coordinator.runtime.cover.get("cover_1")
+        assert motion.direction == "open"
+        coordinator.runtime.hass.services.async_call.reset_mock()
+
+        adapter.relay_calls.clear()
+        await coordinator._async_handle_linked_entity_event(_pos_event(10, 30))  # type: ignore[arg-type]
+        await coordinator._async_handle_linked_entity_event(_pos_event(30, 50))  # type: ignore[arg-type]
+        await coordinator._async_handle_linked_entity_event(_pos_event(50, 70))  # type: ignore[arg-type]
+        # Echoes: counted, but never acted on as commands.
+        assert adapter.relay_calls == []
+        assert motion.entity_reports >= 3
+
+        await asyncio.sleep(0.15)
+
+    assert motion.moving is False
+    assert adapter.relay_is_on(1) is False
+    coordinator.runtime.hass.services.async_call.assert_not_called()
+
+
+def test_cover_stall_delay_follows_measured_cadence() -> None:
+    """Quiet time is derived from the entity's own reporting interval."""
+    delay = PanelCoordinator._cover_stall_delay
+    # A shutter reporting every second: one missed update is tolerated, and it
+    # is called stopped well inside 3s rather than on a fixed worst case.
+    assert delay(1.0) == pytest.approx(2.5)
+    # Bursty stream: floored, never twitchy.
+    assert delay(0.1) == pytest.approx(1.5)
+    assert delay(0.0) == pytest.approx(1.5)
+    # Slow reporter: given room instead of being cut short.
+    assert delay(3.0) == pytest.approx(6.5)
+    # But never unbounded.
+    assert delay(60.0) == pytest.approx(8.0)
+
+
+@pytest.mark.asyncio
+async def test_card_reverse_survives_lagging_old_direction_report() -> None:
+    """Regression: reversing via the card must not be undone by motor lag.
+
+    Reported bug: pressing "down" then, a few seconds later, "up" from the
+    card starts the shutter opening and then immediately flips back to
+    showing closing. Root cause: a physical shutter does not reverse
+    instantly -- it keeps reporting a position moving in the OLD direction for
+    a moment after we've already commanded the new one. That lagging report
+    was, for one release, treated as a fresh external command because the
+    engine only remembered a single "last mirrored direction" and silently
+    dropped the still-valid window for the direction it had just left.
+    """
+    adapter, coordinator = _cover_c1_setup()
+    profile = coordinator.data.active_profile()
+    assert profile is not None
+    profile.cover.opposite_press = COVER_OPPOSITE_STOP_THEN_REVERSE
+
+    # Card press: close, then reverse to open a few seconds later.
+    await coordinator.async_execute_button(2)  # CLOSE_BUTTON
+    motion = coordinator.runtime.cover.get("cover_1")
+    assert motion.direction == "close"
+
+    with patch.object(
+        coordinator, "_monotonic", return_value=coordinator._monotonic() + 4.0
+    ):
+        await coordinator.async_execute_button(1)  # OPEN_BUTTON reverses
+    assert motion.direction == "open"
+    assert adapter.relay_is_on(1) is True
+    assert adapter.relay_is_on(2) is False
+
+    # The real motor hasn't caught up yet: it still reports a decreasing
+    # position (closing) a moment after we commanded the reversal.
+    adapter.relay_calls.clear()
+    lag_report = SimpleNamespace(
+        data={
+            "entity_id": "cover.living_shutter",
+            "old_state": _state("open", current_position=40),
+            "new_state": _state("open", current_position=35),
+        }
+    )
+    with patch.object(
+        coordinator, "_monotonic", return_value=coordinator._monotonic() + 6.0
+    ):
+        await coordinator._async_handle_linked_entity_event(lag_report)  # type: ignore[arg-type]
+
+    assert motion.direction == "open"
+    assert adapter.relay_calls == []
+    assert adapter.relay_is_on(1) is True
+    assert adapter.relay_is_on(2) is False
+
+    _cancel_cover_timers(coordinator, motion)
+
+
+@pytest.mark.asyncio
+async def test_card_reverse_still_accepts_a_genuine_opposite_command_later() -> None:
+    """After the old direction's window truly expires, a real command wins.
+
+    Once enough time has passed that even the direction we left before
+    reversing is out of its own window, a further report of that direction is
+    a genuine external command (e.g. the app told the shutter to close again)
+    and must be acted on, not swallowed forever.
+    """
+    adapter, coordinator = _cover_c1_setup()
+    profile = coordinator.data.active_profile()
+    assert profile is not None
+    profile.cover.opposite_press = COVER_OPPOSITE_STOP_THEN_REVERSE
+
+    await coordinator.async_execute_button(2)  # CLOSE_BUTTON
+    motion = coordinator.runtime.cover.get("cover_1")
+    with patch.object(
+        coordinator, "_monotonic", return_value=coordinator._monotonic() + 1.0
+    ):
+        await coordinator.async_execute_button(1)  # OPEN_BUTTON reverses
+    assert motion.direction == "open"
+
+    # Well past close's own window (open_time_s=30 + margin from _cover_c1_setup).
+    late_close = SimpleNamespace(
+        data={
+            "entity_id": "cover.living_shutter",
+            "old_state": _state("open", current_position=60),
+            "new_state": _state("open", current_position=40),
+        }
+    )
+    with patch.object(
+        coordinator, "_monotonic", return_value=coordinator._monotonic() + 90.0
+    ):
+        await coordinator._async_handle_linked_entity_event(late_close)  # type: ignore[arg-type]
+
+    assert motion.direction == "close"
+    assert adapter.relay_is_on(2) is True
+    assert adapter.relay_is_on(1) is False
+
+    _cancel_cover_timers(coordinator, motion)
+
+
+def _capture_bus_listener(coordinator: PanelCoordinator) -> dict[str, Any]:
+    """Run _rebuild_entity_relay_listeners and capture the call_service callback."""
+    captured: dict[str, Any] = {}
+
+    def fake_listen(event_type: str, callback: Any) -> Any:
+        captured[event_type] = callback
+        return lambda: captured.pop(event_type, None)
+
+    coordinator.runtime.hass.bus.async_listen = fake_listen  # type: ignore[assignment]
+    coordinator._rebuild_entity_relay_listeners()
+    return captured
+
+
+@pytest.mark.asyncio
+async def test_app_stop_service_call_halts_instantly_without_waiting_for_state() -> None:
+    """Pressing stop in the HA app must not wait for the position stream to go quiet.
+
+    HA fires call_service the moment cover.stop_cover is invoked, before the
+    device has replied at all. This is a much better signal than inferring a
+    stop from silence (the entity-stall watchdog), and should react instantly.
+    """
+    adapter, coordinator = _cover_c1_setup()
+    captured = _capture_bus_listener(coordinator)
+    assert "call_service" in captured
+
+    adapter._relay_on[1] = True
+    await coordinator._async_handle_physical_press(1, True)  # OPEN_BUTTON
+    motion = coordinator.runtime.cover.get("cover_1")
+    assert motion.direction == "open"
+
+    coordinator.runtime.hass.services.async_call.reset_mock()
+    stop_event = SimpleNamespace(
+        data={
+            "domain": "cover",
+            "service": "stop_cover",
+            "service_data": {"entity_id": "cover.living_shutter"},
+        }
+    )
+    captured["call_service"](stop_event)
+    await asyncio.sleep(0)  # let the scheduled task run
+
+    assert motion.moving is False
+    assert adapter.relay_is_on(1) is False
+    assert adapter.relay_is_on(2) is False
+    # Never bounce stop_cover back at the entity that just asked to stop.
+    coordinator.runtime.hass.services.async_call.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_app_stop_service_call_accepts_entity_id_as_list() -> None:
+    """entity_id in the call_service event can be a string or a list depending
+    on how the frontend issued the call — both forms must match."""
+    adapter, coordinator = _cover_c1_setup()
+    captured = _capture_bus_listener(coordinator)
+
+    adapter._relay_on[2] = True
+    await coordinator._async_handle_physical_press(2, True)  # CLOSE_BUTTON
+    motion = coordinator.runtime.cover.get("cover_1")
+    assert motion.direction == "close"
+
+    stop_event = SimpleNamespace(
+        data={
+            "domain": "cover",
+            "service": "stop_cover",
+            "service_data": {"entity_id": ["cover.living_shutter"]},
+        }
+    )
+    captured["call_service"](stop_event)
+    await asyncio.sleep(0)
+
+    assert motion.moving is False
+    assert adapter.relay_is_on(2) is False
+
+
+@pytest.mark.asyncio
+async def test_unrelated_service_calls_are_ignored() -> None:
+    """Only cover.stop_cover for a bound entity reacts; everything else is a no-op."""
+    adapter, coordinator = _cover_c1_setup()
+    captured = _capture_bus_listener(coordinator)
+
+    adapter._relay_on[1] = True
+    await coordinator._async_handle_physical_press(1, True)  # OPEN_BUTTON
+    motion = coordinator.runtime.cover.get("cover_1")
+    assert motion.direction == "open"
+    adapter.relay_calls.clear()
+
+    for event in (
+        SimpleNamespace(
+            data={"domain": "light", "service": "turn_on", "service_data": {}}
+        ),
+        SimpleNamespace(
+            data={
+                "domain": "cover",
+                "service": "open_cover",
+                "service_data": {"entity_id": "cover.living_shutter"},
+            }
+        ),
+        SimpleNamespace(
+            data={
+                "domain": "cover",
+                "service": "stop_cover",
+                "service_data": {"entity_id": "cover.some_other_shutter"},
+            }
+        ),
+    ):
+        captured["call_service"](event)
+    await asyncio.sleep(0)
+
+    assert motion.moving is True
+    assert adapter.relay_calls == []
+
+    _cancel_cover_timers(coordinator, motion)
+
+
+@pytest.mark.asyncio
+async def test_card_reversal_survives_slow_second_post_reversal_report() -> None:
+    """End-to-end reproduction of the reported bug.
+
+    Reverse from the card (open -> close), the real motor's first report
+    arrives quickly (looks like a fast, ~1s cadence), then its second report
+    is genuinely slower (mechanical reversal settle) -- long enough that a
+    watchdog armed off the first gap alone would have fired before it. The
+    panel relay must stay energized and the motion must still read "close":
+    the physical reversal was correct, only the panel's own indication was at
+    risk of going wrong.
+    """
+    adapter, coordinator = _cover_c1_setup()
+    profile = coordinator.data.active_profile()
+    assert profile is not None
+    profile.cover.opposite_press = COVER_OPPOSITE_STOP_THEN_REVERSE
+
+    with patch(
+        "custom_components.conx_dynamic_panel.coordinator.COVER_ENTITY_STALL_MIN_S", 0.05
+    ), patch(
+        "custom_components.conx_dynamic_panel.coordinator.COVER_ENTITY_STALL_MAX_S", 0.3
+    ):
+        await coordinator.async_execute_button(2)  # CLOSE_BUTTON, virtual press
+        motion = coordinator.runtime.cover.get("cover_1")
+        assert motion.direction == "close"
+
+        with patch.object(
+            coordinator, "_monotonic", return_value=coordinator._monotonic() + 3.0
+        ):
+            await coordinator.async_execute_button(1)  # OPEN_BUTTON reverses
+        assert motion.direction == "open"
+        assert adapter.relay_is_on(1) is True
+
+        # Real motor's first post-reversal report: a short, fast-looking gap.
+        # Delta must clear COVER_POSITION_DELTA_MIN (3.0) to register as motion.
+        await coordinator._async_handle_linked_entity_event(_pos_event(60, 65))  # type: ignore[arg-type]
+        assert motion.entity_reports == 1
+
+        # Genuinely slower second report (mechanical settle) — this must not
+        # be misread as silence: only one gap exists yet, watchdog not armed.
+        await asyncio.sleep(0.2)
+        assert motion.moving is True
+        assert adapter.relay_is_on(1) is True
+
+        await coordinator._async_handle_linked_entity_event(_pos_event(62, 68))  # type: ignore[arg-type]
+        assert motion.entity_reports == 2
+
+        # Now armed off the real (wider) gap -- give it time to actually settle
+        # into steady reporting rather than declaring stopped immediately.
+        await coordinator._async_handle_linked_entity_event(_pos_event(68, 74))  # type: ignore[arg-type]
+        assert motion.entity_reports == 3
+        await asyncio.sleep(0.05)
+
+    assert motion.moving is True
+    assert motion.direction == "open"
+    assert adapter.relay_is_on(1) is True
+    assert adapter.relay_is_on(2) is False
+
+    _cancel_cover_timers(coordinator, motion)

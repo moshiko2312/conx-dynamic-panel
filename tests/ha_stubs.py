@@ -69,6 +69,7 @@ def install() -> None:
     const = module("homeassistant.const")
     const.STATE_UNAVAILABLE = "unavailable"
     const.STATE_UNKNOWN = "unknown"
+    const.EVENT_CALL_SERVICE = "call_service"
     const.Platform = types.SimpleNamespace(
         SELECT="select",
         SENSOR="sensor",

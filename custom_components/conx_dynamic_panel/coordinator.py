@@ -8,7 +8,7 @@ from collections.abc import Awaitable, Callable, Iterable
 from datetime import UTC, datetime
 from typing import Any
 
-from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
+from homeassistant.const import EVENT_CALL_SERVICE, STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import Event, callback
 from homeassistant.helpers.event import (
     async_track_point_in_time,
@@ -24,11 +24,16 @@ from .const import (
     BUTTON_ROLE_MOMENTARY,
     BUTTON_ROLE_RADIO,
     CLICK_COUNT_DOUBLE,
+    COVER_COMMAND_CLOSE,
     COVER_COMMAND_OPEN,
     COVER_COMMAND_STOP,
     COVER_COMMANDS,
     COVER_DIRECTION_CLOSE,
     COVER_DIRECTION_OPEN,
+    COVER_ENTITY_STALL_FACTOR,
+    COVER_ENTITY_STALL_MARGIN_S,
+    COVER_ENTITY_STALL_MAX_S,
+    COVER_ENTITY_STALL_MIN_S,
     COVER_HA_MIRROR_SUPPRESS_MARGIN_S,
     COVER_HA_MIRROR_SUPPRESS_S,
     COVER_OPPOSITE_STOP_THEN_REVERSE,
@@ -36,9 +41,11 @@ from .const import (
     COVER_REASON_ABORT,
     COVER_REASON_COMMAND,
     COVER_REASON_ENTITY,
+    COVER_REASON_ENTITY_IDLE,
     COVER_REASON_ERROR,
     COVER_REASON_PRESS,
     COVER_REASON_SAFETY,
+    COVER_REASON_STALE,
     COVER_REASON_STOP_PRESS,
     COVER_REASON_TRAVEL_COMPLETE,
     DOMAIN,
@@ -59,6 +66,8 @@ from .const import (
     SCHEDULER_EXPORT_SCHEMA_VERSION,
     SCHEDULER_SCOPE_LOCAL,
     SCHEDULER_SCOPE_MASTER,
+    STARTUP_ENTITY_READY_POLL_S,
+    STARTUP_ENTITY_READY_TIMEOUT_S,
     SUPPORTED_MODES,
     SYNC_ERROR,
     SYNC_OUT_OF_SYNC,
@@ -135,8 +144,15 @@ class PanelCoordinator:
         self._entity_relay_bindings: dict[str, list[EntityRelayBinding]] = {}
         # Live HA cover.* → cover-engine bindings (open/close indication + motor).
         self._cover_entity_bindings: dict[str, list[CoverEntityBinding]] = {}
-        # entity_id → monotonic deadline: ignore echoes of our own HA mirrors.
-        self._cover_ha_mirror_suppress_until: dict[str, float] = {}
+        # entity_id → {command: monotonic deadline}: ignore echoes of our own HA
+        # mirrors, one deadline per command (open/close/stop) so reversing
+        # direction cannot orphan the still-running window of the direction we
+        # just left — a physical motor keeps reporting the old direction for a
+        # moment after we command the new one, and that lag must still read as
+        # our own echo, not a fresh external command.
+        self._cover_ha_mirror_echo: dict[str, dict[str, float]] = {}
+        # cover_id → armed "linked entity went quiet" watchdog.
+        self._cover_entity_stall: dict[str, asyncio.Task[None]] = {}
         self._scheduler_unsub: Callable[[], None] | None = None
         self._scheduler_condition_unsub: Callable[[], None] | None = None
         self._scheduler_entity_adder: Callable[[str], None] | None = None
@@ -258,16 +274,61 @@ class PanelCoordinator:
         self._cover_entity_bindings = by_cover_entity
 
         entity_ids = list({*by_entity, *by_cover_entity})
-        if not entity_ids:
+        if entity_ids:
+
+            @callback
+            def _on_linked_entity_change(event: Event) -> None:
+                self.hass.async_create_task(self._async_handle_linked_entity_event(event))
+
+            self._entity_relay_unsubs.append(
+                async_track_state_change_event(self.hass, entity_ids, _on_linked_entity_change)
+            )
+
+        if by_cover_entity:
+            # Fast path for an app/dashboard-issued stop: HA fires this the
+            # moment cover.stop_cover is called, before the device has replied
+            # at all. Position-only shutters (Nodon, Tuya wall shutters) never
+            # emit opening/closing and send no event of their own when they
+            # stop, so without this the panel could only infer "stopped" from
+            # the position stream going quiet (_async_cover_entity_stall_timer)
+            # — correct, but seconds slower than the command that caused it.
+            # A stop coming from the shutter's own remote/wall switch (never
+            # routed through an HA service call) still has no such signal, so
+            # the stall watchdog stays as the fallback for that case.
+            @callback
+            def _on_cover_stop_service_call(event: Event) -> None:
+                data = event.data
+                if data.get("domain") != "cover" or data.get("service") != "stop_cover":
+                    return
+                raw = (data.get("service_data") or {}).get("entity_id")
+                targets = [raw] if isinstance(raw, str) else list(raw or ())
+                matched = [e for e in targets if e in self._cover_entity_bindings]
+                if not matched:
+                    return
+                self.hass.async_create_task(
+                    self._async_handle_cover_stop_service_event(matched)
+                )
+
+            self._entity_relay_unsubs.append(
+                self.hass.bus.async_listen(EVENT_CALL_SERVICE, _on_cover_stop_service_call)
+            )
+
+    async def _async_handle_cover_stop_service_event(self, entity_ids: list[str]) -> None:
+        """React the instant an app/dashboard calls cover.stop_cover, not later."""
+        if self.runtime.unloading:
             return
-
-        @callback
-        def _on_linked_entity_change(event: Event) -> None:
-            self.hass.async_create_task(self._async_handle_linked_entity_event(event))
-
-        self._entity_relay_unsubs.append(
-            async_track_state_change_event(self.hass, entity_ids, _on_linked_entity_change)
-        )
+        if self.data.sync_status == SYNC_SYNCING or self.runtime.sync_lock.locked():
+            return
+        profile = self.data.active_profile()
+        if profile is None or profile.mode not in {MODE_COVER, MODE_MIXED}:
+            return
+        for entity_id in entity_ids:
+            for binding in self._cover_entity_bindings.get(entity_id) or []:
+                try:
+                    cover = self._resolve_cover(profile, binding.cover_id)
+                except ValueError:
+                    continue
+                await self._async_live_sync_cover_from_ha(profile, cover, COVER_COMMAND_STOP)
 
     async def _async_handle_linked_entity_event(self, event: Event) -> None:
         """Mirror linked HA on/off or cover state onto the panel (suppressed write)."""
@@ -322,10 +383,18 @@ class PanelCoordinator:
     async def _async_handle_cover_entity_event(
         self, entity_id: str, old_state: Any, new_state: Any
     ) -> None:
-        """Drive cover open/close indication from a linked HA cover.* transition."""
-        suppress_until = self._cover_ha_mirror_suppress_until.get(entity_id, 0.0)
-        if self._monotonic() < suppress_until:
-            return
+        """Drive cover open/close indication from a linked HA cover.* transition.
+
+        The echo window is per command (open/close/stop), each with its own
+        deadline. A command still inside its own window is our own echo —
+        including a lagging report of the direction we just left (a physical
+        motor keeps reporting the old direction for a moment after we command
+        a reversal) and the trailing position report a position-only shutter
+        sends after it halts (which would otherwise re-energize the relay a
+        stop press just turned off). A command outside its window is a real
+        external one and must reach the panel immediately, or driving the
+        cover from the HA app would do nothing until the window expired.
+        """
         command = cover_ha_command_from_transition(old_state, new_state)
         if command is None:
             return
@@ -335,12 +404,118 @@ class PanelCoordinator:
         profile = self.data.active_profile()
         if profile is None or profile.mode not in {MODE_COVER, MODE_MIXED}:
             return
+        suppress_until = self._cover_ha_mirror_echo.get(entity_id, {}).get(command, 0.0)
+        echoed = self._monotonic() < suppress_until
         for binding in bindings:
             try:
                 cover = self._resolve_cover(profile, binding.cover_id)
             except ValueError:
                 continue
+            # The stream itself is the heartbeat: count it even when the command
+            # is our own echo, so a linked cover that goes quiet is still read as
+            # "stopped" during a panel-driven move.
+            if command in (COVER_COMMAND_OPEN, COVER_COMMAND_CLOSE):
+                await self._async_cover_note_entity_report(profile, cover)
+            if echoed:
+                continue
             await self._async_live_sync_cover_from_ha(profile, cover, command)
+
+    async def _async_cover_note_entity_report(
+        self, profile: Profile, cover: CoverConfig
+    ) -> None:
+        """Count one linked-cover movement report and re-arm the stall watchdog.
+
+        Position-only covers emit nothing at all when they stop, so a stream
+        that goes quiet is the only evidence of a stop issued from something
+        other than an HA service call (0.3.10 already handles the app-issued
+        case instantly, via call_service — this watchdog now only matters for
+        a stop pressed on the shutter's own physical remote).
+
+        Three reports in one run — two measured gaps — are required before the
+        watchdog arms, not two. Right after a reversal the very first gap is
+        the least representative sample available: the motor is decelerating
+        and re-accelerating, so it is often *shorter* than the cadence the
+        entity settles into once actually travelling the new direction. Arming
+        on that first gap alone produced a real bug — the watchdog fired while
+        the shutter was still genuinely reversing, correctly commanded, and
+        wrongly de-energized the panel relay for a move that was not actually
+        stopped. Waiting for a second gap means the estimate has already
+        absorbed whatever the reversal settle really costs before it is
+        trusted, at the cost of one more report's worth of delay in the rare
+        physical-remote-stop case this now exists for.
+        """
+        async with self.runtime.cover.lock:
+            motion = self.runtime.cover.get(cover.id)
+            if not motion.moving:
+                return
+            now = self._monotonic()
+            if motion.entity_report_at is not None:
+                # Widest gap wins: a jittery stream must not make the deadline
+                # tighter than the slowest interval this run has really shown.
+                motion.entity_report_gap = max(
+                    motion.entity_report_gap, now - motion.entity_report_at
+                )
+            motion.entity_report_at = now
+            motion.entity_reports += 1
+            if motion.entity_reports >= 3:
+                self._cover_arm_entity_stall(profile.id, cover, motion.entity_report_gap)
+
+    def _cover_arm_entity_stall(
+        self, profile_id: str, cover: CoverConfig, gap_s: float
+    ) -> None:
+        """(Re)arm the linked-cover quiet watchdog. Caller holds the cover lock.
+
+        The deadline follows the entity's measured reporting cadence so a fast
+        reporter is called stopped quickly and a slow one is not cut short.
+        """
+        self._cover_cancel_entity_stall(cover.id)
+        self._cover_entity_stall[cover.id] = self.hass.async_create_task(
+            self._async_cover_entity_stall_timer(
+                profile_id, cover.id, self._cover_stall_delay(gap_s)
+            )
+        )
+
+    @staticmethod
+    def _cover_stall_delay(gap_s: float) -> float:
+        """Quiet time that means "stopped", from the observed update cadence."""
+        delay = gap_s * COVER_ENTITY_STALL_FACTOR + COVER_ENTITY_STALL_MARGIN_S
+        return min(max(delay, COVER_ENTITY_STALL_MIN_S), COVER_ENTITY_STALL_MAX_S)
+
+    def _cover_cancel_entity_stall(self, cover_id: str) -> None:
+        """Drop any armed quiet watchdog for one cover."""
+        task = self._cover_entity_stall.pop(cover_id, None)
+        if task is not None and task is not asyncio.current_task():
+            task.cancel()
+
+    async def _async_cover_entity_stall_timer(
+        self, profile_id: str, cover_id: str, delay: float
+    ) -> None:
+        """De-energize a cover whose linked entity stopped reporting movement."""
+        try:
+            await asyncio.sleep(delay)
+        except asyncio.CancelledError:
+            raise
+        async with self.runtime.cover.lock:
+            if self._cover_entity_stall.get(cover_id) is not asyncio.current_task():
+                # Superseded by a newer report; that run owns the watchdog now.
+                return
+            self._cover_entity_stall.pop(cover_id, None)
+            motion = self.runtime.cover.get(cover_id)
+            if not motion.moving or motion.entity_reports < 3:
+                return
+            profile = self.data.active_profile()
+            cover = (
+                profile.cover_by_id(cover_id)
+                if profile is not None and profile.id == profile_id
+                else None
+            )
+            if cover is None:
+                return
+            # Never mirror this halt back: the shutter stopped on its own (or
+            # from the app), so cover.stop_cover would be a pointless round trip.
+            await self._async_cover_halt(
+                cover, reason=COVER_REASON_ENTITY_IDLE, mirror_ha=False
+            )
 
     async def _async_live_sync_cover_from_ha(
         self,
@@ -373,6 +548,13 @@ class PanelCoordinator:
                 if command == COVER_COMMAND_OPEN
                 else COVER_DIRECTION_CLOSE
             )
+            # A stale clock must never be inherited: an external restart would
+            # otherwise keep counting the *previous* run's remaining time and
+            # cut this move short. While the relay is genuinely ON the motion is
+            # not stale, so ordinary mid-travel position reports still no-op
+            # here and the linked-entity chatter guard is preserved.
+            if self._cover_motion_is_stale(cover, motion):
+                self._cover_discard_motion(motion, COVER_REASON_STALE)
             if motion.direction == direction:
                 return
             if motion.moving:
@@ -453,7 +635,9 @@ class PanelCoordinator:
         self._cancel_scheduler_timer()
         self._clear_scheduler_condition_listeners()
         self._clear_entity_relay_listeners()
-        self._cover_ha_mirror_suppress_until.clear()
+        for cover_id in list(self._cover_entity_stall):
+            self._cover_cancel_entity_stall(cover_id)
+        self._cover_ha_mirror_echo.clear()
         for remove in self.runtime.listeners:
             remove()
         self.runtime.listeners.clear()
@@ -898,14 +1082,22 @@ class PanelCoordinator:
             return
         if old_state.state == new_state.state:
             return
-        if (
-            old_state.state in {STATE_UNKNOWN, STATE_UNAVAILABLE}
-            and self.data.sync_status == SYNC_ERROR
-        ):
-            # Hardware just came back online after a failed startup restore
-            # (e.g. Zigbee2MQTT reconnecting after HA); retry instead of
-            # treating this recovery as a physical button press.
-            await self._async_restore_applied_to_hardware()
+        if old_state.state in {STATE_UNKNOWN, STATE_UNAVAILABLE}:
+            # A latching relay is only ever physically pressed between two
+            # known states (on <-> off). A transition *from* unknown/
+            # unavailable is always the entity waking up -- first
+            # registration, Z2M/MQTT reconnecting after an HA restart, a
+            # delayed initial report -- never a real press, regardless of
+            # whether the last startup restore happened to succeed or fail.
+            # Routing this to _async_handle_physical_press fires the
+            # button's configured action for a relay nobody touched; for an
+            # action that targets the relay's own entity (a self-referential
+            # switch.toggle, e.g. wired that way to mirror the panel's own
+            # state) this silently flips the relay right back on the moment
+            # it settles to its true value.
+            if self.data.sync_status == SYNC_ERROR:
+                # The previous startup restore failed; worth retrying now.
+                await self._async_restore_applied_to_hardware()
             self.runtime.async_notify()
             return
         # Always refresh card-visible runtime after a real entity change, even
@@ -938,13 +1130,15 @@ class PanelCoordinator:
             return
         if old_state.state == new_state.state:
             return
-        if (
-            old_state.state in {STATE_UNKNOWN, STATE_UNAVAILABLE}
-            and self.data.sync_status == SYNC_ERROR
-        ):
-            # Mapped entity just came back online after a failed startup
-            # restore; retry instead of waiting for a manual reload.
-            await self._async_restore_applied_to_hardware()
+        if old_state.state in {STATE_UNKNOWN, STATE_UNAVAILABLE}:
+            # The entity is only just waking up (reconnecting after an HA
+            # restart, first registration) -- never treat this as drift, or
+            # a slow-to-reconnect entity flashes a false out-of-sync status
+            # on every boot regardless of whether the prior restore
+            # succeeded or failed.
+            if self.data.sync_status == SYNC_ERROR:
+                # The previous startup restore failed; worth retrying now.
+                await self._async_restore_applied_to_hardware()
             self.runtime.async_notify()
             return
         self.runtime.async_notify()
@@ -982,6 +1176,7 @@ class PanelCoordinator:
 
         if self.runtime.sync_lock.locked():
             return
+        await self._async_wait_for_linked_entities_ready(applied)
         async with self.runtime.sync_lock:
             try:
                 result = await asyncio.wait_for(
@@ -1023,6 +1218,36 @@ class PanelCoordinator:
                     self.data.last_error,
                 )
             await self.runtime.store.async_save()
+
+    async def _async_wait_for_linked_entities_ready(self, profile: Profile) -> None:
+        """Give a restore's linked entities a chance to report their real state.
+
+        Right after an HA restart, a linked entity's owning integration
+        (Zigbee2MQTT, another panel, ...) may not have reconnected yet, so
+        ``hass.states.get()`` returns nothing or a transient unknown/
+        unavailable placeholder. Reading that at restore time means
+        ``_async_sync_button_from_entity`` silently skips the button --
+        nothing to sync against -- leaving its relay wherever raw hardware
+        left it until a later live event happens to correct it (0.3.12 made
+        that later correction safe, but it is still a second-best outcome
+        compared to the initial restore being accurate). Waiting first,
+        bounded so a genuinely offline device cannot hang setup, makes the
+        one-shot restore itself correct.
+        """
+        entity_ids = {
+            binding.entity_id for binding in iter_entity_relay_bindings(profile)
+        } | {binding.entity_id for binding in iter_cover_entity_bindings(profile)}
+        if not entity_ids:
+            return
+        deadline = self._monotonic() + STARTUP_ENTITY_READY_TIMEOUT_S
+        while self._monotonic() < deadline:
+            if all(self._entity_state_ready(entity_id) for entity_id in entity_ids):
+                return
+            await asyncio.sleep(STARTUP_ENTITY_READY_POLL_S)
+
+    def _entity_state_ready(self, entity_id: str) -> bool:
+        state = self.hass.states.get(entity_id)
+        return state is not None and state.state not in {STATE_UNKNOWN, STATE_UNAVAILABLE}
 
     async def _async_handle_physical_press(self, index: int, turned_on: bool) -> None:
         profile = self.data.active_profile()
@@ -1220,8 +1445,15 @@ class PanelCoordinator:
     # Different covers may travel at the same time when their buttons differ.
     # ------------------------------------------------------------------
 
-    async def _async_cover_press(self, profile: Profile, index: int, turned_on: bool) -> None:
-        """Route a physical relay transition while a cover profile is active."""
+    async def _async_cover_press(
+        self, profile: Profile, index: int, turned_on: bool, *, virtual: bool = False
+    ) -> None:
+        """Route a physical relay transition while a cover profile is active.
+
+        ``virtual`` marks a card/service press, which always arrives as ON
+        because there is no latching relay to report the flip. The two differ
+        on one branch only: a repeat press on the direction already travelling.
+        """
         if profile.mode == MODE_MIXED:
             profile.sync_covers_from_roles()
         cover = profile.cover_for_button(index)
@@ -1243,6 +1475,12 @@ class PanelCoordinator:
                 # OFF on the inactive direction must not abort travel. After
                 # reverse the previous direction often reports a duplicate OFF.
                 if motion.moving and motion.direction != direction:
+                    # Unless the pair is now fully de-energized: the run this
+                    # clock describes is over, so drop it instead of letting it
+                    # expire into a later run.
+                    if self._cover_motion_is_stale(cover, motion):
+                        self._cover_discard_motion(motion, COVER_REASON_STALE)
+                        self.runtime.async_notify()
                     return
                 if motion.moving and motion.direction == direction:
                     opposite_dir = cover.opposite_direction(direction)
@@ -1262,42 +1500,49 @@ class PanelCoordinator:
                             COVER_REASON_PRESS,
                         )
                         return
-                    # Stale OFF echo shortly after reverse start.
+                    # Stale OFF echo shortly after reverse start: trust it only
+                    # while the relay itself still reads ON, i.e. the event
+                    # contradicts current state. When the hardware agrees the
+                    # relay is off this is a real stop press — never re-energize
+                    # to override it. The pair is a radio group where "both OFF"
+                    # is a legal state, so an observed OFF is allowed to stand.
                     if (
                         motion.suppress_stale_off_until is not None
                         and self._monotonic() < motion.suppress_stale_off_until
+                        and self.runtime.adapter.relay_is_on(cover.button_for(direction))
                     ):
-                        target = cover.button_for(direction)
-                        if not self.runtime.adapter.relay_is_on(target):
-                            try:
-                                await self.runtime.adapter.async_set_relay(
-                                    target, True, suppress_event=True
-                                )
-                            except Exception as err:  # noqa: BLE001
-                                _LOGGER.error(
-                                    "Cover %s failed to re-assert %s after stale OFF: %s",
-                                    cover.id,
-                                    direction,
-                                    err,
-                                )
-                                await self._async_cover_halt(
-                                    cover, reason=COVER_REASON_ERROR
-                                )
                         return
                     await self._async_cover_halt(
                         cover, reason=COVER_REASON_STOP_PRESS
                     )
                     return
-                await self._async_cover_halt(cover, reason=COVER_REASON_SAFETY)
+                # Nothing armed, but the relay just went off: the shutter may
+                # still be travelling from a run we lost track of (a discarded
+                # stale clock). STOP_PRESS — not SAFETY — so the linked HA cover
+                # is told to stop as well.
+                await self._async_cover_halt(cover, reason=COVER_REASON_STOP_PRESS)
                 return
-            if motion.moving:
-                previous = motion.direction
-                if previous == direction:
-                    # Same direction while moving = stop.
+            if motion.moving and motion.direction == direction:
+                if virtual:
+                    # Card/service press: the ON is synthetic, so it proves
+                    # nothing about the relay. Pressing the travelling direction
+                    # again is the user asking to stop, exactly like the card's
+                    # own stop command.
                     await self._async_cover_halt(
                         cover, reason=COVER_REASON_STOP_PRESS
                     )
                     return
+                # An OFF->ON on the *active* direction cannot be a same-direction
+                # stop press: on a latching panel that press emits OFF, not ON.
+                # The relay was therefore already off and our clock was stale —
+                # this is a fresh run started elsewhere, so count it in full.
+                self._cover_discard_motion(motion, COVER_REASON_STALE)
+            elif motion.moving and self._cover_motion_is_stale(cover, motion):
+                # Stale clock on the other direction: nothing is energized, so
+                # start clean rather than paying for a reverse settle.
+                self._cover_discard_motion(motion, COVER_REASON_STALE)
+            if motion.moving:
+                # Only the opposite direction can still be moving here.
                 if cover.opposite_press != COVER_OPPOSITE_STOP_THEN_REVERSE:
                     await self._async_cover_halt(
                         cover, reason=COVER_REASON_STOP_PRESS
@@ -1424,6 +1669,11 @@ class PanelCoordinator:
         motion.last_reason = reason
         motion.relays = cover.relay_indexes()
         motion.suppress_stale_off_until = motion.started_at + COVER_POST_START_OFF_GRACE_S
+        from_entity = reason == COVER_REASON_ENTITY
+        motion.entity_reports = 1 if from_entity else 0
+        motion.entity_report_at = motion.started_at if from_entity else None
+        motion.entity_report_gap = 0.0
+        self._cover_cancel_entity_stall(cover.id)
         motion.timer = self.hass.async_create_task(
             self._async_cover_travel_timer(profile.id, cover.id, new_direction, duration)
         )
@@ -1510,6 +1760,13 @@ class PanelCoordinator:
         motion.suppress_stale_off_until = (
             motion.started_at + COVER_POST_START_OFF_GRACE_S if force_energize else None
         )
+        # Fresh run: the linked entity's stream starts over. An entity-driven
+        # start already is the first report of that stream.
+        from_entity = reason == COVER_REASON_ENTITY
+        motion.entity_reports = 1 if from_entity else 0
+        motion.entity_report_at = motion.started_at if from_entity else None
+        motion.entity_report_gap = 0.0
+        self._cover_cancel_entity_stall(cover.id)
         motion.timer = self.hass.async_create_task(
             self._async_cover_travel_timer(profile.id, cover.id, direction, duration)
         )
@@ -1528,6 +1785,11 @@ class PanelCoordinator:
             raise
         async with self.runtime.cover.lock:
             motion = self.runtime.cover.get(cover_id)
+            if motion.timer is not asyncio.current_task():
+                # A newer run superseded this one (e.g. the relay was switched
+                # back ON from elsewhere and we re-armed a full clock). This
+                # task is orphaned: it must not touch the run now in progress.
+                return
             if not motion.moving or motion.direction != direction:
                 return
             # Clear the handle first so the halt below never cancels this task.
@@ -1536,6 +1798,16 @@ class PanelCoordinator:
             cover = None
             if profile is not None and profile.id == profile_id:
                 cover = profile.cover_by_id(cover_id)
+            if cover is not None and not self.runtime.adapter.relay_is_on(
+                cover.button_for(direction)
+            ):
+                # The relay we energized is already off — this run ended outside
+                # the panel. Drop the clock silently: forcing the pair OFF or
+                # mirroring stop_cover here would cut short whatever the shutter
+                # is doing now.
+                self._cover_discard_motion(motion, COVER_REASON_STALE)
+                self.runtime.async_notify()
+                return
             if cover is None:
                 # Profile changed; still de-energize the remembered pair.
                 await self._async_cover_halt_motion(
@@ -1584,6 +1856,7 @@ class PanelCoordinator:
         was_moving = motion.moving
         active_direction = motion.direction
         timer = motion.timer
+        self._cover_cancel_entity_stall(motion.cover_id)
         indexes: list[int] = []
         for pair in (motion.relays, cover.relay_indexes() if cover is not None else None):
             for index in pair or ():
@@ -1614,7 +1887,11 @@ class PanelCoordinator:
             )
         ):
             await self._async_cover_mirror_ha(cover, "stop")
-        if was_moving or reason in {COVER_REASON_SAFETY, COVER_REASON_ERROR}:
+        if was_moving or reason in {
+            COVER_REASON_SAFETY,
+            COVER_REASON_STOP_PRESS,
+            COVER_REASON_ERROR,
+        }:
             profile = self.data.active_profile()
             if profile is not None and cover is not None:
                 self._fire_cover_event(profile, cover, None, reason)
@@ -1647,6 +1924,39 @@ class PanelCoordinator:
                 )
             for cover in covers:
                 await self._async_cover_halt(cover, reason=reason)
+
+    def _cover_motion_is_stale(self, cover: CoverConfig, motion: CoverMotion) -> bool:
+        """Whether the engine thinks a cover is travelling but no relay is ON.
+
+        The travel clock belongs to the relay that is energized. When a run ends
+        outside the panel (app, automation, physical press we could not observe)
+        the clock keeps counting against a motor that is no longer moving, and
+        its eventual expiry would cut a *later* run short. Treat that as stale.
+        """
+        if not motion.moving:
+            return False
+        if (
+            motion.suppress_stale_off_until is not None
+            and self._monotonic() < motion.suppress_stale_off_until
+        ):
+            # Post-reverse grace: the pair may legitimately read OFF while the
+            # latching hardware settles into the new direction.
+            return False
+        return not any(
+            self.runtime.adapter.relay_is_on(index) for index in cover.relay_indexes()
+        )
+
+    def _cover_discard_motion(self, motion: CoverMotion, reason: str) -> None:
+        """Drop a stale travel clock without touching hardware.
+
+        Unlike a halt this issues no relay writes and no HA mirror — the run it
+        described is already over, so there is nothing to stop.
+        """
+        self._cover_cancel_entity_stall(motion.cover_id)
+        timer = motion.timer
+        motion.reset(reason)
+        if timer is not None and timer is not asyncio.current_task():
+            timer.cancel()
 
     async def _async_cover_ensure_pair_off(
         self, cover: CoverConfig, *, prefer_off_first: int | None = None
@@ -1725,9 +2035,19 @@ class PanelCoordinator:
                 suppress_s = duration_s + COVER_HA_MIRROR_SUPPRESS_MARGIN_S
             else:
                 suppress_s = COVER_HA_MIRROR_SUPPRESS_S
-            self._cover_ha_mirror_suppress_until[entity_id] = (
-                self._monotonic() + suppress_s
-            )
+            # Each command keeps its own deadline and only its own is ever
+            # extended here — never shortened, never overwritten by a different
+            # command. That is what lets a direction's window outlive a later
+            # reversal: reversing close->open only ever touches the "open"
+            # entry, so "close"'s deadline (still most of open_time_s/
+            # close_time_s + margin away) stays valid for whatever lagging
+            # close-direction reports the motor sends while it catches up, and
+            # a stop mid-travel cannot shorten the open/close window it mirrors
+            # over (position-only covers report their final position, read as
+            # the direction they had been travelling, after they halt).
+            deadline = self._monotonic() + suppress_s
+            per_entity = self._cover_ha_mirror_echo.setdefault(entity_id, {})
+            per_entity[command] = max(per_entity.get(command, 0.0), deadline)
         except Exception as err:  # noqa: BLE001
             _LOGGER.warning(
                 "Cover %s HA mirror cover.%s for %s failed: %s",
@@ -2751,7 +3071,7 @@ class PanelCoordinator:
         """Drive hardware then run the same press path as a physical transition."""
         if profile.mode == MODE_COVER and profile.is_cover_button(index):
             # Cover engine owns both direction relays.
-            await self._async_cover_press(profile, index, True)
+            await self._async_cover_press(profile, index, True, virtual=True)
             return
         if profile.mode == MODE_MIXED:
             await self._async_virtual_mixed_press(profile, index)
@@ -2815,7 +3135,7 @@ class PanelCoordinator:
         """Route a card/service press by mixed-mode role, driving hardware."""
         role = profile.button_role(index)
         if role in {BUTTON_ROLE_COVER_OPEN, BUTTON_ROLE_COVER_CLOSE}:
-            await self._async_cover_press(profile, index, True)
+            await self._async_cover_press(profile, index, True, virtual=True)
             return
         if role == BUTTON_ROLE_MOMENTARY:
             await self._async_virtual_momentary_press(profile, index)
