@@ -24,11 +24,13 @@ from .const import (
     BUTTON_ROLE_MOMENTARY,
     BUTTON_ROLE_RADIO,
     CLICK_COUNT_DOUBLE,
+    COVER_COMMAND_CLOSE,
     COVER_COMMAND_OPEN,
     COVER_COMMAND_STOP,
     COVER_COMMANDS,
     COVER_DIRECTION_CLOSE,
     COVER_DIRECTION_OPEN,
+    COVER_ENTITY_STALL_S,
     COVER_HA_MIRROR_SUPPRESS_MARGIN_S,
     COVER_HA_MIRROR_SUPPRESS_S,
     COVER_OPPOSITE_STOP_THEN_REVERSE,
@@ -36,6 +38,7 @@ from .const import (
     COVER_REASON_ABORT,
     COVER_REASON_COMMAND,
     COVER_REASON_ENTITY,
+    COVER_REASON_ENTITY_IDLE,
     COVER_REASON_ERROR,
     COVER_REASON_PRESS,
     COVER_REASON_SAFETY,
@@ -138,6 +141,11 @@ class PanelCoordinator:
         self._cover_entity_bindings: dict[str, list[CoverEntityBinding]] = {}
         # entity_id → monotonic deadline: ignore echoes of our own HA mirrors.
         self._cover_ha_mirror_suppress_until: dict[str, float] = {}
+        # entity_id → the command we last mirrored, so the window can drop our
+        # own echo (same direction) without deafening the panel to real ones.
+        self._cover_ha_mirror_last: dict[str, str] = {}
+        # cover_id → armed "linked entity went quiet" watchdog.
+        self._cover_entity_stall: dict[str, asyncio.Task[None]] = {}
         self._scheduler_unsub: Callable[[], None] | None = None
         self._scheduler_condition_unsub: Callable[[], None] | None = None
         self._scheduler_entity_adder: Callable[[str], None] | None = None
@@ -323,10 +331,16 @@ class PanelCoordinator:
     async def _async_handle_cover_entity_event(
         self, entity_id: str, old_state: Any, new_state: Any
     ) -> None:
-        """Drive cover open/close indication from a linked HA cover.* transition."""
-        suppress_until = self._cover_ha_mirror_suppress_until.get(entity_id, 0.0)
-        if self._monotonic() < suppress_until:
-            return
+        """Drive cover open/close indication from a linked HA cover.* transition.
+
+        The echo window is direction-aware. A command equal to the direction we
+        last mirrored is our own echo — including the trailing position report a
+        position-only shutter sends after it halts, which would otherwise
+        re-energize the relay a stop press just turned off. Anything else (the
+        opposite direction, or a stop) is a real external command and must reach
+        the panel immediately, or driving the cover from the HA app would do
+        nothing until the window expired.
+        """
         command = cover_ha_command_from_transition(old_state, new_state)
         if command is None:
             return
@@ -336,12 +350,83 @@ class PanelCoordinator:
         profile = self.data.active_profile()
         if profile is None or profile.mode not in {MODE_COVER, MODE_MIXED}:
             return
+        suppress_until = self._cover_ha_mirror_suppress_until.get(entity_id, 0.0)
+        echoed = (
+            self._monotonic() < suppress_until
+            and command == self._cover_ha_mirror_last.get(entity_id)
+        )
         for binding in bindings:
             try:
                 cover = self._resolve_cover(profile, binding.cover_id)
             except ValueError:
                 continue
+            # The stream itself is the heartbeat: count it even when the command
+            # is our own echo, so a linked cover that goes quiet is still read as
+            # "stopped" during a panel-driven move.
+            if command in (COVER_COMMAND_OPEN, COVER_COMMAND_CLOSE):
+                await self._async_cover_note_entity_report(profile, cover)
+            if echoed:
+                continue
             await self._async_live_sync_cover_from_ha(profile, cover, command)
+
+    async def _async_cover_note_entity_report(
+        self, profile: Profile, cover: CoverConfig
+    ) -> None:
+        """Count one linked-cover movement report and re-arm the stall watchdog.
+
+        Position-only covers emit nothing at all when they stop, so a stream
+        that goes quiet is the only evidence of a stop issued from the HA app.
+        Two reports in one run are required before the watchdog arms, so a cover
+        that reports a single position per move never gets its travel cut short.
+        """
+        async with self.runtime.cover.lock:
+            motion = self.runtime.cover.get(cover.id)
+            if not motion.moving:
+                return
+            motion.entity_reports += 1
+            if motion.entity_reports >= 2:
+                self._cover_arm_entity_stall(profile.id, cover)
+
+    def _cover_arm_entity_stall(self, profile_id: str, cover: CoverConfig) -> None:
+        """(Re)arm the linked-cover quiet watchdog. Caller holds the cover lock."""
+        self._cover_cancel_entity_stall(cover.id)
+        self._cover_entity_stall[cover.id] = self.hass.async_create_task(
+            self._async_cover_entity_stall_timer(profile_id, cover.id)
+        )
+
+    def _cover_cancel_entity_stall(self, cover_id: str) -> None:
+        """Drop any armed quiet watchdog for one cover."""
+        task = self._cover_entity_stall.pop(cover_id, None)
+        if task is not None and task is not asyncio.current_task():
+            task.cancel()
+
+    async def _async_cover_entity_stall_timer(self, profile_id: str, cover_id: str) -> None:
+        """De-energize a cover whose linked entity stopped reporting movement."""
+        try:
+            await asyncio.sleep(COVER_ENTITY_STALL_S)
+        except asyncio.CancelledError:
+            raise
+        async with self.runtime.cover.lock:
+            if self._cover_entity_stall.get(cover_id) is not asyncio.current_task():
+                # Superseded by a newer report; that run owns the watchdog now.
+                return
+            self._cover_entity_stall.pop(cover_id, None)
+            motion = self.runtime.cover.get(cover_id)
+            if not motion.moving or motion.entity_reports < 2:
+                return
+            profile = self.data.active_profile()
+            cover = (
+                profile.cover_by_id(cover_id)
+                if profile is not None and profile.id == profile_id
+                else None
+            )
+            if cover is None:
+                return
+            # Never mirror this halt back: the shutter stopped on its own (or
+            # from the app), so cover.stop_cover would be a pointless round trip.
+            await self._async_cover_halt(
+                cover, reason=COVER_REASON_ENTITY_IDLE, mirror_ha=False
+            )
 
     async def _async_live_sync_cover_from_ha(
         self,
@@ -461,7 +546,10 @@ class PanelCoordinator:
         self._cancel_scheduler_timer()
         self._clear_scheduler_condition_listeners()
         self._clear_entity_relay_listeners()
+        for cover_id in list(self._cover_entity_stall):
+            self._cover_cancel_entity_stall(cover_id)
         self._cover_ha_mirror_suppress_until.clear()
+        self._cover_ha_mirror_last.clear()
         for remove in self.runtime.listeners:
             remove()
         self.runtime.listeners.clear()
@@ -1452,6 +1540,8 @@ class PanelCoordinator:
         motion.last_reason = reason
         motion.relays = cover.relay_indexes()
         motion.suppress_stale_off_until = motion.started_at + COVER_POST_START_OFF_GRACE_S
+        motion.entity_reports = 1 if reason == COVER_REASON_ENTITY else 0
+        self._cover_cancel_entity_stall(cover.id)
         motion.timer = self.hass.async_create_task(
             self._async_cover_travel_timer(profile.id, cover.id, new_direction, duration)
         )
@@ -1538,6 +1628,10 @@ class PanelCoordinator:
         motion.suppress_stale_off_until = (
             motion.started_at + COVER_POST_START_OFF_GRACE_S if force_energize else None
         )
+        # Fresh run: the linked entity's stream starts over. An entity-driven
+        # start already is the first report of that stream.
+        motion.entity_reports = 1 if reason == COVER_REASON_ENTITY else 0
+        self._cover_cancel_entity_stall(cover.id)
         motion.timer = self.hass.async_create_task(
             self._async_cover_travel_timer(profile.id, cover.id, direction, duration)
         )
@@ -1627,6 +1721,7 @@ class PanelCoordinator:
         was_moving = motion.moving
         active_direction = motion.direction
         timer = motion.timer
+        self._cover_cancel_entity_stall(motion.cover_id)
         indexes: list[int] = []
         for pair in (motion.relays, cover.relay_indexes() if cover is not None else None):
             for index in pair or ():
@@ -1722,6 +1817,7 @@ class PanelCoordinator:
         Unlike a halt this issues no relay writes and no HA mirror — the run it
         described is already over, so there is nothing to stop.
         """
+        self._cover_cancel_entity_stall(motion.cover_id)
         timer = motion.timer
         motion.reset(reason)
         if timer is not None and timer is not asyncio.current_task():
@@ -1812,6 +1908,13 @@ class PanelCoordinator:
             deadline = self._monotonic() + suppress_s
             existing = self._cover_ha_mirror_suppress_until.get(entity_id, 0.0)
             self._cover_ha_mirror_suppress_until[entity_id] = max(existing, deadline)
+            # Remember the *direction* we drove, so the window drops that
+            # direction's echo only and still lets a real external command
+            # through immediately. A stop must not overwrite it: the trailing
+            # position report a position-only shutter sends after halting still
+            # reads as the direction it had been travelling.
+            if command in (COVER_DIRECTION_OPEN, COVER_DIRECTION_CLOSE):
+                self._cover_ha_mirror_last[entity_id] = command
         except Exception as err:  # noqa: BLE001
             _LOGGER.warning(
                 "Cover %s HA mirror cover.%s for %s failed: %s",

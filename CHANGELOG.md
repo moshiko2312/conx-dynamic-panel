@@ -4,6 +4,14 @@ All notable changes to this private project will be documented here.
 
 ## [Unreleased]
 
+## [0.3.8] - 2026-08-15
+
+### Fixed
+
+- **Driving a linked cover from the Home Assistant app left the panel and the card behind:** the echo-suppression window was all-or-nothing — every event from a linked cover entity was discarded for the whole window, which since 0.3.6 lasts the full travel time plus a margin. An open or close issued from the HA app during that window moved nothing on the panel and pushed no runtime update, so the card only caught up on a manual reload. The window is now direction-aware: it drops a command matching the direction the panel itself last mirrored (that is the echo, including the trailing position report a position-only shutter emits after it halts, which 0.3.6 had to stop from re-energizing the relay) and lets everything else — the opposite direction, or a stop — through immediately.
+
+- **Stopping a position-only shutter from the app never cleared the active button:** Nodon and Tuya wall shutters never emit `opening`/`closing`; `state` stays `open` for the whole move while only `current_position` changes, and when they stop they emit *no event at all* — the position stream simply ends. The engine had no signal to react to, so it held the direction relay energized for the remainder of its own travel clock. A linked cover that has sent at least two position updates in one run is now watched for silence: `COVER_ENTITY_STALL_S` (4s) with no further update means the shutter is standing still, and the panel de-energizes both relays without mirroring a pointless `stop_cover` back. Echoed reports still count toward the stream, so this also ends a panel-started move that was stopped from the app. The two-update requirement means a cover that reports a single position per move never gets its travel cut short.
+
 ## [0.3.7] - 2026-08-15
 
 ### Fixed

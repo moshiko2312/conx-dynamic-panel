@@ -559,6 +559,9 @@ async def test_live_cover_ignores_own_ha_mirror_echo() -> None:
     coordinator._cover_ha_mirror_suppress_until["cover.living_shutter"] = (
         coordinator._monotonic() + 5.0
     )
+    # The window drops the echo of the direction we mirrored, so record it the
+    # way _async_cover_mirror_ha would.
+    coordinator._cover_ha_mirror_last["cover.living_shutter"] = "open"
 
     event = SimpleNamespace(
         data={
@@ -1066,13 +1069,13 @@ async def test_live_radio_group_follows_app_selection() -> None:
 
 
 @pytest.mark.asyncio
-async def test_app_cover_command_during_panel_move_is_deferred() -> None:
-    """Documented trade-off of the echo window.
+async def test_app_cover_command_during_panel_move_is_direction_aware() -> None:
+    """The echo window drops our own direction, not every external command.
 
-    While the panel is running its own move (and for the rest of that move
-    after a stop press), events from the linked cover entity are treated as the
-    panel's own echo, so an app-issued command in that window does not move the
-    panel relays. Outside the window the app drives the panel normally.
+    A report matching the direction the panel mirrored is the panel's own echo
+    (including a position-only shutter's trailing report). Anything else is a
+    real command from the app and must reach the relays immediately, or driving
+    the cover from HA would do nothing at all until the window expired.
     """
     adapter, coordinator = _cover_c1_setup()
 
@@ -1082,29 +1085,137 @@ async def test_app_cover_command_during_panel_move_is_deferred() -> None:
     assert motion.direction == "open"
 
     adapter.relay_calls.clear()
-    app_close = SimpleNamespace(
+    echo_open = SimpleNamespace(
         data={
             "entity_id": "cover.living_shutter",
-            "old_state": _state("open", current_position=80),
-            "new_state": _state("closing", current_position=78),
+            "old_state": _state("open", current_position=60),
+            "new_state": _state("open", current_position=80),
         }
     )
     with patch.object(
         coordinator, "_monotonic", return_value=coordinator._monotonic() + 5.0
     ):
-        await coordinator._async_handle_linked_entity_event(app_close)  # type: ignore[arg-type]
+        await coordinator._async_handle_linked_entity_event(echo_open)  # type: ignore[arg-type]
     assert adapter.relay_calls == []
     assert motion.direction == "open"
 
-    # Past the window (travel time + margin) the same command is acted on.
+    # The opposite direction inside the same window is a real app command.
+    app_close = SimpleNamespace(
+        data={
+            "entity_id": "cover.living_shutter",
+            "old_state": _state("open", current_position=80),
+            "new_state": _state("open", current_position=60),
+        }
+    )
     with patch.object(
-        coordinator, "_monotonic", return_value=coordinator._monotonic() + 40.0
+        coordinator, "_monotonic", return_value=coordinator._monotonic() + 6.0
     ):
         await coordinator._async_handle_linked_entity_event(app_close)  # type: ignore[arg-type]
     assert adapter.relay_is_on(2) is True
     assert adapter.relay_is_on(1) is False
+    assert motion.direction == "close"
 
+    _cancel_cover_timers(coordinator, motion)
+
+
+def _cancel_cover_timers(coordinator: PanelCoordinator, motion: Any) -> None:
+    """Drop travel + stall timers so a test never leaves a task pending."""
+    for cover_id in list(coordinator._cover_entity_stall):
+        coordinator._cover_cancel_entity_stall(cover_id)
     if motion.timer is not None:
         motion.timer.cancel()
-        with contextlib.suppress(asyncio.CancelledError, Exception):
-            await motion.timer
+        motion.timer = None
+
+
+def _pos_event(old: float, new: float, entity_id: str = "cover.living_shutter") -> Any:
+    """Position-only cover report: state stays "open", only position moves."""
+    return SimpleNamespace(
+        data={
+            "entity_id": entity_id,
+            "old_state": _state("open", current_position=old),
+            "new_state": _state("open", current_position=new),
+        }
+    )
+
+
+@pytest.mark.asyncio
+async def test_linked_cover_going_quiet_turns_the_active_button_off() -> None:
+    """Stopping a position-only shutter from the HA app must clear the LED.
+
+    Nodon / Tuya wall shutters never emit opening/closing and send no event at
+    all when they stop -- the position stream simply ends. Without this the
+    panel kept the direction relay energized for the rest of its own travel
+    clock, so "stop from the app" left the active button lit.
+    """
+    adapter, coordinator = _cover_c1_setup()
+    with patch(
+        "custom_components.conx_dynamic_panel.coordinator.COVER_ENTITY_STALL_S", 0.05
+    ):
+        await coordinator._async_handle_linked_entity_event(_pos_event(10, 30))  # type: ignore[arg-type]
+        motion = coordinator.runtime.cover.get("cover_1")
+        assert motion.direction == "open"
+        assert adapter.relay_is_on(1) is True
+
+        # A second report proves this entity streams while it moves.
+        await coordinator._async_handle_linked_entity_event(_pos_event(30, 50))  # type: ignore[arg-type]
+        assert motion.entity_reports >= 2
+
+        # The user presses stop in the app: reports just stop arriving.
+        await asyncio.sleep(0.15)
+
+    assert motion.moving is False
+    assert motion.last_reason == "entity_idle"
+    assert adapter.relay_is_on(1) is False
+    assert adapter.relay_is_on(2) is False
+    # Never bounce a stop back at the entity that already stopped itself.
+    coordinator.runtime.hass.services.async_call.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_single_position_report_never_arms_the_stall_watchdog() -> None:
+    """A cover that reports one position per move must not be cut short."""
+    adapter, coordinator = _cover_c1_setup()
+    with patch(
+        "custom_components.conx_dynamic_panel.coordinator.COVER_ENTITY_STALL_S", 0.05
+    ):
+        await coordinator._async_handle_linked_entity_event(_pos_event(10, 30))  # type: ignore[arg-type]
+        motion = coordinator.runtime.cover.get("cover_1")
+        assert motion.direction == "open"
+        await asyncio.sleep(0.15)
+
+    assert motion.moving is True
+    assert adapter.relay_is_on(1) is True
+    _cancel_cover_timers(coordinator, motion)
+
+
+@pytest.mark.asyncio
+async def test_quiet_stream_also_ends_a_panel_started_move() -> None:
+    """Echoed reports still count as the heartbeat during a panel-driven run.
+
+    The panel starts the move, so the entity's reports are dropped as our own
+    echo -- but they are still proof the shutter is moving. When they stop
+    (an app stop mid-travel), the relays must drop instead of holding for the
+    rest of the configured travel time.
+    """
+    adapter, coordinator = _cover_c1_setup()
+    with patch(
+        "custom_components.conx_dynamic_panel.coordinator.COVER_ENTITY_STALL_S", 0.05
+    ):
+        adapter._relay_on[1] = True
+        await coordinator._async_handle_physical_press(1, True)  # OPEN_BUTTON
+        motion = coordinator.runtime.cover.get("cover_1")
+        assert motion.direction == "open"
+        coordinator.runtime.hass.services.async_call.reset_mock()
+
+        adapter.relay_calls.clear()
+        await coordinator._async_handle_linked_entity_event(_pos_event(10, 30))  # type: ignore[arg-type]
+        await coordinator._async_handle_linked_entity_event(_pos_event(30, 50))  # type: ignore[arg-type]
+        # Echoes: counted, but never acted on as commands.
+        assert adapter.relay_calls == []
+        assert motion.entity_reports >= 2
+
+        await asyncio.sleep(0.15)
+
+    assert motion.moving is False
+    assert adapter.relay_is_on(1) is False
+    coordinator.runtime.hass.services.async_call.assert_not_called()

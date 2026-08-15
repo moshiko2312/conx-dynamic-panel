@@ -63,6 +63,10 @@ class CoverMotion:
     # After stop_then_reverse force_energize, ignore active-direction OFF echoes
     # until this monotonic deadline (deferred halt events / suppression races).
     suppress_stale_off_until: float | None = None
+    # Position updates seen from the linked HA cover during this run. Two or
+    # more prove the entity streams while moving, which is what lets a stalled
+    # stream be read as "the shutter stopped".
+    entity_reports: int = 0
 
     @property
     def moving(self) -> bool:
@@ -77,6 +81,7 @@ class CoverMotion:
         self.duration = None
         self.relays = None
         self.suppress_stale_off_until = None
+        self.entity_reports = 0
         if reason is not None:
             self.last_reason = reason
 

@@ -169,6 +169,16 @@ COVER_REASON_ERROR: Final = "error"
 # The engine believed a cover was travelling but the relays say otherwise (the
 # run ended, or restarted, outside the panel). The clock is dropped, not halted.
 COVER_REASON_STALE: Final = "stale"
+# A linked cover that had been streaming position updates went quiet: the
+# shutter is standing still, so the panel de-energizes without mirroring back.
+COVER_REASON_ENTITY_IDLE: Final = "entity_idle"
+# How long a linked cover's ``current_position`` stream may go quiet before the
+# shutter counts as stopped. Position-only covers (Nodon, Tuya wall shutters)
+# never emit opening/closing and send no event at all when they stop, so a
+# stalled stream is the only evidence a stop from the HA app ever happened.
+# Only armed after two updates in one run, so a cover that reports a single
+# position per move never gets its travel cut short.
+COVER_ENTITY_STALL_S: Final = 4.0
 # Ignore HA cover state echoes right after we mirrored open/close/stop to it.
 COVER_HA_MIRROR_SUPPRESS_S: Final = 2.0
 # Buffer added beyond a mirrored open/close command's configured travel time,
