@@ -12,14 +12,18 @@ import pytest
 from custom_components.conx_dynamic_panel.coordinator import PanelCoordinator
 from custom_components.conx_dynamic_panel.models import (
     EntityMapping,
+    HardwareState,
     PanelStorageData,
     Profile,
     ScheduleRange,
     SchedulerTask,
     SyncResult,
-    HardwareState,
 )
-from custom_components.conx_dynamic_panel.runtime import CoverRuntime, MomentaryRuntime, MultiClickRuntime
+from custom_components.conx_dynamic_panel.runtime import (
+    CoverRuntime,
+    MomentaryRuntime,
+    MultiClickRuntime,
+)
 from custom_components.conx_dynamic_panel.scheduler import (
     find_schedule_conflicts,
     parse_hhmm,

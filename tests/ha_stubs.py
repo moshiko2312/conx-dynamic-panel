@@ -218,7 +218,7 @@ def install() -> None:
     event_helpers.async_track_state_change_event = lambda *args, **kwargs: lambda: None
     event_helpers.async_track_point_in_time = lambda *args, **kwargs: lambda: None
 
-    util = module("homeassistant.util")
+    module("homeassistant.util")  # parent package, so homeassistant.util.dt resolves
     dt_util = module("homeassistant.util.dt")
 
     def _utcnow():

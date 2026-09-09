@@ -4,6 +4,10 @@ All notable changes to this private project will be documented here.
 
 ## [Unreleased]
 
+### Internal
+
+- **CI had never passed on this repository.** The backend job stopped at `ruff` on every run since 0.3.1, which meant `mypy` and `pytest` never even executed there. All 21 lint findings and the one type error are now fixed: import blocks sorted in nine test modules, two nested `if` statements merged, two identical `if`/`elif` branches collapsed into one `or`, an unused binding dropped in `tests/ha_stubs.py` (the call still registers the parent package), two over-long lines wrapped, and — the only non-cosmetic one — `async_set_scheduler_task_enabled` rebound `task` from a master `SchedulerTask` to an optional local lookup, so the local branch was untypeable; the local branch now uses its own name. No behaviour changes: 311 backend tests and 123 frontend tests still pass.
+
 ## [0.3.14] - 2026-09-09
 
 ### Fixed
