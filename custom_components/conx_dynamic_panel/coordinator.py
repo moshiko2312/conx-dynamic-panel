@@ -963,13 +963,13 @@ class PanelCoordinator:
             self.runtime.async_notify()
             return
 
-        task = self.data.scheduler_tasks.get(task_id)
-        if task is None:
+        local_task = self.data.scheduler_tasks.get(task_id)
+        if local_task is None:
             raise ValueError(f"Unknown scheduler task: {task_id}")
-        if bool(enabled) == task.enabled:
+        if bool(enabled) == local_task.enabled:
             return
         proposed = dict(self.data.scheduler_tasks)
-        updated = SchedulerTask.from_dict({**task.to_dict(), "enabled": bool(enabled)})
+        updated = SchedulerTask.from_dict({**local_task.to_dict(), "enabled": bool(enabled)})
         proposed[task_id] = updated
         if enabled:
             validate_tasks_no_conflicts(
@@ -1674,10 +1674,9 @@ class PanelCoordinator:
         motion.suppress_stale_off_until = None
         motion.last_reason = reason
 
-        if old is not None and old != target:
-            if not await self._async_cover_relay_off(old):
-                await self._async_cover_halt(cover, reason=COVER_REASON_ERROR)
-                return
+        if old is not None and old != target and not await self._async_cover_relay_off(old):
+            await self._async_cover_halt(cover, reason=COVER_REASON_ERROR)
+            return
 
         settle = float(cover.direction_settle_s or 0.0)
         if settle > 0:
@@ -2618,9 +2617,7 @@ class PanelCoordinator:
         del self.data.profiles[profile_id]
         if self.data.active_profile_id == profile_id:
             self.data.active_profile_id = next(iter(self.data.profiles))
-        if self.data.default_profile_id == profile_id:
-            self.data.default_profile_id = self.data.active_profile_id
-        elif (
+        if self.data.default_profile_id == profile_id or (
             self.data.default_profile_id
             and self.data.default_profile_id not in self.data.profiles
         ):

@@ -31,7 +31,11 @@ from custom_components.conx_dynamic_panel.models import (
     SyncResult,
     clamp_pulse_time,
 )
-from custom_components.conx_dynamic_panel.runtime import CoverRuntime, MomentaryRuntime, MultiClickRuntime
+from custom_components.conx_dynamic_panel.runtime import (
+    CoverRuntime,
+    MomentaryRuntime,
+    MultiClickRuntime,
+)
 from custom_components.conx_dynamic_panel.suppression import SuppressionTracker
 
 

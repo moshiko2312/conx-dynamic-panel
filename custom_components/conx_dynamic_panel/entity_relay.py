@@ -239,9 +239,12 @@ def cover_ha_command_from_transition(
         if abs(delta) >= COVER_POSITION_DELTA_MIN:
             return COVER_COMMAND_OPEN if delta > 0 else COVER_COMMAND_CLOSE  # type: ignore[return-value]
 
-    if new_value in {"open", "closed"}:
-        if old_value in {"open", "closed"} and old_value != new_value:
-            return COVER_COMMAND_OPEN if new_value == "open" else COVER_COMMAND_CLOSE  # type: ignore[return-value]
+    if (
+        new_value in {"open", "closed"}
+        and old_value in {"open", "closed"}
+        and old_value != new_value
+    ):
+        return COVER_COMMAND_OPEN if new_value == "open" else COVER_COMMAND_CLOSE  # type: ignore[return-value]
 
     if old_value == new_value:
         # Identical state string and no real (>= threshold) position change:

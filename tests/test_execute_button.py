@@ -24,7 +24,11 @@ from custom_components.conx_dynamic_panel.models import (
     PanelStorageData,
     SyncResult,
 )
-from custom_components.conx_dynamic_panel.runtime import CoverRuntime, MomentaryRuntime, MultiClickRuntime
+from custom_components.conx_dynamic_panel.runtime import (
+    CoverRuntime,
+    MomentaryRuntime,
+    MultiClickRuntime,
+)
 from custom_components.conx_dynamic_panel.suppression import SuppressionTracker
 
 
