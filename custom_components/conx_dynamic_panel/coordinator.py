@@ -30,6 +30,8 @@ from .const import (
     COVER_COMMANDS,
     COVER_DIRECTION_CLOSE,
     COVER_DIRECTION_OPEN,
+    COVER_ENTITY_MIN_DWELL_S,
+    COVER_ENTITY_REVERSE_LAG_S,
     COVER_ENTITY_STALL_FACTOR,
     COVER_ENTITY_STALL_MARGIN_S,
     COVER_ENTITY_STALL_MAX_S,
@@ -558,6 +560,19 @@ class PanelCoordinator:
             if motion.direction == direction:
                 return
             if motion.moving:
+                started_at = motion.started_at
+                if (
+                    started_at is not None
+                    and self._monotonic() - started_at < COVER_ENTITY_MIN_DWELL_S
+                ):
+                    # Entity-driven reversals only. A position stream that
+                    # backsteps by COVER_POSITION_DELTA_MIN or more would
+                    # otherwise flap both direction relays on a single
+                    # app-issued command. A card, service or physical press
+                    # never reaches here, so a deliberate press still wins
+                    # immediately.
+                    return
+                self._cover_arm_entity_reverse_lag(cover, motion.direction)
                 if cover.opposite_press == COVER_OPPOSITE_STOP_THEN_REVERSE:
                     await self._async_cover_reverse_to(
                         cover,
@@ -585,6 +600,31 @@ class PanelCoordinator:
                 COVER_REASON_ENTITY,
                 mirror_ha=False,
             )
+
+    def _cover_arm_entity_reverse_lag(
+        self, cover: CoverConfig, previous: str | None
+    ) -> None:
+        """Ignore reports of the direction an entity-driven move just left.
+
+        A panel-initiated move gets this for free: ``_async_cover_mirror_ha``
+        records an echo window for the direction it mirrors, which is what lets
+        a card reversal survive the lagging old-direction report every real
+        motor emits while it decelerates. A move that starts in Home Assistant
+        is applied with ``mirror_ha=False`` (the entity already moved, there is
+        nothing to send back), so it recorded no window at all and that same
+        lag was read as a fresh external command -- flipping the panel straight
+        back and, report after report, ping-ponging both direction relays.
+
+        Only the direction being left is armed, so a genuine external command
+        for the *new* direction is never swallowed, and the deadline is only
+        ever extended, matching ``_async_cover_mirror_ha``.
+        """
+        entity_id = (cover.ha_entity_id or "").strip()
+        if not entity_id or previous is None:
+            return
+        per_entity = self._cover_ha_mirror_echo.setdefault(entity_id, {})
+        deadline = self._monotonic() + COVER_ENTITY_REVERSE_LAG_S
+        per_entity[previous] = max(per_entity.get(previous, 0.0), deadline)
 
     async def _async_live_set_relay(self, index: int, state: bool) -> None:
         """Write a relay only when it differs (transition suppression on write)."""

@@ -254,6 +254,7 @@ def install() -> None:
             return None
 
     class EntityCategory:  # noqa: D101
+        CONFIG = "config"
         DIAGNOSTIC = "diagnostic"
 
     entity.Entity = Entity

@@ -4,6 +4,16 @@ All notable changes to this private project will be documented here.
 
 ## [Unreleased]
 
+## [0.3.14] - 2026-09-08
+
+### Fixed
+
+- **Driving a linked shutter from the Home Assistant app could put the panel into an endless up/down flap:** a move the panel starts mirrors itself to the linked cover through `_async_cover_mirror_ha`, which records an echo window for the direction it just sent — that window is what lets a card reversal survive the lagging old-direction report every real motor emits while it decelerates out of the previous direction. A move that starts in HA instead (app, dashboard, automation) is applied with `mirror_ha=False`, because the entity has already moved and there is nothing to send back, so it recorded no window at all. Every subsequent report of that move was therefore read as a brand-new external command, with `if motion.direction == direction: return` as the only guard. The lagging report right after an app-issued reversal flipped the panel straight back, its own reports flipped it again, and both direction relays ping-ponged — user-reported: "לפעמים הוא נכנס ללופ אין סופי בין כפתור הורדה ועליה וזה משגע את המערכת" (sometimes it enters an infinite loop between the down and up button and it drives the system crazy). A reproduction fed six position reports from one app-issued close and got five direction changes and twelve relay writes. Two guards now give the entity-driven path what the panel-driven path already had: accepting an entity-driven direction change arms `COVER_ENTITY_REVERSE_LAG_S` (3s) of suppression on **only** the direction being left — never the new one, so a genuine external command still lands immediately — and no entity report may reverse a direction that has held for less than `COVER_ENTITY_MIN_DWELL_S` (1.5s), which bounds relay chatter from a position stream that backsteps by `COVER_POSITION_DELTA_MIN` or more. Card, service and physical presses never pass through this path, so a deliberate press still wins instantly.
+
+### Internal
+
+- `tests/ha_stubs.py` was missing `EntityCategory.CONFIG`, which `switch.py` uses for the scheduler task switches. Collection of `tests/test_scheduler_switch_entities.py` raised `AttributeError` and aborted the whole pytest run, so the backend suite (and CI, which installs no real Home Assistant either) could not complete.
+
 ## [0.3.13] - 2026-08-15
 
 ### Added
