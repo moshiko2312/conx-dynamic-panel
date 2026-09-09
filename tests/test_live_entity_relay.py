@@ -15,6 +15,8 @@ from custom_components.conx_dynamic_panel.const import (
     BUTTON_ROLE_COVER_OPEN,
     BUTTON_ROLE_MOMENTARY,
     BUTTON_ROLE_TOGGLE,
+    COVER_ENTITY_MIN_DWELL_S,
+    COVER_ENTITY_REVERSE_LAG_S,
     COVER_OPPOSITE_STOP_THEN_REVERSE,
     MODE_COVER,
     MODE_MIXED,
@@ -1547,5 +1549,122 @@ async def test_card_reversal_survives_slow_second_post_reversal_report() -> None
     assert motion.direction == "open"
     assert adapter.relay_is_on(1) is True
     assert adapter.relay_is_on(2) is False
+
+    _cancel_cover_timers(coordinator, motion)
+
+
+@pytest.mark.asyncio
+async def test_app_driven_reverse_survives_lagging_old_direction_report() -> None:
+    """A move started from HA must get the same motor-lag protection as the card.
+
+    Reported bug: driving the shutter from the Home Assistant app sometimes put
+    the panel into an endless up/down flap. The card path is protected because
+    ``_async_cover_mirror_ha`` records an echo window for the direction it just
+    mirrored; ``_async_live_sync_cover_from_ha`` always passes ``mirror_ha=False``
+    (the entity already moved, there is nothing to mirror back), so an
+    app-driven move recorded no window at all and every later report of that
+    move was read as a brand-new external command -- including the lagging
+    old-direction report every real motor emits just after a reversal.
+    """
+    adapter, coordinator = _cover_c1_setup()
+    profile = coordinator.data.active_profile()
+    assert profile is not None
+    cover = profile.covers[0]
+    cover.opposite_press = COVER_OPPOSITE_STOP_THEN_REVERSE
+    cover.direction_settle_s = 0
+
+    base = coordinator._monotonic()
+
+    # App closes the shutter: position falling.
+    await coordinator._async_handle_linked_entity_event(_pos_event(80, 70))  # type: ignore[arg-type]
+    motion = coordinator.runtime.cover.get("cover_1")
+    assert motion.direction == "close"
+
+    # App reverses to open, well past the dwell guard.
+    with patch.object(coordinator, "_monotonic", return_value=base + 5.0):
+        await coordinator._async_handle_linked_entity_event(_pos_event(70, 80))  # type: ignore[arg-type]
+    assert motion.direction == "open"
+    assert adapter.relay_is_on(1) is True
+    assert adapter.relay_is_on(2) is False
+
+    # Motor lag: still reporting the direction it is leaving. Past the dwell
+    # guard, so only the old direction's lag window can reject this.
+    adapter.relay_calls.clear()
+    with patch.object(
+        coordinator, "_monotonic", return_value=base + 5.0 + COVER_ENTITY_REVERSE_LAG_S - 0.5
+    ):
+        await coordinator._async_handle_linked_entity_event(_pos_event(80, 74))  # type: ignore[arg-type]
+
+    assert motion.direction == "open"
+    assert adapter.relay_calls == []
+    assert adapter.relay_is_on(1) is True
+    assert adapter.relay_is_on(2) is False
+
+    _cancel_cover_timers(coordinator, motion)
+
+
+@pytest.mark.asyncio
+async def test_app_driven_move_ignores_opposite_report_inside_dwell() -> None:
+    """Position noise right after an app-driven start must not reverse the panel.
+
+    Nothing previously bounded how often an entity-driven move could change
+    direction, so a position stream that backsteps by at least
+    ``COVER_POSITION_DELTA_MIN`` flapped both direction relays on a single
+    app-issued command.
+    """
+    adapter, coordinator = _cover_c1_setup()
+    profile = coordinator.data.active_profile()
+    assert profile is not None
+    cover = profile.covers[0]
+    cover.opposite_press = COVER_OPPOSITE_STOP_THEN_REVERSE
+    cover.direction_settle_s = 0
+
+    base = coordinator._monotonic()
+
+    await coordinator._async_handle_linked_entity_event(_pos_event(80, 70))  # type: ignore[arg-type]
+    motion = coordinator.runtime.cover.get("cover_1")
+    assert motion.direction == "close"
+
+    adapter.relay_calls.clear()
+    with patch.object(
+        coordinator, "_monotonic", return_value=base + COVER_ENTITY_MIN_DWELL_S - 0.2
+    ):
+        await coordinator._async_handle_linked_entity_event(_pos_event(70, 75))  # type: ignore[arg-type]
+
+    assert motion.direction == "close"
+    assert adapter.relay_calls == []
+
+    _cancel_cover_timers(coordinator, motion)
+
+
+@pytest.mark.asyncio
+async def test_app_driven_reverse_accepted_once_dwell_and_lag_window_expire() -> None:
+    """Neither guard may swallow a genuine external reversal issued later."""
+    adapter, coordinator = _cover_c1_setup()
+    profile = coordinator.data.active_profile()
+    assert profile is not None
+    cover = profile.covers[0]
+    cover.opposite_press = COVER_OPPOSITE_STOP_THEN_REVERSE
+    cover.direction_settle_s = 0
+
+    base = coordinator._monotonic()
+
+    await coordinator._async_handle_linked_entity_event(_pos_event(80, 70))  # type: ignore[arg-type]
+    motion = coordinator.runtime.cover.get("cover_1")
+    assert motion.direction == "close"
+
+    with patch.object(coordinator, "_monotonic", return_value=base + 5.0):
+        await coordinator._async_handle_linked_entity_event(_pos_event(70, 80))  # type: ignore[arg-type]
+    assert motion.direction == "open"
+
+    # Real second reversal from the app, after both guards have expired.
+    with patch.object(
+        coordinator, "_monotonic", return_value=base + 5.0 + COVER_ENTITY_REVERSE_LAG_S + 1.0
+    ):
+        await coordinator._async_handle_linked_entity_event(_pos_event(80, 70))  # type: ignore[arg-type]
+
+    assert motion.direction == "close"
+    assert adapter.relay_is_on(2) is True
+    assert adapter.relay_is_on(1) is False
 
     _cancel_cover_timers(coordinator, motion)

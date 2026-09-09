@@ -204,6 +204,23 @@ COVER_HA_MIRROR_SUPPRESS_S: Final = 2.0
 # and settle lag included) instead of expiring long before travel completes.
 COVER_HA_MIRROR_SUPPRESS_MARGIN_S: Final = 3.0
 
+# A move that starts in Home Assistant (app, dashboard, automation) is mirrored
+# to the panel with mirror_ha=False -- the entity already moved, so there is
+# nothing to send back and no echo window is recorded by _async_cover_mirror_ha.
+# These two guards give that path the protection the panel-initiated path gets
+# from its echo window.
+#
+# After accepting an entity-driven direction change, ignore further reports of
+# the direction just left for this long: a real motor keeps reporting the old
+# direction for a moment after being commanded to reverse, and without this
+# that lag reads as a fresh external command and flips the panel straight back.
+COVER_ENTITY_REVERSE_LAG_S: Final = 3.0
+# Minimum time an entity-driven direction must hold before another entity report
+# may reverse it. Bounds relay chatter from a position stream that backsteps by
+# COVER_POSITION_DELTA_MIN or more. Card, service and physical presses are never
+# subject to this -- a deliberate user press always wins immediately.
+COVER_ENTITY_MIN_DWELL_S: Final = 1.5
+
 # On startup, how long the coordinator waits for a profile's linked entities
 # (button actions, linked HA covers) to report a real state before running the
 # one-shot restore-to-hardware sync. Right after an HA restart a linked
