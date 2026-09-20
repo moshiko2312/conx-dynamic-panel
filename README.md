@@ -79,6 +79,12 @@ full explanation of each control, see the [Setup Guide](docs/SETUP_GUIDE.md).
 
 ## Start here
 
+For installers and end users: the [User Guide](docs/user-guide/index.html) is a
+single self-contained HTML page in Hebrew, English and Russian — download it and
+open it in a browser (GitHub only shows its source). The
+[Setup Guide](docs/SETUP_GUIDE.md) is the screenshot-by-screenshot installer
+walkthrough.
+
 For AI coding agents:
 
 1. Read `PROJECT_BUILD_BRIEF.md`.
@@ -378,6 +384,8 @@ No HACS support is required.
 > screenshot-by-screenshot walkthrough of installing the integration and
 > configuring a panel from the card (profiles, appearance, buttons,
 > scheduler).
+> For end users, hand over the [User Guide](docs/user-guide/index.html) — one
+> HTML file (HE / EN / RU) that opens in any browser with no other assets.
 
 ```bash
 ./scripts/build_frontend.sh
