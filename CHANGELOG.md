@@ -1,15 +1,23 @@
 # Changelog
 
-All notable changes to this private project will be documented here.
+All notable changes to this project will be documented here.
 
-## [Unreleased]
+## [0.3.15] - 2026-11-06
+
+### Changed
+
+- **The project is now free, open-source software for the community, distributed through HACS.** The proprietary `LICENSE-PRIVATE.md` is replaced by the Apache License 2.0 (`LICENSE`), with a `NOTICE` file that redistributions and derived works must keep, so the original project stays credited. A root `hacs.json` (minimum Home Assistant 2026.3.0, the first release that serves the bundled `brand/` icons) makes the repository installable from HACS, and the repository now has a description and topics, as the HACS default store requires.
+- Switching an existing manual install to HACS is safe: HACS replaces only `custom_components/conx_dynamic_panel/`, and profiles, schedules and applied snapshots in `.storage` are kept. No runtime code changed.
 
 ### Documentation
+
+- README, Setup Guide and user guide (HE / EN / RU) gain a HACS install path, with the script install kept as the manual alternative. `docs/PRIVATE_DEPLOYMENT.md` is now `docs/DEPLOYMENT.md`. Every "private commercial software" statement is gone from the docs, `AGENTS.md`, `CLAUDE.md`, the Cursor rules, the build spec and the build brief, and those rules now require HACS validation to stay green instead of forbidding it.
 
 - `README.md` now links to the user guide (`docs/user-guide/index.html`) from the *Start here* section and the installer callout, next to the existing Setup Guide link.
 
 ### Internal
 
+- New `.github/workflows/validate.yml` runs the HACS action (`category: integration`) and hassfest on pushes to `main`, on pull requests, weekly, and on demand.
 - **CI had never passed on this repository.** The backend job stopped at `ruff` on every run since 0.3.1, which meant `mypy` and `pytest` never even executed there. All 21 lint findings and the one type error are now fixed: import blocks sorted in nine test modules, two nested `if` statements merged, two identical `if`/`elif` branches collapsed into one `or`, an unused binding dropped in `tests/ha_stubs.py` (the call still registers the parent package), two over-long lines wrapped, and — the only non-cosmetic one — `async_set_scheduler_task_enabled` rebound `task` from a master `SchedulerTask` to an optional local lookup, so the local branch was untypeable; the local branch now uses its own name. No behaviour changes: 311 backend tests and 123 frontend tests still pass.
 
 ## [0.3.14] - 2026-09-09

@@ -1,12 +1,12 @@
 ---
-description: ConX Dynamic Panel private project rules
+description: ConX Dynamic Panel project rules
 alwaysApply: true
 ---
 
 # ConX Dynamic Panel Rules
 
-- This repository is private commercial software for ConX.
-- Never add HACS support, public marketplace metadata, or an open-source license.
+- This repository is a free, open-source (Apache-2.0) community project distributed through HACS.
+- Keep `hacs.json`, `LICENSE`, and `NOTICE`; HACS and hassfest validation must stay green.
 - Read `MOSHIKO_BUILD_SPEC.md` before implementing features.
 - Keep the Home Assistant backend fully asynchronous.
 - Use public Home Assistant APIs only.
