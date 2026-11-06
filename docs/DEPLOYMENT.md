@@ -1,4 +1,7 @@
-# Private Deployment
+# Deployment
+
+Most users should install through HACS (see the README). This page covers
+development and manual installs.
 
 ## Development installation
 
@@ -181,6 +184,6 @@ panel's own `entry_id` and profile ids. The same example is committed to
 - **Generic integration icon:** expected on Home Assistant older than 2026.3. On 2026.3+ confirm `brand/icon.png` was copied with the integration, restart, and hard-refresh the browser.
 - **Automation changes the profile but not the panel:** the call is missing `sync: true`; activation alone only updates the draft.
 
-## Customer installations
+## HACS installations
 
-This project is private ConX software. Customer systems receive only builds and files authorized by ConX. Repository access, source sharing, and redistribution are not part of the installation process.
+HACS installs the integration from the latest GitHub release. Switching an existing manual install to HACS is safe: HACS replaces only `custom_components/conx_dynamic_panel/`, and profiles and applied snapshots in `.storage` are kept. Do not run `update_local.sh` and HACS against the same install, or the two will overwrite each other's files.

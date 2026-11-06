@@ -2,9 +2,9 @@
 
 ## Mission
 
-Build the first production-ready private version of `conx-dynamic-panel` as a Home Assistant custom integration with a bundled Lovelace custom card.
+Build the first production-ready version of `conx-dynamic-panel` as a Home Assistant custom integration with a bundled Lovelace custom card.
 
-This is private commercial software for ConX. Do not prepare it for HACS, public distribution, package marketplaces, or third-party resale.
+This is a free, open-source (Apache-2.0) community project, distributed through the HACS default store.
 
 Work autonomously. Do not ask routine implementation questions. Make safe, conventional engineering decisions using current public Home Assistant APIs. Use placeholders only for values that genuinely belong to the owner or deployment environment.
 
@@ -22,7 +22,7 @@ Work autonomously. Do not ask routine implementation questions. Make safe, conve
 10. Profile activation and profile synchronization are separate operations, with an option to perform both.
 11. The UI must support English, Hebrew RTL, and Russian.
 12. The MVP communicates through Home Assistant entities, not directly through MQTT.
-13. The project must install manually and remain independent of HACS.
+13. The project installs through HACS and must also keep working as a manual install.
 
 ## Example entity mapping
 
@@ -515,9 +515,9 @@ UI requirements:
 - Prevent accidental loss of unsaved draft changes.
 - Never write hardware directly from form field changes.
 
-## Private frontend distribution
+## Frontend distribution
 
-Do not create `hacs.json` or HACS workflows.
+`hacs.json` at the repository root describes the HACS integration package; HACS installs `custom_components/conx_dynamic_panel/` (bundled card included) from the latest GitHub release.
 
 Preferred production design:
 
@@ -533,7 +533,7 @@ Preferred production design:
 Home Assistant 2026.3 and later serve custom-integration brand images from a
 `brand/` directory inside the integration, proxied through
 `/api/brands/integration/<domain>/<image>`. Local files take priority over the
-public brands CDN, so ConX ships its own icons instead of submitting them to the
+public brands CDN, so the integration ships its own icons instead of submitting them to the
 `home-assistant/brands` repository.
 
 Requirements:
@@ -545,7 +545,7 @@ Requirements:
 - `brands/master/` keeps the master artwork and `scripts/build_brand_images.py`
   regenerates every derived file, so sizes never drift by hand.
 - Do not open a `home-assistant/brands` pull request; the local `brand/`
-  directory is the shipping path for this private integration.
+  directory is the shipping path for this integration.
 
 ## Repository and CI
 
@@ -556,19 +556,18 @@ Required files:
 - `PROJECT_BUILD_BRIEF.md`
 - `AGENTS.md`
 - `.cursor/rules/conx-dynamic-panel.mdc`
-- `LICENSE-PRIVATE.md`
+- `LICENSE` (Apache-2.0) and `NOTICE`
+- `hacs.json`
 - `CHANGELOG.md`
 - `.gitignore`
 - `pyproject.toml`
 - backend and frontend tests
 
-Private GitHub Actions may run:
+GitHub Actions run:
 
 - Python lint/type/test checks
 - frontend lint/type/test/build checks
-- Home Assistant validation appropriate for private custom integrations
-
-Do not add HACS validation.
+- HACS validation (`hacs/action`) and hassfest
 
 ## Testing requirements
 
@@ -599,7 +598,7 @@ Frontend tests:
 
 ## MVP completion criteria
 
-1. The integration is installed manually without HACS.
+1. The integration installs through HACS and manually.
 2. A panel is added entirely through the UI.
 3. Required entities and capabilities are validated.
 4. Profiles can be created, edited, duplicated, deleted, and selected.
@@ -610,4 +609,4 @@ Frontend tests:
 9. The card works on desktop and mobile, including Hebrew RTL.
 10. Tests and builds pass.
 11. Documentation contains complete installation and troubleshooting instructions.
-12. No public-distribution or HACS-specific files remain.
+12. HACS and hassfest validation pass.

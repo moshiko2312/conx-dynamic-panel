@@ -1,16 +1,14 @@
 # Master Prompt — Build ConX Dynamic Panel
 
-You are working inside the private GitHub repository `moshiko2312/conx-dynamic-panel`.
+You are working inside the public GitHub repository `moshiko2312/conx-dynamic-panel`.
 
 Build the complete project described in `README.md` and `MOSHIKO_BUILD_SPEC.md`. Treat `MOSHIKO_BUILD_SPEC.md` as the authoritative engineering contract.
 
 ## Project ownership and distribution
 
-- This is private commercial software owned by ConX.
-- Do not add HACS support.
-- Do not add `hacs.json`, HACS validation workflows, marketplace metadata, public-release instructions, or open-source licensing.
-- Do not publish, mirror, or upload code outside this repository.
-- Use `LICENSE-PRIVATE.md` as the licensing authority.
+- This is a free, open-source community project, licensed under Apache-2.0 (`LICENSE`, `NOTICE`).
+- It is distributed through the HACS default store; keep `hacs.json` and the HACS/hassfest validation workflow green.
+- Releases are GitHub releases tagged `v<version>`.
 
 ## Operating instructions
 
@@ -42,7 +40,7 @@ Build the complete project described in `README.md` and `MOSHIKO_BUILD_SPEC.md`.
 8. Implement the TypeScript/Lit card and editor.
 9. Add English and Hebrew translations.
 10. Add local build/install/update scripts.
-11. Add tests and private CI workflows.
+11. Add tests and CI workflows.
 12. Run lint, type checks, tests, frontend build, and relevant Home Assistant validation.
 13. Update README and CHANGELOG with the actual completed behavior.
 

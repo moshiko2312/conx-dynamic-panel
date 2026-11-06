@@ -6,13 +6,12 @@ These instructions apply to the entire repository.
 
 ## Product
 
-`conx-dynamic-panel` is private commercial software for ConX. It is a Home Assistant custom integration with a bundled Lovelace card for managing dynamic profiles on supported smart panels.
+`conx-dynamic-panel` is a free, open-source (Apache-2.0) community project, distributed through HACS. It is a Home Assistant custom integration with a bundled Lovelace card for managing dynamic profiles on supported smart panels.
 
 ## Mandatory rules
 
 - Read `README.md` and `MOSHIKO_BUILD_SPEC.md` before implementation.
-- Do not add HACS support or public marketplace files.
-- Do not replace `LICENSE-PRIVATE.md` with an open-source license.
+- Keep `hacs.json`, `LICENSE` (Apache-2.0), and `NOTICE` in place; HACS and hassfest validation must stay green.
 - Do not hard-code customer entity IDs.
 - Do not add direct MQTT behavior to the MVP.
 - Use only current public Home Assistant APIs.
@@ -40,7 +39,6 @@ Before declaring work complete:
 
 - Run Python formatting, lint, type checks, and tests.
 - Run frontend lint, type checks, tests, and production build.
-- Confirm no HACS-specific file or wording was introduced.
-- Confirm manual installation instructions are accurate.
+- Confirm HACS and manual installation instructions are accurate.
 - Update `CHANGELOG.md`.
 - Report any hardware-dependent behavior that could not be verified.

@@ -1,15 +1,17 @@
 # ConX Dynamic Panel
 
-![Version](https://img.shields.io/badge/version-0.3.0-blue)
+[![HACS](https://img.shields.io/badge/HACS-Default-41BDF5.svg)](https://hacs.xyz)
+![Version](https://img.shields.io/github/v/release/moshiko2312/conx-dynamic-panel)
 ![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Custom%20Integration-41BDF5?logo=home-assistant&logoColor=white)
-![Status](https://img.shields.io/badge/status-private-lightgrey)
-![License](https://img.shields.io/badge/license-Proprietary-red)
+[![License](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 
-Private commercial Home Assistant project for ConX.
+Free, open-source Home Assistant integration for the community.
 
 ConX Dynamic Panel transforms a supported multi-button smart switch into a configurable, multi-profile control panel. A single physical 4-button Zemismart panel can represent many virtual profiles, with different button names, actions, colors, radar settings, and button behavior.
 
-> **Private software:** This repository is intended only for ConX business use. It is not prepared for HACS, public distribution, resale, or third-party redistribution. See [License](#license).
+> **Install through HACS:** search for **ConX Dynamic Panel** in HACS, or use the button below. See [Installation](#installation).
+>
+> [![Open your Home Assistant instance and open this repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=moshiko2312&repository=conx-dynamic-panel&category=integration)
 
 ## Screenshots
 
@@ -71,13 +73,19 @@ full explanation of each control, see the [Setup Guide](docs/SETUP_GUIDE.md).
 - [Integration-created entities](#integration-created-entities)
 - [Services](#services)
 - [Repository structure](#repository-structure)
-- [Private installation](#private-installation)
+- [Installation](#installation)
 - [Development rules](#development-rules)
 - [Roadmap](#roadmap)
 - [Troubleshooting](#troubleshooting)
 - [License](#license)
 
 ## Start here
+
+For installers and end users: the [User Guide](docs/user-guide/index.html) is a
+single self-contained HTML page in Hebrew, English and Russian — download it and
+open it in a browser (GitHub only shows its source). The
+[Setup Guide](docs/SETUP_GUIDE.md) is the screenshot-by-screenshot installer
+walkthrough.
 
 For AI coding agents:
 
@@ -95,7 +103,7 @@ MVP `0.3.0` is implemented in this repository:
 - Built card artifact under `custom_components/conx_dynamic_panel/frontend/`
 - Brand icon and logo under `custom_components/conx_dynamic_panel/brand/`
 - Tests under `tests/` and `frontend-src/tests/`
-- Private scripts under `scripts/`
+- Install and update scripts under `scripts/`
 
 ## Product concept
 
@@ -204,7 +212,7 @@ write and waits for confirmation; a timeout error lists the available options.
 - Sync status: `synced`, `pending`, `syncing`, `error`, `out_of_sync`.
 - Pull hardware state into the current profile.
 - Profile activation from the card, services, scripts, and automations.
-- Bundled private Lovelace custom card with premium industrial glass UI.
+- Bundled Lovelace custom card with premium industrial glass UI.
 - Card languages: English, Hebrew (RTL), and Russian, with on-card flag selectors.
 - Profile import/export (JSON merge or replace) from the card and WebSocket API.
 - Zemismart-style horizontal faceplate preview (labels on top black bar, LED rings below).
@@ -365,19 +373,34 @@ conx-dynamic-panel/
 ├── MOSHIKO_BUILD_SPEC.md
 ├── PROJECT_BUILD_BRIEF.md
 ├── CHANGELOG.md
-├── LICENSE-PRIVATE.md
+├── hacs.json
+├── LICENSE
+├── NOTICE
 ├── README.md
 └── pyproject.toml
 ```
 
-## Private installation
+## Installation
 
-No HACS support is required.
+### HACS (recommended)
+
+1. Open **HACS** in Home Assistant and search for **ConX Dynamic Panel**
+   (or use the *Open in HACS* button at the top of this page).
+2. Select **Download**, then restart Home Assistant.
+3. Add **ConX Dynamic Panel** from **Settings → Devices & services**.
+4. Add the card to a dashboard (see step 7 of the manual install below).
+
+Requires Home Assistant **2026.3** or later. HACS updates replace only the
+integration files; profiles and applied snapshots in `.storage` are kept.
+
+### Manual installation
 
 > **New installer?** See [`docs/SETUP_GUIDE.md`](docs/SETUP_GUIDE.md) for a
 > screenshot-by-screenshot walkthrough of installing the integration and
 > configuring a panel from the card (profiles, appearance, buttons,
 > scheduler).
+> For end users, hand over the [User Guide](docs/user-guide/index.html) — one
+> HTML file (HE / EN / RU) that opens in any browser with no other assets.
 
 ```bash
 ./scripts/build_frontend.sh
@@ -424,7 +447,7 @@ and hard-refresh the browser, since brand images are cached in the browser.
 **On Home Assistant older than 2026.3** there is no supported local override:
 the frontend fetches integration icons straight from `brands.home-assistant.io`,
 so a generic puzzle-piece icon is shown until the domain exists in the public
-brands repository. ConX does not publish to that repository, so upgrade to
+brands repository. This project does not publish to that repository, so upgrade to
 2026.3+ to get the branded icon.
 
 `brands/master/` holds the master artwork and `brands/custom_integrations/conx_dynamic_panel/`
@@ -459,8 +482,7 @@ Update an existing install without touching Home Assistant storage:
 
 ## Development rules
 
-- Private commercial project only.
-- Do not add HACS files, HACS workflows, public-store metadata, or public-release language.
+- Keep `hacs.json`, `LICENSE`, and `NOTICE`; HACS and hassfest validation must stay green.
 - UI setup only; no YAML configuration for the integration.
 - Fully asynchronous backend.
 - Use Home Assistant entities, not direct MQTT, in the MVP.
@@ -495,7 +517,7 @@ Update an existing install without touching Home Assistant storage:
 - Manual Sync, Pull from panel, and sync diagnostics
 - Profile create / update / duplicate / delete
 - Bundled Lit card with English and Hebrew RTL
-- Services, WebSocket API, private install scripts, and automated tests
+- Services, WebSocket API, install scripts, and automated tests
 
 ### v0.1.1 (implemented)
 
@@ -546,28 +568,16 @@ Update an existing install without touching Home Assistant storage:
 | Cover buttons do nothing | Open and close mapped to the same button, or travel time outside `1–600 s` | The card shows "Open and close must use different buttons"; pick two different buttons and re-sync. The engine refuses to move on an unsafe config and forces both relays OFF |
 | Generic puzzle-piece integration icon | Home Assistant older than 2026.3, or cached brand image | On 2026.3+ restart Home Assistant and hard-refresh; older versions cannot load local brand images |
 
-See also `docs/PRIVATE_DEPLOYMENT.md` for install/update rules.
+See also `docs/DEPLOYMENT.md` for install/update rules.
 
 ## License
 
-![License](https://img.shields.io/badge/license-Proprietary-red)
+[![License](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 
-**Private Commercial Software License** — Copyright © ConX. All rights reserved.
+Copyright 2026 Moshiko ([@moshiko2312](https://github.com/moshiko2312)).
 
-This is closed-source, proprietary software. It is **not** open source and is
-not licensed under any OSI-approved license. Full terms are in
-[`LICENSE-PRIVATE.md`](LICENSE-PRIVATE.md); in summary:
-
-- Use is limited to **authorized ConX personnel and specifically authorized
-  contractors**, solely for approved ConX business activities.
-- No publishing, public distribution, resale, sublicensing, or HACS/marketplace
-  submission without prior written authorization from ConX.
-- No sharing of repository access, source, builds, or documentation with
-  unauthorized parties, and no removing or altering ownership/confidentiality
-  notices.
-- Possessing a copy does not transfer ownership or any intellectual-property
-  rights.
-- Provided for authorized internal use with no express or implied warranty,
-  to the maximum extent permitted by law.
-
-For permissions or licensing questions, contact ConX management.
+Licensed under the [Apache License, Version 2.0](LICENSE). You may use, modify,
+and redistribute this project, including in your own products, as long as you
+keep the copyright and the [`NOTICE`](NOTICE) file crediting the original
+project, and state any changes you made. The software is provided "as is",
+without warranty of any kind.

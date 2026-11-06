@@ -3,8 +3,8 @@
 This guide walks a first-time installer through installing **ConX Dynamic
 Panel** and configuring a panel from the card, screenshot by screenshot. It
 assumes you have not touched the integration before. For the terse
-copy/paste install commands, see [`README.md`](../README.md#private-installation)
-and [`docs/PRIVATE_DEPLOYMENT.md`](PRIVATE_DEPLOYMENT.md); this guide explains
+copy/paste install commands, see [`README.md`](../README.md#installation)
+and [`docs/DEPLOYMENT.md`](DEPLOYMENT.md); this guide explains
 **what you are looking at** on each screen so nothing is guesswork.
 
 Screenshots live in [`docs/screenshots/`](screenshots/) and are referenced
@@ -15,7 +15,8 @@ below by filename.
 Before any of the screens below exist, the integration and the card must be
 installed and added once:
 
-1. Build and copy the integration into your Home Assistant config:
+1. Install it through **HACS** (search for **ConX Dynamic Panel** → Download),
+   or build and copy it into your Home Assistant config manually:
    ```bash
    ./scripts/build_frontend.sh
    ./scripts/install_local.sh /path/to/homeassistant/config
@@ -218,5 +219,5 @@ Opening (or adding) a task shows:
   errors, RTL not applying, etc.).
 - **README → Button modes** for the full semantics of Radio
   mandatory/optional/split and Cover mode.
-- **`docs/PRIVATE_DEPLOYMENT.md`** for update/reinstall commands and the
+- **`docs/DEPLOYMENT.md`** for update/reinstall commands and the
   draft-vs-sync model in more depth.

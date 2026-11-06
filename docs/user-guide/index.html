@@ -809,7 +809,7 @@ var UI = {
     heroTitle: "ConX Dynamic Panel",
     heroLead: "מפסק קיר אחד, כמה שפרופילים שתרצו. המדריך הזה עובר על כל מסך, כל פקד וכל כפתור — מה הוא עושה, מתי משתמשים בו, ומה קורה בפועל כשלוחצים.",
     heroPlateCap: "הפאנל כפי שהוא נראה בכרטיס: תוויות על הזכוכית השחורה, טבעות LED מתחת. הטבעת הדולקת = ממסר במצב ON.",
-    footer: "ConX Dynamic Panel · תוכנה מסחרית פרטית. כל הזכויות שמורות ל-ConX. המסמך מיועד לאנשי ConX ולמתקינים מורשים בלבד."
+    footer: "ConX Dynamic Panel · פרויקט קוד פתוח וחינמי לקהילה, ברישיון Apache-2.0. © 2026 Moshiko."
   },
   en: {
     skip: "Skip to content", contents: "Contents", wordmark: "Dynamic Panel — user guide",
@@ -817,7 +817,7 @@ var UI = {
     heroTitle: "ConX Dynamic Panel",
     heroLead: "One wall switch, as many profiles as you need. This guide walks every screen, every control and every button — what it does, when to use it, and what actually happens when you press it.",
     heroPlateCap: "The panel as the card draws it: labels on the black glass, LED rings below. A lit ring means that relay is ON.",
-    footer: "ConX Dynamic Panel · private commercial software. All rights reserved by ConX. For authorized ConX personnel and installers only."
+    footer: "ConX Dynamic Panel · free, open-source community project, licensed under Apache-2.0. © 2026 Moshiko."
   },
   ru: {
     skip: "К содержанию", contents: "Содержание", wordmark: "Dynamic Panel — руководство",
@@ -825,7 +825,7 @@ var UI = {
     heroTitle: "ConX Dynamic Panel",
     heroLead: "Один настенный выключатель — сколько угодно профилей. Здесь разобран каждый экран, каждый элемент и каждая кнопка: что она делает, когда нужна и что происходит при нажатии.",
     heroPlateCap: "Панель так, как её рисует карточка: подписи на чёрном стекле, светодиодные кольца ниже. Горящее кольцо — реле включено.",
-    footer: "ConX Dynamic Panel · частное коммерческое ПО. Все права принадлежат ConX. Только для сотрудников ConX и авторизованных установщиков."
+    footer: "ConX Dynamic Panel · бесплатный проект с открытым исходным кодом для сообщества, лицензия Apache-2.0. © 2026 Moshiko."
   }
 };
 
@@ -944,12 +944,16 @@ PARTS.push({
     },
     {
       id: "copy",
-      h: { he: "העתקת האינטגרציה", en: "Copying the integration in", ru: "Копирование интеграции" },
+      h: { he: "התקנת האינטגרציה", en: "Installing the integration", ru: "Установка интеграции" },
       b: [
         { t: "p", x: {
-          he: "המוצר אינו מופץ דרך HACS. ההתקנה היא העתקת תיקייה, ידנית או באמצעות סקריפט ההתקנה שבמאגר.",
-          en: "The product is not distributed through HACS. Installing means copying a directory, by hand or with the install script in the repository.",
-          ru: "Продукт не распространяется через HACS. Установка — это копирование каталога вручную или скриптом из репозитория." } },
+          he: "הדרך המומלצת: ב-Home Assistant פתחו את <b>HACS</b>, חפשו <b>ConX Dynamic Panel</b>, לחצו <b>Download</b> והפעילו מחדש. HACS גם יציע עדכונים כשיוצאת גרסה חדשה.",
+          en: "Recommended: in Home Assistant open <b>HACS</b>, search for <b>ConX Dynamic Panel</b>, select <b>Download</b> and restart. HACS also offers updates when a new version is released.",
+          ru: "Рекомендуемый способ: в Home Assistant откройте <b>HACS</b>, найдите <b>ConX Dynamic Panel</b>, нажмите <b>Download</b> и перезапустите. HACS также предложит обновления при выходе новой версии." } },
+        { t: "p", x: {
+          he: "בלי HACS, ההתקנה היא העתקת תיקייה, ידנית או באמצעות סקריפט ההתקנה שבמאגר.",
+          en: "Without HACS, installing means copying a directory, by hand or with the install script in the repository.",
+          ru: "Без HACS установка — это копирование каталога вручную или скриптом из репозитория." } },
         { t: "code", x: "# from the repository root, on the machine that has the source\n./scripts/build_frontend.sh                     # build the Lovelace card\n./scripts/install_local.sh  /path/to/ha/config   # fresh install\n\n# updating an existing installation later:\n./scripts/update_local.sh   /path/to/ha/config   # keeps .storage untouched" },
         { t: "p", x: {
           he: "ידנית: העתיקו את <code>custom_components/conx_dynamic_panel</code> אל <code>config/custom_components/</code> ב-Home Assistant, והפעילו מחדש.",
