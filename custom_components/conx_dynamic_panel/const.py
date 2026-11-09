@@ -314,4 +314,3 @@ SCHEDULER_EXPORT_SCHEMA_VERSION: Final = 2
 EXPORT_SCOPE_SCHEDULER: Final = "scheduler"
 
 FRONTEND_SCRIPT_URL: Final = f"/{DOMAIN}/frontend/conx-dynamic-panel-card.js"
-FRONTEND_RESOURCE_URL: Final = f"{FRONTEND_SCRIPT_URL}?v=0.1.0"

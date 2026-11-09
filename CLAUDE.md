@@ -92,7 +92,7 @@ Zigbee2MQTT entities  →  adapters/  →  coordinator (+ suppression, engines) 
 
 - **Tests run without Home Assistant installed.** `tests/conftest.py` calls `ha_stubs.install()`, which injects fake `homeassistant.*` modules into `sys.modules`. If you import a new HA symbol in backend code, add it to `tests/ha_stubs.py` or the whole suite fails at import time.
 - **iCloud conflict copies.** The repo syncs through iCloud Drive, which leaves `<name> 2.py` duplicates. They are gitignored, ignored by pytest (`addopts = ["--ignore-glob=* 2.py"]`), and rsync-excluded by the install scripts. Never edit or ship one.
-- **Version bumps:** `manifest.json` `version` + a `CHANGELOG.md` entry are the source of truth (currently `0.3.15`). `pyproject.toml` and `frontend-src/package.json` versions are stale and not used by HA.
+- **Version bumps:** `manifest.json` `version` + a `CHANGELOG.md` entry are the source of truth (currently `0.3.16`). `pyproject.toml` and `frontend-src/package.json` versions are stale and not used by HA.
 - **Storage major-version bumps need a migration hook.** Each `Store` subclass must implement `_async_migrate_func`; HA raises `NotImplementedError` without it (see `holiday_store.py`). Current versions: panel `5`, holiday `2`, master scheduler `1`.
 - **Zigbee select quirk:** `warm_white` / `warm_yellow` hang the panel — `option_match.py` remaps them to `white` / `yellow`. Never offer or write the broken values.
 - Release commits follow `Release <version>: <one-sentence what changed>.`

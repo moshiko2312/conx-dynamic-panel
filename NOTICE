@@ -6,3 +6,8 @@ ConX Dynamic Panel project: https://github.com/moshiko2312/conx-dynamic-panel
 
 Licensed under the Apache License, Version 2.0. Redistributions and derivative
 works must retain this NOTICE file, per section 4(d) of the License.
+
+Third-party fonts bundled in custom_components/conx_dynamic_panel/frontend/fonts/
+are licensed under the SIL Open Font License 1.1 (license texts alongside):
+- Manrope, Copyright 2019 The Manrope Project Authors
+- Cormorant Garamond, Copyright 2015 The Cormorant Project Authors

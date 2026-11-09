@@ -9,6 +9,7 @@ from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers.service import async_register_admin_service
 
 from .const import (
     ATTR_BUTTON,
@@ -189,7 +190,11 @@ async def async_register_services(hass: HomeAssistant) -> None:
         schema=ENTRY_SCHEMA,
         supports_response=SupportsResponse.ONLY,
     )
-    hass.services.async_register(
+    # Imported profiles can carry any ``domain.service`` button action, which
+    # ``execute_button`` then runs. Only admins may import (matches the admin-only
+    # websocket import), or a non-admin user could reach admin-only services.
+    async_register_admin_service(
+        hass,
         DOMAIN,
         SERVICE_IMPORT_PROFILES,
         handle_import,
@@ -208,7 +213,8 @@ async def async_register_services(hass: HomeAssistant) -> None:
         schema=ENTRY_SCHEMA,
         supports_response=SupportsResponse.ONLY,
     )
-    hass.services.async_register(
+    async_register_admin_service(
+        hass,
         DOMAIN,
         SERVICE_IMPORT_SCHEDULER,
         handle_import_scheduler,

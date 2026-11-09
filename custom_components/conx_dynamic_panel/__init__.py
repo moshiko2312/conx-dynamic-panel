@@ -9,6 +9,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
+from homeassistant.loader import async_get_integration
 
 from .adapters import create_adapter
 from .const import (
@@ -154,18 +155,27 @@ async def _async_register_frontend(hass: HomeAssistant) -> None:
         # Older/newer HA builds may differ; installation docs cover manual resources.
         _LOGGER.debug("Could not register static frontend path", exc_info=True)
 
-    await _async_register_lovelace_resource(hass, f"{FRONTEND_SCRIPT_URL}?v=0.1.1")
+    integration = await async_get_integration(hass, DOMAIN)
+    # The version query changes on every release, so browsers fetch the new card.
+    await _async_register_lovelace_resource(
+        hass, f"{FRONTEND_SCRIPT_URL}?v={integration.version}"
+    )
 
 
 async def _async_register_lovelace_resource(hass: HomeAssistant, url: str) -> None:
     """Best-effort Lovelace module registration via public collection API."""
     try:
         lovelace_data = hass.data.get("lovelace")
-        if not isinstance(lovelace_data, dict):
-            return
-        resources = lovelace_data.get("resources")
+        # Current HA stores a LovelaceData object; older builds used a dict.
+        if isinstance(lovelace_data, dict):
+            resources = lovelace_data.get("resources")
+        else:
+            resources = getattr(lovelace_data, "resources", None)
         if resources is None:
             return
+        if hasattr(resources, "async_get_info"):
+            # Loads a storage collection that nothing has read yet.
+            await resources.async_get_info()
         existing = []
         if hasattr(resources, "async_items"):
             existing = list(resources.async_items())
@@ -174,6 +184,9 @@ async def _async_register_lovelace_resource(hass: HomeAssistant, url: str) -> No
         for item in existing:
             item_url = item.get("url") if isinstance(item, dict) else None
             if item_url and item_url.split("?", 1)[0] == url.split("?", 1)[0]:
+                if item_url != url and hasattr(resources, "async_update_item"):
+                    await resources.async_update_item(item["id"], {"url": url})
+                    _LOGGER.info("Updated Lovelace resource to %s", url)
                 return
         if hasattr(resources, "async_create_item"):
             await resources.async_create_item({"res_type": "module", "url": url})
