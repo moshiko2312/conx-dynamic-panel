@@ -284,6 +284,19 @@ describe("custom elements", () => {
     expect(customElements.get("conx-dynamic-panel-card-editor")).toBeTruthy();
   });
 
+  it("loads bundled fonts, never a third-party font CDN", async () => {
+    const el = document.createElement("conx-dynamic-panel-card") as any;
+    el.hass = { language: "en", callWS: vi.fn() };
+    document.body.appendChild(el);
+    await el.updateComplete;
+    const link = document.getElementById("conx-dynamic-panel-fonts") as HTMLLinkElement;
+    expect(link.getAttribute("href")).toBe("/conx_dynamic_panel/frontend/fonts/fonts.css");
+    const external = [...document.querySelectorAll("link[href]")].filter((l) =>
+      /^https?:/.test(l.getAttribute("href") ?? ""),
+    );
+    expect(external).toEqual([]);
+  });
+
   it("renders missing entry message", async () => {
     const el = document.createElement("conx-dynamic-panel-card") as any;
     el.hass = { language: "en", callWS: vi.fn() };
@@ -604,9 +617,7 @@ describe("custom elements", () => {
     expect(cssText).toContain("border-radius: 999px");
 
     const fontLink = document.getElementById("conx-dynamic-panel-fonts") as HTMLLinkElement | null;
-    expect(fontLink?.href).toContain("Manrope");
-    expect(fontLink?.href).toContain("Cormorant");
-    expect(fontLink?.href).not.toContain("Outfit");
+    expect(fontLink?.getAttribute("href")).toBe("/conx_dynamic_panel/frontend/fonts/fonts.css");
   });
 
   it("shows the gang picker on the Profiles tab with profile chips", async () => {

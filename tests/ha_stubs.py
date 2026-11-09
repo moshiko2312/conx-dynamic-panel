@@ -362,6 +362,33 @@ def install() -> None:
 
     http.StaticPathConfig = StaticPathConfig
 
+    service_helpers = module("homeassistant.helpers.service")
+
+    def async_register_admin_service(  # noqa: ANN202
+        hass: Any,
+        domain: str,
+        service: str,
+        service_func: Any,
+        schema: Any = None,
+        supports_response: Any = None,
+    ):
+        admin = getattr(hass, "admin_services", None)
+        if admin is not None:
+            admin.add(service)
+        hass.services.async_register(
+            domain, service, service_func, schema=schema, supports_response=supports_response
+        )
+
+    service_helpers.async_register_admin_service = async_register_admin_service
+
+    loader = module("homeassistant.loader")
+
+    async def async_get_integration(hass: Any, domain: str) -> Any:
+        version = getattr(hass, "integration_version", "0")
+        return types.SimpleNamespace(domain=domain, version=version)
+
+    loader.async_get_integration = async_get_integration
+
     module("homeassistant.components")
     for name in ("select", "sensor", "button", "switch"):
         mod = module(f"homeassistant.components.{name}")

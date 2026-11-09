@@ -556,9 +556,9 @@ export class ConXDynamicPanelCard extends LitElement {
     const link = document.createElement("link");
     link.id = id;
     link.rel = "stylesheet";
-    // Match standalone HTML preview (Manrope + Cormorant Garamond).
-    link.href =
-      "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap";
+    // Manrope + Cormorant Garamond, bundled and served by the integration so the
+    // dashboard never contacts a third-party font CDN.
+    link.href = "/conx_dynamic_panel/frontend/fonts/fonts.css";
     document.head.appendChild(link);
   }
 

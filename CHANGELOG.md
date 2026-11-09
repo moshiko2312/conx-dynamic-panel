@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented here.
 
+## [0.3.16] - 2026-11-09
+
+### Security
+
+- **Non-admin users could reach admin-only Home Assistant services through a profile import.** The `import_profiles` and `import_scheduler` services were registered with plain `hass.services.async_register`, so any logged-in user could call them. An imported profile may carry any `domain.service` button action, and `execute_button` (open to every user, as a service and over the websocket) then runs it, so a non-admin user could import a profile and press its button to run, say, `homeassistant.restart`. Both services are now registered with `async_register_admin_service` and reject non-admin callers, matching the websocket import, which was already `require_admin`. They keep their optional import-summary response. Reported in the HACS default-store review.
+
+### Fixed
+
+- **Browsers kept the old card after an update:** the Lovelace resource was always registered as `?v=0.1.1`. It now carries the integration version from `manifest.json`, and an existing resource left by an older version is rewritten to the new URL on startup instead of being kept.
+- **The Lovelace resource was never registered automatically on current Home Assistant:** the registration code expected `hass.data["lovelace"]` to be a dict, but current Home Assistant stores a `LovelaceData` object there, so it returned without doing anything and every install needed the manual resource step. Both shapes are now handled, and the resource collection is loaded before it is read, so an existing entry is never duplicated.
+
+### Privacy
+
+- **The card no longer contacts Google:** every dashboard load injected a Google Fonts stylesheet from `fonts.googleapis.com`. Manrope and Cormorant Garamond (SIL Open Font License 1.1, latin, latin-ext and cyrillic subsets, about 170 KB) now ship under `frontend/fonts/` and are served by the integration; the card looks the same.
+
 ## [0.3.15] - 2026-11-06
 
 ### Changed

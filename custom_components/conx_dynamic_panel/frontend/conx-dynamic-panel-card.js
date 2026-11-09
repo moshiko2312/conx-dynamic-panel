@@ -284,7 +284,7 @@ H.elementStyles = [], H.shadowRootOptions = { mode: "open" }, H[Z("elementProper
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const Q = globalThis, Xe = (e) => e, me = Q.trustedTypes, Ve = me ? me.createPolicy("lit-html", { createHTML: (e) => e }) : void 0, St = "$lit$", C = `lit$${Math.random().toFixed(9).slice(2)}$`, At = "?" + C, or = `<${At}>`, B = document, ae = () => B.createComment(""), oe = (e) => e === null || typeof e != "object" && typeof e != "function", He = Array.isArray, sr = (e) => He(e) || typeof (e == null ? void 0 : e[Symbol.iterator]) == "function", xe = `[ 	
+const Q = globalThis, Xe = (e) => e, me = Q.trustedTypes, Ve = me ? me.createPolicy("lit-html", { createHTML: (e) => e }) : void 0, St = "$lit$", P = `lit$${Math.random().toFixed(9).slice(2)}$`, At = "?" + P, or = `<${At}>`, B = document, ae = () => B.createComment(""), oe = (e) => e === null || typeof e != "object" && typeof e != "function", He = Array.isArray, sr = (e) => He(e) || typeof (e == null ? void 0 : e[Symbol.iterator]) == "function", xe = `[ 	
 \f\r]`, q = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, Ze = /-->/g, Qe = />/g, z = RegExp(`>|${xe}(?:([^\\s"'>=/]+)(${xe}*=${xe}*(?:[^ 	
 \f\r"'\`<>=]|("|')|))|$)`, "g"), et = /'/g, tt = /"/g, Et = /^(?:script|style|textarea|title)$/i, nr = (e) => (t, ...r) => ({ _$litType$: e, strings: t, values: r }), d = nr(1), G = Symbol.for("lit-noChange"), u = Symbol.for("lit-nothing"), rt = /* @__PURE__ */ new WeakMap(), L = B.createTreeWalker(B, 129);
 function Ot(e, t) {
@@ -299,7 +299,7 @@ const cr = (e, t) => {
     let l, p, h = -1, _ = 0;
     for (; _ < c.length && (s.lastIndex = _, p = s.exec(c), p !== null); ) _ = s.lastIndex, s === q ? p[1] === "!--" ? s = Ze : p[1] !== void 0 ? s = Qe : p[2] !== void 0 ? (Et.test(p[2]) && (a = RegExp("</" + p[2], "g")), s = z) : p[3] !== void 0 && (s = z) : s === z ? p[0] === ">" ? (s = a ?? q, h = -1) : p[1] === void 0 ? h = -2 : (h = s.lastIndex - p[2].length, l = p[1], s = p[3] === void 0 ? z : p[3] === '"' ? tt : et) : s === tt || s === et ? s = z : s === Ze || s === Qe ? s = q : (s = z, a = void 0);
     const b = s === z && e[n + 1].startsWith("/>") ? " " : "";
-    o += s === q ? c + or : h >= 0 ? (i.push(l), c.slice(0, h) + St + c.slice(h) + C + b) : c + C + (h === -2 ? n : b);
+    o += s === q ? c + or : h >= 0 ? (i.push(l), c.slice(0, h) + St + c.slice(h) + P + b) : c + P + (h === -2 ? n : b);
   }
   return [Ot(e, o + (e[r] || "<?>") + (t === 2 ? "</svg>" : t === 3 ? "</math>" : "")), i];
 };
@@ -316,11 +316,11 @@ class se {
     for (; (a = L.nextNode()) !== null && c.length < n; ) {
       if (a.nodeType === 1) {
         if (a.hasAttributes()) for (const h of a.getAttributeNames()) if (h.endsWith(St)) {
-          const _ = p[s++], b = a.getAttribute(h).split(C), y = /([.?@])?(.*)/.exec(_);
+          const _ = p[s++], b = a.getAttribute(h).split(P), y = /([.?@])?(.*)/.exec(_);
           c.push({ type: 1, index: o, name: y[2], strings: b, ctor: y[1] === "." ? dr : y[1] === "?" ? pr : y[1] === "@" ? hr : be }), a.removeAttribute(h);
-        } else h.startsWith(C) && (c.push({ type: 6, index: o }), a.removeAttribute(h));
+        } else h.startsWith(P) && (c.push({ type: 6, index: o }), a.removeAttribute(h));
         if (Et.test(a.tagName)) {
-          const h = a.textContent.split(C), _ = h.length - 1;
+          const h = a.textContent.split(P), _ = h.length - 1;
           if (_ > 0) {
             a.textContent = me ? me.emptyScript : "";
             for (let b = 0; b < _; b++) a.append(h[b], ae()), L.nextNode(), c.push({ type: 2, index: ++o });
@@ -330,7 +330,7 @@ class se {
       } else if (a.nodeType === 8) if (a.data === At) c.push({ type: 2, index: o });
       else {
         let h = -1;
-        for (; (h = a.data.indexOf(C, h + 1)) !== -1; ) c.push({ type: 7, index: o }), h += C.length - 1;
+        for (; (h = a.data.indexOf(P, h + 1)) !== -1; ) c.push({ type: 7, index: o }), h += P.length - 1;
       }
       o++;
     }
@@ -556,7 +556,7 @@ we == null || we({ LitElement: W });
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const Ct = (e) => (t, r) => {
+const Pt = (e) => (t, r) => {
   r !== void 0 ? r.addInitializer(() => {
     customElements.define(e, t);
   }) : customElements.define(e, t);
@@ -707,7 +707,7 @@ async function Or(e, t, r) {
     panel_name: r
   });
 }
-async function Cr(e, t, r, i) {
+async function Pr(e, t, r, i) {
   const a = {
     type: "conx_dynamic_panel/cover_command",
     entry_id: t,
@@ -715,7 +715,7 @@ async function Cr(e, t, r, i) {
   };
   return i && (a.cover_id = i), e.callWS(a);
 }
-async function Pr(e, t, r) {
+async function Cr(e, t, r) {
   return e.callWS({
     type: "conx_dynamic_panel/execute_button",
     entry_id: t,
@@ -780,7 +780,7 @@ const Nr = /* @__PURE__ */ new Set([
   "radio_optional",
   "radio_split",
   "cover"
-]), Pt = 0.1, Dt = 600, D = 2, De = [
+]), Ct = 0.1, Dt = 600, D = 2, De = [
   "toggle",
   "momentary",
   "radio",
@@ -788,7 +788,7 @@ const Nr = /* @__PURE__ */ new Set([
   "cover_close"
 ], Br = /* @__PURE__ */ new Set(["radio", "cover_open", "cover_close"]);
 function re(e, t = D) {
-  return te(e, Pt, Dt, t);
+  return te(e, Ct, Dt, t);
 }
 function Tt(e, t) {
   const r = String(e || "").trim().toLowerCase();
@@ -1435,7 +1435,7 @@ async function li() {
   }
   return e();
 }
-function Ce(e, t) {
+function Pe(e, t) {
   const r = (t == null ? void 0 : t.trim()) || "";
   return !r || e.includes(r) ? e : [r, ...e];
 }
@@ -1523,7 +1523,7 @@ notification_id: conx`,
   "homeassistant.turn_on": "",
   "homeassistant.turn_off": "",
   "homeassistant.toggle": ""
-}, Pe = {
+}, Ce = {
   light: "brightness_pct: 70",
   switch: "",
   cover: "position: 50",
@@ -1585,7 +1585,7 @@ function Ie(e) {
   if (Object.prototype.hasOwnProperty.call(ft, t))
     return ft[t];
   const r = ze(t), i = t.indexOf("."), a = i > 0 ? t.slice(i + 1) : "";
-  return di.has(a) ? "" : r && Object.prototype.hasOwnProperty.call(Pe, r) ? Pe[r] : r === "notify" || t.startsWith("notify.") ? Pe.notify : "";
+  return di.has(a) ? "" : r && Object.prototype.hasOwnProperty.call(Ce, r) ? Ce[r] : r === "notify" || t.startsWith("notify.") ? Ce.notify : "";
 }
 function pi(e) {
   const t = Ie(e);
@@ -2532,7 +2532,7 @@ function vi(e) {
   } catch {
   }
 }
-function P(e, t) {
+function C(e, t) {
   const r = ne(e);
   return gi[r][t] || It[t] || t;
 }
@@ -2650,7 +2650,7 @@ function Oi() {
   }
   return null;
 }
-function Ci(e) {
+function Pi(e) {
   var t, r;
   try {
     (r = (t = globalThis.localStorage) == null ? void 0 : t.setItem) == null || r.call(t, qt, e ? "1" : "0");
@@ -2670,7 +2670,7 @@ function U(e) {
   const t = ge(e);
   return t === "warm_white" || t === "warmwhite" ? "white" : t === "warm_yellow" || t === "warmyellow" ? "yellow" : e.trim();
 }
-function Pi(e) {
+function Ci(e) {
   return (e || []).filter((t) => !I(t));
 }
 function he(e, t = Jt) {
@@ -2680,7 +2680,7 @@ function he(e, t = Jt) {
   return vt[i] || vt[i.replace(/_/g, "")] || t;
 }
 function Di(e, ...t) {
-  const r = Pi(e), i = new Set(r.map((a) => ge(a)));
+  const r = Ci(e), i = new Set(r.map((a) => ge(a)));
   for (const a of t) {
     const o = String(a || "").trim();
     if (!o)
@@ -2699,11 +2699,11 @@ function Ti(e, ...t) {
   return r;
 }
 function xt(e, t) {
-  const r = e.trim().toLowerCase().replace(/[\s-]+/g, "_"), i = P(t, `color.${r}`);
+  const r = e.trim().toLowerCase().replace(/[\s-]+/g, "_"), i = C(t, `color.${r}`);
   return i !== `color.${r}` ? i : e;
 }
 function Ri(e, t) {
-  const r = e.trim().toLowerCase().replace(/[\s-]+/g, "_"), i = P(t, `radar.${r}`);
+  const r = e.trim().toLowerCase().replace(/[\s-]+/g, "_"), i = C(t, `radar.${r}`);
   return i !== `radar.${r}` ? i : e;
 }
 let m = class extends W {
@@ -2815,7 +2815,7 @@ let m = class extends W {
     if (document.getElementById(e))
       return;
     const t = document.createElement("link");
-    t.id = e, t.rel = "stylesheet", t.href = "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap", document.head.appendChild(t);
+    t.id = e, t.rel = "stylesheet", t.href = "/conx_dynamic_panel/frontend/fonts/fonts.css", document.head.appendChild(t);
   }
   updated(e) {
     var t;
@@ -2835,7 +2835,7 @@ let m = class extends W {
     );
   }
   t(e) {
-    return P(this._language, e);
+    return C(this._language, e);
   }
   get _dirty() {
     return !Hr(this._draft || null, this._saved || null);
@@ -3205,7 +3205,7 @@ let m = class extends W {
     this._armMomentaryUiPulse(e);
   }
   _setRadioGroupsOpen(e) {
-    this._radioGroupsOpen = e, Ci(e);
+    this._radioGroupsOpen = e, Pi(e);
   }
   _groupSummary(e) {
     const t = [...e].sort((r, i) => r - i).map((r) => `L${r}`);
@@ -3414,7 +3414,7 @@ let m = class extends W {
   }
   _renderCoverHaEntityPicker(e) {
     var s;
-    const t = (e.ha_entity_id || "").trim(), r = this._haEntityPickerReady && !!this.hass, i = Ce(
+    const t = (e.ha_entity_id || "").trim(), r = this._haEntityPickerReady && !!this.hass, i = Pe(
       mt((s = this.hass) == null ? void 0 : s.states, "cover"),
       t
     ), a = this._getCoverEntityFilter(e.id), o = this._filterOptions(i, a);
@@ -3499,7 +3499,7 @@ let m = class extends W {
     if (!(!this.hass || !this._config)) {
       this._busy = !0, this._error = void 0;
       try {
-        const r = await Cr(
+        const r = await Pr(
           this.hass,
           this._config.entry_id,
           e,
@@ -4473,10 +4473,10 @@ let m = class extends W {
   }
   _renderActionEntityPickers(e, t, r, i = "single") {
     var x, M;
-    const a = Ce(
+    const a = Pe(
       ci((x = this.hass) == null ? void 0 : x.services),
       t
-    ), o = ze(t), s = Ce(
+    ), o = ze(t), s = Pe(
       mt((M = this.hass) == null ? void 0 : M.states, o),
       r
     ), n = this._haEntityPickerReady && !!this.hass, c = this._haServicePickerReady && !!this.hass, l = this._getPickerFilter("action", e, i), p = this._getPickerFilter("entity", e, i), h = this._filterOptions(a, l), _ = this._filterOptions(s, p), b = this._actionEditorKey(e, i), y = !!this._actionDataOpen[b], w = this._actionDataDisplay(e, i), S = this._actionDataError[b] || "", A = Ie(t) || this.t("card.action_data_placeholder"), E = !!t;
@@ -4777,7 +4777,7 @@ let m = class extends W {
     const t = (r = this._config) == null ? void 0 : r.entry_id;
     if (!(!this.hass || !t || this._busy))
       try {
-        const i = await Pr(this.hass, t, e);
+        const i = await Cr(this.hass, t, e);
         this._applyRuntime(i);
       } catch (i) {
         this._error = i instanceof Error ? i.message : this.t("card.error"), this.requestUpdate();
@@ -6047,7 +6047,7 @@ let m = class extends W {
                               <input
                                 type="number"
                                 data-pulse-time
-                                min=${Pt}
+                                min=${Ct}
                                 max=${Dt}
                                 step="0.1"
                                 .value=${String(s)}
@@ -9913,7 +9913,7 @@ f([
   g()
 ], m.prototype, "_actionSlotOpen", 2);
 m = f([
-  Ct("conx-dynamic-panel-card")
+  Pt("conx-dynamic-panel-card")
 ], m);
 var Mi = Object.defineProperty, zi = Object.getOwnPropertyDescriptor, We = (e, t, r, i) => {
   for (var a = i > 1 ? void 0 : i ? zi(t, r) : t, o = e.length - 1, s; o >= 0; o--)
@@ -9947,7 +9947,7 @@ let ce = class extends W {
     return d`
       <div class="editor" dir=${e ? "rtl" : "ltr"}>
         <label>
-          ${P(this._language, "editor.entry_id")}
+          ${C(this._language, "editor.entry_id")}
           <input
             .value=${this._config.entry_id || ""}
             @input=${(t) => this._valueChanged({
@@ -9956,7 +9956,7 @@ let ce = class extends W {
           />
         </label>
         <label>
-          ${P(this._language, "card.language")}
+          ${C(this._language, "card.language")}
           <select
             .value=${ne(this._config.language || this._language)}
             @change=${(t) => this._valueChanged({
@@ -9969,7 +9969,7 @@ let ce = class extends W {
           </select>
         </label>
         <label>
-          ${P(this._language, "card.theme")}
+          ${C(this._language, "card.theme")}
           <select
             .value=${ve(this._config.theme)}
             @change=${(t) => this._valueChanged({
@@ -9978,7 +9978,7 @@ let ce = class extends W {
           >
             ${Ue.map(
       (t) => d`<option value=${t.id}>
-                ${P(this._language, `theme.${t.id}`)}
+                ${C(this._language, `theme.${t.id}`)}
               </option>`
     )}
           </select>
@@ -9991,7 +9991,7 @@ let ce = class extends W {
       compact: t.target.checked
     })}
           />
-          ${P(this._language, "card.compact")}
+          ${C(this._language, "card.compact")}
         </label>
       </div>
     `;
@@ -10032,7 +10032,7 @@ We([
   g()
 ], ce.prototype, "_config", 2);
 ce = We([
-  Ct("conx-dynamic-panel-card-editor")
+  Pt("conx-dynamic-panel-card-editor")
 ], ce);
 window.customCards = window.customCards || [];
 window.customCards.push({
